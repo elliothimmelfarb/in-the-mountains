@@ -457,21 +457,33 @@ export class Terrain {
         }
     }
 
-    // COP: defensible knob on a spur with observation, near (but above) a village,
-    // toward the south so the valley extends north into "Indian country".
+    // COP: a defensible bench/low spur near the valley, with observation over the
+    // road and a village — sited like the real Korengal Outpost (commanding ground
+    // a short, switchbacked road off the valley floor), NOT an alpine perch. Toward
+    // the south so the valley extends north into "Indian country". The scoring
+    // rewards local prominence (commanding terrain) and a MODERATE rise above the
+    // floor — high enough to overwatch, low and close enough that the outpost can
+    // actually be resupplied by road — while penalizing steep ground and distance.
     let best: { cx: number; cy: number; score: number } | null = null;
     for (let tries = 0; tries < 1600; tries++) {
       const y = rng.int(size * 0.55, size * 0.85);
       const cx = this.centerX[y];
       const side = rng.chance(0.5) ? -1 : 1;
-      const x = Math.round(cx + rng.range(size * 0.06, size * 0.17) * side);
+      const x = Math.round(cx + rng.range(size * 0.035, size * 0.12) * side);
       if (!this.inBounds(x, y)) continue;
       const i = this.idx(x, y);
       if (this.slope[i] > 0.35) continue;
       if (this.land[i] === Land.River || this.land[i] === Land.Compound || this.land[i] === Land.CompoundWall) continue;
       const prom = this.localProminence(x, y, 8);
       const aboveFloor = this.elev[i] - this.floorElevAtRow(y);
-      const score = prom * 2 + clamp(aboveFloor, 0, 300) * 0.01 - this.slope[i] * 2;
+      // Height band: best around a 25–95 m bench; too low is exposed, too high is an
+      // unsupportable perch and gets penalized back down.
+      const heightScore =
+        aboveFloor < 12 ? (aboveFloor / 12) * 0.5 : aboveFloor <= 95 ? 1 : clamp01(1 - (aboveFloor - 95) / 110);
+      // Logistics: commanding the valley means staying near the road, not a ridgeline.
+      const distM = Math.abs(x - cx) * this.cellSize;
+      const distScore = clamp01(1 - Math.max(0, distM - 90) / 320);
+      const score = prom * 1.6 + heightScore * 1.8 + distScore - this.slope[i] * 2;
       if (!best || score > best.score) best = { cx: x, cy: y, score };
     }
     this.copCell = best ? { cx: best.cx, cy: best.cy } : { cx: Math.round(size / 2), cy: Math.round(size * 0.7) };
@@ -612,12 +624,140 @@ export class Terrain {
   }
 
   /**
-   * Carve a graded, walkable road corridor between two cells: the centerline
-   * elevation is eased toward a gentle grade between the endpoints and a band
-   * `half` cells to each side is brought down to it, so the route is genuinely
-   * passable (slope under the foot-mobility limit) and wide enough for the
-   * coarse pathfinder. This is how a COP gets a switchbacked access road off its
-   * knob instead of an impassable goat trail.
+   * Build the COP's access road: a narrow, grade-limited track from the gate down
+   * to the valley-floor road. A straight cut-and-fill ramp lerps elevation from
+   * the gate to the river in one shot — which gouges a deep, dead-straight trench
+   * across the hillside whenever the knob stands well above the floor. Instead this
+   * routes one short step at a time, *following the terrain*: it heads for the
+   * valley where the grade allows, and where the fall line is too steep to descend
+   * directly it traverses across the slope and switchbacks — exactly how a real
+   * road gets off a spur. It reshapes the ground only enough to keep the tread
+   * walkable, so a COP on a gentle bench gets a track laid on the surface (no
+   * trench) while a COP on a steep face gets a road that zig-zags down it.
+   */
+  private gradeAccessRoad(rng: RNG) {
+    const cop = this.cop;
+    const gi = cop.gateInside;
+    const go = cop.gateOutside;
+    const size = this.size;
+    const cs = this.cellSize;
+
+    // 1) Through the ECP: a short graded tread from inside the gate to just
+    //    outside it (the footprint is already benched, so this stays gentle).
+    this.gradeCorridor(gi.cx, gi.cy, go.cx, go.cy, 1);
+
+    // 2) Descend to the valley road, routed in cell space one short step at a time.
+    const targetY = clamp(go.cy, 0, size - 1);
+    const targetX = clamp(Math.round(this.centerX[targetY]), 0, size - 1);
+    const floorE = this.floorElevAtRow(targetY);
+    const maxGrade = 0.32; // walkable road grade cap (~18°)
+    const stepCells = 1.5; // advance per iteration (~7.5 m)
+    const stepM = stepCells * cs;
+    const half = 1; // 3-cell (15 m) graded tread
+    const axisLen = Math.hypot(targetX - go.cx, targetY - go.cy) || 1;
+    const ax = (targetX - go.cx) / axisLen; // unit vector gate→valley (the down-axis)
+    const ay = (targetY - go.cy) / axisLen;
+    const swHalf = 14; // hairpin once the road drifts this many cells off-axis
+
+    let px = go.cx + 0.5;
+    let py = go.cy + 0.5;
+    let designE = this.elev[this.idx(go.cx, go.cy)];
+    let side = rng.chance(0.5) ? 1 : -1; // which way the first switchback leg traverses
+
+    for (let iter = 0; iter < 500; iter++) {
+      const toTX = targetX + 0.5 - px;
+      const toTY = targetY + 0.5 - py;
+      const dT = Math.hypot(toTX, toTY);
+      if (dT < stepCells * 1.3) break; // close enough — tie into the valley road below
+      const dirX = toTX / dT;
+      const dirY = toTY / dT;
+      const needGrade = (designE - floorE) / Math.max(1, dT * cs);
+
+      let hx: number;
+      let hy: number;
+      if (needGrade <= maxGrade) {
+        // Room to spare: head straight for the valley road, descending gently.
+        hx = dirX;
+        hy = dirY;
+      } else {
+        // Too steep to go straight: traverse across the fall line to add length.
+        const g = this.gradientCells(px, py); // points uphill
+        let fx = -g.x;
+        let fy = -g.y; // downhill (fall line)
+        const fl = Math.hypot(fx, fy);
+        if (fl < 1e-4) {
+          fx = dirX;
+          fy = dirY;
+        } else {
+          fx /= fl;
+          fy /= fl;
+        }
+        // Of the two contour directions perpendicular to the fall line, take the
+        // one on our current switchback side, then blend in a little downhill so
+        // the traverse always sheds height.
+        let cxr = -fy;
+        let cyr = fx;
+        if (Math.sign(cxr * -ay + cyr * ax) !== side) {
+          cxr = -cxr;
+          cyr = -cyr;
+        }
+        hx = cxr * 0.82 + fx * 0.18;
+        hy = cyr * 0.82 + fy * 0.18;
+        const hl = Math.hypot(hx, hy) || 1;
+        hx /= hl;
+        hy /= hl;
+      }
+
+      const nx = px + hx * stepCells;
+      const ny = py + hy * stepCells;
+      // Descend at the grade actually needed, never exceeding the road's cap.
+      designE = Math.max(floorE, designE - Math.min(maxGrade, Math.max(0, needGrade)) * stepM);
+      this.gradeTreadAt(nx, ny, designE, half);
+
+      // Hairpin: once the road has drifted too far off the gate→valley axis, flip
+      // the traverse side so the next leg cuts back the other way.
+      const offAxis = (nx - (go.cx + 0.5)) * -ay + (ny - (go.cy + 0.5)) * ax;
+      if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
+
+      px = nx;
+      py = ny;
+    }
+    // Tie the foot of the road cleanly into the valley-floor road.
+    this.gradeCorridor(Math.round(px), Math.round(py), targetX, targetY, 1);
+  }
+
+  /** Stamp a `half`-band graded road tread around a cell, easing it to `targetE`. */
+  private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number) {
+    const bx = Math.round(cxf);
+    const by = Math.round(cyf);
+    for (let dy = -half; dy <= half; dy++)
+      for (let dx = -half; dx <= half; dx++) {
+        const x = bx + dx;
+        const y = by + dy;
+        if (!this.inBounds(x, y)) continue;
+        const i = this.idx(x, y);
+        const l = this.land[i] as Land;
+        if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
+        this.elev[i] = lerp(this.elev[i], targetE, 0.8);
+        if (l !== Land.Gravel && l !== Land.River) this.land[i] = Land.Road;
+      }
+  }
+
+  /** Elevation gradient in cell space (points uphill), by central difference. */
+  private gradientCells(px: number, py: number): { x: number; y: number } {
+    const x = clamp(Math.round(px), 1, this.size - 2);
+    const y = clamp(Math.round(py), 1, this.size - 2);
+    return {
+      x: this.elev[this.idx(x + 1, y)] - this.elev[this.idx(x - 1, y)],
+      y: this.elev[this.idx(x, y + 1)] - this.elev[this.idx(x, y - 1)],
+    };
+  }
+
+  /**
+   * Carve a short graded road segment between two cells: the centerline elevation
+   * is eased to a straight grade between the endpoints and a `half`-cell band to
+   * each side is brought down to it. Used for the gate leg and to tie the access
+   * road into the valley road; the long descent itself is routed by gradeAccessRoad.
    */
   private gradeCorridor(x0: number, y0: number, x1: number, y1: number, half: number) {
     const e0 = this.elev[this.idx(clamp(x0, 0, this.size - 1), clamp(y0, 0, this.size - 1))];
@@ -715,20 +855,11 @@ export class Terrain {
       const upY = vil.cy + rng.int(-8, 8);
       this.stampTrail(vil.cx, vil.cy, clamp(upX, 0, size - 1), clamp(upY, 0, size - 1));
     }
-    // COP access road: a graded, walkable corridor from inside the gate, out
-    // through the ECP and down off the knob to the valley road — wide enough for
-    // the coarse pathfinder, so the squad can actually get out (not a goat trail
-    // on impassable slope). Grade in two legs: through the gate, then down.
-    if (this.cop) {
-      const gi = this.cop.gateInside;
-      const go = this.cop.gateOutside;
-      const roadY = clamp(go.cy, 0, size - 1);
-      const roadX = Math.round(this.centerX[roadY]);
-      this.gradeCorridor(gi.cx, gi.cy, go.cx, go.cy, 2);
-      this.gradeCorridor(go.cx, go.cy, roadX, roadY, 2);
-    }
-    // Recompute slope everywhere now that the COP, its ramp and the roads have
-    // reshaped the ground, so passability/movement queries see the graded routes.
+    // COP access road: a narrow, switchbacked track that descends the knob to the
+    // valley road, following the terrain instead of bulldozing a straight ramp.
+    if (this.cop) this.gradeAccessRoad(rng);
+    // Recompute slope everywhere now that the COP, its road and the valley roads
+    // have reshaped the ground, so passability/movement queries see the routes.
     this.computeSlope();
   }
 

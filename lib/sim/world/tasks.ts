@@ -85,6 +85,7 @@ export function tickTasks(w: World, dt: number) {
         m.path = [];
         m.faceLock = null;
         m.formationHold = false;
+        m.paceScale = 1;
       }
     }
     if (t.kind !== "standto") {
@@ -116,10 +117,13 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
     const go = w.gateOutsideWorld();
     steerFile(w, t, members, go, GATE_SPACING, dt);
     const nav = w.sim.unit(t.leadId);
-    // Cleared once the point man is past the wall — or, backstop, if the element
-    // just can't make the gate (a man wedged on a structure): give up filing and
-    // let the formation branch route everyone out to the objective.
-    if ((nav && dist(nav.pos, center) > wire + 8) || noProgress(t, centroidOf(members), go, dt, 30)) {
+    // Cleared once the point man is past the wall. The backstop watches the POINT
+    // MAN's progress toward the gate, not the squad centroid — the file naturally
+    // trails the centroid well behind him, so a centroid-based check would "give
+    // up" and flip to formation while the lead is still inside the wire, leaving
+    // the element to tangle on the HESCO. Only a point man who genuinely can't
+    // make the gate (wedged on a structure) trips it.
+    if ((nav && dist(nav.pos, center) > wire + 8) || noProgress(t, nav ? nav.pos : centroidOf(members), go, dt, 40)) {
       t.exited = true;
       resetProgress(t);
     }

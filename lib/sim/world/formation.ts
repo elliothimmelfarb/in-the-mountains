@@ -90,65 +90,57 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   if (!nav) return centroidOf(members);
   t.leadId = sq.navigatorId;
 
-  // The lead team's leader navigates the terrain. Re-path only when the
-  // objective actually changes — the mover owns continuation and getting
-  // un-stuck (its stall watchdog), so we don't re-issue (and reset it) every tick.
+  // The lead team's leader navigates the terrain. Re-path only when the objective
+  // actually changes — the mover owns continuation and getting un-stuck (its stall
+  // watchdog), so we don't re-issue (and reset it) every tick.
   nav.technique = t.technique;
   nav.brainState = "moving";
   nav.faceLock = null;
-  // Re-path only when the objective changes — the mover owns continuation and
-  // getting un-stuck (its stall watchdog), so we don't re-issue it every tick.
+  nav.formationHold = false;
   if (!nav.pathGoal || dist(nav.pathGoal, target) > 8) {
     sim.pathTo(nav, target, { concealBias: plan.concealBias, roadBias: plan.roadBias });
   }
 
+  // Record where the point man actually walks. The rest of the squad moves in
+  // TRACE along this breadcrumb — each man keeps to the leader's real route through
+  // the terrain — instead of chasing geometric slots hung off the leader's
+  // instantaneous heading (which made the whole formation swing like a turnstile
+  // every time he turned). Lateral offsets that open the file into a fire-team
+  // wedge are taken relative to the local trail tangent, so they stay smooth.
+  recordTrail(t, nav);
   const ahead = nav.path.length ? nav.path[0] : target;
-  let dir = norm(sub(ahead, nav.pos));
-  if (len(dir) < 1e-3) dir = fromAngle(nav.facing);
-  const perp = { x: -dir.y, y: dir.x };
+  let headDir = norm(sub(ahead, nav.pos));
+  if (len(headDir) < 1e-3) headDir = fromAngle(nav.facing);
 
-  const teamSp = plan.spacing;
-  const squadSp = Math.max(plan.spacing * 2.2, 16); // teams/SL are spaced further than men in a team
-
-  // Lead team forms around the navigator (its leader), point pushed forward.
-  const leadTeam = sq.teams[0];
-  if (leadTeam) placeTeam(w, t, plan, leadTeam, nav, nav.pos, dir, perp, teamSp, true, nav.pos);
-
-  // Squad leader follows the lead team, controlling; medic/RTO ride with him.
-  const sl = sq.slId ? sim.unit(sq.slId) : undefined;
-  let anchorBase = nav.pos;
-  if (sl && sl !== nav) {
-    setSecurity(sl, t, angle(dir));
-    moveToward(w, sl, passTarget(w, add(nav.pos, scale(dir, -squadSp)), nav.pos), nav.pos);
-    anchorBase = sl.pos;
-    placeAttached(w, t, plan, sq.attachedIds, sl, sl.pos, dir, perp, teamSp);
-  } else {
-    placeAttached(w, t, plan, sq.attachedIds, nav, nav.pos, dir, perp, teamSp);
+  const slots = squadSlots(w, sq, plan);
+  let maxBack = 0;
+  for (const s of slots) {
+    maxBack = Math.max(maxBack, s.back);
+    const u = sim.unit(s.id);
+    if (!u || u === nav) continue;
+    const { pt, tan } = trailPoint(t, nav.pos, headDir, s.back);
+    const perp = { x: -tan.y, y: tan.x };
+    const slot = passTarget(w, add(pt, scale(perp, s.lat)), pt);
+    const face =
+      s.face === "rear" ? angle(scale(tan, -1)) : s.face === "left" ? angle(scale(perp, -1)) : s.face === "right" ? angle(perp) : angle(tan);
+    setSecurity(u, t, face);
+    moveToward(w, u, slot, pt);
   }
 
-  // Trail team brings up the rear (offset to a flank when expecting contact);
-  // its leader keys on the squad leader / point man when his line is blocked.
-  const trailTeam = sq.teams[1];
-  if (trailTeam) {
-    const lateral = plan.formation === "wedge" || plan.formation === "dispersed" ? squadSp * 0.55 : 0;
-    const trailAnchor = passTarget(w, add(anchorBase, add(scale(dir, -squadSp), scale(perp, lateral))), anchorBase);
-    const trailLeader = trailTeam.leaderId ? sim.unit(trailTeam.leaderId) : undefined;
-    placeTeam(w, t, plan, trailTeam, trailLeader ?? null, trailAnchor, dir, perp, teamSp, false, anchorBase);
-  }
-
-  // Squad governor: the navigator waits whenever the element strings out, so the
-  // teams stay together. Everyone routes terrain-aware, so the tail closes up.
+  // Smooth pace governor: the point man eases off the throttle when the element
+  // strings out, so the teams close back up — but he never plants his feet. He
+  // keeps creeping forward (floor 0.25×), so a man genuinely hung up on an obstacle
+  // is left to chase and rejoin rather than freezing the whole patrol in place
+  // (which, with the leg's no-progress backstop, used to strand a patrol at its
+  // own gate). Patience runs out after ~18 s of waiting, then he pushes on.
+  const expectTail = maxBack + plan.spacing;
   let tail = 0;
   for (const m of members) tail = Math.max(tail, dist(m.pos, nav.pos));
-  const squadMaxLen = squadSp * 2 + teamSp * 3 + 22; // generous slack so it paces, not stutters
-  // Hold to keep the squad together, but never freeze: a man who's only lagging
-  // closes up in seconds, while a genuinely separated straggler (e.g. left across
-  // an obstacle after a fight) would otherwise stall the patrol forever — so after
-  // a long wait the point man pushes on and the straggler rejoins by chasing.
-  const wantHold = tail > squadMaxLen;
-  t.holdTimer = wantHold ? (t.holdTimer ?? 0) + dt : 0;
-  nav.formationHold = wantHold && (t.holdTimer ?? 0) < 60;
-  if (nav.formationHold) nav.faceLock = nav.facing;
+  const strung = tail > expectTail * 1.25;
+  t.holdTimer = strung ? (t.holdTimer ?? 0) + dt : 0;
+  let slow = strung ? clamp01((tail - expectTail * 1.25) / (expectTail * 0.9)) : 0;
+  slow *= clamp01(1 - ((t.holdTimer ?? 0) - 18) / 30);
+  nav.paceScale = 1 - 0.75 * slow;
 
   return centroidOf(members);
 }
@@ -171,11 +163,11 @@ export function steerFile(w: World, t: Task, members: Unit[], target: Vec2, spac
   nav.technique = t.technique;
   nav.brainState = "moving";
   nav.faceLock = null;
+  nav.formationHold = false;
   if (!nav.pathGoal || dist(nav.pathGoal, target) > 10) sim.pathTo(nav, target, { roadBias: 0.35 });
 
   const ordered = byTeam(w, members).filter((u) => u !== nav);
   let prev = nav;
-  let tail = 0;
   for (const f of ordered) {
     const toPrev = sub(prev.pos, f.pos);
     const d = len(toPrev);
@@ -184,6 +176,7 @@ export function steerFile(w: World, t: Task, members: Unit[], target: Vec2, spac
     f.technique = t.technique;
     f.brainState = "moving";
     f.formationHold = false;
+    f.paceScale = 1;
     f.faceLock = null; // face the way you're walking through the gate
     f.pathGoal = tgt;
     if (dist(f.pos, tgt) > 1.0) {
@@ -194,14 +187,15 @@ export function steerFile(w: World, t: Task, members: Unit[], target: Vec2, spac
     } else {
       f.path = [];
     }
-    tail = Math.max(tail, dist(f.pos, nav.pos));
     prev = f;
   }
 
-  const maxLen = spacing * members.length * 2.4; // very loose — bunching is fine
-  const wantHold = tail > maxLen;
-  t.holdTimer = wantHold ? (t.holdTimer ?? 0) + dt : 0;
-  nav.formationHold = wantHold && (t.holdTimer ?? 0) < 30;
+  // The gate file is a short, transient pour through a choke: bunching and
+  // stringing out are both fine and expected (the file naturally spans muster to
+  // the gate). The point man drives straight out at full pace — throttling him
+  // here only stalls the egress — and the squad governor closes the element up
+  // again the moment it's through the wire and back in formation.
+  nav.paceScale = 1;
   return centroidOf(members);
 }
 
@@ -216,6 +210,7 @@ export function holdSecurity(w: World, members: Unit[], center: Vec2, radius: nu
     };
     m.faceLock = a; // face out
     m.formationHold = false;
+    m.paceScale = 1;
     m.brainState = "holding";
     m.pathGoal = slot; // so a man who's reached his sector doesn't re-plan every tick
     m.path = dist(m.pos, slot) > 2 ? [slot] : [];
@@ -227,6 +222,7 @@ export function releaseFormation(members: Unit[]) {
   for (const m of members) {
     m.faceLock = null;
     m.formationHold = false;
+    m.paceScale = 1;
   }
 }
 
@@ -251,86 +247,154 @@ export function byTeam(w: World, members: Unit[]): Unit[] {
 
 // --------------------------------------------------------------------------- internals
 
-/** Position one fire team around its leader's anchor, by role. */
-function placeTeam(
-  w: World,
-  t: Task,
-  plan: FormationPlan,
-  team: FireTeamS,
-  leaderUnit: Unit | null,
-  anchorPos: Vec2,
-  dir: Vec2,
-  perp: Vec2,
-  teamSp: number,
-  isLead: boolean,
-  leaderFallback: Vec2
-) {
-  const sim = w.sim;
-  // The lead team's leader is the squad navigator (already steered by the
-  // caller); only the trail team's leader needs to be moved to his anchor here.
-  // When blocked he heads for `leaderFallback` (the man ahead of him — the SL).
-  if (leaderUnit && !isLead) {
-    setSecurity(leaderUnit, t, angle(dir));
-    moveToward(w, leaderUnit, passTarget(w, anchorPos, leaderUnit.pos), leaderFallback);
-  }
-  const leaderPos = leaderUnit ? leaderUnit.pos : anchorPos;
+/** A man's place in the moving echelon, expressed relative to the leader's trail. */
+interface Slot {
+  id: string;
+  back: number; // metres behind the navigator along his breadcrumb (negative = ahead, on point)
+  lat: number; // metres lateral of the route (+ = right of travel)
+  face: "fwd" | "left" | "right" | "rear";
+}
 
-  const rest = team.ids.map((id) => sim.unit(id)).filter((u): u is Unit => !!u && u.id !== team.leaderId);
+/**
+ * Lay out the squad's echelon as trail-relative slots: a distance back along the
+ * point man's route, a lateral offset that opens the file into a fire-team wedge
+ * in the open (and collapses to zero in restrictive country), and a security
+ * sector to scan. The lead team forms on the navigator with a man on point; the
+ * squad leader and his attachments control from the centre; the trail team brings
+ * up the rear, offset to a flank in open formations and watching the backtrail.
+ */
+function squadSlots(w: World, sq: SquadS, plan: FormationPlan): Slot[] {
+  const interval = plan.spacing;
+  const file = plan.formation === "file" || plan.formation === "column";
+  const width = file ? 0 : plan.formation === "wedge" ? interval * 0.85 : interval * 1.25;
+  const gap = Math.max(interval * 2.0, 14); // along-trail gap between lead team, SL and trail team
+  const slots: Slot[] = [];
+
+  if (sq.teams[0]) addTeamSlots(w, slots, sq.teams[0], 0, 0, interval, width, file, true);
+
+  if (sq.slId && sq.slId !== sq.navigatorId) {
+    slots.push({ id: sq.slId, back: gap, lat: file ? 0 : width * 0.25, face: "fwd" });
+  }
+  sq.attachedIds.forEach((id, i) => {
+    slots.push({ id, back: gap + interval * (0.7 + i * 0.5), lat: file ? 0 : (i % 2 ? 1 : -1) * width * 0.4, face: "fwd" });
+  });
+
+  if (sq.teams[1]) {
+    const open = plan.formation === "wedge" || plan.formation === "dispersed";
+    addTeamSlots(w, slots, sq.teams[1], gap * 1.8, open ? width * 0.9 : 0, interval, width, file, false);
+  }
+  return slots;
+}
+
+/** Add one fire team's members as slots around its leader's place on the trail. */
+function addTeamSlots(
+  w: World,
+  slots: Slot[],
+  team: FireTeamS,
+  teamBack: number,
+  teamLat: number,
+  interval: number,
+  width: number,
+  file: boolean,
+  isLead: boolean
+) {
+  // The lead team's leader IS the navigator (the head of the trail), so he's never
+  // a slot; the trail team's leader sits at the team's base.
+  if (team.leaderId && !isLead) slots.push({ id: team.leaderId, back: teamBack, lat: teamLat, face: "fwd" });
+  const rest = team.ids.filter((id) => id !== team.leaderId);
   let riflemen = 0;
-  const file = plan.formation === "file";
-  rest.forEach((u, k) => {
-    let tgt: Vec2;
-    let face: number;
+  rest.forEach((id, k) => {
+    const u = w.sim.unit(id);
+    const role = u ? u.role : "rifleman";
+    let back: number;
+    let lat: number;
+    let face: Slot["face"];
     if (file) {
-      // single file: stacked behind the leader
-      tgt = add(leaderPos, scale(dir, -teamSp * (k + 1)));
-      face = k === rest.length - 1 && !isLead ? angle(scale(dir, -1)) : angle(dir);
-    } else if (AUTO.has(u.role)) {
-      tgt = add(leaderPos, add(scale(dir, -teamSp * 0.7), scale(perp, -teamSp * 0.85))); // left flank (fields of fire)
-      face = angle(scale(perp, -1));
-    } else if (u.role === "grenadier") {
-      tgt = add(leaderPos, add(scale(dir, -teamSp * 0.7), scale(perp, teamSp * 0.85))); // right flank
-      face = angle(perp);
+      back = teamBack + interval * (k + 1);
+      lat = teamLat;
+      face = !isLead && k === rest.length - 1 ? "rear" : "fwd"; // tail-end Charlie watches the backtrail
+    } else if (AUTO.has(role)) {
+      back = teamBack + interval * 0.7;
+      lat = teamLat - width; // automatic rifleman on the left, fields of fire out
+      face = "left";
+    } else if (role === "grenadier") {
+      back = teamBack + interval * 0.7;
+      lat = teamLat + width; // grenadier on the right
+      face = "right";
     } else {
-      // riflemen: point for the lead team, rear security for the trail team
       riflemen++;
       if (isLead && riflemen === 1) {
-        tgt = add(leaderPos, scale(dir, teamSp * 0.9)); // out front on point
-        face = angle(dir);
+        back = teamBack - interval * 0.9; // lead team's rifleman walks point, out front
+        lat = 0;
+        face = "fwd";
       } else {
-        tgt = add(leaderPos, scale(dir, -teamSp * (1.4 + 0.5 * riflemen)));
-        face = isLead ? angle(dir) : angle(scale(dir, -1)); // trail team's rifleman watches the backtrail
+        back = teamBack + interval * (1.4 + 0.5 * riflemen);
+        lat = teamLat * 0.6;
+        face = isLead ? "fwd" : "rear";
       }
     }
-    setSecurity(u, t, face);
-    moveToward(w, u, passTarget(w, tgt, leaderPos), leaderPos);
+    slots.push({ id, back, lat, face });
   });
 }
 
-function placeAttached(
-  w: World,
-  t: Task,
-  plan: FormationPlan,
-  ids: string[],
-  anchor: Unit,
-  anchorPos: Vec2,
-  dir: Vec2,
-  perp: Vec2,
-  teamSp: number
-) {
-  ids.forEach((id, i) => {
-    const a = w.sim.unit(id);
-    if (!a || a === anchor) return;
-    const tgt = add(anchorPos, add(scale(dir, -teamSp * (0.7 + i * 0.5)), scale(perp, (i % 2 ? 1 : -1) * teamSp * 0.5)));
-    setSecurity(a, t, angle(dir));
-    moveToward(w, a, passTarget(w, tgt, anchorPos), anchorPos);
-  });
+const TRAIL_STEP = 2.5; // metres between recorded breadcrumb points
+const TRAIL_MAX = 170; // metres of route kept behind the point man
+
+/** Append the navigator's position to the squad's breadcrumb, trimming the tail. */
+function recordTrail(t: Task, nav: Unit) {
+  if (t.trailLeadId !== nav.id || !t.trail) {
+    t.trail = [{ ...nav.pos }];
+    t.trailLeadId = nav.id;
+    return;
+  }
+  const tr = t.trail;
+  const last = tr[tr.length - 1];
+  if (!last || dist(last, nav.pos) >= TRAIL_STEP) tr.push({ ...nav.pos });
+  let total = 0;
+  for (let i = tr.length - 1; i > 0; i--) {
+    total += dist(tr[i], tr[i - 1]);
+    if (total > TRAIL_MAX) {
+      tr.splice(0, i);
+      break;
+    }
+  }
+}
+
+/**
+ * The point on the breadcrumb `back` metres behind the navigator, with the forward
+ * tangent there. Negative `back` is ahead of him — extrapolated along his heading
+ * (the point man walks out in front of where the leader has been). If the trail is
+ * shorter than `back`, the slot is extended backward along its oldest tangent.
+ */
+function trailPoint(t: Task, headPos: Vec2, headDir: Vec2, back: number): { pt: Vec2; tan: Vec2 } {
+  const tr = t.trail;
+  if (back <= 0 || !tr || tr.length === 0) return { pt: add(headPos, scale(headDir, -back)), tan: headDir };
+  let remaining = back;
+  let cur = headPos;
+  for (let i = tr.length - 1; i >= 0; i--) {
+    const p = tr[i];
+    const seg = sub(cur, p);
+    const segLen = len(seg);
+    if (segLen < 1e-6) {
+      cur = p;
+      continue;
+    }
+    if (remaining <= segLen) {
+      const f = remaining / segLen;
+      return { pt: { x: cur.x - seg.x * f, y: cur.y - seg.y * f }, tan: scale(seg, 1 / segLen) };
+    }
+    remaining -= segLen;
+    cur = p;
+  }
+  const tan = tr.length >= 2 ? norm(sub(tr[1], tr[0])) : headDir;
+  return { pt: add(cur, scale(tan, -remaining)), tan };
 }
 
 function setSecurity(u: Unit, t: Task, face: number) {
   u.technique = t.technique;
   u.brainState = "moving";
   u.formationHold = false;
+  u.paceScale = 1;
   u.faceLock = face;
 }
 

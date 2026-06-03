@@ -91,7 +91,8 @@ export interface Unit {
   pathGoal?: Vec2 | null; // the destination the path leads to (for self-correcting re-plan)
   technique?: MoveTechnique; // movement posture while following a path
   faceLock?: number | null; // locked facing (sector security) honored while moving
-  formationHold?: boolean; // pace governor: hold in place to keep the squad together
+  formationHold?: boolean; // legacy hard pace-hold (combat still honors it; squad movement uses paceScale)
+  paceScale?: number; // 0..1 speed multiplier — the point man eases off to keep the squad together (never a dead stop)
   // closed-loop movement: when a unit can't step freely toward its waypoint
   // (wall-blocked / sliding), it re-plans a fresh route from where it stands.
   blockedTimer?: number; // seconds of continuous blocked/sliding movement
