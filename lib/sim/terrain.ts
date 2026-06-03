@@ -536,12 +536,43 @@ export class Terrain {
         const y = c.cy + dy;
         if (!this.inBounds(x, y)) continue;
         const d = Math.hypot(dx, dy);
-        if (d < R - 1.4 || d > R + 0.6) continue;
+        // Wall band ≥3 cells (15 m) thick: at the 15 m coarse pathfinding scale a node
+        // centred on it is then FULLY impassable, so the ring genuinely seals and A*
+        // can't tunnel a transit route through the yard (it used to, because a 2-cell
+        // wall left every coarse wall-node mostly "passable"). Only the gate breaks it.
+        if (d < R - 2.4 || d > R + 0.6) continue;
         if (Math.abs(angleDiff(angle({ x: dx, y: dy }), ga)) < gateHalf) continue; // gate gap
         const i = this.idx(x, y);
         this.land[i] = Land.Hesco;
         this.elev[i] = baseE + 2.2; // the wall stands above the pad
       }
+
+    // 2.5) Perimeter track — a graded patrol road ringing the wall just outside it,
+    //   like the road around a real COP. It gives movement a clean, cheap, walkable
+    //   way around the outpost to ANY bearing, so a patrol bound for a village on the
+    //   far side of the gate rounds the wire on a real track instead of clawing a
+    //   winding path across the raw hillside (which is what stranded squads on the
+    //   perimeter). It rides the already-graded apron, so it's a track — not a cut —
+    //   and it simply breaks wherever a cliff or compound wall genuinely blocks it.
+    for (let deg = 0; deg < 360; deg += 1.0) {
+      const a = (deg * Math.PI) / 180;
+      for (let band = 1; band <= 5; band++) {
+        const rr = R + band; // a graded ring road outside the wall (wide enough that a
+        // clean 15 m coarse pathfinding node sits ON it, clear of the wall, so routes
+        // ride the road around the wire instead of fleeing onto the rough hillside
+        const x = Math.round(c.cx + Math.cos(a) * rr);
+        const y = Math.round(c.cy + Math.sin(a) * rr);
+        if (!this.inBounds(x, y)) continue;
+        const i = this.idx(x, y);
+        const l = this.land[i] as Land;
+        if (l === Land.Hesco || l === Land.Cliff || l === Land.CompoundWall || l === Land.Structure) continue;
+        this.land[i] = Land.Trail;
+        // Bench the tread flat (cut-and-fill, like a real perimeter road) so the way
+        // around the wire is reliably passable and cheap to ALL bearings — the squad
+        // rounds the outpost on a road instead of clawing across the broken hillside.
+        this.elev[i] = lerp(this.elev[i], baseE, 0.85);
+      }
+    }
 
     // 3) Interior road from the gate to the center of the yard.
     const gateInside = { cx: Math.round(c.cx + gateDir.x * (R - 3)), cy: Math.round(c.cy + gateDir.y * (R - 3)) };

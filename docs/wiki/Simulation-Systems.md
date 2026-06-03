@@ -43,8 +43,12 @@ Queries (world meters, bilinear where it matters): `elevAt`, `slopeAt`, `landAt`
 The COP isn't a dot on the map — it's a fortified position generated from the seed (`buildCop`) and
 stamped into the landcover so cover, sight and pathing all respect it. A `CopLayout` describes:
 
-- a **HESCO perimeter wall** (impassable, the hardest cover on the map) ringing a benched, graded
-  interior, broken only by a single **entry-control point** (the gate);
+- a **HESCO perimeter wall** (impassable, the hardest cover on the map; ≥3 cells thick so it reads as
+  a real barrier at the 15 m pathfinding scale) ringing a benched, graded interior, broken only by a
+  single **entry-control point** (the gate);
+- a **benched perimeter track** — a graded patrol road ringing the wall just outside it — so movement
+  has a clean, cheap, walkable way *around* the outpost to any bearing (a patrol bound for a village on
+  the far side of the gate rounds the wire on a road instead of clawing across the broken hillside);
 - interior **structures** — TOC, two barracks, aid station, armory, chow hall, latrines — and a
   **motor pool** and **helicopter LZ** of graded gravel near the gate;
 - **crew-served fighting positions and guard towers** sited around the wall, facing out;
@@ -88,6 +92,15 @@ wall is impassable, so routes in and out of the outpost are funneled through the
 narrow, switchbacked access road that follows the terrain down the spur to the valley road — see the
 COP section). Patrols, fire teams and infiltrating fighters all route through it.
 
+A coarse node stays passable if *any* of its sub-cells is (so a thin wall can't seal a reachable
+goal), but it is charged a **barrier penalty** (`BARRIER_PENALTY`, quadratic in the fraction of
+wall/cliff cells it carries). Without this, a 2-cell wall is invisible at 15 m nodes — every
+COP-wall node still held ~7 passable apron/interior cells and scored as cheap ground, so A* used to
+**tunnel straight through the walled outpost** (out the gate, across the yard and back) instead of
+rounding it. Paired with a HESCO wall thickened to **≥3 cells** (a coarse node centred on it is then
+genuinely impassable, so the ring truly seals and A* can't route in-and-out the single gate node)
+and the COP's **benched perimeter track**, routes now cleanly go *around* the wire to any bearing.
+
 ## Closed-loop movement (`combat.ts` `moveUnit`)
 
 Movement is self-correcting, which is the single mechanism that keeps everyone un-stuck without
@@ -98,7 +111,18 @@ its driver re-issues a fresh one** (the squad's point man re-routes from where h
 civilian/garrison man takes a cheap straight step). The watchdog itself runs no pathfinding, so
 dozens of idle/milling units never pile A* onto a tick. Objectives are snapped to reachable ground
 (off cliffs, out of walled compounds to the village edge), and the task layer has a no-progress
-backstop, so a leg or a return that genuinely can't be closed is force-advanced rather than frozen.
+backstop (measured as the navigator's **remaining route length**, which falls monotonically as he
+advances — so rounding a convex obstacle, where crow-flies distance to the goal *grows*, no longer
+trips it and freezes the patrol half-way claiming success).
+
+**Local steering** (`steering.ts`) sits between the path and the integrator: each tick a unit's raw
+"head at my next waypoint" intent is resolved into a heading a real body would take. It **rounds
+obstacles** (a fan of candidate headings, each ray-probed for clearance — the clearest one still
+aimed at the goal wins, so it curves around the convex HESCO ring instead of grinding it) and keeps
+**separation** from nearby bodies (a short-range push, so soldiers don't interpenetrate and a column
+naturally collapses to single file at a choke). It is a no-op when the lane ahead is clear and no one
+crowds, so open-ground and combat movement are unaffected; neighbour lookups use a per-tick spatial
+hash. This is *physics* — every agent (soldiers, civilians, the enemy) gets it for free.
 
 ## Movement postures
 
@@ -129,13 +153,23 @@ man pulls a **security sector** (`Unit.faceLock`, honored even when halted), so 
 360° coverage on the move.
 
 The rest of the squad moves in **trace**, not by posing. The navigator's actual route is recorded as
-a breadcrumb polyline (`Task.trail`); each man is assigned a distance *back along that real route*
-and a lateral offset taken from the **local trail tangent** there. So the formation follows where the
-point man genuinely walked — threading the same gap, switchback or river crossing — and the lateral
-offset (which opens the file into a fire-team wedge in the open and collapses to zero in close
-country) stays smooth because it keys off the trail tangent rather than the leader's instantaneous
-heading. This is what removed the old "turnstile": geometric slots hung off the leader's heading
-used to swing the whole element sideways every time he turned, so men crossed and swapped lanes.
+a breadcrumb polyline (`Task.trail`); each follower's path is the run of breadcrumb points from where
+it currently is *forward to its slot* — a distance back along the real route, plus a lateral offset
+from the **local trail tangent**. Because the breadcrumb is literally ground the point man already
+walked, a follower is handed a **walkable route around big obstacles** (the COP ring, a draw) rather
+than beelining at a slot that may be across a wall; local steering only handles the small stuff. The
+lateral offset opens the file into a fire-team wedge in the open and collapses toward the trail in
+close country — and the formation's **width is sensed**, not fixed: `steerSquad` probes the free
+corridor across the line of travel each tick and scales the spread to fit, so the wedge smoothly
+narrows to single file threading the benched track around the wire. This (with the trail tangent
+keying the offset) removed the old "turnstile", where geometric slots hung off the leader's heading
+swung the whole element sideways every time he turned.
+
+A man who gets **separated** — most often still inside the wire when the squad has filed out, so every
+breadcrumb point is across the HESCO from him — stops tracing (which would only grind him on the wall)
+and **rejoins with a real A\* route**: out through the gate if he's inside the wire, then back onto the
+leader's wake. That is how a separated soldier actually rejoins — he navigates to the formation, he
+doesn't walk through the wall.
 
 The point man **governs the pace** with a smooth throttle (`Unit.paceScale`, applied in `moveUnit`):
 he eases off — never to a dead stop — as the element strings out, and after a spell of waiting pushes

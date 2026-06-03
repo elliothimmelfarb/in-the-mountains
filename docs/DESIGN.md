@@ -74,7 +74,8 @@ and your patrol resumes its task on the lull.
 | RNG | `rng.ts` | Seeded mulberry32 + helpers (range, gauss, chance, pick, weighted). Deterministic. |
 | Math | `vec.ts` | Grid/world vectors, distance, bresenham, hex/grid helpers. |
 | Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 24 landcover classes, a fortified **COP layout** (HESCO wall, gate, structures, LZ, fighting positions), queries: elevation, slope, cover, concealment, move cost, passability. |
-| Pathfinding | `path.ts` | Hierarchical A* (cheap coarse route + fine repair only where it would clip a wall) with concealment / road / cover biases; reused scratch; funnels through the COP gate. |
+| Pathfinding | `path.ts` | Hierarchical A* (cheap coarse route + fine repair only where it would clip a wall) with concealment / road / cover biases; reused scratch; a **barrier penalty** on coarse nodes carrying wall/cliff cells so routes go *around* the walled COP, not through it; funnels through the COP gate. |
+| Steering | `steering.ts` | Local "steer locally" layer used by `moveUnit`: context/fan obstacle avoidance + body separation; rounds the HESCO ring and forms single file at chokes; a no-op in open ground. |
 | LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction; posture-aware detection. |
 | Weapons | `weapons.ts` | Full weapon table (US + insurgent) with ballistic & handling stats. |
 | Ballistics | `ballistics.ts` | Per-projectile flight, hit resolution vs exposure/skill/suppression, wound model. |
@@ -143,11 +144,15 @@ leader, automatic rifleman, grenadier, rifleman) — composed on that structure:
   hold the flanks; the squad leader follows controlling with the medic/RTO; the trail team watches
   the backtrail. Every man pulls a **security sector** — 360° coverage on the move.
 - The rest of the squad moves in **trace**: the point man's route is recorded as a breadcrumb, and
-  each man keeps to it a set distance back, opening out to his fire-team position with a lateral
-  offset taken from the *local* trail tangent. So the element follows the leader's real path through
-  the ground — collapsing to single file at a choke or river crossing and spreading again after —
-  instead of swinging rigid geometric slots around his heading (which made the formation pivot like a
-  turnstile whenever he turned).
+  each man *walks that real route forward to his slot* (a set distance back, with a lateral offset
+  from the local trail tangent), so he's always handed walkable ground around big obstacles instead
+  of beelining at a slot through a wall. The formation's **width is sensed** — it reads the free
+  corridor each tick and collapses the fire-team wedge to single file at a choke, then spreads again.
+  A man who gets separated (e.g. still inside the wire when the squad has filed out) **rejoins with a
+  real route** out through the gate, not by grinding the wall.
+- Underneath it all is **"navigate globally, steer locally"**: the squad shares one A* route, and a
+  steering layer (`steering.ts`) in the integrator rounds nearby obstacles and keeps bodies from
+  overlapping — a no-op in the open, so it only bends the path where the ground or the crowd demands.
 - The point man **paces** the element so it stays together by easing the throttle when the squad
   strings out — a smooth slowdown, never a dead stop, so a man hung up on an obstacle is left to
   chase and rejoin rather than freezing the whole patrol. Routing honors the posture (hug cover when
@@ -163,7 +168,9 @@ cover, sight and pathing respect the wire. It is sited like the real Korengal Ou
 **commanding bench or low spur near the valley** (a few tens of metres above the floor, close enough
 to be supplied by road), not an alpine perch — and reached by a **narrow switchbacked access road**
 that follows the terrain down to the valley road, grading the ground only enough to keep the tread
-walkable instead of bulldozing a straight ramp. Off-task soldiers **live** there: a rotating guard pulls
+walkable instead of bulldozing a straight ramp. A **benched perimeter track** rings the wall (and the
+wall is thick enough to read as a real barrier at the pathfinding scale), so a patrol bound for the far
+side of the gate rounds the wire on a road rather than clawing across the hillside. Off-task soldiers **live** there: a rotating guard pulls
 security, gun crews stay on their guns, the platoon eats at the chow hall on the meal hours and
 sleeps in the barracks after dark, and the whole COP **stands to** when the wire takes fire.
 

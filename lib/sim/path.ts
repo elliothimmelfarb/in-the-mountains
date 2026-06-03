@@ -79,6 +79,7 @@ class Heap {
  * metres where it actually matters — no unit is ever handed a path it can't walk.
  */
 const COARSE = 3; // ~15 m coarse nodes on the 5 m grid
+const BARRIER_PENALTY = 10; // how hard a coarse node is charged for the walls/cliffs it contains
 
 // Reusable A* scratch. At full resolution the working arrays are large (one
 // entry per cell), so allocating + clearing them every call dominates the cost.
@@ -131,12 +132,20 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
   const goalI = gy * cw + gx;
   if (startI === goalI) return [{ ...goal }];
 
-  // Per-node cost, averaged over the f×f block so a node is passable if any of
-  // it is (a node straddling a wall must not seal off a reachable goal).
+  // Per-node cost, averaged over the f×f block. A node stays passable if ANY of it
+  // is (so a node straddling a thin wall can't seal off a reachable goal) — but a
+  // node carrying impassable cells (a HESCO/compound wall, a cliff) is charged a
+  // steep barrier penalty proportional to how blocked it is. Without this, a 2-cell
+  // wall is invisible at 15 m coarse nodes (each wall node still has ~7 passable
+  // apron/interior cells), so A* would tunnel straight through a walled COP instead
+  // of routing around it. The penalty is quadratic: a stray blocked cell barely
+  // matters, but a half-wall node costs many times a clear one, so "around" wins
+  // while a genuinely narrow lone passage is discouraged, never sealed.
   const nodeCost = (ci: number): number => {
     const x0 = (ci % cw) * f;
     const y0 = ((ci / cw) | 0) * f;
     let passable = 0;
+    let inb = 0;
     let moveSum = 0;
     let concealSum = 0;
     let coverSum = 0;
@@ -147,6 +156,7 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
       for (let xx = 0; xx < f; xx++) {
         const fx = x0 + xx;
         if (fx >= terrain.size) continue;
+        inb++;
         if (!terrain.passableCell(fx, fy)) continue;
         passable++;
         const idx = terrain.idx(fx, fy);
@@ -159,6 +169,8 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
     }
     if (passable === 0) return Infinity;
     let c = passable / moveSum; // = 1 / (avg move cost)
+    const blockFrac = inb > 0 ? (inb - passable) / inb : 0;
+    if (blockFrac > 0) c *= 1 + BARRIER_PENALTY * blockFrac * blockFrac;
     if (concealBias > 0) c *= 1 + concealBias * (1 - concealSum / passable);
     if (coverBias > 0) c *= 1 + coverBias * (1 - coverSum / passable);
     if (roadBias > 0) c *= roadCells > passable * 0.3 ? 1 - 0.62 * roadBias : 1 + 0.3 * roadBias;
