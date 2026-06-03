@@ -110,11 +110,14 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
 
   // 2) Move along the route, leg by leg, in formation. The leg is "made" when
   //    the point man reaches the waypoint (the column may still be trailing in).
-  const target = t.route[t.legIndex];
-  if (!target) {
+  //    Snap the waypoint to passable ground so the point man can't crawl into a
+  //    cliff chasing an unreachable objective.
+  const raw = t.route[t.legIndex];
+  if (!raw) {
     enterOnStation(w, t, members);
     return;
   }
+  const target = passableGoal(w, raw);
   steerSquad(w, t, members, target, plan, dt);
   const lead = w.sim.unit(t.leadId);
   if (lead && dist(lead.pos, target) < 20) {
@@ -126,7 +129,11 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
 /** Bring the element home: back to the gate, then in through the ECP to muster. */
 function driveReturn(w: World, t: Task, members: Unit[], dt: number, centroid: Vec2) {
   const center = w.copWorld();
-  if (dist(centroid, center) < 45) {
+  const wire = w.terrain.cop.radius * w.terrain.cellSize + 18;
+  // The patrol is "back inside the wire" once the bulk of it is home — a single
+  // straggler can't hold the task open forever (the garrison walks him in).
+  const inside = members.filter((m) => dist(m.pos, center) < wire).length;
+  if (inside >= Math.ceil(members.length * 0.6)) {
     t.phase = "complete";
     return;
   }
@@ -157,6 +164,16 @@ function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
 
 function jitter(w: World, p: Vec2, r: number): Vec2 {
   return { x: p.x + w.rng.range(-r, r), y: p.y + w.rng.range(-r, r) };
+}
+
+/** Snap a world objective onto passable ground (off cliffs / walls). */
+function passableGoal(w: World, p: Vec2): Vec2 {
+  const cs = w.terrain.cellSize;
+  const cx = Math.floor(p.x / cs);
+  const cy = Math.floor(p.y / cs);
+  if (w.terrain.passableCell(cx, cy)) return p;
+  const c = w.terrain.nearestPassable(cx, cy);
+  return w.terrain.cellCenter(c.cx, c.cy);
 }
 
 function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {

@@ -22,10 +22,24 @@ export function tickGarrison(w: World, dt: number) {
   const tasked = new Set<string>();
   for (const t of w.state.tasks) for (const id of t.memberIds) tasked.add(id);
 
-  // Who's available to move about the COP (not tasked, not down, near the wire).
   const center = w.copWorld();
+  const wire = w.terrain.cop.radius * w.terrain.cellSize;
+
+  // Any off-task soldier left outside the wire (a separated straggler after a
+  // fight) walks himself home through the gate.
+  const muster = w.musterWorld();
+  for (const m of w.platoon.members) {
+    if (!m.alive || m.status === "wounded" || m.evac || tasked.has(m.id)) continue;
+    if (dist(m.pos, center) > wire + 25) {
+      m.brainState = "returning";
+      m.faceLock = null;
+      if (m.path.length === 0) w.sim.pathTo(m, muster);
+    }
+  }
+
+  // Who's available to take a post inside the wire.
   const home = w.platoon.members.filter(
-    (m) => m.alive && m.status !== "wounded" && !m.evac && !tasked.has(m.id) && dist(m.pos, center) < 160
+    (m) => m.alive && m.status !== "wounded" && !m.evac && !tasked.has(m.id) && dist(m.pos, center) <= wire + 25
   );
   if (home.length === 0) return;
 

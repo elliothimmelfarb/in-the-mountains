@@ -83,7 +83,6 @@ export function planFormation(w: World, t: Task, members: Unit[]): FormationPlan
  * element centroid for leg-progression checks in the caller.
  */
 export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, plan: FormationPlan, dt: number): Vec2 {
-  void dt;
   const sim = w.sim;
   if (members.length === 0) return centroidOf(members);
   const sq = buildSquad(w, members);
@@ -136,7 +135,13 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   let tail = 0;
   for (const m of members) tail = Math.max(tail, dist(m.pos, nav.pos));
   const squadMaxLen = squadSp * 2 + teamSp * 3 + 22; // generous slack so it paces, not stutters
-  nav.formationHold = tail > squadMaxLen;
+  // Hold to keep the squad together, but never freeze: a man who's only lagging
+  // closes up in seconds, while a genuinely separated straggler (e.g. left across
+  // an obstacle after a fight) would otherwise stall the patrol forever — so after
+  // a long wait the point man pushes on and the straggler rejoins by chasing.
+  const wantHold = tail > squadMaxLen;
+  t.holdTimer = wantHold ? (t.holdTimer ?? 0) + dt : 0;
+  nav.formationHold = wantHold && (t.holdTimer ?? 0) < 60;
   if (nav.formationHold) nav.faceLock = nav.facing;
 
   return centroidOf(members);

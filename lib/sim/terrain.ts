@@ -802,6 +802,19 @@ export class Terrain {
     return this.cellSample(this.slope, wx, wy);
   }
 
+  /** Nearest passable cell to (cx,cy), spiralling out — keeps objectives off cliffs. */
+  nearestPassable(cx: number, cy: number, maxR = 16): { cx: number; cy: number } {
+    if (this.passableCell(cx, cy)) return { cx, cy };
+    for (let r = 1; r <= maxR; r++) {
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
+          if (this.passableCell(cx + dx, cy + dy)) return { cx: cx + dx, cy: cy + dy };
+        }
+    }
+    return { cx, cy };
+  }
+
   /** Is this cell passable on foot at all (cliffs/deep channels are not). */
   passableCell(cx: number, cy: number): boolean {
     if (!this.inBounds(cx, cy)) return false;
