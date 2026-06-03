@@ -142,16 +142,28 @@ leader, automatic rifleman, grenadier, rifleman) — composed on that structure:
 - The lead team's leader navigates the terrain (A*) with a rifleman on point; his SAW and grenadier
   hold the flanks; the squad leader follows controlling with the medic/RTO; the trail team watches
   the backtrail. Every man pulls a **security sector** — 360° coverage on the move.
-- The squad leader **paces** the element so it stays together; routing honors the posture (hug cover
-  when stealthy, take the road when fast, never the obvious road into an ambush). On the objective
-  each fire team sets a sector of a 360° security halt. Contact dissolves the formation into the
-  combat AI; it re-forms on the lull.
+- The rest of the squad moves in **trace**: the point man's route is recorded as a breadcrumb, and
+  each man keeps to it a set distance back, opening out to his fire-team position with a lateral
+  offset taken from the *local* trail tangent. So the element follows the leader's real path through
+  the ground — collapsing to single file at a choke or river crossing and spreading again after —
+  instead of swinging rigid geometric slots around his heading (which made the formation pivot like a
+  turnstile whenever he turned).
+- The point man **paces** the element so it stays together by easing the throttle when the squad
+  strings out — a smooth slowdown, never a dead stop, so a man hung up on an obstacle is left to
+  chase and rejoin rather than freezing the whole patrol. Routing honors the posture (hug cover when
+  stealthy, take the road when fast, never the obvious road into an ambush). On the objective each
+  fire team sets a sector of a 360° security halt. Contact dissolves the formation into the combat
+  AI; it re-forms on the lull.
 
 ### 3.8 The combat outpost
 The COP is a **place**, not a marker: a HESCO-walled perimeter with a single entry-control point,
 interior structures (TOC, barracks, aid station, armory, chow hall), a motor pool and helicopter
 LZ, and crew-served fighting positions and towers on the wall — all stamped into the terrain so
-cover, sight and pathing respect the wire. Off-task soldiers **live** there: a rotating guard pulls
+cover, sight and pathing respect the wire. It is sited like the real Korengal Outpost — on a
+**commanding bench or low spur near the valley** (a few tens of metres above the floor, close enough
+to be supplied by road), not an alpine perch — and reached by a **narrow switchbacked access road**
+that follows the terrain down to the valley road, grading the ground only enough to keep the tread
+walkable instead of bulldozing a straight ramp. Off-task soldiers **live** there: a rotating guard pulls
 security, gun crews stay on their guns, the platoon eats at the chow hall on the meal hours and
 sleeps in the barracks after dark, and the whole COP **stands to** when the wire takes fire.
 

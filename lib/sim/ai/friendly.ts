@@ -36,6 +36,7 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   if (contact) {
     u.faceLock = null;
     u.formationHold = false;
+    u.paceScale = 1;
   }
 
   // Stance: posture down in contact, especially when pinned or stationary.

@@ -273,6 +273,7 @@ export class CombatSim {
     // Any explicit order breaks the squad's formation locks.
     u.faceLock = null;
     u.formationHold = false;
+    u.paceScale = 1;
     this.resetStall(u);
     switch (order.type) {
       case "move":
@@ -563,6 +564,9 @@ export class CombatSim {
     speed *= 1 - u.suppression * 0.4;
     // leg wounds slow you
     if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
+    // squad pace governor: the point man eases the throttle (never a dead stop) so
+    // the element stays together — read as a smooth slowdown, not a freeze.
+    if (u.paceScale != null) speed *= Math.max(0, Math.min(1, u.paceScale));
     speed = Math.max(0.15, speed);
     const stepLen = Math.min(d, speed * dt);
     const next = add(u.pos, scale(dir, stepLen));

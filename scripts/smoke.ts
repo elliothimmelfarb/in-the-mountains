@@ -51,15 +51,19 @@ const maxTicks = 18000; // 30 game-minutes
 let projPeak = 0;
 let everContact = false;
 let enemiesSeen = 0;
-let patrolMaxOut = 0; // max patrol distance outside the wire (proves the gate works)
+let patrolMaxOut = 0; // farthest a patrol MAN gets from the COP center (proves the gate works)
 const copC = terrain.cellCenter(cl.center.cx, cl.center.cy);
 while (ticks < maxTicks && !state.ended) {
   world.tick(dt);
   projPeak = Math.max(projPeak, sim.projectiles.length);
   if (world.inContact()) everContact = true;
   enemiesSeen = Math.max(enemiesSeen, sim.livingEnemies().length);
-  const pc = world.activePatrolCentroid();
-  if (pc) patrolMaxOut = Math.max(patrolMaxOut, Math.hypot(pc.x - copC.x, pc.y - copC.y));
+  // Measure the point man (farthest member), not the centroid: a nearby objective
+  // keeps the centroid inside the wire even when the patrol clearly egressed.
+  for (const id of ids) {
+    const u = sim.unit(id);
+    if (u && u.alive) patrolMaxOut = Math.max(patrolMaxOut, Math.hypot(u.pos.x - copC.x, u.pos.y - copC.y));
+  }
   for (const u of sim.units) {
     if (Number.isNaN(u.pos.x) || Number.isNaN(u.pos.y)) {
       console.error("NaN position on", u.id, u.faction, u.role);

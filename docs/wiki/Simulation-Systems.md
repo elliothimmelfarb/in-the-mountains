@@ -24,10 +24,12 @@ Generation is resolution-independent (landform frequencies are expressed per-met
    barriers, **structures** and **gravel** pads.
 6. **Villages** placed on benches, stamped with walled qalats (interior + perimeter wall),
    surrounding orchards/terraces, and an occasional cemetery.
-7. **The COP** scored onto a prominent-but-not-summit knob toward the south, then built out as a
-   real fortified position (see below).
+7. **The COP** scored onto a commanding bench/low spur near the valley (prominent, a few tens of
+   metres above the floor, close enough to be supplied by road — not an alpine perch), then built out
+   as a real fortified position (see below).
 8. **Roads & trails** — a valley-floor road and goat trails to villages and up the draws, bridging
-   the river where a trail crosses it; the COP's access trail runs from its gate down to the road.
+   the river where a trail crosses it; the COP's **switchbacked access road** descends its spur to
+   the valley road, grading the tread only where the natural pitch is too steep (no straight ramp).
 9. **Cover & concealment** derived per cell from landcover (compound walls and terrace risers are
    real hard cover; dry washes give defilade; forest/orchard conceal).
 10. **Named features** — prominent crest peaks get names and spot elevations.
@@ -46,7 +48,13 @@ stamped into the landcover so cover, sight and pathing all respect it. A `CopLay
 - interior **structures** — TOC, two barracks, aid station, armory, chow hall, latrines — and a
   **motor pool** and **helicopter LZ** of graded gravel near the gate;
 - **crew-served fighting positions and guard towers** sited around the wall, facing out;
-- the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form.
+- the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form;
+- a **switchbacked access road** (`gradeAccessRoad`) that descends from the gate to the valley road.
+  Rather than lerping a straight cut from the gate to the river — which gouged a long, dead-straight,
+  25 m-wide trench across the hillside whenever the knob stood well above the floor — it routes one
+  short step at a time, following the terrain: heading for the valley where the grade allows and
+  traversing/switchbacking where the fall line is too steep, reshaping the ground only enough to keep
+  the tread walkable (so a gentle bench gets a track laid on the surface, no trench).
 
 Because the wall is impassable and only the gate is open, A* naturally funnels everyone in and out
 through the ECP, and patrols file out and back through it. The layout drives where the platoon is
@@ -77,7 +85,8 @@ Three optional biases shape the route: a **concealment bias** so a stealthy rout
 orchards and dry washes instead of crossing open ground; a **road bias** so fast movement takes the
 valley road/trails; and a **cover bias** the enemy uses to stay off the skyline. The COP's HESCO
 wall is impassable, so routes in and out of the outpost are funneled through the gate (which has a
-graded access road off the knob). Patrols, fire teams and infiltrating fighters all route through it.
+narrow, switchbacked access road that follows the terrain down the spur to the valley road — see the
+COP section). Patrols, fire teams and infiltrating fighters all route through it.
 
 ## Closed-loop movement (`combat.ts` `moveUnit`)
 
@@ -117,9 +126,24 @@ mission, posture, terrain and whether the squad **expects contact**:
 on point; his automatic rifleman and grenadier hold the team's flanks; the squad leader follows
 controlling, with the medic/RTO; the trail team brings up the rear and watches the backtrail. Every
 man pulls a **security sector** (`Unit.faceLock`, honored even when halted), so the element provides
-360° coverage on the move. The point man **governs the pace** so the squad stays together, and
-followers route terrain-aware (straight when clear, A* around obstacles, every slot snapped to
-passable ground) so nobody strands the column on a wall or cliff. On the objective each fire team
+360° coverage on the move.
+
+The rest of the squad moves in **trace**, not by posing. The navigator's actual route is recorded as
+a breadcrumb polyline (`Task.trail`); each man is assigned a distance *back along that real route*
+and a lateral offset taken from the **local trail tangent** there. So the formation follows where the
+point man genuinely walked — threading the same gap, switchback or river crossing — and the lateral
+offset (which opens the file into a fire-team wedge in the open and collapses to zero in close
+country) stays smooth because it keys off the trail tangent rather than the leader's instantaneous
+heading. This is what removed the old "turnstile": geometric slots hung off the leader's heading
+used to swing the whole element sideways every time he turned, so men crossed and swapped lanes.
+
+The point man **governs the pace** with a smooth throttle (`Unit.paceScale`, applied in `moveUnit`):
+he eases off — never to a dead stop — as the element strings out, and after a spell of waiting pushes
+on so a man genuinely hung up on an obstacle is left to chase rather than freezing the patrol. (The
+old binary "hold" froze him outright, which — combined with the leg's no-progress backstop — could
+strand a patrol at its own gate.) Filing out the ECP, the point man pours straight through at full
+pace, and the file-out backstop watches *his* progress, not the lagging centroid, so the element
+doesn't flip to formation while the lead is still inside the wire. On the objective each fire team
 sets into a sector of a 360° security halt. The instant rounds crack, the formation releases and
 combat AI takes over; it re-forms on the lull.
 
