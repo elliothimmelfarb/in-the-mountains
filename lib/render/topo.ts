@@ -22,10 +22,20 @@ function landColor(l: Land): [number, number, number] {
   switch (l) {
     case Land.River:
       return [60, 92, 104];
-    case Land.FloorField:
+    case Land.Marsh:
+      return [86, 104, 86];
+    case Land.DryWash:
+      return [124, 116, 96];
+    case Land.Cropland:
       return [120, 124, 70];
+    case Land.Terrace:
+      return [112, 120, 72];
+    case Land.TerraceWall:
+      return [120, 104, 80];
     case Land.Orchard:
       return [78, 96, 54];
+    case Land.Meadow:
+      return [124, 130, 82];
     case Land.Grass:
       return [128, 126, 84];
     case Land.Scrub:
@@ -34,14 +44,24 @@ function landColor(l: Land): [number, number, number] {
       return [58, 78, 50];
     case Land.Scree:
       return [138, 130, 116];
+    case Land.Boulders:
+      return [128, 122, 112];
     case Land.Rock:
       return [150, 144, 132];
-    case Land.Village:
+    case Land.Cliff:
+      return [108, 100, 92];
+    case Land.Compound:
       return [150, 120, 86];
+    case Land.CompoundWall:
+      return [128, 98, 66];
+    case Land.Cemetery:
+      return [134, 128, 112];
     case Land.Road:
       return [110, 100, 84];
     case Land.Trail:
       return [128, 116, 92];
+    case Land.Footbridge:
+      return [120, 96, 70];
     default:
       return [120, 116, 90];
   }
@@ -63,7 +83,9 @@ export function bakeTerrain(terrain: Terrain): Baked {
   const cached = cache.get(terrain);
   if (cached) return cached;
 
-  const pxPerCell = Math.max(6, Math.floor(1600 / terrain.size));
+  // Target a fixed ~2200 px sheet regardless of cell count so the high-fidelity
+  // 5 m grid bakes quickly and stays sharp when zoomed.
+  const pxPerCell = Math.max(2, Math.min(8, Math.round(2200 / terrain.size)));
   const W = terrain.size * pxPerCell;
   const canvas = document.createElement("canvas");
   canvas.width = W;

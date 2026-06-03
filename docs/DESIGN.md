@@ -27,35 +27,42 @@
    Civilian casualties radicalize. The campaign is won or lost in attitudes, not body count.
 6. **Unpredictability.** Seeded but stochastic. Weather, intel quality, enemy initiative,
    equipment failure, the fog of war. No two patrols feel the same.
+7. **Time is continuous.** There are no turns and no phases. One clock runs the valley — the
+   sun, the weather, fatigue, the enemy's tempo, construction, and combat — all at once.
+   Everything takes time: kitting up, walking the ground, building a well. You pause and
+   time-warp, but the valley never stops.
 
-## 2. Two layers
+## 2. One continuous world
 
-### 2.1 Command layer (the COP)
-Turn-based, phase-of-day resolution (Dawn / Day / Dusk / Night). The player is the outpost
-commander. Responsibilities:
-- **Personnel** — roster, squads/fireteams, assignments, rest rotation, morale, fatigue,
-  wounds & recovery, specialties (medic, JTAC/RTO, SAW/240 gunners, snipers, EOD, ANA partner).
-- **Logistics** — ammo by caliber, water, food, fuel, medical, batteries, mortar rounds,
-  Class I–IX. Resupply via convoy (risky/IED) or air (weather-dependent). Everything is heavy.
-- **Defense** — guard rotation, sectors of fire, crew-served emplacements, HESCO, wire,
-  claymores, range cards, standing to.
-- **Operations** — plan patrols and missions on the topo map: presence patrols, ambushes,
-  KLE/shura, census, overwatch, cordon-and-search, recon, resupply escort, CASEVAC.
-- **Influence** — shuras with village elders, CERP money for projects (wells, schools, roads),
-  solatia payments after incidents, ANA/ANP partnering, claims.
-- **Intel** — SIGINT (ICOM chatter), HUMINT (informants of varying reliability), pattern of
-  life, atmospherics. Builds a (often wrong) picture of enemy disposition.
-- **Higher** — battalion issues directives, CONOP approval, judges you on stability and losses.
+A single real-time simulation (`lib/sim/world/`). The whole platoon, the civilians, and any
+active fighters all live in one persistent unit-level sim; a master clock layers the strategic
+systems on top. The player is the outpost commander, and everything below happens on the same
+timeline — quiet hours fast-forward, firefights slow to readable speed.
 
-### 2.2 Contact layer (tactical sim)
-Real-time-with-pause. Triggered by a patrol making contact (TIC), an enemy attack on the COP,
-or a deliberate op. Squad/individual control on the topo grid:
-- Orders: move (with movement technique — traveling, bounding), take cover, fire/cease fire,
-  suppress, target, throw frag/smoke/willie-pete, treat casualty, regroup, withdraw.
-- Fire support: call for fire (60/81/120 mortars), CAS/CCA (A-10, Apache, drone), MEDEVAC
-  (9-line), with realistic delays, danger-close risk, and weather/availability constraints.
-- Every shot resolved through the ballistics + LOS + cover model. Suppression and morale
-  ripple through both sides. The enemy maneuvers, breaks contact, or is destroyed.
+**What you command, continuously:**
+- **Personnel** — roster, squads/fireteams, rest/fatigue that recover at the wire and drain in
+  the field, morale, wounds & recovery over real days, specialties (medic, JTAC/RTO, SAW/240
+  gunners, marksman). Losses are permanent.
+- **Operations** — select soldiers and order them directly (move with a posture, assault, hold,
+  suppress, smoke, frag, withdraw), or **plan a patrol**: pick a mission and posture, draw a
+  route, and the element kits up and steps off in real time, routing through the terrain.
+  Missions: presence, recon, ambush/interdiction, census, cordon-and-search, establish OP.
+- **Influence** — send an element for a **shura** (KLE) with a village elder, fund **CERP
+  projects** (wells, schools, roads) that require materials trucked in, a contractor, and a
+  squad keeping the site secure for days, or they stall and get sabotaged.
+- **Logistics** — ammo by caliber, water, food, fuel, medical, batteries, mortar rounds, and
+  construction materials, burning continuously. Resupply by convoy (risky/IED) or air
+  (weather-dependent).
+- **Fires & MEDEVAC** — 60/81 mortars, CAS gun runs and Hellfire, 9-line MEDEVAC, with delays,
+  danger-close risk, and weather/availability constraints. Available the moment you need them.
+- **Intel** — SIGINT (ICOM), HUMINT (informants of varying reliability), drone hits, pattern of
+  life. An often-wrong picture of enemy disposition.
+- **Higher** — battalion issues directives and judges you on stability and losses.
+
+**Combat** is just what happens when hostile units perceive each other. The clock clamps to
+combat speed; you fight with the same selection-and-orders interface, and the fight resolves
+through the ballistics + LOS + cover model. The enemy maneuvers, breaks contact, or is destroyed,
+and your patrol resumes its task on the lull.
 
 ## 3. Simulation systems (engine: `lib/sim`)
 
@@ -63,22 +70,24 @@ or a deliberate op. Squad/individual control on the topo grid:
 |---|---|---|
 | RNG | `rng.ts` | Seeded mulberry32 + helpers (range, gauss, chance, pick, weighted). Deterministic. |
 | Math | `vec.ts` | Grid/world vectors, distance, bresenham, hex/grid helpers. |
-| Terrain | `terrain.ts` | Procedural valley heightmap (ridges/draws/river/villages), landcover, queries: elevation, slope, cover, concealment, move cost. |
-| LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction. |
+| Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 21 landcover classes, queries: elevation, slope, cover, concealment, move cost, passability. |
+| Pathfinding | `path.ts` | Terrain-aware A* foot routing with optional concealment bias; string-pulled waypoints. |
+| LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction; posture-aware detection. |
 | Weapons | `weapons.ts` | Full weapon table (US + insurgent) with ballistic & handling stats. |
 | Ballistics | `ballistics.ts` | Per-projectile flight, hit resolution vs exposure/skill/suppression, wound model. |
-| Entities | `entities.ts` | Soldier/insurgent/civilian types, stats, state, factories. |
-| Combat | `combat.ts` | The fixed-timestep tactical tick: orders → AI → movement → fire → projectiles → morale → events. |
+| Entities | `entities.ts` | Soldier/insurgent/civilian types, stats, state, factories, **move postures**. |
+| Combat | `combat.ts` | The fixed-timestep unit tick (orders → AI → movement → fire → projectiles → morale); runs in persistent mode inside the World. |
 | AI | `ai/*.ts` | Insurgent (ambush/shoot-scoot/withdraw), civilian (routine/flee/atmospherics), friendly (autonomy under orders). |
 | Names | `names.ts` | US roster + Afghan name generation. |
-| Campaign | `campaign.ts` | Strategic state, phase advance, attrition, attitudes, intel, directives, scoring. |
-| Patrol | `patrol.ts` | Route planning, march resolution, contact probability, encounter seeding. |
-| Events | `events.ts` | Atmospheric & random events (weather, equipment, HUMINT walk-ins, IEDs). |
+| Campaign | `campaign.ts` | Shared strategic types + helpers (supplies, villages, weather, scoring). |
+| World | `world/*.ts` | The continuous clock + orchestration: time-of-day, tasks, projects, resupply, enemy director, intel, events, metrics, save/load. |
 
 ### 3.1 Coordinate model
-World is a square grid of **cells** (default 128×128), each cell ~25 m → a ~3.2 km valley.
-Heightmap stored as Float32 elevation (meters). Tactical units live at continuous world
-coordinates (meters) for smooth ballistics; the grid is sampled bilinearly for elevation.
+World is a square grid of **cells** (default 512×512), each cell **5 m** → a ~2.56 km valley
+resolved to high fidelity. Heightmap stored as Float32 elevation (meters). Units live at
+continuous world coordinates (meters) for smooth ballistics; the grid is sampled bilinearly for
+elevation. Landform-generation frequencies are expressed per-meter so the valley looks right at
+any resolution. LOS marches a fixed ~6 m step (decoupled from cell size) to stay cheap.
 
 ### 3.2 Line of sight & concealment
 - LOS samples the terrain profile between observer eye and target center/limbs.
@@ -119,25 +128,25 @@ boredom/terror cycle, and bonds between soldiers.
 - Flee under fire; can be hit by stray/indirect fire → major attitude & higher-command hit.
 
 ## 4. Campaign loop
-A deployment of configurable length (e.g., 90–365 in-game days). Each day = 4 phases.
-- Plan & launch patrols/ops; resolve marches; drop into tactical on contact.
-- Manage the COP between events. Random & scripted events punctuate.
-- Battalion directives create objectives (build the valley road, set up an OP on the
-  ridge, census the villages, interdict the rat lines).
+A deployment of configurable length (e.g., 60–270 in-game days) on one continuous clock.
+- Order soldiers directly or plan patrols/KLEs/projects; everything takes time on the map.
+- Quiet hours fast-forward (press to skip to the next event); combat slows to readable speed.
+- Random decision points pause time for a choice. Battalion directives create objectives
+  (presence in every village, meet the elders, census, interdict, build).
 - Scoring across: **Valley Stability**, **Village Attitudes**, **Enemy Strength**,
   **Your Combat Power** (men & materiel), **Higher Command Confidence**. No simple "win" —
-  a reflective end-of-tour after-action that grades the deployment.
+  a reflective end-of-tour after-action that grades the deployment, heavily penalizing losses.
 
 ## 5. Rendering & UI
-- **Topo strategic map**: Canvas 2D. Hillshade (relief) + contour lines + landcover tint +
-  grid + markers (COP, OPs, villages, known/suspected enemy, patrol routes, intel). Pan/zoom,
-  click-to-route, waypoints, measure.
-- **Tactical view**: Canvas 2D over the same terrain at higher zoom. Units, facing, stance,
-  LOS fans, tracer fire, smoke, impacts, suppression/morale state, selection & order UI.
+- **One live surface** (`WorldView`): Canvas 2D. Hillshade (relief) + contour lines + landcover
+  tint + grid + markers (COP, villages, project sites, suspected enemy, patrol route, intel) +
+  units, facing, stance, LOS lines, tracer fire, smoke, impacts, suppression/morale state, fog of
+  war. Pan/zoom, select (click/box), order tools, plan-mode waypoints, fire-support targeting.
 - **Aesthetic**: dark tactical "command post" theme — desaturated olive/tan/charcoal, mono
   for data, map ink for the topo. Readable, dense, military map symbology (MIL-STD-2525-ish).
-- **HUD**: top command bar (clock/phase/weather/alerts), left roster/unit panel, right
-  intel/log feed, bottom order bar & fire-support panel.
+- **HUD**: top command bar (clock/light/weather/metrics + pause/speed/warp), left column
+  (active elements, directives, intel, log), right column (patrol planner / village panel +
+  logistics), bottom order bar & fire-support panel.
 
 ## 6. Documentation deliverables
 - This design doc + a **wiki** (`docs/wiki/`) covering systems, weapons, tactics, glossary.

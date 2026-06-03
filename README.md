@@ -1,10 +1,11 @@
 # In the Mountains
 
-> A deep tactical-strategic simulation of asymmetric warfare in the mountains of
+> A deep, **continuous real-time** simulation of asymmetric warfare in the mountains of
 > Afghanistan, c. 2011. Command a remote combat outpost in a procedurally generated
-> Korengal-like valley: manage personnel and logistics, plan patrols on a topographic
-> map, fight per-bullet tactical engagements with full line-of-sight and concealment,
-> and wage counterinsurgency where the terrain itself is the enemy.
+> Korengal-like valley resolved to **5-metre fidelity**: there are no turns and no phases —
+> one clock runs everything. Soldiers kit up and step off in real time, patrols route through
+> the terrain, every bullet is simulated against line-of-sight and concealment, and winning the
+> valley means logistics and patience as much as firefights.
 
 Built with **Next.js (App Router) + React 19 + TypeScript + Tailwind 4**. The entire
 simulation engine is pure, deterministic TypeScript (seeded RNG); rendering is Canvas 2D.
@@ -24,6 +25,8 @@ npm run build && npm start
 ```
 
 Open the app, click **Deploy** for a new tour (or **Guided Tutorial**), and command your COP.
+Time is always running — pause with **Space**, set speed with **1–5**, and press **T** to
+fast-forward through the quiet hours until something needs you.
 
 Two read-anytime documents are served statically:
 
@@ -32,23 +35,35 @@ Two read-anytime documents are served statically:
 
 ## What's simulated
 
-- **Procedural valley terrain** — meandering river floor, steep ridgelines, spurs, draws,
-  terraced fields, orchards, forest, scree, villages, roads, and trails — with shaded-relief
-  topographic rendering and contour lines. Terrain drives elevation, slope, cover, concealment,
-  movement cost, and line of sight.
+- **One continuous clock.** No turn/phase layer. A single real-time world runs the sun (smooth
+  dawn/dusk and a real day/night cycle), weather, supply burn, soldier fatigue and rest, the
+  enemy's tempo, village projects, and combat — all on the same timeline, pausable and
+  time-warpable. Combat clamps the clock to readable speed; quiet stretches fast-forward.
+- **High-fidelity terrain (5 m grid).** A ~2.5 km valley resolved to 5-metre cells with 21
+  landcover classes — river, marsh, dry washes (covered approaches), irrigated cropland,
+  terraced fields and their stone **terrace walls**, orchards, scrub, forest, scree, boulder
+  fields, cliffs, walled **compounds** and compound walls, cemeteries, roads, trails and
+  footbridges — each with its own cover, concealment, and movement cost. Shaded-relief
+  rendering with contour lines.
+- **Terrain-aware movement & postures.** Patrols and infiltrating fighters both route with A*
+  over the terrain. Choose a movement **posture** — *Concealed* (slow, low, hugs forest and
+  washes, hard to detect), *Tactical*, *Patrol*, *Traveling*, or *Rush* (fast, loud, exposed) —
+  trading speed for profile and detectability.
+- **Everything takes time.** Forming a patrol means the element kits up at the wire before it
+  steps off. A CERP project can't just be bought: materials must be trucked in, a contractor and
+  labor brought on, and a squad must keep the site **secured for days** of work or the insurgents
+  intimidate the crew and the job stalls.
 - **Line of sight** — elevation ray-casting with partial defilade ("heads over the ridge"),
   vegetation/canopy concealment, and dynamic smoke.
 - **Every bullet** — each round is a real projectile with muzzle velocity, time of flight, and a
   dispersion folded from weapon mechanics, marksmanship, stance, fatigue, movement, and suppression.
-  Cover can stop an on-target round depending on penetration. Suppression accrues from near misses.
-- **People, not pieces** — named soldiers with attributes, morale/composure, suppression, fatigue,
-  regional wounds (with body armor), bleeding, buddy aid, and medics.
-- **AI** — insurgents that ambush from defilade, mass fire, shoot-and-scoot, and exfil up the draws;
-  civilians with pattern-of-life and panic flight; friendly soldiers that execute your intent with
-  autonomy (cover, return fire, reload, treat).
-- **Campaign / COIN** — a full deployment: phases of day, weather and light, logistics, village
-  attitudes, shuras and CERP projects, SIGINT/HUMINT intel, battalion directives, decision events,
-  and an end-of-tour assessment. You can win every firefight and still lose the valley.
+- **People, not pieces** — named soldiers with attributes, morale, suppression, fatigue, regional
+  wounds (with body armor), bleeding, buddy aid, and medics. Losses are permanent.
+- **AI** — insurgents that infiltrate the draws, ambush from defilade, shoot-and-scoot, and exfil;
+  civilians with pattern-of-life and panic flight; friendly soldiers that execute your intent.
+- **COIN** — village attitudes, shuras (KLE), CERP projects with real logistics, SIGINT/HUMINT
+  intel, battalion directives, decision events, resupply (convoy vs. air), and an end-of-tour
+  assessment. You can win every firefight and still lose the valley.
 
 ## Project structure
 
@@ -56,19 +71,30 @@ Two read-anytime documents are served statically:
 lib/sim/            Pure simulation engine (no React)
   rng.ts            Seeded RNG + value noise
   vec.ts            Vector / grid math
-  terrain.ts        Procedural valley + terrain queries
-  los.ts            Line of sight, concealment, detection
+  terrain.ts        Procedural 5 m valley + 21 landcover classes + queries
+  path.ts           Terrain-aware A* foot pathfinding (concealment bias)
+  los.ts            Line of sight, concealment, detection (posture-aware)
   weapons.ts        US + insurgent weapon catalog
   ballistics.ts     Projectile + hit + wound model
-  entities.ts       Soldiers / insurgents / civilians + factories
-  combat.ts         Tactical tick: perception, fire, projectiles, morale, fire support
+  entities.ts       Soldiers / insurgents / civilians + factories + move postures
+  combat.ts         Unit-level tick: perception, fire, projectiles, morale, fire support
   ai/               insurgent.ts · civilian.ts · friendly.ts
-  campaign.ts       Strategic state, phases, attrition, metrics, intel
-  patrol.ts         Mission planning, march/contact resolution, encounter building
-  events.ts         Decision events
+  campaign.ts       Shared campaign types + helpers (supplies, villages, weather)
+  world/            The continuous world (one package, split by concern)
+    world.ts        World class — the master clock, orchestration, orders
+    types.ts        WorldState, Task, Project, MissionType, ids
+    create.ts       createWorld / loadWorld factories
+    director.ts     Enemy activity director (ambush / infiltrate / harass / attack)
+    tasks.ts        Strategic tasks (patrol / KLE / project security)
+    projects.ts     CERP project logistics + resupply
+    events.ts       Decision events
+    helpers.ts      Shared free functions
 lib/render/         Canvas rendering (topo bake, markers, units, effects)
-state/store.ts      Zustand store bridging React <-> engine
-components/         Screens, map, tactical view, tutorial coach
+state/store.ts      Zustand store bridging React <-> the World (the real-time frame loop)
+components/
+  world/WorldView.tsx     The single live map (terrain + units + orders + planning)
+  screens/                MenuScreen · DeployScreen · TourEndScreen
+  TutorialCoach.tsx       In-game guided tutorial
 app/                Next.js App Router entry
 public/manual/      HTML field manual + tutorial
 docs/               Design doc + wiki
@@ -80,8 +106,8 @@ scripts/            Headless smoke & balance harnesses (run with `npx tsx`)
 The engine runs headless. Two harnesses exercise it without a browser:
 
 ```bash
-npx tsx scripts/smoke.ts        # one full campaign + encounter, prints a play-by-play
-npx tsx scripts/balance.ts 30   # 30 forced engagements; reports casualties & checks for stalls
+npx tsx scripts/smoke.ts          # build a world, send a patrol, run 30 game-min, print a play-by-play
+npx tsx scripts/balance.ts 12 45  # 12 continuous deployments x 45 game-min; casualties & stall check
 ```
 
 ## Documentation
@@ -93,5 +119,6 @@ npx tsx scripts/balance.ts 30   # 30 forced engagements; reports casualties & ch
 ## Notes
 
 - Determinism: a given seed reproduces a given valley and (given the same inputs) the same
-  outcomes. The campaign-level RNG advances as you play.
-- A debug handle is exposed in the browser as `window.__ITM` (the Zustand store).
+  outcomes. The world RNG advances as you play; saves store the RNG state and the full live world.
+- A debug handle is exposed in the browser as `window.__ITM` (the Zustand store);
+  `window.__ITM.getState().world` is the live `World`.

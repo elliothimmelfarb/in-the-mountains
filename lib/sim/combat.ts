@@ -1,7 +1,8 @@
 import { RNG, clamp, clamp01, lerp } from "./rng";
 import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle } from "./vec";
 import { Terrain } from "./terrain";
-import { Unit, unitHeight, eyeHeight } from "./entities";
+import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
+import { findPath, PathOptions } from "./path";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
 import {
@@ -30,7 +31,7 @@ export type OrderType =
   | "regroup"
   | "halt";
 
-export type MoveTechnique = "patrol" | "traveling" | "rush" | "crawl";
+export type { MoveTechnique } from "./entities";
 
 export interface Order {
   type: OrderType;
@@ -38,6 +39,10 @@ export interface Order {
   targetId?: string;
   technique?: MoveTechnique;
   rof?: Unit["rof"];
+  /** Route the move along the terrain (A*) instead of a straight line. */
+  pathfind?: boolean;
+  /** 0..1 preference for concealment when pathfinding. */
+  concealBias?: number;
 }
 
 export type EffectKind =
@@ -116,11 +121,18 @@ export interface CombatResult {
 
 // Movement base speeds (m/s) by technique.
 const TECH_SPEED: Record<MoveTechnique, number> = {
-  patrol: 1.0,
-  traveling: 1.7,
-  rush: 4.2,
   crawl: 0.5,
+  concealed: 0.85, // slow, low, hugging cover
+  tactical: 1.2, // deliberate bounding pace
+  patrol: 1.5, // normal foot patrol
+  traveling: 2.0, // moving with purpose
+  rush: 4.2, // sprint
 };
+
+/** Postures that defeat the eye: slow, low movement that reads as near-static. */
+function isStealthTechnique(t: MoveTechnique): boolean {
+  return t === "concealed" || t === "crawl";
+}
 
 const STANCE_SPEED: Record<Unit["stance"], number> = {
   stand: 1,
@@ -139,6 +151,8 @@ export interface CombatInit {
   /** Available COP indirect assets (weapon ids) and rounds. */
   mortars?: { weaponId: string; rounds: number; copPos: Vec2 }[];
   casAvailable?: boolean;
+  /** Persistent world: the sim never auto-resolves; the World manages lifecycle. */
+  persistent?: boolean;
 }
 
 let _eid = 0;
@@ -166,6 +180,7 @@ export class CombatSim {
   mortars: NonNullable<CombatInit["mortars"]>;
   casAvailable: boolean;
   casUsed = false;
+  persistent: boolean;
   outcome: CombatOutcome = "ongoing";
   ammoExpended = 0;
   fireMissionsUsed = 0;
@@ -183,12 +198,28 @@ export class CombatSim {
     this.context = init.context ?? "Contact";
     this.mortars = init.mortars ?? [];
     this.casAvailable = init.casAvailable ?? false;
+    this.persistent = init.persistent ?? false;
     for (const u of this.units) this.byId.set(u.id, u);
   }
 
   // ---------------------------------------------------------------- accessors
   unit(id: string | null | undefined): Unit | undefined {
     return id ? this.byId.get(id) : undefined;
+  }
+
+  /** Add a unit to the live world (enemy spawn, civilian pattern-of-life, etc). */
+  addUnit(u: Unit) {
+    if (this.byId.has(u.id)) return;
+    this.units.push(u);
+    this.byId.set(u.id, u);
+  }
+
+  /** Remove a unit from the world entirely (exfil off-map, despawn). */
+  removeUnit(id: string) {
+    const i = this.units.findIndex((u) => u.id === id);
+    if (i >= 0) this.units.splice(i, 1);
+    this.byId.delete(id);
+    this.revealed.delete(id);
   }
 
   isHostile(a: Unit, b: Unit): boolean {
@@ -239,7 +270,9 @@ export class CombatSim {
       case "withdraw":
         if (order.point) {
           u.orderTarget = { ...order.point };
-          u.path = [{ ...order.point }];
+          u.path = order.pathfind
+            ? findPath(this.terrain, u.pos, order.point, this.pathOptsFor(u, order))
+            : [{ ...order.point }];
           u.brainState = order.type === "withdraw" ? "withdrawing" : "moving";
         }
         if (order.type === "assault") u.rof = "free";
@@ -288,11 +321,11 @@ export class CombatSim {
         break;
     }
     if (order.rof) u.rof = order.rof;
-    if (order.technique) (u as Unit & { technique?: MoveTechnique }).technique = order.technique;
+    if (order.technique) u.technique = order.technique;
   }
 
   techniqueOf(u: Unit): MoveTechnique {
-    return ((u as Unit & { technique?: MoveTechnique }).technique ?? "traveling") as MoveTechnique;
+    return u.technique ?? "traveling";
   }
 
   // ---------------------------------------------------------------- main tick
@@ -404,6 +437,7 @@ export class CombatSim {
       if (d > Math.min(opticRange, this.weather.visibilityM) * 1.2) continue;
       const los = this.los(u, e);
       if (!los.visible) continue;
+      const stealthMove = e.moving && isStealthTechnique(this.techniqueOf(e));
       const p = detectionChance({
         los,
         light: this.light,
@@ -413,6 +447,8 @@ export class CombatSim {
         targetProne: e.stance === "prone",
         observerOpticRangeM: opticRange,
         alertness: clamp01(0.5 + u.experience * 0.4 + (u.suppression > 0 ? -0.2 : 0)),
+        targetStealthMoving: stealthMove,
+        targetStealth: e.stealth,
       });
       // accumulate detection over the throttle window
       if (this.rng.chance(p)) {
@@ -1021,6 +1057,25 @@ export class CombatSim {
     u.path = [{ x: clamp(point.x, 0, this.terrain.worldSize), y: clamp(point.y, 0, this.terrain.worldSize) }];
   }
 
+  /** Route a unit to a point following the terrain, honoring its move posture. */
+  pathTo(u: Unit, point: Vec2, opts: { concealBias?: number } = {}) {
+    const p = {
+      x: clamp(point.x, 2, this.terrain.worldSize - 2),
+      y: clamp(point.y, 2, this.terrain.worldSize - 2),
+    };
+    u.path = findPath(this.terrain, u.pos, p, { concealBias: opts.concealBias ?? this.defaultConcealBias(u) });
+    u.orderTarget = p;
+  }
+
+  private defaultConcealBias(u: Unit): number {
+    const t = this.techniqueOf(u);
+    return t === "concealed" ? 0.7 : t === "tactical" ? 0.3 : 0;
+  }
+
+  private pathOptsFor(u: Unit, order: Order): PathOptions {
+    return { concealBias: order.concealBias ?? this.defaultConcealBias(u) };
+  }
+
   /** Pick the best currently-perceived enemy for `u` to engage. */
   acquireTarget(u: Unit): string | null {
     let best: string | null = null;
@@ -1096,6 +1151,9 @@ export class CombatSim {
 
   // ---------------------------------------------------------------- outcome
   private checkOutcome() {
+    // In the persistent world the engagement never "ends" — the World layer
+    // tracks contact lulls and the enemy lifecycle. Combat just keeps running.
+    if (this.persistent) return;
     const us = this.units.filter((u) => (u.faction === "us" || u.faction === "ana") && u.alive && !u.evac && u.conscious);
     // an enemy still "in the fight" is conscious, on the map, and not already breaking contact
     const enemyEffective = this.units.filter(

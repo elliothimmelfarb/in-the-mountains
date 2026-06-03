@@ -49,7 +49,9 @@ export function lineOfSight(
 ): LOSResult {
   const observerHeight = opts.observerHeight ?? 1.6;
   const targetHeight = opts.targetHeight ?? 1.0;
-  const step = opts.step ?? terrain.cellSize * 0.6;
+  // Fixed ~6 m march so cost stays bounded regardless of grid resolution; the
+  // bilinear elevation sampling keeps it accurate on the 5 m grid.
+  const step = opts.step ?? Math.max(6, terrain.cellSize);
 
   const D = dist(from, to);
   if (D < 1e-3) {
@@ -142,6 +144,10 @@ export function detectionChance(params: {
   targetProne: boolean;
   observerOpticRangeM: number; // effective spotting range of optics
   alertness: number; // 0..1 observer alertness
+  /** Target is moving with a low-profile/concealed posture (slow, hugging cover). */
+  targetStealthMoving?: boolean;
+  /** Target's stealth skill 0..1 — fieldcraft that defeats the observer's eye. */
+  targetStealth?: number;
 }): number {
   const { los } = params;
   if (!los.visible) return 0;
@@ -154,7 +160,13 @@ export function detectionChance(params: {
   if (params.observerNVG) lightF = Math.max(lightF, 0.62 - los.rangeM / 4000);
   p *= 0.25 + 0.75 * clamp01(lightF);
 
-  if (params.targetMoving) p *= 1.45;
+  if (params.targetStealthMoving) {
+    // Deliberate, slow, cover-hugging movement is far harder to pick up than a
+    // man walking upright — and good fieldcraft (stealth skill) helps more.
+    p *= 0.4 + 0.35 * (1 - clamp01(params.targetStealth ?? 0.4));
+  } else if (params.targetMoving) {
+    p *= 1.45;
+  }
   if (params.targetFiring) p *= 2.2; // hard to hide a muzzle flash
   if (params.targetProne) p *= 0.6;
   p *= 0.55 + 0.45 * params.alertness;

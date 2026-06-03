@@ -2,104 +2,65 @@
 import { useGame } from "@/state/store";
 
 interface Step {
-  screen: string | null; // restrict to a screen, or null for any
   title: string;
   body: string;
 }
 
 const STEPS: Step[] = [
   {
-    screen: "command",
     title: "Welcome to the COP",
     body:
-      "You command this combat outpost and the soldiers in it. This is the Command view — the strategic layer. The big map is your valley: shaded-relief terrain, contour lines, your COP (the blue flag), and the villages. Drag to pan, scroll to zoom.",
+      "You command this combat outpost and the soldiers in it. There are no turns — one clock runs the whole valley, all the time. The big map is your ground: shaded-relief terrain at 5-metre fidelity, your COP (blue flag), and the villages. Drag to pan, scroll to zoom.",
   },
   {
-    screen: "command",
-    title: "Read the Command Bar",
+    title: "Time Is Always Moving",
     body:
-      "Top-left is the day, the phase of day (Dawn/Day/Dusk/Night), the light level, and the weather — which decides whether you'll have air support. The five bars are your campaign: Stability, village Attitudes, estimated Enemy strength, your Combat Power, and Higher's Confidence in you. Win the valley, not the body count.",
+      "Top-right are the time controls. SPACE pauses. 1–5 set the speed (1× is real time; combat clamps to 4×). The ⏩ button (T) fast-forwards through the quiet hours and stops the instant something matters — contact, a patrol reaching its objective, a project finishing, a decision at the gate. Everything below takes real time.",
   },
   {
-    screen: "command",
-    title: "Intel & Directives (left)",
+    title: "Read the Valley",
     body:
-      "The left column holds Battalion's Directives (your objectives and deadlines), the Intel Feed (SIGINT chatter, HUMINT from villagers, drone hits — each with a reliability %), and the Command Log. Intel is often wrong. Corroborate it.",
+      "The five bars are your campaign: Stability, village Attitudes, estimated Enemy strength, your Combat Power, and Higher's Confidence. Top-left shows the clock, the light (day/night drives what you and the enemy can see), and the weather — which decides whether you'll have air. Win the valley, not the body count.",
   },
   {
-    screen: "command",
-    title: "Plan a Patrol (right)",
+    title: "Send a Patrol",
     body:
-      "On the right, pick a Mission type, then build your element by clicking soldiers or a squad header to toggle the whole squad. Bring a DOC (medic) — without one, your wounded bleed. Watch the readiness dots: green = ready, amber = resting, red = wounded.",
+      "Select soldiers on the map (click or drag a box) or toggle whole squads in the Patrol Planner on the right. Pick a mission and a movement POSTURE — Concealed is slow and hard to spot and hugs forest and washes; Rush is fast, loud and exposed. Hit 'Draw Route', click waypoints on the map, then 'Step Off'. The element kits up, then moves — it all takes time.",
   },
   {
-    screen: "command",
-    title: "Draw the Route",
+    title: "When Rounds Crack",
     body:
-      "With 'Plan Route' selected (top-left of the map), click the map to drop waypoints from the COP outward. Distance is shown. Then press 'Step Off'. Most patrols are uneventful — but when the valley decides to fight, you drop into the tactical layer.",
+      "Contact happens organically when units see each other. The clock slows to combat speed. Select your soldiers and use the order bar — Move, Assault, Hold, Suppress, Smoke, Frag, Withdraw — and right-click to quick-move or engage. Get people behind cover; the terrace walls and qalats stop bullets, the open ground does not. Call mortars or air from Fire Support, and MEDEVAC your wounded.",
   },
   {
-    screen: "command",
-    title: "Engage the People",
+    title: "Win the People",
     body:
-      "Switch to 'Inspect' and click a village to meet its elder: hold a shura (KLE) to raise attitude and gather intel, or fund a CERP project (a well, a school) to win goodwill. Counterinsurgency is won here, over tea, as much as in any firefight.",
+      "Click a village to meet its elder. Send an element for a shura (KLE) to raise attitude and gather intel. Fund a CERP project — but a well or clinic isn't instant: materials must be trucked in, a contractor brought on, and a squad must keep the site secure for days or the insurgents intimidate the crew. Counterinsurgency is logistics and patience.",
   },
   {
-    screen: "command",
-    title: "Advance Time",
-    body:
-      "When you've given your orders, press 'Advance' (top-right) to move to the next phase of the day. Events and enemy activity happen between phases. Your men rest and heal at the COP — but the valley never fully sleeps, especially at night.",
-  },
-  {
-    screen: "tactical",
-    title: "Troops in Contact",
-    body:
-      "This is the tactical layer. Every round fired is simulated against the terrain — line of sight, cover, concealment. LEFT-CLICK or drag a box to select soldiers. RIGHT-CLICK to move them, or right-click an enemy to engage. SPACE pauses; 1/2/3 set speed.",
-  },
-  {
-    screen: "tactical",
-    title: "Fight Smart",
-    body:
-      "Use the order bar to take cover, suppress, pop smoke, or assault. Get your people OFF the X and behind cover — being caught in the open kills. Call mortars or air from the Fire Support panel (mind DANGER CLOSE). MEDEVAC your wounded. When it's over, break contact with 'End Contact'.",
-  },
-  {
-    screen: null,
     title: "You Have the Watch",
     body:
-      "That's the loop: plan, patrol, fight, manage, repeat — for a whole deployment. Read the full Field Manual from the menu any time. Keep your soldiers alive and the valley leaning your way. Good luck, commander.",
+      "That's the loop, and it never stops: patrol, fight, build, resupply, rest — across a whole deployment, on one clock. Read the full Field Manual from the menu any time. Keep your soldiers alive and the valley leaning your way. Good luck, commander.",
   },
 ];
 
 export default function TutorialCoach() {
   const tutorial = useGame((s) => s.tutorial);
   const step = useGame((s) => s.tutorialStep);
-  const screen = useGame((s) => s.screen);
   const next = useGame((s) => s.tutorialNext);
   const prev = useGame((s) => s.tutorialPrev);
   const end = useGame((s) => s.endTutorial);
   if (!tutorial) return null;
   const s = STEPS[Math.min(step, STEPS.length - 1)];
-  // If a step is bound to a screen we aren't on, show a gentle nudge instead.
-  const onWrongScreen = s.screen && s.screen !== screen;
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[460px] max-w-[92vw] panel border-amber p-4 fade-in shadow-2xl">
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[60] w-[480px] max-w-[92vw] panel border-amber p-4 fade-in shadow-2xl">
       <div className="flex items-center justify-between mb-1">
         <div className="stencil text-[10px] text-amber">Tutorial · {step + 1}/{STEPS.length}</div>
         <button className="tac-btn text-[10px] px-2 py-0.5" onClick={end}>Skip ✕</button>
       </div>
-      {onWrongScreen ? (
-        <div className="text-inkdim text-sm py-2">
-          {s.screen === "tactical"
-            ? "When a patrol makes contact, you'll drop into the tactical view and the next tips will appear. Launch a patrol to continue — or skip."
-            : "Return to the Command view to continue the tutorial."}
-        </div>
-      ) : (
-        <>
-          <h3 className="text-ink text-base font-bold mb-1">{s.title}</h3>
-          <p className="text-inkdim text-[13px] leading-relaxed">{s.body}</p>
-        </>
-      )}
+      <h3 className="text-ink text-base font-bold mb-1">{s.title}</h3>
+      <p className="text-inkdim text-[13px] leading-relaxed">{s.body}</p>
       <div className="flex justify-between items-center mt-3">
         <button className="tac-btn text-[11px]" onClick={prev} disabled={step === 0}>◂ Back</button>
         {step < STEPS.length - 1 ? (

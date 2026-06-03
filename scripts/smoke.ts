@@ -1,23 +1,71 @@
-import { createCampaign, advancePhase } from "../lib/sim/campaign";
-import { RNG } from "../lib/sim/rng";
-import { newPatrolId, resolveMarch, buildEncounter, PatrolPlan } from "../lib/sim/patrol";
-import { CombatSim } from "../lib/sim/combat";
+import { createWorld } from "../lib/sim/world";
+import { Land } from "../lib/sim/terrain";
 
 function pct(n: number) {
   return Math.round(n) + "%";
 }
 
-const { state, terrain } = createCampaign("smoke-test", 120);
-console.log("=== CAMPAIGN ===");
-console.log("Terrain:", terrain.size, "cells,", Math.round(terrain.minElev), "-", Math.round(terrain.maxElev), "m");
+const world = createWorld("smoke-test", 90);
+const { terrain, state, sim } = world;
+
+console.log("=== WORLD ===");
+console.log("Terrain:", terrain.size, "cells @", terrain.cellSize, "m =", terrain.worldSize, "m,", Math.round(terrain.minElev), "-", Math.round(terrain.maxElev), "m");
 console.log("COP cell:", terrain.copCell, "Villages:", terrain.villages.map((v) => v.name).join(", "));
-console.log("Platoon:", state.platoon.members.length, "members in", state.platoon.squads.length, "squads");
+console.log("Platoon:", world.platoon.members.length, "in", world.platoon.squads.length, "squads · civilians:", sim.units.filter((u) => u.faction === "civilian").length);
 console.log("Named features:", terrain.features.map((f) => `${f.name}(${f.elevation}m)`).join(", "));
 
-// Advance a few phases
-const rng = new RNG("smoke-adv");
-for (let i = 0; i < 6; i++) advancePhase(state, rng);
-console.log("\nAfter 6 phases: Day", state.day, state.weather.label, "Metrics:", {
+// landcover histogram (proof of richer terrain)
+const counts: Record<number, number> = {};
+for (let i = 0; i < terrain.land.length; i++) counts[terrain.land[i]] = (counts[terrain.land[i]] ?? 0) + 1;
+const present = Object.keys(counts).map(Number).sort((a, b) => counts[b] - counts[a]);
+console.log("Landcover classes present:", present.length, "/", 21);
+console.log("  " + present.map((l) => `${Land[l]}:${((counts[l] / terrain.land.length) * 100).toFixed(1)}%`).join("  "));
+
+// form a patrol toward the first village, concealed
+const cop = terrain.copCell;
+const v = terrain.villages[0];
+const sq = world.platoon.squads.find((s) => s.id === "sq1")!;
+const medic = world.platoon.members.find((m) => m.role === "medic");
+const ids = [...sq.memberIds, ...(medic ? [medic.id] : [])];
+const route = [
+  { cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) },
+  { cx: v.cx, cy: v.cy },
+];
+const task = world.formPatrol(ids, route, "presence", "tactical");
+console.log("\n=== PATROL ===");
+console.log("Task:", task?.label, "· pax", task?.memberIds.length, "· phase", task?.phase, "· route legs", task?.route.length);
+
+// crank the heat and run the continuous world
+state.enemyHeat = 0.75;
+state.nextActivityAt = 0;
+const dt = 0.1;
+let ticks = 0;
+const maxTicks = 18000; // 30 game-minutes
+let projPeak = 0;
+let everContact = false;
+let enemiesSeen = 0;
+while (ticks < maxTicks && !state.ended) {
+  world.tick(dt);
+  projPeak = Math.max(projPeak, sim.projectiles.length);
+  if (world.inContact()) everContact = true;
+  enemiesSeen = Math.max(enemiesSeen, sim.livingEnemies().length);
+  for (const u of sim.units) {
+    if (Number.isNaN(u.pos.x) || Number.isNaN(u.pos.y)) {
+      console.error("NaN position on", u.id, u.faction, u.role);
+      process.exit(1);
+    }
+  }
+  ticks++;
+}
+
+const kia = world.platoon.members.filter((m) => !m.alive).length;
+const wia = world.platoon.members.filter((m) => m.alive && m.status === "wounded").length;
+const enemyKIA = world.platoon.members.reduce((a, m) => a + m.kills, 0);
+
+console.log("\n=== AFTER", (ticks * dt / 60).toFixed(0), "GAME-MINUTES (", world.clockLabel(), ") ===");
+console.log("Contact occurred:", everContact, "· peak enemies on map:", enemiesSeen, "· peak projectiles:", projPeak);
+console.log("US KIA:", kia, "· US WIA:", wia, "· enemy accounted:", enemyKIA);
+console.log("Metrics:", {
   stability: pct(state.metrics.stability),
   attitude: pct(state.metrics.attitude),
   enemy: pct(state.metrics.enemyStrength),
@@ -25,69 +73,13 @@ console.log("\nAfter 6 phases: Day", state.day, state.weather.label, "Metrics:",
   higher: pct(state.metrics.higherConfidence),
 });
 console.log("Intel reports:", state.intel.length, "| latest:", state.intel[0]?.text);
+console.log("Tasks active:", state.tasks.length, "| ammo 5.56:", Math.round(state.supplies.ammo_556));
+console.log("\nLog tail:");
+for (const l of state.log.slice(-12)) console.log(`  [${l.timeLabel}] ${l.kind.toUpperCase()}: ${l.msg}`);
 
-// Plan a patrol from the COP into the valley
-const cop = terrain.copCell;
-const target = terrain.villages[0];
-const squad = state.platoon.squads.find((s) => s.id === "sq1")!;
-const plan: PatrolPlan = {
-  id: newPatrolId(),
-  missionType: "presence",
-  memberIds: squad.memberIds,
-  route: [
-    { cx: cop.cx, cy: cop.cy },
-    { cx: Math.round((cop.cx + target.cx) / 2), cy: Math.round((cop.cy + target.cy) / 2) },
-    { cx: target.cx, cy: target.cy },
-  ],
-  notes: "smoke test patrol",
-};
+// save/load round-trip
+const blob = world.serialize();
+const json = JSON.stringify(blob);
+console.log("\nSerialized save size:", (json.length / 1024).toFixed(1), "KB · units:", blob.units.length);
 
-// Force a contact for the test
-const marchRng = new RNG("force-contact");
-state.enemyHeat = 0.7;
-let spec = resolveMarch(state, terrain, plan, marchRng);
-let tries = 0;
-while (!spec.occurred && tries < 50) {
-  spec = resolveMarch(state, terrain, plan, new RNG("force-" + tries));
-  tries++;
-}
-console.log("\n=== CONTACT ===");
-console.log("Occurred:", spec.occurred, "| kind:", spec.kind, "| enemy:", spec.enemyCount, "| at", spec.cell);
-console.log(spec.narrative);
-
-if (spec.occurred) {
-  const { init, meta } = buildEncounter(state, terrain, plan, spec, new RNG("enc"));
-  console.log("Encounter units:", init.units.length, "(US:", init.units.filter((u) => u.faction === "us").length,
-    "INS:", init.units.filter((u) => u.faction === "insurgent").length,
-    "CIV:", init.units.filter((u) => u.faction === "civilian").length, ")");
-  console.log("Light:", init.light.toFixed(2), "| mortars:", init.mortars?.map((m) => m.weaponId).join(",") || "none",
-    "| CAS:", init.casAvailable, "| meta village:", meta.villageId);
-
-  const sim = new CombatSim(init);
-  // run up to 5 minutes of combat at 10 Hz
-  const dt = 0.1;
-  let ticks = 0;
-  const maxTicks = 3000;
-  let projPeak = 0;
-  while (sim.outcome === "ongoing" && ticks < maxTicks) {
-    sim.tick(dt);
-    projPeak = Math.max(projPeak, sim.projectiles.length);
-    ticks++;
-    // sanity: detect NaN positions
-    for (const u of sim.units) {
-      if (Number.isNaN(u.pos.x) || Number.isNaN(u.pos.y)) {
-        console.error("NaN position on", u.id, u.faction, u.role);
-        process.exit(1);
-      }
-    }
-  }
-  const result = sim.result();
-  console.log("\n=== COMBAT RESULT after", (ticks * dt).toFixed(0), "s ===");
-  console.log("Outcome:", result.outcome);
-  console.log("US KIA:", result.usKIA.length, "| US WIA:", result.usWIA.length, "| Enemy KIA:", result.enemyKIA,
-    "| Civ casualties:", result.civCasualties);
-  console.log("Ammo expended:", result.ammoExpended, "| fire missions:", result.fireMissionsUsed, "| peak projectiles:", projPeak);
-  console.log("\nLast log lines:");
-  for (const l of sim.log.slice(-10)) console.log(`  [${l.timeS.toFixed(0)}s] ${l.kind.toUpperCase()}: ${l.msg}`);
-}
 console.log("\nSMOKE OK");

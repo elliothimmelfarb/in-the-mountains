@@ -4,8 +4,8 @@ import { useGame } from "@/state/store";
 
 export default function MenuScreen() {
   const newCampaign = useGame((s) => s.newCampaign);
-  const hasCampaign = useGame((s) => !!s.campaign);
-  const gotoCommand = useGame((s) => s.gotoCommand);
+  const hasCampaign = useGame((s) => !!s.world);
+  const resume = useGame((s) => s.resume);
   const startTutorial = useGame((s) => s.startTutorial);
   const savedExists = useGame((s) => s.savedExists);
   const loadCampaign = useGame((s) => s.loadCampaign);
@@ -75,7 +75,7 @@ export default function MenuScreen() {
             ▸ Guided Tutorial
           </button>
           {hasCampaign ? (
-            <button className="tac-btn active" onClick={gotoCommand}>
+            <button className="tac-btn active" onClick={resume}>
               Resume Command
             </button>
           ) : (
@@ -116,7 +116,7 @@ export default function MenuScreen() {
           </div>
         )}
         <div className="text-center text-[10px] text-inkdim/60 mt-6 font-mono">
-          MOUSE: drag to pan · wheel to zoom · click to plan · RIGHT-CLICK to give orders in contact
+          ONE CONTINUOUS CLOCK · SPACE pause · 1–5 speed · T skip to next event · the valley never stops
         </div>
       </div>
     </div>

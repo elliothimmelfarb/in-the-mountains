@@ -1,6 +1,5 @@
 "use client";
 import { useGame } from "@/state/store";
-import { computeTourScore } from "@/lib/sim/campaign";
 
 function grade(score: number): { letter: string; verdict: string; color: string } {
   if (score >= 85) return { letter: "A", verdict: "A model counterinsurgency. The valley is quieter than you found it, and your soldiers came home.", color: "#6fae54" };
@@ -11,18 +10,18 @@ function grade(score: number): { letter: string; verdict: string; color: string 
 }
 
 export default function TourEndScreen() {
-  const campaign = useGame((s) => s.campaign);
+  const world = useGame((s) => s.world);
   const gotoMenu = useGame((s) => s.gotoMenu);
-  if (!campaign) return null;
-  const score = campaign.tourScore || computeTourScore(campaign);
+  if (!world) return null;
+  const score = world.state.tourScore || world.computeTourScore();
   const g = grade(score);
-  const kia = campaign.platoon.members.filter((m) => !m.alive);
-  const m = campaign.metrics;
+  const kia = world.platoon.members.filter((m) => !m.alive);
+  const m = world.state.metrics;
 
   return (
     <div className="w-full h-full flex items-center justify-center overflow-y-auto scanlines vignette py-8">
       <div className="panel w-[680px] max-w-[94vw] p-7 fade-in">
-        <div className="stencil text-xs text-amber mb-1">End of Tour · {campaign.fob.name}</div>
+        <div className="stencil text-xs text-amber mb-1">End of Tour · {world.state.fob.name}</div>
         <div className="flex items-end gap-4 mb-3">
           <div className="text-7xl font-black leading-none" style={{ color: g.color }}>{g.letter}</div>
           <div>
@@ -30,6 +29,7 @@ export default function TourEndScreen() {
             <div className="text-inkdim text-sm">Deployment Assessment</div>
           </div>
         </div>
+        {world.state.endReason && <p className="text-tan text-sm mb-2">{world.state.endReason}</p>}
         <p className="text-tan italic text-sm mb-5 leading-relaxed border-l-2 border-line pl-3">{g.verdict}</p>
 
         <div className="grid grid-cols-4 gap-2 mb-5 font-mono text-center">
@@ -54,7 +54,7 @@ export default function TourEndScreen() {
 
         <div className="flex justify-between items-center">
           <div className="text-[11px] text-inkdim font-mono">
-            Tour: {campaign.day} days · {campaign.platoon.members.reduce((a, x) => a + x.kills, 0)} enemy accounted for
+            Tour: {world.day - 1} days · {world.platoon.members.reduce((a, x) => a + x.kills, 0)} enemy accounted for
           </div>
           <button className="tac-btn active px-6 py-2" onClick={gotoMenu}>▸ New Deployment</button>
         </div>

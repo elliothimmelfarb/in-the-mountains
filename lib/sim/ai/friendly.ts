@@ -38,7 +38,8 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
     else if (contact) u.stance = sim.terrain.coverAt(u.pos.x, u.pos.y) > 0.3 ? "crouch" : "prone";
     else u.stance = "crouch";
   } else {
-    u.stance = sim.techniqueOf(u) === "crawl" ? "prone" : "stand";
+    const t = sim.techniqueOf(u);
+    u.stance = t === "crawl" ? "prone" : t === "concealed" || t === "tactical" ? "crouch" : "stand";
   }
 
   // Pinned & leaderless: hunker, seek the nearest cover, don't expose to fire.

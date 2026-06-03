@@ -73,39 +73,43 @@
   you cannot win the people. Every civilian you kill makes ten fighters. Every promise you break is
   remembered for a generation. <strong>You can win every firefight and lose the valley.</strong></p>
 
-  <h2 id="layers">2. The Two Layers</h2>
+  <h2 id="layers">2. One Continuous Clock</h2>
+  <p>There are <strong>no turns and no phases.</strong> A single real-time clock runs the entire
+  valley at once — the sun and a true day/night cycle, the weather, your soldiers' fatigue and rest,
+  the enemy's tempo, the slow grind of construction, and combat. It is one screen and one timeline.</p>
   <div class="grid2">
     <div class="card">
-      <h4>Command Layer</h4>
-      <p class="dim">Turn-based, resolved by phase of day. Manage the COP: personnel, logistics,
-      defense, intelligence. Plan and launch patrols and operations on the topographic map.
-      Engage the population. Answer to battalion.</p>
+      <h4>Time you control</h4>
+      <p class="dim"><kbd>Space</kbd> pauses. <kbd>1</kbd>–<kbd>5</kbd> set the speed (1× is real
+      time). The <strong>⏩ skip-to-event</strong> button (<kbd>T</kbd>) fast-forwards the quiet hours
+      and stops the instant something matters.</p>
     </div>
     <div class="card">
-      <h4>Contact Layer</h4>
-      <p class="dim">Real-time-with-pause tactical combat. Triggered when a patrol makes contact,
-      when the COP is attacked, or when you spring an ambush. Squad and individual control, with
-      every round simulated against line of sight, cover, and concealment.</p>
+      <h4>Time that costs</h4>
+      <p class="dim">Everything takes time on that clock: a squad kitting up before it steps off,
+      the walk across the ground, a shura, days of secured construction. Combat happens organically
+      when units see each other, and the clock slows to a readable speed for the fight.</p>
     </div>
   </div>
 
   <h2 id="loop">3. The Game Loop</h2>
   <ol>
-    <li><strong>Plan</strong> — at the COP, study intel, pick a mission, task-organize an element, draw a route.</li>
-    <li><strong>Patrol</strong> — step off. Most patrols are long, hot, and uneventful. Some are not.</li>
-    <li><strong>Fight</strong> — on contact, drop into the tactical layer. Maneuver, suppress, call for fire, treat the wounded, break contact or destroy the enemy.</li>
-    <li><strong>Manage</strong> — between phases, rest your men, run shuras, fund projects, resupply, and respond to events.</li>
-    <li><strong>Repeat</strong> — for an entire deployment. The valley keeps score.</li>
+    <li><strong>Order</strong> — select soldiers and move them directly, or plan a patrol: pick a mission and a movement posture, draw a route, step off. The element kits up, then moves through the terrain.</li>
+    <li><strong>Skip</strong> — when nothing needs you, press ⏩ to fast-forward to the next event — contact, an objective reached, a project milestone, a decision at the gate.</li>
+    <li><strong>Fight</strong> — when rounds crack, the clock slows. Maneuver, suppress, call for fire, treat the wounded, break contact or destroy the enemy; the patrol resumes on the lull.</li>
+    <li><strong>Build</strong> — run shuras, fund projects (and keep them secure), resupply, and answer the decisions that pause the clock.</li>
+    <li><strong>Endure</strong> — for an entire deployment, on one clock. The valley keeps score.</li>
   </ol>
 
-  <h2 id="command">4. The COP (Command View)</h2>
-  <p>The <strong>command bar</strong> across the top shows the day and tour length, the phase of day
-  (Dawn → Day → Dusk → Night), the light level (which governs night-vision advantage), the weather
-  (which governs air support), and your five campaign metrics. The center is the topographic map.
-  The left column holds directives, intel, and the log; the right column holds patrol planning,
-  village engagement, and logistics.</p>
-  <p>Press <strong>Advance</strong> to move time forward by one phase. Your men rest and recover at
-  the COP, supplies are consumed, intel arrives, and the enemy moves. The night belongs to him.</p>
+  <h2 id="command">4. The Command View</h2>
+  <p>The <strong>command bar</strong> across the top shows the COP, the running clock (Day · HH:MM)
+  and tour length, the light level (which governs night-vision advantage), the weather (which governs
+  air support), your five campaign metrics, and the <strong>time controls</strong> (pause, 1×–16×,
+  and ⏩ skip-to-event). The center is the live topographic map. The left column holds your active
+  elements, directives, intel, and the log; the right column holds the patrol planner / village
+  engagement and logistics; the bottom is the order bar and fire support.</p>
+  <p>Your men rest and recover at the wire and tire in the field; supplies burn continuously; intel
+  arrives; the enemy moves. The night belongs to him.</p>
 
   <h2 id="personnel">5. Personnel</h2>
   <p>Your platoon is roughly 35 soldiers in a headquarters element, three rifle squads, and a
@@ -149,19 +153,24 @@
         <li><span class="tag">Overwatch / OP</span> sit on high ground and watch a route.</li>
       </ul>
     </li>
-    <li><strong>Task-organize</strong> — click soldiers, or a squad header to toggle the whole squad. Mind your composition.</li>
-    <li><strong>Route</strong> — with <em>Plan Route</em> selected, click the map to drop waypoints. Distance is shown. Deeper into the valley means more danger.</li>
-    <li><strong>Step Off</strong> — launch. The patrol marches; contact probability is rolled along the route from terrain, enemy activity, village hostility, and intel hotspots.</li>
+    <li><strong>Task-organize</strong> — click soldiers on the map, or a squad header to toggle the whole squad. Mind your composition; bring a medic.</li>
+    <li><strong>Posture</strong> — pick how they move: <span class="tag">Concealed</span> (slow, low, hugs forest and washes, hard to spot), <span class="tag">Tactical</span>, <span class="tag">Patrol</span>, <span class="tag">Traveling</span>, or <span class="tag">Rush</span> (fast, loud, exposed). Posture trades speed for profile.</li>
+    <li><strong>Route</strong> — hit <em>Draw Route</em> and click the map to drop waypoints. The element paths through the terrain (following trails and washes, avoiding cliffs).</li>
+    <li><strong>Step Off</strong> — the element <em>kits up</em> at the wire for a few minutes, then moves out. It all happens in real time; watch it on the map and in the Active Elements panel, where you can <em>recall</em> it.</li>
   </ol>
+  <p>Contact is not a dice roll along the route — it emerges when your soldiers and the enemy actually
+  see each other. The enemy director stages ambushes astride your patrols, infiltrations through the
+  draws, harassment, and the occasional complex attack on the COP, scaled by the valley's heat.</p>
 
   <h2 id="coin">8. The People (Counterinsurgency)</h2>
-  <p>Switch the map to <em>Inspect</em> and click a village. Each has an elder, a population, an
-  <span class="us">attitude</span> toward you, a <span class="dim">cooperation</span> level (how much
-  intel they'll share), and a hidden <span class="enemy">sympathy</span> for the insurgents.</p>
+  <p>Click a village. Each has an elder, a population, an <span class="us">attitude</span> toward you,
+  a <span class="dim">cooperation</span> level (how much intel they'll share), a hidden
+  <span class="enemy">sympathy</span> for the insurgents, and something it <em>wants</em>.</p>
   <ul>
-    <li><strong>Shura (KLE)</strong> — sit with the elder. Raises attitude and cooperation and may yield intel. Costs a phase.</li>
-    <li><strong>CERP Projects</strong> — spend reconstruction funds on a well, a school, a clinic, a road. Builds lasting goodwill and reduces sympathy.</li>
+    <li><strong>Shura (KLE)</strong> — select an element and send it to sit with the elder. Attitude, cooperation, and intel accrue over the time the element spends there.</li>
+    <li><strong>CERP Projects</strong> — fund a well, school, clinic, road, or footbridge. This is not instant: materials must be <em>trucked in</em>, a local <em>contractor</em> and labor brought on, and a <strong>squad must keep the site secure for days</strong> of work. Leave it unsecured and the insurgents intimidate the crew — the job stalls and can be sabotaged. A finished project is a lasting attitude swing.</li>
     <li><strong>Solatia</strong> — after you cause harm, payment and apology can repair a relationship. Offered through events.</li>
+    <li><strong>Resupply</strong> — request a ground convoy (full, but it can be ambushed on the road) or air (partial, weather-dependent) from the Logistics panel; it also brings the construction materials your projects need.</li>
   </ul>
   <div class="callout warn">
     <div class="h">Civilian casualties are catastrophic</div>
@@ -181,39 +190,45 @@
   <p>Intel marks hotspots on the map and raises contact probability nearby. <strong>It is frequently
   wrong.</strong> Corroborate across sources before you act on it.</p>
 
-  <h2 id="tactical">10. Tactical Combat</h2>
-  <p>When contact is made you'll see a briefing, then deploy into the tactical layer: the same
-  terrain, zoomed in, every soldier under your command. Time runs in real time; pause freely and
-  give orders deliberately. The clock, speed controls, friendly/contact counts, and "End Contact"
-  are along the top. Your soldiers act with autonomy within your intent — they return fire, take
-  cover, reload, and the medic moves to the wounded — but the decisions that matter are yours.</p>
+  <h2 id="tactical">10. Combat</h2>
+  <p>Combat is not a separate screen — it happens on the same map, in the same continuous clock, the
+  moment your soldiers and the enemy see each other. The clock automatically clamps to a readable
+  speed (≤4×) and the ⏩ skip is disabled while you're in contact. Select your soldiers and fight with
+  the order bar; your soldiers act with autonomy within your intent — they return fire, take cover,
+  reload, and the medic moves to the wounded — but the decisions that matter are yours. When the
+  fighting stops, a patrol picks its task back up and continues.</p>
 
   <h2 id="controls">11. Controls</h2>
   <table>
     <thead><tr><th>Input</th><th>Action</th></tr></thead>
     <tbody>
-      <tr><td><kbd>Left-click</kbd> / drag</td><td>Select a soldier / box-select an element</td></tr>
+      <tr><td><kbd>Left-click</kbd> / drag</td><td>Select a soldier / box-select an element (or click a village)</td></tr>
       <tr><td><kbd>Shift</kbd> + click</td><td>Add to selection</td></tr>
-      <tr><td><kbd>Right-click</kbd></td><td>Quick move (empty ground) or engage (on an enemy)</td></tr>
-      <tr><td>Wheel</td><td>Zoom · drag with <kbd>Alt</kbd>/right-drag to pan</td></tr>
+      <tr><td><kbd>Right-click</kbd></td><td>Quick move (empty ground) or engage (on an enemy); right-drag to pan</td></tr>
+      <tr><td>Wheel</td><td>Zoom · drag with <kbd>Alt</kbd> to pan</td></tr>
       <tr><td><kbd>Space</kbd></td><td>Pause / resume</td></tr>
-      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Speed 1× / 2× / 4×</td></tr>
-      <tr><td><kbd>Q</kbd>…<kbd>F</kbd>, <kbd>X</kbd></td><td>Order tools (Select, Move, Rush, Assault, Hold, Suppress, Smoke, Frag, Withdraw)</td></tr>
+      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd></td><td>Speed 1× / 2× / 4× / 8× / 16×</td></tr>
+      <tr><td><kbd>T</kbd></td><td>Toggle ⏩ skip-to-next-event (fast-forward)</td></tr>
+      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>X</kbd></td><td>Order tools (Select, Move, Assault, Hold, Suppress, Smoke, Frag, Withdraw)</td></tr>
       <tr><td><kbd>Esc</kbd></td><td>Cancel fire-support targeting</td></tr>
     </tbody>
   </table>
-  <p>Pick an order tool from the bottom bar, then click the map to issue it to the selected element.
-  For fire support, select the asset, then click the impact point.</p>
+  <p>Pick an order tool from the bottom bar, set a movement <strong>posture</strong>, then click the
+  map to issue it to the selected element. For fire support, select the asset, then click the impact
+  point. To plan a patrol, hit <em>Plan Patrol</em>, draw a route, and <em>Step Off</em>.</p>
 
   <h2 id="terrain">12. Terrain, Line of Sight &amp; Concealment</h2>
-  <p>The valley is procedurally generated from your seed: a meandering river floor rising to
-  ridgelines, cut by spurs and draws, with terraced fields, orchards, scrub, forest, scree, and
-  rock. Terrain is not scenery — it is the dominant actor.</p>
+  <p>The valley is procedurally generated from your seed and resolved to a <strong>5-metre grid</strong>
+  — a ~2.5 km AO with 21 distinct landcover classes. A meandering river floor rises to ridgelines, cut
+  by spurs and draws, with marsh and <strong>dry washes</strong> (sunken, concealed approaches),
+  irrigated cropland, terraced fields and their stone <strong>terrace walls</strong>, orchards, scrub,
+  forest, scree, boulder fields, cliffs, walled <strong>compounds</strong> and compound walls,
+  cemeteries, roads, trails, and footbridges. Terrain is not scenery — it is the dominant actor.</p>
   <ul>
     <li><strong>Elevation</strong> drives line of sight. A man behind a crest is in <em>dead ground</em> (defilade); only what pokes above the horizon line can be seen or hit. Partial exposure — "heads and shoulders over the ridge" — is computed smoothly, not as a binary.</li>
-    <li><strong>Concealment</strong> (forest, orchard, scrub, smoke) blocks sight without stopping bullets. You can't shoot what you can't see — and neither can he.</li>
-    <li><strong>Cover</strong> (rock, qalat walls, terrace walls) stops rounds. Going prone or crouching adds cover and shrinks your silhouette.</li>
-    <li><strong>Movement cost</strong> punishes steep slopes, scree, and brush. The climb itself is an enemy: fatigue degrades everything.</li>
+    <li><strong>Concealment</strong> (forest, orchard, scrub, dry washes, smoke) blocks sight without stopping bullets. Moving <em>Concealed</em> through it makes you very hard to spot.</li>
+    <li><strong>Cover</strong> (compound walls, boulders, terrace walls, rock) stops rounds — mud qalat walls are the best cover in the valley. Going prone or crouching adds cover and shrinks your silhouette.</li>
+    <li><strong>Movement cost</strong> punishes steep slopes, scree, brush, and the river; roads and trails are fastest. Cliffs and compound walls are impassable on foot. The climb itself is an enemy: fatigue degrades everything.</li>
   </ul>
   <div class="callout">
     <div class="h">Read the ground</div>

@@ -39,6 +39,30 @@ export type Role =
 
 export type Stance = "stand" | "crouch" | "prone";
 
+/**
+ * How a unit moves when it has somewhere to be. Postures trade speed for
+ * profile: a "rush" is fast but loud and exposed; "concealed" is slow, low, and
+ * hugs cover so it routes through forest and washes and is hard to detect.
+ */
+export type MoveTechnique = "crawl" | "concealed" | "tactical" | "patrol" | "traveling" | "rush";
+
+export const MOVE_TECHNIQUES: MoveTechnique[] = [
+  "concealed",
+  "tactical",
+  "patrol",
+  "traveling",
+  "rush",
+];
+
+export const TECHNIQUE_LABEL: Record<MoveTechnique, string> = {
+  crawl: "Crawl",
+  concealed: "Concealed",
+  tactical: "Tactical",
+  patrol: "Patrol",
+  traveling: "Traveling",
+  rush: "Rush",
+};
+
 export interface Wound {
   region: "head" | "chest" | "abdomen" | "arm" | "leg";
   severity: number; // 0..1
@@ -64,6 +88,7 @@ export interface Unit {
   moving: boolean;
   speed: number; // current m/s
   path: Vec2[]; // waypoints being followed (world)
+  technique?: MoveTechnique; // movement posture while following a path
 
   // --- innate attributes (0..1) ---
   marksmanship: number;

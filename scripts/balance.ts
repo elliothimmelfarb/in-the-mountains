@@ -1,54 +1,68 @@
-import { createCampaign } from "../lib/sim/campaign";
-import { RNG } from "../lib/sim/rng";
-import { newPatrolId, resolveMarch, buildEncounter, PatrolPlan } from "../lib/sim/patrol";
-import { CombatSim } from "../lib/sim/combat";
+import { createWorld } from "../lib/sim/world";
 
-const N = Number(process.argv[2] ?? 24);
-let usKIA = 0, usWIA = 0, enKIA = 0, civ = 0, stalls = 0, victories = 0, destroyed = 0, withdrew = 0;
-let totalDur = 0;
-const durList: number[] = [];
+const N = Number(process.argv[2] ?? 12);
+const MINUTES = Number(process.argv[3] ?? 50);
+
+let usKIA = 0, usWIA = 0, enKIA = 0, civ = 0, contacts = 0, stuck = 0;
+let totalEnemySeen = 0;
 
 for (let run = 0; run < N; run++) {
   const seed = `bal-${run}`;
-  const { state, terrain } = createCampaign(seed, 120);
-  state.enemyHeat = 0.6 + (run % 5) * 0.08;
-  const v = terrain.villages[run % terrain.villages.length];
+  const world = createWorld(seed, 90);
+  const { terrain, state, sim } = world;
+  state.enemyHeat = 0.6 + (run % 5) * 0.06;
+
+  // push a squad + medic out toward a village on a presence patrol
   const cop = terrain.copCell;
-  const sq = state.platoon.squads.find((s) => s.id === "sq1")!;
-  const ids = sq.memberIds.slice();
-  const medic = state.platoon.members.find((m) => m.role === "medic");
-  if (medic) ids.push(medic.id);
-  const plan: PatrolPlan = {
-    id: newPatrolId(),
-    missionType: "presence",
-    memberIds: ids,
-    route: [
-      { cx: cop.cx, cy: cop.cy },
+  const v = terrain.villages[run % terrain.villages.length];
+  const sq = world.platoon.squads.find((s) => s.id === "sq1")!;
+  const medic = world.platoon.members.find((m) => m.role === "medic");
+  const ids = [...sq.memberIds, ...(medic ? [medic.id] : [])];
+  world.formPatrol(
+    ids,
+    [
       { cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) },
       { cx: v.cx, cy: v.cy },
     ],
-    notes: "",
-  };
-  // force contact
-  let spec = resolveMarch(state, terrain, plan, new RNG(`m-${run}`));
-  let t = 0;
-  while (!spec.occurred && t < 60) { spec = resolveMarch(state, terrain, plan, new RNG(`m-${run}-${t}`)); t++; }
-  if (!spec.occurred) continue;
-  const { init } = buildEncounter(state, terrain, plan, spec, new RNG(`enc-${run}`));
-  const sim = new CombatSim(init);
-  let ticks = 0;
-  while (sim.outcome === "ongoing" && ticks < 6000) { sim.tick(0.1); ticks++; }
-  if (sim.outcome === "ongoing") stalls++;
-  const r = sim.result();
-  if (r.outcome === "us_victory") victories++;
-  if (r.outcome === "us_destroyed") destroyed++;
-  if (r.outcome === "us_withdraw") withdrew++;
-  usKIA += r.usKIA.length; usWIA += r.usWIA.length; enKIA += r.enemyKIA; civ += r.civCasualties;
-  totalDur += r.durationS; durList.push(Math.round(r.durationS));
+    "presence",
+    "tactical"
+  );
+  state.nextActivityAt = 0; // first enemy activity ASAP
+
+  let contact = false;
+  let peakEnemy = 0;
+  const ticks = MINUTES * 600;
+  for (let t = 0; t < ticks && !state.ended; t++) {
+    world.tick(0.1);
+    if (world.inContact()) contact = true;
+    peakEnemy = Math.max(peakEnemy, sim.livingEnemies().length);
+    for (const u of sim.units) {
+      if (Number.isNaN(u.pos.x)) {
+        console.error("NaN!", seed, u.id);
+        process.exit(1);
+      }
+    }
+  }
+  if (contact) contacts++;
+  totalEnemySeen += peakEnemy;
+  usKIA += world.platoon.members.filter((m) => !m.alive).length;
+  usWIA += world.platoon.members.filter((m) => m.alive && m.wounds.length > 0).length;
+  enKIA += world.platoon.members.reduce((a, m) => a + m.kills, 0);
+  civ += sim.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
+
+  // True stall test: run 90 more game-seconds; a moving element that is out of
+  // contact should make progress. If its centroid barely moves, it's frozen.
+  const movingTask = state.tasks.find((tk) => tk.phase === "moving" || tk.phase === "returning");
+  if (movingTask && !world.inContact()) {
+    const before = sim.unit(movingTask.memberIds[0])?.pos ?? { x: 0, y: 0 };
+    const bx = before.x, by = before.y;
+    for (let t = 0; t < 900 && !state.ended; t++) world.tick(0.1);
+    const after = sim.unit(movingTask.memberIds[0])?.pos ?? { x: bx, y: by };
+    if (!world.inContact() && Math.hypot(after.x - bx, after.y - by) < 4) stuck++;
+  }
 }
 
-console.log(`Ran ${N} forced engagements (1 squad + medic vs ambush):`);
-console.log(`  Outcomes: ${victories} broke contact, ${destroyed} element destroyed, ${withdrew} withdrew, ${stalls} STALLED (bad!)`);
-console.log(`  Avg US KIA: ${(usKIA / N).toFixed(2)} · Avg US WIA: ${(usWIA / N).toFixed(2)} · Avg Enemy KIA: ${(enKIA / N).toFixed(2)} · Civ cas total: ${civ}`);
-console.log(`  Avg engagement duration: ${(totalDur / N).toFixed(0)}s · range ${Math.min(...durList)}–${Math.max(...durList)}s`);
-console.log(stalls === 0 ? "  ✓ No stalls — all engagements resolved." : `  ✗ ${stalls} stalls need attention.`);
+console.log(`Ran ${N} continuous deployments, ${MINUTES} game-min each (1 squad + medic patrol, heat ~0.6-0.9):`);
+console.log(`  Contacts: ${contacts}/${N} runs saw a firefight · avg peak enemies on map ${(totalEnemySeen / N).toFixed(1)}`);
+console.log(`  Avg US KIA: ${(usKIA / N).toFixed(2)} · Avg US WIA: ${(usWIA / N).toFixed(2)} · Avg enemy accounted: ${(enKIA / N).toFixed(2)} · Civ cas total: ${civ}`);
+console.log(stuck === 0 ? "  ✓ No elements left stranded mid-route." : `  ⚠ ${stuck} runs left an element lingering (check task resume).`);
