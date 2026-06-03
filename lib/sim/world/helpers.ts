@@ -78,13 +78,13 @@ export function buildEmplacements(terrain: Terrain): Emplacement[] {
     const fp = fps[i];
     if (fp) emp.push({ id: `cp-${i}`, weaponId: wid, cell: { cx: fp.cx, cy: fp.cy }, manned: true });
   });
-  // Mortar pit, dug in toward the rear of the yard.
-  emp.push({
-    id: "cp-mortar",
-    weaponId: "mortar60",
-    cell: { cx: Math.round(cop.center.cx - cop.gateDir.x * 3), cy: Math.round(cop.center.cy - cop.gateDir.y * 3) },
-    manned: true,
-  });
+  // Mortar pit, dug in toward the rear of the yard (on passable ground).
+  const mp = terrain.nearestPassable(
+    Math.round(cop.center.cx - cop.gateDir.x * 3),
+    Math.round(cop.center.cy - cop.gateDir.y * 3),
+    4
+  );
+  emp.push({ id: "cp-mortar", weaponId: "mortar60", cell: { cx: mp.cx, cy: mp.cy }, manned: true });
   return emp;
 }
 

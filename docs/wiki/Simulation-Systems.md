@@ -64,14 +64,32 @@ moment they're engaged and falling back to the routine on the lull.
 
 ## Pathfinding (`path.ts`)
 
-`findPath(terrain, start, goal, opts)` is A* over a coarsened grid (~15 m nodes, so it stays cheap
-on the 5 m grid) using the terrain's movement cost, with three optional biases: a **concealment
-bias** so a stealthy route threads forest, orchards, and dry washes instead of crossing open ground;
-a **road bias** so fast movement takes the valley road/trails when it can; and a **cover bias** the
-enemy uses to stay off the skyline. The path is string-pulled (line-of-walk smoothing) to clean
-waypoints. Patrols, fire teams and infiltrating fighters all route through it, so the ground
-genuinely shapes how everyone moves. The COP's HESCO wall is impassable, so A* in and out of the
-outpost is funneled through the gate.
+`findPath(terrain, start, goal, opts)` is **hierarchical A***, which is what makes it both correct
+and cheap. A fast **coarse** pass (~15 m nodes) finds the long route across the valley for a few
+thousand node expansions; then string-pulling walks that route, and wherever a straight segment
+would clip a 5 m feature (a compound wall, a cliff lip) it splices in a short **fine**
+(full-resolution) A* over just that ~15 m gap. So long-range stays coarse-cheap, and the only
+full-resolution work happens in the few metres where it matters — **no unit is ever handed a path it
+can't physically walk**, which is what kept patrols off the wire. The A* scratch is reused with
+generation-stamping (no per-call allocation), so re-planning is essentially free.
+
+Three optional biases shape the route: a **concealment bias** so a stealthy route threads forest,
+orchards and dry washes instead of crossing open ground; a **road bias** so fast movement takes the
+valley road/trails; and a **cover bias** the enemy uses to stay off the skyline. The COP's HESCO
+wall is impassable, so routes in and out of the outpost are funneled through the gate (which has a
+graded access road off the knob). Patrols, fire teams and infiltrating fighters all route through it.
+
+## Closed-loop movement (`combat.ts` `moveUnit`)
+
+Movement is self-correcting, which is the single mechanism that keeps everyone un-stuck without
+per-situation special-casing. A unit walks its path toward a `pathGoal`; **the wire is solid** (it
+never steps into an impassable cell — it slides along it instead); and a watchdog notices when it
+can't advance freely (wall-blocked / sliding) for a couple of seconds and **drops the stale path so
+its driver re-issues a fresh one** (the squad's point man re-routes from where he stands; a
+civilian/garrison man takes a cheap straight step). The watchdog itself runs no pathfinding, so
+dozens of idle/milling units never pile A* onto a tick. Objectives are snapped to reachable ground
+(off cliffs, out of walled compounds to the village edge), and the task layer has a no-progress
+backstop, so a leg or a return that genuinely can't be closed is force-advanced rather than frozen.
 
 ## Movement postures
 

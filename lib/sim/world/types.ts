@@ -41,10 +41,13 @@ export interface Task {
   timer: number; // seconds left in the current timed phase
   startedClock: number;
   /** Squad movement: the point man, whether the element has cleared the wire,
-   *  and a governor timer so a held leader always creeps forward eventually. */
+   *  a governor timer, and a no-progress backstop so a leg/return that can't be
+   *  closed (a blocked objective) is force-advanced instead of freezing. */
   leadId?: string;
   exited?: boolean;
   holdTimer?: number;
+  goalDist?: number; // best centroid→objective distance seen this leg
+  noProgressS?: number; // seconds since that best improved
 }
 
 export type ProjectStage =

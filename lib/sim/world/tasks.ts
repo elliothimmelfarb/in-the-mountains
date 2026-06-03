@@ -1,10 +1,13 @@
 import { clamp } from "../rng";
 import { dist, Vec2 } from "../vec";
 import { Unit } from "../entities";
+import { Land } from "../terrain";
 import type { World } from "./world";
 import { Task } from "./types";
 import { centroidOf, dwellFor } from "./helpers";
-import { planFormation, steerSquad, holdSecurity, releaseFormation, byTeam, FormationPlan } from "./formation";
+import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam } from "./formation";
+
+const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
 
 /**
  * Strategic tasks: the orders that take time. A patrol musters in the yard,
@@ -35,6 +38,7 @@ export function tickTasks(w: World, dt: number) {
           t.phase = "moving";
           t.legIndex = 0;
           t.exited = false;
+          resetProgress(t);
           for (const m of members) {
             m.technique = t.technique;
             m.brainState = "moving";
@@ -55,6 +59,7 @@ export function tickTasks(w: World, dt: number) {
           onStationEffects(w, t, members, dt);
           if (t.timer <= 0) {
             t.phase = "returning";
+            resetProgress(t);
             releaseFormation(members);
             w.log(`${t.label}: objective complete, returning to ${w.state.fob.name}.`, "radio");
           }
@@ -90,38 +95,45 @@ export function tickTasks(w: World, dt: number) {
   w.state.tasks = w.state.tasks.filter((t) => t.phase !== "complete");
 }
 
-/** Move the element to its next objective as a squad, filing out the gate first. */
+/** Move the element to its next objective as a squad — tight file out the gate, then formation. */
 function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
-  const plan = planFormation(w, t, members);
-
-  // 1) Clear the wire: file out through the entry-control point. We switch to
-  //    objective navigation once the point man is through the gate (so the
-  //    route A* only ever runs outside the wire); the file trails out behind him.
-  if (!t.exited) {
-    const go = w.gateOutsideWorld();
-    steerSquad(w, t, members, go, gateFile(plan), dt);
-    const lead = w.sim.unit(t.leadId);
-    const center = w.copWorld();
-    if (lead && (dist(lead.pos, go) < 14 || dist(lead.pos, center) > w.terrain.cop.radius * w.terrain.cellSize)) {
-      t.exited = true;
-    }
-    return;
-  }
-
-  // 2) Move along the route, leg by leg, in formation. The leg is "made" when
-  //    the point man reaches the waypoint (the column may still be trailing in).
-  //    Snap the waypoint to passable ground so the point man can't crawl into a
-  //    cliff chasing an unreachable objective.
   const raw = t.route[t.legIndex];
   if (!raw) {
     enterOnStation(w, t, members);
     return;
   }
-  const target = passableGoal(w, raw);
-  steerSquad(w, t, members, target, plan, dt);
+  // Snap the objective onto reachable ground (off cliffs and out of walled
+  // compounds) so the point man is always heading somewhere he can actually go.
+  const target = reachableObjective(w, raw);
+  const center = w.copWorld();
+  const wire = w.terrain.cop.radius * w.terrain.cellSize;
+
+  // Clear the wire first: collapse into a tight file and pour straight out to the
+  // staging point just outside the gate (an on-axis, wall-free shot). Only once
+  // the point man is clear do we open into the doctrinal formation; the file
+  // behind him keeps pouring out the graded gate and falls in as it clears.
+  if (!t.exited) {
+    const go = w.gateOutsideWorld();
+    steerFile(w, t, members, go, GATE_SPACING, dt);
+    const nav = w.sim.unit(t.leadId);
+    // Cleared once the point man is past the wall — or, backstop, if the element
+    // just can't make the gate (a man wedged on a structure): give up filing and
+    // let the formation branch route everyone out to the objective.
+    if ((nav && dist(nav.pos, center) > wire + 8) || noProgress(t, centroidOf(members), go, dt, 30)) {
+      t.exited = true;
+      resetProgress(t);
+    }
+    return;
+  }
+
+  // Outside the wire: move to the objective in formation.
+  steerSquad(w, t, members, target, planFormation(w, t, members), dt);
   const lead = w.sim.unit(t.leadId);
-  if (lead && dist(lead.pos, target) < 20) {
+  // The leg is made when the point man reaches the objective, or — backstop —
+  // when the element simply can't get any closer for a sustained spell.
+  if ((lead && dist(lead.pos, target) < 20) || noProgress(t, centroidOf(members), target, dt, 40)) {
     t.legIndex++;
+    resetProgress(t);
     if (t.legIndex >= t.route.length) enterOnStation(w, t, members, target);
   }
 }
@@ -130,26 +142,39 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
 function driveReturn(w: World, t: Task, members: Unit[], dt: number, centroid: Vec2) {
   const center = w.copWorld();
   const wire = w.terrain.cop.radius * w.terrain.cellSize + 18;
-  // The patrol is "back inside the wire" once the bulk of it is home — a single
-  // straggler can't hold the task open forever (the garrison walks him in).
+  // Home once the bulk is inside the wire (a single straggler can't hold the
+  // task open — the garrison walks him in); or the no-progress backstop.
   const inside = members.filter((m) => dist(m.pos, center) < wire).length;
-  if (inside >= Math.ceil(members.length * 0.6)) {
+  if (inside >= Math.ceil(members.length * 0.6) || noProgress(t, centroid, center, dt, 60)) {
     t.phase = "complete";
     return;
   }
   const go = w.gateOutsideWorld();
-  const nearGate = dist(centroid, go) < 28 || dist(centroid, center) < w.terrain.cop.radius * w.terrain.cellSize * 1.15;
-  const target = nearGate ? w.musterWorld() : go;
+  const nearGate = dist(centroid, go) < 30 || dist(centroid, center) < w.terrain.cop.radius * w.terrain.cellSize * 1.2;
+  if (nearGate) {
+    // Bunch up and file back in through the gate to the muster yard.
+    steerFile(w, t, members, w.musterWorld(), GATE_SPACING, dt);
+    return;
+  }
   const plan = planFormation(w, t, members);
-  const home: FormationPlan = nearGate
-    ? gateFile(plan)
-    : { ...plan, roadBias: Math.max(plan.roadBias, 0.45), concealBias: Math.min(plan.concealBias, 0.3) };
-  steerSquad(w, t, members, target, home, dt);
+  steerSquad(w, t, members, go, { ...plan, roadBias: Math.max(plan.roadBias, 0.45), concealBias: Math.min(plan.concealBias, 0.3) }, dt);
 }
 
-/** Tight file with no concealment detour — for threading the gate. */
-function gateFile(plan: FormationPlan): FormationPlan {
-  return { ...plan, formation: "file", spacing: Math.min(plan.spacing, 5), concealBias: 0, roadBias: 0.3 };
+/** No-progress backstop: true once the element hasn't closed on `goal` for `limit` s. */
+function noProgress(t: Task, from: Vec2, goal: Vec2, dt: number, limit: number): boolean {
+  const d = dist(from, goal);
+  if (t.goalDist === undefined || d < t.goalDist - 4) {
+    t.goalDist = d;
+    t.noProgressS = 0;
+    return false;
+  }
+  t.noProgressS = (t.noProgressS ?? 0) + dt;
+  return (t.noProgressS ?? 0) > limit;
+}
+
+function resetProgress(t: Task) {
+  t.goalDist = undefined;
+  t.noProgressS = 0;
 }
 
 function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
@@ -166,11 +191,35 @@ function jitter(w: World, p: Vec2, r: number): Vec2 {
   return { x: p.x + w.rng.range(-r, r), y: p.y + w.rng.range(-r, r) };
 }
 
-/** Snap a world objective onto passable ground (off cliffs / walls). */
-function passableGoal(w: World, p: Vec2): Vec2 {
+/**
+ * Snap an objective onto ground the squad can actually reach: off cliffs/walls,
+ * and — crucially — out of a walled compound interior (which A* can't enter) to
+ * the village edge on the approach side. Keeping objectives reachable is what
+ * lets the mover stay simple (it never chases a goal it can't get to).
+ */
+function reachableObjective(w: World, p: Vec2): Vec2 {
   const cs = w.terrain.cellSize;
-  const cx = Math.floor(p.x / cs);
-  const cy = Math.floor(p.y / cs);
+  let cx = Math.floor(p.x / cs);
+  let cy = Math.floor(p.y / cs);
+  const inCompound = (x: number, y: number) => {
+    const l = w.terrain.land[w.terrain.idx(x, y)] as Land;
+    return l === Land.Compound || l === Land.CompoundWall;
+  };
+  if (w.terrain.inBounds(cx, cy) && inCompound(cx, cy)) {
+    // step out toward the COP until clear of the qalat
+    const cop = w.state.copCell;
+    const dx = Math.sign(cop.cx - cx);
+    const dy = Math.sign(cop.cy - cy);
+    for (let s = 0; s < 24; s++) {
+      const nx = cx + dx * s;
+      const ny = cy + dy * s;
+      if (w.terrain.inBounds(nx, ny) && !inCompound(nx, ny) && w.terrain.passableCell(nx, ny)) {
+        cx = nx;
+        cy = ny;
+        return w.terrain.cellCenter(cx, cy);
+      }
+    }
+  }
   if (w.terrain.passableCell(cx, cy)) return p;
   const c = w.terrain.nearestPassable(cx, cy);
   return w.terrain.cellCenter(c.cx, c.cy);
