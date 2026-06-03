@@ -90,12 +90,17 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   if (!nav) return centroidOf(members);
   t.leadId = sq.navigatorId;
 
-  // The lead team's leader navigates the terrain.
+  // The lead team's leader navigates the terrain. Re-path only when the
+  // objective actually changes — the mover owns continuation and getting
+  // un-stuck (its stall watchdog), so we don't re-issue (and reset it) every tick.
   nav.technique = t.technique;
   nav.brainState = "moving";
   nav.faceLock = null;
-  const repath = nav.path.length === 0 || !nav.orderTarget || dist(nav.orderTarget, target) > 22;
-  if (repath) sim.pathTo(nav, target, { concealBias: plan.concealBias, roadBias: plan.roadBias });
+  // Re-path only when the objective changes — the mover owns continuation and
+  // getting un-stuck (its stall watchdog), so we don't re-issue it every tick.
+  if (!nav.pathGoal || dist(nav.pathGoal, target) > 8) {
+    sim.pathTo(nav, target, { concealBias: plan.concealBias, roadBias: plan.roadBias });
+  }
 
   const ahead = nav.path.length ? nav.path[0] : target;
   let dir = norm(sub(ahead, nav.pos));
@@ -107,27 +112,28 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
 
   // Lead team forms around the navigator (its leader), point pushed forward.
   const leadTeam = sq.teams[0];
-  if (leadTeam) placeTeam(w, t, plan, leadTeam, nav, nav.pos, dir, perp, teamSp, true);
+  if (leadTeam) placeTeam(w, t, plan, leadTeam, nav, nav.pos, dir, perp, teamSp, true, nav.pos);
 
   // Squad leader follows the lead team, controlling; medic/RTO ride with him.
   const sl = sq.slId ? sim.unit(sq.slId) : undefined;
   let anchorBase = nav.pos;
   if (sl && sl !== nav) {
     setSecurity(sl, t, angle(dir));
-    moveToward(w, sl, passTarget(w, add(nav.pos, scale(dir, -squadSp)), nav.pos), plan.concealBias);
+    moveToward(w, sl, passTarget(w, add(nav.pos, scale(dir, -squadSp)), nav.pos), nav.pos);
     anchorBase = sl.pos;
     placeAttached(w, t, plan, sq.attachedIds, sl, sl.pos, dir, perp, teamSp);
   } else {
     placeAttached(w, t, plan, sq.attachedIds, nav, nav.pos, dir, perp, teamSp);
   }
 
-  // Trail team brings up the rear (offset to a flank when expecting contact).
+  // Trail team brings up the rear (offset to a flank when expecting contact);
+  // its leader keys on the squad leader / point man when his line is blocked.
   const trailTeam = sq.teams[1];
   if (trailTeam) {
     const lateral = plan.formation === "wedge" || plan.formation === "dispersed" ? squadSp * 0.55 : 0;
     const trailAnchor = passTarget(w, add(anchorBase, add(scale(dir, -squadSp), scale(perp, lateral))), anchorBase);
     const trailLeader = trailTeam.leaderId ? sim.unit(trailTeam.leaderId) : undefined;
-    placeTeam(w, t, plan, trailTeam, trailLeader ?? null, trailAnchor, dir, perp, teamSp, false);
+    placeTeam(w, t, plan, trailTeam, trailLeader ?? null, trailAnchor, dir, perp, teamSp, false, anchorBase);
   }
 
   // Squad governor: the navigator waits whenever the element strings out, so the
@@ -147,6 +153,58 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   return centroidOf(members);
 }
 
+/**
+ * Move the element as a single tight file — everyone bunched up behind the point
+ * man at a small interval, no echelon, no flanks. This is how a squad pours
+ * through a choke like the COP gate: fluid and close, not trying to hold a wide
+ * formation in a 25 m gap. Bunching is welcome; only a genuine separation eases
+ * the lead off, and only briefly.
+ */
+export function steerFile(w: World, t: Task, members: Unit[], target: Vec2, spacing: number, dt: number): Vec2 {
+  const sim = w.sim;
+  if (members.length === 0) return centroidOf(members);
+  const sq = buildSquad(w, members);
+  const nav = sim.unit(sq.navigatorId);
+  if (!nav) return centroidOf(members);
+  t.leadId = sq.navigatorId;
+
+  nav.technique = t.technique;
+  nav.brainState = "moving";
+  nav.faceLock = null;
+  if (!nav.pathGoal || dist(nav.pathGoal, target) > 10) sim.pathTo(nav, target, { roadBias: 0.35 });
+
+  const ordered = byTeam(w, members).filter((u) => u !== nav);
+  let prev = nav;
+  let tail = 0;
+  for (const f of ordered) {
+    const toPrev = sub(prev.pos, f.pos);
+    const d = len(toPrev);
+    const pdir = d > 1e-3 ? scale(toPrev, 1 / d) : fromAngle(nav.facing);
+    const tgt = add(prev.pos, scale(pdir, -spacing));
+    f.technique = t.technique;
+    f.brainState = "moving";
+    f.formationHold = false;
+    f.faceLock = null; // face the way you're walking through the gate
+    f.pathGoal = tgt;
+    if (dist(f.pos, tgt) > 1.0) {
+      // walk to the slot if clear, else fall in directly behind the man ahead
+      // (on cleared ground) — no per-follower A*.
+      f.orderTarget = lineClear(w, f.pos, tgt) ? tgt : { ...prev.pos };
+      f.path = [f.orderTarget];
+    } else {
+      f.path = [];
+    }
+    tail = Math.max(tail, dist(f.pos, nav.pos));
+    prev = f;
+  }
+
+  const maxLen = spacing * members.length * 2.4; // very loose — bunching is fine
+  const wantHold = tail > maxLen;
+  t.holdTimer = wantHold ? (t.holdTimer ?? 0) + dt : 0;
+  nav.formationHold = wantHold && (t.holdTimer ?? 0) < 30;
+  return centroidOf(members);
+}
+
 /** Lay an element into a 360° security halt around a point, facing outward. */
 export function holdSecurity(w: World, members: Unit[], center: Vec2, radius: number) {
   const n = Math.max(1, members.length);
@@ -159,6 +217,7 @@ export function holdSecurity(w: World, members: Unit[], center: Vec2, radius: nu
     m.faceLock = a; // face out
     m.formationHold = false;
     m.brainState = "holding";
+    m.pathGoal = slot; // so a man who's reached his sector doesn't re-plan every tick
     m.path = dist(m.pos, slot) > 2 ? [slot] : [];
   });
 }
@@ -203,14 +262,16 @@ function placeTeam(
   dir: Vec2,
   perp: Vec2,
   teamSp: number,
-  isLead: boolean
+  isLead: boolean,
+  leaderFallback: Vec2
 ) {
   const sim = w.sim;
   // The lead team's leader is the squad navigator (already steered by the
   // caller); only the trail team's leader needs to be moved to his anchor here.
+  // When blocked he heads for `leaderFallback` (the man ahead of him — the SL).
   if (leaderUnit && !isLead) {
     setSecurity(leaderUnit, t, angle(dir));
-    moveToward(w, leaderUnit, passTarget(w, anchorPos, leaderUnit.pos), plan.concealBias);
+    moveToward(w, leaderUnit, passTarget(w, anchorPos, leaderUnit.pos), leaderFallback);
   }
   const leaderPos = leaderUnit ? leaderUnit.pos : anchorPos;
 
@@ -242,7 +303,7 @@ function placeTeam(
       }
     }
     setSecurity(u, t, face);
-    moveToward(w, u, passTarget(w, tgt, leaderPos), plan.concealBias);
+    moveToward(w, u, passTarget(w, tgt, leaderPos), leaderPos);
   });
 }
 
@@ -262,7 +323,7 @@ function placeAttached(
     if (!a || a === anchor) return;
     const tgt = add(anchorPos, add(scale(dir, -teamSp * (0.7 + i * 0.5)), scale(perp, (i % 2 ? 1 : -1) * teamSp * 0.5)));
     setSecurity(a, t, angle(dir));
-    moveToward(w, a, passTarget(w, tgt, anchorPos), plan.concealBias);
+    moveToward(w, a, passTarget(w, tgt, anchorPos), anchorPos);
   });
 }
 
@@ -273,19 +334,23 @@ function setSecurity(u: Unit, t: Task, face: number) {
   u.faceLock = face;
 }
 
-/** Walk a unit to a target — straight if clear, A* around the terrain if not. */
-function moveToward(w: World, u: Unit, tgt: Vec2, concealBias: number) {
+/**
+ * Steer a follower toward its formation slot. If the straight line is clear he
+ * walks to the slot; if it's blocked he heads for `anchor` — the man he's
+ * keying on (his team leader / the point man), who is on ground already cleared
+ * — instead of running his own A*. Followers therefore cost nothing to path:
+ * they flow over the leader's wake, which is both cheap and how a squad really
+ * moves. (The mover's wall-block slides them around minor obstacles.)
+ */
+function moveToward(w: World, u: Unit, tgt: Vec2, anchor: Vec2) {
+  u.pathGoal = tgt;
   if (dist(u.pos, tgt) <= 1.2) {
     u.path = [];
-    u.orderTarget = tgt;
     return;
   }
-  if (lineClear(w, u.pos, tgt)) {
-    u.orderTarget = tgt;
-    u.path = [tgt];
-  } else if (u.path.length === 0 || !u.orderTarget || dist(u.orderTarget, tgt) > w.terrain.cellSize * 3) {
-    w.sim.pathTo(u, tgt, { concealBias });
-  }
+  const aim = lineClear(w, u.pos, tgt) ? tgt : anchor;
+  u.orderTarget = aim;
+  u.path = [aim];
 }
 
 /** Reconstruct the squad's echelon (SL, fire teams, attachments) from a roster. */

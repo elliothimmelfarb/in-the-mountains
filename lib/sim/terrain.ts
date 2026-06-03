@@ -565,16 +565,19 @@ export class Terrain {
     this.stampRect(lzp.cx, lzp.cy, 3, 3, Land.Gravel, baseE);
     const lz = { cx: lzp.cx, cy: lzp.cy };
 
-    // 6) Crew-served fighting positions / towers around the wall (not at the gate).
+    // 6) Crew-served fighting positions / towers — dug in just INSIDE the wall on
+    //    passable ground (never on the HESCO itself, which is impassable), so the
+    //    guard can actually man them.
     const fightingPositions: CopFightingPosition[] = [];
     const posAngles = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => (k * Math.PI) / 4);
     let fp = 0;
     for (const a of posAngles) {
       if (Math.abs(angleDiff(a, ga)) < gateHalf + 0.25) continue; // keep the gate clear
-      const fx = Math.round(c.cx + Math.cos(a) * (R - 1.5));
-      const fy = Math.round(c.cy + Math.sin(a) * (R - 1.5));
-      if (!this.inBounds(fx, fy)) continue;
-      fightingPositions.push({ id: `fp-${fp}`, cx: fx, cy: fy, facing: a, tower: fp % 3 === 0 });
+      const fx = Math.round(c.cx + Math.cos(a) * (R - 3));
+      const fy = Math.round(c.cy + Math.sin(a) * (R - 3));
+      const snap = this.nearestPassable(fx, fy, 4);
+      if (!this.inBounds(snap.cx, snap.cy)) continue;
+      fightingPositions.push({ id: `fp-${fp}`, cx: snap.cx, cy: snap.cy, facing: a, tower: fp % 3 === 0 });
       fp++;
     }
 
@@ -606,6 +609,37 @@ export class Terrain {
         this.land[i] = land;
         this.elev[i] = baseE;
       }
+  }
+
+  /**
+   * Carve a graded, walkable road corridor between two cells: the centerline
+   * elevation is eased toward a gentle grade between the endpoints and a band
+   * `half` cells to each side is brought down to it, so the route is genuinely
+   * passable (slope under the foot-mobility limit) and wide enough for the
+   * coarse pathfinder. This is how a COP gets a switchbacked access road off its
+   * knob instead of an impassable goat trail.
+   */
+  private gradeCorridor(x0: number, y0: number, x1: number, y1: number, half: number) {
+    const e0 = this.elev[this.idx(clamp(x0, 0, this.size - 1), clamp(y0, 0, this.size - 1))];
+    const e1 = this.elev[this.idx(clamp(x1, 0, this.size - 1), clamp(y1, 0, this.size - 1))];
+    const steps = (Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1) * 2;
+    for (let s = 0; s <= steps; s++) {
+      const tn = s / steps;
+      const bx = lerp(x0, x1, tn);
+      const by = lerp(y0, y1, tn);
+      const targetE = lerp(e0, e1, tn);
+      for (let h = -half; h <= half; h++)
+        for (let g = -half; g <= half; g++) {
+          const x = Math.round(bx + h);
+          const y = Math.round(by + g);
+          if (!this.inBounds(x, y)) continue;
+          const i = this.idx(x, y);
+          const l = this.land[i] as Land;
+          if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
+          this.elev[i] = lerp(this.elev[i], targetE, 0.85);
+          if (l !== Land.Gravel && l !== Land.River) this.land[i] = Land.Road;
+        }
+    }
   }
 
   /** Stamp a straight lane of landcover between two cells, `half` cells wide. */
@@ -681,9 +715,21 @@ export class Terrain {
       const upY = vil.cy + rng.int(-8, 8);
       this.stampTrail(vil.cx, vil.cy, clamp(upX, 0, size - 1), clamp(upY, 0, size - 1));
     }
-    // COP access trail: from just outside the gate down to the valley road.
-    const go = this.cop?.gateOutside ?? this.copCell;
-    this.stampTrail(go.cx, go.cy, Math.round(this.centerX[clamp(go.cy, 0, size - 1)]), go.cy);
+    // COP access road: a graded, walkable corridor from inside the gate, out
+    // through the ECP and down off the knob to the valley road — wide enough for
+    // the coarse pathfinder, so the squad can actually get out (not a goat trail
+    // on impassable slope). Grade in two legs: through the gate, then down.
+    if (this.cop) {
+      const gi = this.cop.gateInside;
+      const go = this.cop.gateOutside;
+      const roadY = clamp(go.cy, 0, size - 1);
+      const roadX = Math.round(this.centerX[roadY]);
+      this.gradeCorridor(gi.cx, gi.cy, go.cx, go.cy, 2);
+      this.gradeCorridor(go.cx, go.cy, roadX, roadY, 2);
+    }
+    // Recompute slope everywhere now that the COP, its ramp and the roads have
+    // reshaped the ground, so passability/movement queries see the graded routes.
+    this.computeSlope();
   }
 
   private stampTrail(x0: number, y0: number, x1: number, y1: number) {

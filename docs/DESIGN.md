@@ -74,7 +74,7 @@ and your patrol resumes its task on the lull.
 | RNG | `rng.ts` | Seeded mulberry32 + helpers (range, gauss, chance, pick, weighted). Deterministic. |
 | Math | `vec.ts` | Grid/world vectors, distance, bresenham, hex/grid helpers. |
 | Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 24 landcover classes, a fortified **COP layout** (HESCO wall, gate, structures, LZ, fighting positions), queries: elevation, slope, cover, concealment, move cost, passability. |
-| Pathfinding | `path.ts` | Terrain-aware A* foot routing with concealment / road / cover biases; string-pulled waypoints; funnels through the COP gate. |
+| Pathfinding | `path.ts` | Hierarchical A* (cheap coarse route + fine repair only where it would clip a wall) with concealment / road / cover biases; reused scratch; funnels through the COP gate. |
 | LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction; posture-aware detection. |
 | Weapons | `weapons.ts` | Full weapon table (US + insurgent) with ballistic & handling stats. |
 | Ballistics | `ballistics.ts` | Per-projectile flight, hit resolution vs exposure/skill/suppression, wound model. |

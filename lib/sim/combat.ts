@@ -140,6 +140,12 @@ const STANCE_SPEED: Record<Unit["stance"], number> = {
   prone: 0.22,
 };
 
+// Closed-loop movement: a unit that can't advance freely toward its waypoint
+// (wall-blocked / sliding) for this long re-plans a fresh route from where it
+// stands. Objectives are kept reachable, so it always finds a way; a task-level
+// no-progress timeout is the backstop against any freeze.
+const STALL_WINDOW = 2; // seconds of continuous blocking before re-planning
+
 export interface CombatInit {
   terrain: Terrain;
   rng: RNG;
@@ -267,12 +273,14 @@ export class CombatSim {
     // Any explicit order breaks the squad's formation locks.
     u.faceLock = null;
     u.formationHold = false;
+    this.resetStall(u);
     switch (order.type) {
       case "move":
       case "assault":
       case "withdraw":
         if (order.point) {
           u.orderTarget = { ...order.point };
+          u.pathGoal = { ...order.point };
           u.path = order.pathfind
             ? findPath(this.terrain, u.pos, order.point, this.pathOptsFor(u, order))
             : [{ ...order.point }];
@@ -282,6 +290,7 @@ export class CombatSim {
         break;
       case "hold":
         u.orderTarget = order.point ? { ...order.point } : { ...u.pos };
+        u.pathGoal = order.point ? { ...order.point } : null;
         u.path = order.point ? [{ ...order.point }] : [];
         u.brainState = "holding";
         break;
@@ -320,6 +329,7 @@ export class CombatSim {
       case "halt":
         u.path = [];
         u.orderTarget = null;
+        u.pathGoal = null;
         u.brainState = "holding";
         break;
     }
@@ -502,22 +512,32 @@ export class CombatSim {
   }
 
   // ---------------------------------------------------------------- movement
+  /**
+   * Closed-loop path following. The unit walks its path toward `pathGoal`; the
+   * wire is solid (it never steps through an impassable cell); and if it stops
+   * making real progress it re-plans from where it stands, giving up only when
+   * it genuinely can't get closer. This single mechanism keeps everyone —
+   * patrols, the point man, garrison, men bounding to cover — un-stuck without
+   * any per-situation special-casing.
+   */
   moveUnit(u: Unit, dt: number) {
-    if (u.path.length === 0 || !u.conscious) {
-      u.moving = false;
-      u.speed = 0;
-      // A halted man still holds his assigned sector (guard post / security halt).
-      if (u.faceLock != null && u.conscious) u.facing = u.faceLock;
+    if (!u.conscious) {
+      this.halt(u);
       return;
     }
-    // Pace governor: the squad leader controls the tempo so the element stays
-    // together — a held man keeps his facing/sector but doesn't advance.
+    // Out of waypoints → the goal is reached (paths run to the goal). Drop it and
+    // stop; whoever's driving this unit (squad steering, garrison) re-issues a
+    // path next tick if it still needs to move. No per-tick re-plan here.
+    if (u.path.length === 0) {
+      u.pathGoal = null;
+      this.halt(u);
+      return;
+    }
     if (u.formationHold) {
-      u.moving = false;
-      u.speed = 0;
-      if (u.faceLock != null) u.facing = u.faceLock;
+      this.halt(u);
       return;
     }
+
     const target = u.path[0];
     const toT = sub(target, u.pos);
     const d = len(toT);
@@ -526,6 +546,7 @@ export class CombatSim {
       if (u.path.length === 0) {
         u.moving = false;
         u.speed = 0;
+        if (u.pathGoal && dist(u.pos, u.pathGoal) < 2.5) u.pathGoal = null; // arrived
       }
       return;
     }
@@ -544,14 +565,60 @@ export class CombatSim {
     if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
     speed = Math.max(0.15, speed);
     const stepLen = Math.min(d, speed * dt);
-    u.pos = add(u.pos, scale(dir, stepLen));
+    const next = add(u.pos, scale(dir, stepLen));
+    // The wire is solid: never step into an impassable cell (HESCO, compound
+    // wall, cliff). Try to slide along it; a slide or a full block counts as
+    // "not advancing freely" and feeds the watchdog (which re-routes / gives up).
+    const cs = this.terrain.cellSize;
+    let blocked = false;
+    if (!this.terrain.passableCell(Math.floor(next.x / cs), Math.floor(next.y / cs))) {
+      blocked = true;
+      const slideX = add(u.pos, { x: dir.x * stepLen, y: 0 });
+      const slideY = add(u.pos, { x: 0, y: dir.y * stepLen });
+      if (this.terrain.passableCell(Math.floor(slideX.x / cs), Math.floor(slideX.y / cs))) u.pos = slideX;
+      else if (this.terrain.passableCell(Math.floor(slideY.x / cs), Math.floor(slideY.y / cs))) u.pos = slideY;
+      // else fully wedged — don't move this tick
+    } else {
+      u.pos = next;
+    }
     u.moving = true;
-    u.speed = speed;
+    u.speed = blocked ? 0 : speed;
 
     // fatigue from movement (steeper + higher = worse)
     const slope = this.terrain.slopeAt(u.pos.x, u.pos.y);
     const alt = clamp01((this.terrain.elevAt(u.pos.x, u.pos.y) - 1500) / 1400);
     u.fatigue = clamp01(u.fatigue + stepLen * (0.0012 + slope * 0.004 + alt * 0.0016) * (tech === "rush" ? 2 : 1));
+
+    this.watchStall(u, dt, blocked);
+  }
+
+  /** Stop moving but keep holding any locked security sector. */
+  private halt(u: Unit) {
+    u.moving = false;
+    u.speed = 0;
+    u.blockedTimer = 0;
+    if (u.faceLock != null && u.conscious) u.facing = u.faceLock;
+  }
+
+  /**
+   * The watchdog: a unit free to walk toward its waypoint is fine; one that's
+   * wall-blocked or sliding without progress for a spell has its stale path and
+   * goal dropped, so it stops instead of grinding. Whoever drives it re-issues a
+   * fresh route next tick — the squad's point man via one A* (route-finding then
+   * starts from where he's actually standing and goes around), a civilian/garrison
+   * man via a cheap straight move. Crucially the watchdog itself runs no A*, so
+   * dozens of idle/milling units never pile pathfinding onto every tick.
+   */
+  private watchStall(u: Unit, dt: number, blocked: boolean) {
+    if (!blocked) {
+      u.blockedTimer = 0;
+      return;
+    }
+    u.blockedTimer = (u.blockedTimer ?? 0) + dt;
+    if ((u.blockedTimer ?? 0) < STALL_WINDOW) return;
+    u.blockedTimer = 0;
+    u.path = [];
+    u.pathGoal = null;
   }
 
   // ---------------------------------------------------------------- firing
@@ -1067,9 +1134,12 @@ export class CombatSim {
     return this.revealed.has(u.id);
   }
 
-  /** Order a unit to walk to a point (straight-line; terrain governs the cost). */
+  /** Order a unit to walk to a point (straight-line; the mover re-plans if blocked). */
   moveTo(u: Unit, point: Vec2) {
-    u.path = [{ x: clamp(point.x, 0, this.terrain.worldSize), y: clamp(point.y, 0, this.terrain.worldSize) }];
+    const p = { x: clamp(point.x, 0, this.terrain.worldSize), y: clamp(point.y, 0, this.terrain.worldSize) };
+    u.path = [p];
+    u.pathGoal = p;
+    this.resetStall(u);
   }
 
   /** Route a unit to a point following the terrain, honoring its move posture. */
@@ -1084,6 +1154,13 @@ export class CombatSim {
       coverBias: opts.coverBias ?? 0,
     });
     u.orderTarget = p;
+    u.pathGoal = p;
+    this.resetStall(u);
+  }
+
+  /** A fresh order clears the stall watchdog so the new move starts clean. */
+  private resetStall(u: Unit) {
+    u.blockedTimer = 0;
   }
 
   private defaultConcealBias(u: Unit): number {

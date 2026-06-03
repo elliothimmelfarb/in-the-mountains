@@ -88,9 +88,13 @@ export interface Unit {
   moving: boolean;
   speed: number; // current m/s
   path: Vec2[]; // waypoints being followed (world)
+  pathGoal?: Vec2 | null; // the destination the path leads to (for self-correcting re-plan)
   technique?: MoveTechnique; // movement posture while following a path
   faceLock?: number | null; // locked facing (sector security) honored while moving
   formationHold?: boolean; // pace governor: hold in place to keep the squad together
+  // closed-loop movement: when a unit can't step freely toward its waypoint
+  // (wall-blocked / sliding), it re-plans a fresh route from where it stands.
+  blockedTimer?: number; // seconds of continuous blocked/sliding movement
 
   // --- innate attributes (0..1) ---
   marksmanship: number;
