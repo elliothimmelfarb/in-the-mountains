@@ -89,6 +89,8 @@ export interface Unit {
   speed: number; // current m/s
   path: Vec2[]; // waypoints being followed (world)
   technique?: MoveTechnique; // movement posture while following a path
+  faceLock?: number | null; // locked facing (sector security) honored while moving
+  formationHold?: boolean; // pace governor: hold in place to keep the squad together
 
   // --- innate attributes (0..1) ---
   marksmanship: number;

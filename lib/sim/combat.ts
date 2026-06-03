@@ -264,6 +264,9 @@ export class CombatSim {
   private applyOrder(u: Unit, order: Order) {
     u.orderType = order.type;
     u.brainTimer = 0;
+    // Any explicit order breaks the squad's formation locks.
+    u.faceLock = null;
+    u.formationHold = false;
     switch (order.type) {
       case "move":
       case "assault":
@@ -505,6 +508,14 @@ export class CombatSim {
       u.speed = 0;
       return;
     }
+    // Pace governor: the squad leader controls the tempo so the element stays
+    // together — a held man keeps his facing/sector but doesn't advance.
+    if (u.formationHold) {
+      u.moving = false;
+      u.speed = 0;
+      if (u.faceLock != null) u.facing = u.faceLock;
+      return;
+    }
     const target = u.path[0];
     const toT = sub(target, u.pos);
     const d = len(toT);
@@ -517,7 +528,9 @@ export class CombatSim {
       return;
     }
     const dir = scale(toT, 1 / d);
-    u.facing = angle(dir);
+    // Walk toward the waypoint, but face the assigned security sector if one is
+    // locked (flank/rear men scan outboard while moving).
+    u.facing = u.faceLock != null ? u.faceLock : angle(dir);
     const tech = this.techniqueOf(u);
     let speed = TECH_SPEED[tech];
     speed *= STANCE_SPEED[u.stance];
@@ -1058,12 +1071,16 @@ export class CombatSim {
   }
 
   /** Route a unit to a point following the terrain, honoring its move posture. */
-  pathTo(u: Unit, point: Vec2, opts: { concealBias?: number } = {}) {
+  pathTo(u: Unit, point: Vec2, opts: { concealBias?: number; roadBias?: number; coverBias?: number } = {}) {
     const p = {
       x: clamp(point.x, 2, this.terrain.worldSize - 2),
       y: clamp(point.y, 2, this.terrain.worldSize - 2),
     };
-    u.path = findPath(this.terrain, u.pos, p, { concealBias: opts.concealBias ?? this.defaultConcealBias(u) });
+    u.path = findPath(this.terrain, u.pos, p, {
+      concealBias: opts.concealBias ?? this.defaultConcealBias(u),
+      roadBias: opts.roadBias ?? 0,
+      coverBias: opts.coverBias ?? 0,
+    });
     u.orderTarget = p;
   }
 

@@ -32,6 +32,12 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   const pinned = u.composure < 0.22 || u.suppression > 0.8;
   const contact = u.visibleEnemyIds.length > 0 || underFire;
 
+  // In contact, break the march formation: orient on the threat and move freely.
+  if (contact) {
+    u.faceLock = null;
+    u.formationHold = false;
+  }
+
   // Stance: posture down in contact, especially when pinned or stationary.
   if (!u.moving) {
     if (pinned) u.stance = "prone";

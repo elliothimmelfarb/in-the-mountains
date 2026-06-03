@@ -4,12 +4,14 @@ import { Unit } from "../entities";
 import type { World } from "./world";
 import { Task } from "./types";
 import { centroidOf, dwellFor } from "./helpers";
+import { planFormation, steerSquad, holdSecurity, releaseFormation, byTeam, FormationPlan } from "./formation";
 
 /**
- * Strategic tasks: the orders that take time. A patrol kits up at the wire,
- * steps off along a terrain-routed path, dwells on its objective, then comes
- * home — and combat AI takes over the instant rounds start cracking, with the
- * task resuming on the lull. KLEs and project-security work run the same way.
+ * Strategic tasks: the orders that take time. A patrol musters in the yard,
+ * files out through the gate, then moves to its objective as a squad — in
+ * formation, point man navigating the terrain, the rest pulling security — sets
+ * up on the objective, and comes home. Combat AI takes over the instant rounds
+ * crack, and the task resumes the move on the lull.
  */
 export function tickTasks(w: World, dt: number) {
   for (const t of w.state.tasks) {
@@ -25,20 +27,26 @@ export function tickTasks(w: World, dt: number) {
     switch (t.phase) {
       case "assembling": {
         t.timer -= dt;
+        const muster = w.musterWorld();
         for (const m of members) {
-          if (m.path.length === 0 && dist(m.pos, w.copWorld()) > 30) w.sim.moveTo(m, w.copWorld());
+          if (m.path.length === 0 && dist(m.pos, muster) > 12) w.sim.moveTo(m, jitter(w, muster, 6));
         }
         if (t.timer <= 0) {
           t.phase = "moving";
           t.legIndex = 0;
-          issueLeg(w, t, members);
-          w.log(`${t.label}: ${members.length} pax stepping off (${t.technique}).`, "radio");
+          t.exited = false;
+          for (const m of members) {
+            m.technique = t.technique;
+            m.brainState = "moving";
+            m.rof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
+          }
+          w.log(`${t.label}: ${members.length} pax filing out the gate (${t.technique}).`, "radio");
           w.interrupt(`${t.label} steps off`);
         }
         break;
       }
       case "moving": {
-        if (!contact) driveLeg(w, t, members, centroid);
+        if (!contact) drivePatrol(w, t, members, dt);
         break;
       }
       case "onstation": {
@@ -47,25 +55,14 @@ export function tickTasks(w: World, dt: number) {
           onStationEffects(w, t, members, dt);
           if (t.timer <= 0) {
             t.phase = "returning";
-            for (const m of members) {
-              m.technique = t.technique;
-              w.sim.pathTo(m, w.copWorld());
-            }
+            releaseFormation(members);
             w.log(`${t.label}: objective complete, returning to ${w.state.fob.name}.`, "radio");
           }
         }
         break;
       }
       case "returning": {
-        if (!contact) {
-          if (dist(centroid, w.copWorld()) < 45) {
-            t.phase = "complete";
-          } else {
-            for (const m of members) {
-              if (m.path.length === 0 && dist(m.pos, w.copWorld()) > 22) w.sim.pathTo(m, w.copWorld());
-            }
-          }
-        }
+        if (!contact) driveReturn(w, t, members, dt, centroid);
         break;
       }
     }
@@ -81,6 +78,8 @@ export function tickTasks(w: World, dt: number) {
         m.brainState = "garrison";
         m.technique = undefined;
         m.path = [];
+        m.faceLock = null;
+        m.formationHold = false;
       }
     }
     if (t.kind !== "standto") {
@@ -91,43 +90,73 @@ export function tickTasks(w: World, dt: number) {
   w.state.tasks = w.state.tasks.filter((t) => t.phase !== "complete");
 }
 
-function issueLeg(w: World, t: Task, members: Unit[]) {
+/** Move the element to its next objective as a squad, filing out the gate first. */
+function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
+  const plan = planFormation(w, t, members);
+
+  // 1) Clear the wire: file out through the entry-control point. We switch to
+  //    objective navigation once the point man is through the gate (so the
+  //    route A* only ever runs outside the wire); the file trails out behind him.
+  if (!t.exited) {
+    const go = w.gateOutsideWorld();
+    steerSquad(w, t, members, go, gateFile(plan), dt);
+    const lead = w.sim.unit(t.leadId);
+    const center = w.copWorld();
+    if (lead && (dist(lead.pos, go) < 14 || dist(lead.pos, center) > w.terrain.cop.radius * w.terrain.cellSize)) {
+      t.exited = true;
+    }
+    return;
+  }
+
+  // 2) Move along the route, leg by leg, in formation. The leg is "made" when
+  //    the point man reaches the waypoint (the column may still be trailing in).
   const target = t.route[t.legIndex];
-  if (!target) return;
-  for (const m of members) {
-    m.technique = t.technique;
-    m.brainState = "moving";
-    m.rof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
-    w.sim.pathTo(m, target, { concealBias: t.technique === "concealed" ? 0.7 : t.technique === "tactical" ? 0.35 : 0 });
+  if (!target) {
+    enterOnStation(w, t, members);
+    return;
+  }
+  steerSquad(w, t, members, target, plan, dt);
+  const lead = w.sim.unit(t.leadId);
+  if (lead && dist(lead.pos, target) < 20) {
+    t.legIndex++;
+    if (t.legIndex >= t.route.length) enterOnStation(w, t, members, target);
   }
 }
 
-function driveLeg(w: World, t: Task, members: Unit[], centroid: Vec2) {
-  const target = t.route[t.legIndex];
-  if (!target) {
-    t.phase = "onstation";
-    t.timer = dwellFor(t);
+/** Bring the element home: back to the gate, then in through the ECP to muster. */
+function driveReturn(w: World, t: Task, members: Unit[], dt: number, centroid: Vec2) {
+  const center = w.copWorld();
+  if (dist(centroid, center) < 45) {
+    t.phase = "complete";
     return;
   }
-  if (dist(centroid, target) < 28) {
-    t.legIndex++;
-    if (t.legIndex >= t.route.length) {
-      t.phase = "onstation";
-      t.timer = dwellFor(t);
-      for (const m of members) m.path = [];
-      w.interrupt(`${t.label} on objective`);
-    } else {
-      issueLeg(w, t, members);
-    }
-    return;
-  }
-  for (const m of members) {
-    if (m.path.length === 0 && m.brainState !== "moving" && dist(m.pos, target) > 22) {
-      m.technique = t.technique;
-      m.brainState = "moving";
-      w.sim.pathTo(m, target, { concealBias: t.technique === "concealed" ? 0.7 : 0 });
-    }
-  }
+  const go = w.gateOutsideWorld();
+  const nearGate = dist(centroid, go) < 28 || dist(centroid, center) < w.terrain.cop.radius * w.terrain.cellSize * 1.15;
+  const target = nearGate ? w.musterWorld() : go;
+  const plan = planFormation(w, t, members);
+  const home: FormationPlan = nearGate
+    ? gateFile(plan)
+    : { ...plan, roadBias: Math.max(plan.roadBias, 0.45), concealBias: Math.min(plan.concealBias, 0.3) };
+  steerSquad(w, t, members, target, home, dt);
+}
+
+/** Tight file with no concealment detour — for threading the gate. */
+function gateFile(plan: FormationPlan): FormationPlan {
+  return { ...plan, formation: "file", spacing: Math.min(plan.spacing, 5), concealBias: 0, roadBias: 0.3 };
+}
+
+function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
+  t.phase = "onstation";
+  t.timer = dwellFor(t);
+  const at = center ?? centroidOf(members);
+  const radius = t.kind === "kle" ? 14 : 20;
+  // Set up around the objective by team, each fire team holding a sector.
+  holdSecurity(w, byTeam(w, members), at, radius);
+  w.interrupt(`${t.label} on objective`);
+}
+
+function jitter(w: World, p: Vec2, r: number): Vec2 {
+  return { x: p.x + w.rng.range(-r, r), y: p.y + w.rng.range(-r, r) };
 }
 
 function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {

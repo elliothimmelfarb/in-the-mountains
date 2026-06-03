@@ -419,11 +419,14 @@ export class World {
     if (!t) return;
     if (t.phase !== "returning" && t.phase !== "complete") {
       t.phase = "returning";
+      t.exited = true;
       for (const id of t.memberIds) {
         const m = this.sim.unit(id);
         if (m) {
           m.technique = t.technique;
-          this.sim.pathTo(m, this.copWorld());
+          m.faceLock = null;
+          m.formationHold = false;
+          m.path = [];
         }
       }
       this.log(`${t.label}: recalled to ${this.state.fob.name}.`, "radio");
@@ -466,6 +469,16 @@ export class World {
   // ---------------------------------------------------------------- queries
   copWorld(): Vec2 {
     return this.terrain.cellCenter(this.state.copCell.cx, this.state.copCell.cy);
+  }
+  /** The yard / formation area where elements muster before stepping off. */
+  musterWorld(): Vec2 {
+    const m = this.terrain.cop.muster;
+    return this.terrain.cellCenter(m.cx, m.cy);
+  }
+  /** The staging point just outside the entry-control point. */
+  gateOutsideWorld(): Vec2 {
+    const g = this.terrain.cop.gateOutside;
+    return this.terrain.cellCenter(g.cx, g.cy);
   }
   inContact(): boolean {
     for (const u of this.sim.units) {

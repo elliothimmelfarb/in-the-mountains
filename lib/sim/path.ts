@@ -1,4 +1,4 @@
-import { Terrain } from "./terrain";
+import { Terrain, Land } from "./terrain";
 import { Vec2 } from "./vec";
 
 /**
@@ -14,6 +14,8 @@ export interface PathOptions {
   concealBias?: number;
   /** Prefer staying off the skyline / hugging cover (used by the enemy). */
   coverBias?: number;
+  /** 0..1 preference for roads & trails — fast movement uses the MSR when it can. */
+  roadBias?: number;
   /** Cap on node expansions before giving up (returns straight-line fallback). */
   maxExpand?: number;
 }
@@ -80,6 +82,7 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
   const cw = Math.ceil(terrain.size / f); // coarse grid width
   const concealBias = opts.concealBias ?? 0;
   const coverBias = opts.coverBias ?? 0;
+  const roadBias = opts.roadBias ?? 0;
   const maxExpand = opts.maxExpand ?? 26000;
 
   const toCoarse = (w: number) => Math.min(cw - 1, Math.max(0, Math.floor(w / (terrain.cellSize * f))));
@@ -103,6 +106,11 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
     let c = 1 / move; // base step cost (higher where slow)
     if (concealBias > 0) c *= 1 + concealBias * (1 - terrain.conceal[idx]);
     if (coverBias > 0) c *= 1 + coverBias * (1 - terrain.cover[idx]);
+    if (roadBias > 0) {
+      const l = terrain.land[idx] as Land;
+      const onRoad = l === Land.Road || l === Land.Trail || l === Land.Footbridge;
+      c *= onRoad ? 1 - 0.62 * roadBias : 1 + 0.3 * roadBias;
+    }
     return c;
   };
 

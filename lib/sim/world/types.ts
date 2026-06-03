@@ -40,6 +40,11 @@ export interface Task {
   phase: "assembling" | "moving" | "onstation" | "returning" | "complete";
   timer: number; // seconds left in the current timed phase
   startedClock: number;
+  /** Squad movement: the point man, whether the element has cleared the wire,
+   *  and a governor timer so a held leader always creeps forward eventually. */
+  leadId?: string;
+  exited?: boolean;
+  holdTimer?: number;
 }
 
 export type ProjectStage =
