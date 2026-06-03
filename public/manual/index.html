@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Field Manual</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">IN THE <span>MOUNTAINS</span></div>
+  <div class="sub">Field Manual</div>
+  <a href="/">‹ Back to game</a>
+  <a href="tutorial.html">Interactive Tutorial ›</a>
+
+  <div class="navhdr">Orientation</div>
+  <a href="#overview">1. The Situation</a>
+  <a href="#layers">2. The Two Layers</a>
+  <a href="#loop">3. The Game Loop</a>
+
+  <div class="navhdr">Command Layer</div>
+  <a href="#command">4. The COP</a>
+  <a href="#personnel">5. Personnel</a>
+  <a href="#logistics">6. Logistics</a>
+  <a href="#patrols">7. Planning Patrols</a>
+  <a href="#coin">8. The People (COIN)</a>
+  <a href="#intel">9. Intelligence</a>
+
+  <div class="navhdr">Contact Layer</div>
+  <a href="#tactical">10. Tactical Combat</a>
+  <a href="#controls">11. Controls</a>
+  <a href="#terrain">12. Terrain &amp; LOS</a>
+  <a href="#ballistics">13. Ballistics</a>
+  <a href="#morale">14. Morale &amp; Wounds</a>
+  <a href="#firesupport">15. Fire Support</a>
+
+  <div class="navhdr">Reference</div>
+  <a href="#weapons">16. Weapon Systems</a>
+  <a href="#enemy">17. Knowing the Enemy</a>
+  <a href="#scoring">18. Scoring</a>
+  <a href="#glossary">19. Glossary</a>
+</nav>
+
+<main>
+  <h1>IN THE <span class="a">MOUNTAINS</span></h1>
+  <p class="lede">A deep tactical-strategic simulation of counterinsurgency at the platoon/company
+  level, in a procedurally generated valley of Kunar Province, Afghanistan, c. 2011.</p>
+
+  <p>You are the commander of a remote combat outpost. The men, the equipment, the patrols, the
+  shuras with the elders, the calls for fire, the wounded — they are yours. The valley is steep,
+  the enemy fights on his own ground and his own timeline, and the population is the prize.
+  This manual is your reference. Read it, or learn the hard way; the valley teaches both.</p>
+
+  <div class="callout">
+    <div class="h">Tone &amp; Sources</div>
+    The simulation draws on Sebastian Junger's <em>War</em>, the documentaries <em>Restrepo</em>
+    and <em>Korengal</em> (Junger / Tim Hetherington), Jake Tapper's <em>The Outpost</em>,
+    counterinsurgency doctrine (FM 3-24), and the after-action record of units that fought in the
+    Pech and Korengal. It is a work of fiction made in respect of those who served there.
+  </div>
+
+  <h2 id="overview">1. The Situation</h2>
+  <p>It is 2011. Your company has inherited a combat outpost (COP) on a knob of high ground above
+  a river valley. North, the valley climbs into "Indian country" — switchback trails, draws choked
+  with holly and cedar, ridgelines at nearly 3,000 meters. A handful of villages cling to benches
+  above the river, growing corn and timber and, when the season is right, fighting.</p>
+  <p>Your enemy — call them ACM (Anti-Coalition Militia), the Taliban, HIG, outsiders, local boys
+  with a grievance and an AK — does not mass and charge. He ambushes from defilade, fires a few
+  magazines, and melts up the draws before your mortars can range him. He is patient. He is home.
+  The terrain is his ally and your enemy in equal measure.</p>
+  <p>Your weapons are superior; your firepower is overwhelming. And almost none of that matters if
+  you cannot win the people. Every civilian you kill makes ten fighters. Every promise you break is
+  remembered for a generation. <strong>You can win every firefight and lose the valley.</strong></p>
+
+  <h2 id="layers">2. The Two Layers</h2>
+  <div class="grid2">
+    <div class="card">
+      <h4>Command Layer</h4>
+      <p class="dim">Turn-based, resolved by phase of day. Manage the COP: personnel, logistics,
+      defense, intelligence. Plan and launch patrols and operations on the topographic map.
+      Engage the population. Answer to battalion.</p>
+    </div>
+    <div class="card">
+      <h4>Contact Layer</h4>
+      <p class="dim">Real-time-with-pause tactical combat. Triggered when a patrol makes contact,
+      when the COP is attacked, or when you spring an ambush. Squad and individual control, with
+      every round simulated against line of sight, cover, and concealment.</p>
+    </div>
+  </div>
+
+  <h2 id="loop">3. The Game Loop</h2>
+  <ol>
+    <li><strong>Plan</strong> — at the COP, study intel, pick a mission, task-organize an element, draw a route.</li>
+    <li><strong>Patrol</strong> — step off. Most patrols are long, hot, and uneventful. Some are not.</li>
+    <li><strong>Fight</strong> — on contact, drop into the tactical layer. Maneuver, suppress, call for fire, treat the wounded, break contact or destroy the enemy.</li>
+    <li><strong>Manage</strong> — between phases, rest your men, run shuras, fund projects, resupply, and respond to events.</li>
+    <li><strong>Repeat</strong> — for an entire deployment. The valley keeps score.</li>
+  </ol>
+
+  <h2 id="command">4. The COP (Command View)</h2>
+  <p>The <strong>command bar</strong> across the top shows the day and tour length, the phase of day
+  (Dawn → Day → Dusk → Night), the light level (which governs night-vision advantage), the weather
+  (which governs air support), and your five campaign metrics. The center is the topographic map.
+  The left column holds directives, intel, and the log; the right column holds patrol planning,
+  village engagement, and logistics.</p>
+  <p>Press <strong>Advance</strong> to move time forward by one phase. Your men rest and recover at
+  the COP, supplies are consumed, intel arrives, and the enemy moves. The night belongs to him.</p>
+
+  <h2 id="personnel">5. Personnel</h2>
+  <p>Your platoon is roughly 35 soldiers in a headquarters element, three rifle squads, and a
+  weapons squad. Each soldier is an individual with a name, a hometown, a rank, a job, and a set of
+  attributes that actually drive the simulation:</p>
+  <ul>
+    <li><span class="tag">Marksmanship</span> tightens shot dispersion.</li>
+    <li><span class="tag">Composure</span> resists suppression and panic.</li>
+    <li><span class="tag">Leadership</span> steadies nearby soldiers under fire.</li>
+    <li><span class="tag">Medical</span> determines how fast a casualty is stabilized.</li>
+    <li><span class="tag">Fitness</span> resists fatigue on the brutal slopes.</li>
+    <li><span class="tag">Experience</span> improves perception and steadiness.</li>
+  </ul>
+  <p>Readiness is shown by a colored dot: <span class="good">green</span> = ready,
+  <span class="dim">amber</span> = resting, <span class="enemy">red</span> = wounded. Wounded
+  soldiers recover over days; the killed do not come back. Their loss costs you morale across the
+  platoon and confidence at battalion. <strong>Bring a medic (DOC) on every patrol.</strong></p>
+
+  <h2 id="logistics">6. Logistics</h2>
+  <p>Everything is finite and everything is heavy. The Logistics panel tracks ammunition by caliber
+  (5.56, 7.62, .50), 40mm and mortar rounds, grenades and smoke, trauma kits, water, food, fuel,
+  and batteries. Firefights and fire missions burn through stocks fast. Resupply comes by ground
+  convoy (risk of IED/ambush) or by air (weather permitting) — usually offered as an event.</p>
+  <div class="callout warn">
+    <div class="h">Watch your basic load</div>
+    Bars turn red when a class of supply runs low. Black-on-ammo in a firefight means your guns
+    fall silent. A unit that runs dry will switch to a sidearm or stop firing entirely.
+  </div>
+
+  <h2 id="patrols">7. Planning Patrols</h2>
+  <p>Patrol planning lives in the right-hand panel and on the map:</p>
+  <ol>
+    <li><strong>Mission</strong> — choose the type. Each shapes the encounter and the rewards:
+      <ul>
+        <li><span class="tag">Presence</span> show the flag; visiting villages raises attitudes.</li>
+        <li><span class="tag">Recon</span> gather atmospherics and intel on an area.</li>
+        <li><span class="tag">Ambush</span> you set up first and initiate on your terms.</li>
+        <li><span class="tag">KLE</span> reach a village to meet its elder.</li>
+        <li><span class="tag">Census</span> log military-age males; build the human terrain.</li>
+        <li><span class="tag">Cordon &amp; Search</span> presence with teeth.</li>
+        <li><span class="tag">Overwatch / OP</span> sit on high ground and watch a route.</li>
+      </ul>
+    </li>
+    <li><strong>Task-organize</strong> — click soldiers, or a squad header to toggle the whole squad. Mind your composition.</li>
+    <li><strong>Route</strong> — with <em>Plan Route</em> selected, click the map to drop waypoints. Distance is shown. Deeper into the valley means more danger.</li>
+    <li><strong>Step Off</strong> — launch. The patrol marches; contact probability is rolled along the route from terrain, enemy activity, village hostility, and intel hotspots.</li>
+  </ol>
+
+  <h2 id="coin">8. The People (Counterinsurgency)</h2>
+  <p>Switch the map to <em>Inspect</em> and click a village. Each has an elder, a population, an
+  <span class="us">attitude</span> toward you, a <span class="dim">cooperation</span> level (how much
+  intel they'll share), and a hidden <span class="enemy">sympathy</span> for the insurgents.</p>
+  <ul>
+    <li><strong>Shura (KLE)</strong> — sit with the elder. Raises attitude and cooperation and may yield intel. Costs a phase.</li>
+    <li><strong>CERP Projects</strong> — spend reconstruction funds on a well, a school, a clinic, a road. Builds lasting goodwill and reduces sympathy.</li>
+    <li><strong>Solatia</strong> — after you cause harm, payment and apology can repair a relationship. Offered through events.</li>
+  </ul>
+  <div class="callout warn">
+    <div class="h">Civilian casualties are catastrophic</div>
+    A single civilian killed in your crossfire or by your fire mission hardens every village in the
+    valley, raises enemy activity, and shakes battalion's confidence. Positively identify your
+    targets. When civilians are near the fight, the cheapest round is the one you don't fire.
+  </div>
+
+  <h2 id="intel">9. Intelligence</h2>
+  <p>The Intel Feed aggregates reporting, each tagged with a source and a reliability percentage:</p>
+  <ul>
+    <li><span class="tag">SIGINT</span> intercepted "ICOM chatter" — the enemy's radios. Often cryptic, sometimes a warning.</li>
+    <li><span class="tag">HUMINT</span> tips from cooperative villagers and paid sources. Quality tracks the village's cooperation — and sometimes settles a private score.</li>
+    <li><span class="tag">DRONE</span> ISR sightings, especially of night movement.</li>
+    <li><span class="tag">PATROL</span> what your own boots saw.</li>
+  </ul>
+  <p>Intel marks hotspots on the map and raises contact probability nearby. <strong>It is frequently
+  wrong.</strong> Corroborate across sources before you act on it.</p>
+
+  <h2 id="tactical">10. Tactical Combat</h2>
+  <p>When contact is made you'll see a briefing, then deploy into the tactical layer: the same
+  terrain, zoomed in, every soldier under your command. Time runs in real time; pause freely and
+  give orders deliberately. The clock, speed controls, friendly/contact counts, and "End Contact"
+  are along the top. Your soldiers act with autonomy within your intent — they return fire, take
+  cover, reload, and the medic moves to the wounded — but the decisions that matter are yours.</p>
+
+  <h2 id="controls">11. Controls</h2>
+  <table>
+    <thead><tr><th>Input</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Left-click</kbd> / drag</td><td>Select a soldier / box-select an element</td></tr>
+      <tr><td><kbd>Shift</kbd> + click</td><td>Add to selection</td></tr>
+      <tr><td><kbd>Right-click</kbd></td><td>Quick move (empty ground) or engage (on an enemy)</td></tr>
+      <tr><td>Wheel</td><td>Zoom · drag with <kbd>Alt</kbd>/right-drag to pan</td></tr>
+      <tr><td><kbd>Space</kbd></td><td>Pause / resume</td></tr>
+      <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Speed 1× / 2× / 4×</td></tr>
+      <tr><td><kbd>Q</kbd>…<kbd>F</kbd>, <kbd>X</kbd></td><td>Order tools (Select, Move, Rush, Assault, Hold, Suppress, Smoke, Frag, Withdraw)</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel fire-support targeting</td></tr>
+    </tbody>
+  </table>
+  <p>Pick an order tool from the bottom bar, then click the map to issue it to the selected element.
+  For fire support, select the asset, then click the impact point.</p>
+
+  <h2 id="terrain">12. Terrain, Line of Sight &amp; Concealment</h2>
+  <p>The valley is procedurally generated from your seed: a meandering river floor rising to
+  ridgelines, cut by spurs and draws, with terraced fields, orchards, scrub, forest, scree, and
+  rock. Terrain is not scenery — it is the dominant actor.</p>
+  <ul>
+    <li><strong>Elevation</strong> drives line of sight. A man behind a crest is in <em>dead ground</em> (defilade); only what pokes above the horizon line can be seen or hit. Partial exposure — "heads and shoulders over the ridge" — is computed smoothly, not as a binary.</li>
+    <li><strong>Concealment</strong> (forest, orchard, scrub, smoke) blocks sight without stopping bullets. You can't shoot what you can't see — and neither can he.</li>
+    <li><strong>Cover</strong> (rock, qalat walls, terrace walls) stops rounds. Going prone or crouching adds cover and shrinks your silhouette.</li>
+    <li><strong>Movement cost</strong> punishes steep slopes, scree, and brush. The climb itself is an enemy: fatigue degrades everything.</li>
+  </ul>
+  <div class="callout">
+    <div class="h">Read the ground</div>
+    Take the high ground. Avoid the obvious draws and trails where ambushes wait. Use dead ground to
+    move unseen. Put a base of fire where it can see, and maneuver where it can't.
+  </div>
+
+  <h2 id="ballistics">13. Ballistics — Every Round Simulated</h2>
+  <p>There is no abstract "to-hit roll." Each shot spawns a real projectile with the weapon's muzzle
+  velocity and time of flight. The aimpoint is the target perturbed by a dispersion drawn from the
+  weapon's mechanical accuracy combined with the shooter's marksmanship, stance, fatigue, movement,
+  suppression, and how settled the shot is. The round flies; on arrival it strikes the target only
+  if it lands within the target's effective silhouette — which shrinks with cover and defilade — and
+  cover may still stop an otherwise-good round depending on the weapon's penetration.</p>
+  <p>Consequences fall out of the model rather than being scripted: rifles are deadly inside their
+  effective range and waste rounds beyond it; machine guns hit through volume and suppress whole
+  positions; the .50 and DShK defeat most cover; snipers and DMRs reach far but fire slowly. Rounds
+  passing close overhead suppress without hitting — the "crack" that pins men down.</p>
+
+  <h2 id="morale">14. Morale, Suppression &amp; Wounds</h2>
+  <p>Each combatant carries <strong>composure</strong> (morale in the moment) and accrues
+  <strong>suppression</strong> from incoming fire. Suppressed soldiers shoot wildly, hesitate, and
+  seek cover; broken soldiers cower or rout. Leaders project composure to those around them — lose a
+  leader and his squad wavers. Cohesion (friends nearby) and cover restore composure; isolation,
+  casualties, and fatigue drain it.</p>
+  <p>Hits roll a body region and a severity, mitigated by body armor (your soldiers wear plates and
+  helmets; the enemy does not). Outcomes range from a graze to a mortal wound. Wounded soldiers
+  <strong>bleed</strong>; buddy aid slows it, a medic stops it, and MEDEVAC takes them off the
+  field — converting a probable KIA into a WIA who may return to duty.</p>
+
+  <h2 id="firesupport">15. Fire Support</h2>
+  <p>From the Fire Support panel, select an asset and click the impact point:</p>
+  <ul>
+    <li><strong>Mortars (60/81mm)</strong> — your organic indirect fire from the COP, if the target is in range and rounds remain. There is a delay while the mission is plotted and fired; rounds land with realistic dispersion.</li>
+    <li><strong>CAS / CCA</strong> — close air support (a gun run) or a Hellfire, available only when the weather allows aircraft. Devastating, slow to arrive, and limited.</li>
+    <li><strong>MEDEVAC</strong> — select a casualty and call the bird to take them off the field.</li>
+  </ul>
+  <div class="callout warn">
+    <div class="h">Danger Close</div>
+    Fragments do not pick sides. The game warns you when friendlies are within danger-close of an
+    impact, but it will still fire if you order it. Account for the dispersion. Account for civilians.
+  </div>
+
+  <h2 id="weapons">16. Weapon Systems Reference</h2>
+  <p>Selected systems and their game stats (effective range, dispersion in MOA, and notes). Higher
+  MOA means looser fire; penetration is how much hard cover the round ignores.</p>
+  <h3>United States</h3>
+  <table>
+    <thead><tr><th>Weapon</th><th>Caliber</th><th>Eff. Range</th><th>MOA</th><th>Role / Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="us">M4A1 Carbine</td><td>5.56</td><td>500 m</td><td>4.0</td><td>Standard carbine; 3–6 rd bursts</td></tr>
+      <tr><td class="us">M16A4</td><td>5.56</td><td>550 m</td><td>3.4</td><td>Longer, more accurate rifle</td></tr>
+      <tr><td class="us">M249 SAW</td><td>5.56</td><td>800 m</td><td>7.0</td><td>Squad automatic; suppression by volume</td></tr>
+      <tr><td class="us">M240B</td><td>7.62</td><td>1100 m</td><td>6.0</td><td>GPMG; reach, weight, strong suppression</td></tr>
+      <tr><td class="us">M2 .50 cal</td><td>12.7</td><td>1830 m</td><td>5.0</td><td>HMG; defeats most cover</td></tr>
+      <tr><td class="us">Mk 19 AGL</td><td>40mm</td><td>1500 m</td><td>—</td><td>Automatic grenade launcher; area fire</td></tr>
+      <tr><td class="us">M320 GL</td><td>40mm</td><td>150 m</td><td>—</td><td>Grenade launcher; arcing HE</td></tr>
+      <tr><td class="us">M110 SASS</td><td>7.62</td><td>800 m</td><td>1.3</td><td>Designated marksman, semi-auto</td></tr>
+      <tr><td class="us">M24 SWS</td><td>7.62</td><td>900 m</td><td>0.8</td><td>Bolt sniper; precision</td></tr>
+      <tr><td class="us">M107</td><td>12.7</td><td>1800 m</td><td>1.1</td><td>.50 anti-materiel sniper</td></tr>
+      <tr><td class="us">AT4 / Javelin</td><td>84 / 127mm</td><td>300 / 2500 m</td><td>—</td><td>Rocket / guided missile; backblast (AT4)</td></tr>
+      <tr><td class="us">60/81/120mm Mortar</td><td>—</td><td>3.5–7.2 km</td><td>—</td><td>Indirect HE; the infantryman's artillery</td></tr>
+    </tbody>
+  </table>
+  <h3>Insurgent</h3>
+  <table>
+    <thead><tr><th>Weapon</th><th>Caliber</th><th>Eff. Range</th><th>MOA</th><th>Role / Notes</th></tr></thead>
+    <tbody>
+      <tr><td class="enemy">AKM</td><td>7.62×39</td><td>350 m</td><td>6.0</td><td>The ubiquitous rifle</td></tr>
+      <tr><td class="enemy">RPK</td><td>7.62×39</td><td>600 m</td><td>7.0</td><td>Light machine gun</td></tr>
+      <tr><td class="enemy">PKM</td><td>7.62×54R</td><td>1000 m</td><td>6.5</td><td>Belt-fed; the backbone of their base of fire</td></tr>
+      <tr><td class="enemy">SVD Dragunov</td><td>7.62×54R</td><td>800 m</td><td>2.2</td><td>Marksman rifle; reaches across the valley</td></tr>
+      <tr><td class="enemy">Lee–Enfield .303</td><td>.303</td><td>600 m</td><td>3.0</td><td>Old, accurate, still lethal</td></tr>
+      <tr><td class="enemy">RPG-7</td><td>85mm</td><td>300 m</td><td>—</td><td>Rocket; opener of many ambushes; backblast</td></tr>
+      <tr><td class="enemy">DShK</td><td>12.7</td><td>1600 m</td><td>6.0</td><td>Heavy MG on the high ground</td></tr>
+      <tr><td class="enemy">82mm Mortar</td><td>—</td><td>4 km</td><td>—</td><td>Enemy indirect fire</td></tr>
+    </tbody>
+  </table>
+
+  <h2 id="enemy">17. Knowing the Enemy</h2>
+  <p>The insurgent AI fights like the real thing did. He prefers the high ground and defilade, holds
+  his fire until the patrol is in the kill zone, and masses RPG and PKM fire at the moment of
+  initiation. Then he <strong>shoots and scoots</strong> — fires for a spell and displaces to a new
+  firing position before your mortars range him. He breaks contact when he's hurt, when he's
+  isolated, or when aircraft arrive, slipping up the draws and off the map. He fights hardest near
+  his own villages. He melds into the population. His skill and numbers scale with the "heat" of the
+  valley, which you raise by causing civilian harm and lose by killing fighters and winning villages.</p>
+
+  <h2 id="scoring">18. Scoring the Tour</h2>
+  <p>There is no simple win. Your deployment is graded across five metrics:</p>
+  <ul>
+    <li><strong>Valley Stability</strong> — the overall trend, blended from attitudes, enemy strength, and your presence.</li>
+    <li><strong>Village Attitudes</strong> — the mean disposition of the population toward you.</li>
+    <li><strong>Enemy Strength</strong> — the estimated insurgent pool; attrition lowers it, your mistakes feed it.</li>
+    <li><strong>Combat Power</strong> — your readiness in men and materiel.</li>
+    <li><strong>Higher Confidence</strong> — battalion's faith in you. Hit zero and you're relieved of command.</li>
+  </ul>
+  <p>At the end of the tour you receive a letter grade and an honest assessment — and a list of your
+  killed, by name and home state. The rarest grade of all is the one where everyone goes home.</p>
+
+  <h2 id="glossary">19. Glossary</h2>
+  <table>
+    <tbody>
+      <tr><td><strong>ACM</strong></td><td>Anti-Coalition Militia — the catch-all enemy.</td></tr>
+      <tr><td><strong>TIC</strong></td><td>Troops in Contact — a firefight in progress.</td></tr>
+      <tr><td><strong>COP / FOB</strong></td><td>Combat Outpost / Forward Operating Base.</td></tr>
+      <tr><td><strong>QRF</strong></td><td>Quick Reaction Force.</td></tr>
+      <tr><td><strong>CASEVAC / MEDEVAC</strong></td><td>Casualty / medical evacuation, often by 9-line request.</td></tr>
+      <tr><td><strong>KLE / Shura</strong></td><td>Key Leader Engagement; a council with elders.</td></tr>
+      <tr><td><strong>CERP</strong></td><td>Commander's Emergency Response Program — reconstruction funds.</td></tr>
+      <tr><td><strong>Solatia</strong></td><td>Condolence payment after harm to civilians or property.</td></tr>
+      <tr><td><strong>Defilade / Dead ground</strong></td><td>Ground hidden from observation and direct fire by terrain.</td></tr>
+      <tr><td><strong>Draw / Re-entrant</strong></td><td>A valley or gully cutting into a slope — a natural avenue and ambush site.</td></tr>
+      <tr><td><strong>Spur / Finger</strong></td><td>A ridge of high ground projecting from a hillside.</td></tr>
+      <tr><td><strong>Danger Close</strong></td><td>Friendly troops near enough to a fire mission to be at risk.</td></tr>
+      <tr><td><strong>ICOM</strong></td><td>The enemy's handheld radios; the source of much SIGINT.</td></tr>
+      <tr><td><strong>ANA / ANP</strong></td><td>Afghan National Army / Police — your partners.</td></tr>
+      <tr><td><strong>Base of fire / Maneuver</strong></td><td>Fix the enemy with fire from one element while another moves on him.</td></tr>
+      <tr><td><strong>Pattern of life / Atmospherics</strong></td><td>The normal rhythm of a village; its sudden absence warns of contact.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="footer">
+    In the Mountains — Field Manual · A tactical deployment simulation ·
+    <a href="tutorial.html">Interactive Tutorial</a> · <a href="/">Return to game</a>
+  </div>
+</main>
+</div>
+</body>
+</html>

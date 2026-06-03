@@ -1,26 +1,170 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0c0d0a;
+  --panel: #14160f;
+  --panel-2: #1b1e15;
+  --line: #2c3022;
+  --ink: #d8d6c4;
+  --ink-dim: #9a9a82;
+  --olive: #6b7a3a;
+  --tan: #c2a878;
+  --amber: #e0a72b;
+  --rust: #b5532a;
+  --blood: #9c2c20;
+  --us: #4a86c6;
+  --enemy: #c0392b;
+  --civ: #d8b94a;
+  --good: #6fae54;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-bg: var(--bg);
+  --color-panel: var(--panel);
+  --color-panel2: var(--panel-2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-inkdim: var(--ink-dim);
+  --color-olive: var(--olive);
+  --color-tan: var(--tan);
+  --color-amber: var(--amber);
+  --color-rust: var(--rust);
+  --color-blood: var(--blood);
+  --color-us: var(--us);
+  --color-enemy: var(--enemy);
+  --color-civ: var(--civ);
+  --color-good: var(--good);
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+html,
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0c0d0a;
+}
+::-webkit-scrollbar-thumb {
+  background: #2c3022;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3c4230;
+}
+
+.panel {
+  background: linear-gradient(180deg, var(--panel-2), var(--panel));
+  border: 1px solid var(--line);
+}
+
+.stencil {
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.tac-btn {
+  background: #1b1e15;
+  border: 1px solid #2c3022;
+  color: #d8d6c4;
+  padding: 6px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.tac-btn:hover {
+  background: #2a2f1f;
+  border-color: #4a5235;
+}
+.tac-btn.active {
+  background: #3a4126;
+  border-color: var(--amber);
+  color: #f0e4c0;
+}
+.tac-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.tac-btn-danger:hover {
+  border-color: var(--rust);
+  background: #2e1c14;
+}
+
+.scanlines::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.06),
+    rgba(0, 0, 0, 0.06) 1px,
+    transparent 2px,
+    transparent 3px
+  );
+  z-index: 50;
+  mix-blend-mode: multiply;
+}
+
+.vignette::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 200px rgba(0, 0, 0, 0.7);
+  z-index: 40;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0.25;
+  }
+}
+.blink {
+  animation: blink 1s steps(1) infinite;
+}
+
+.fade-in {
+  animation: fade-in 0.4s ease both;
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--line), transparent);
 }

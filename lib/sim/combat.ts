@@ -1,0 +1,1147 @@
+import { RNG, clamp, clamp01, lerp } from "./rng";
+import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle } from "./vec";
+import { Terrain } from "./terrain";
+import { Unit, unitHeight, eyeHeight } from "./entities";
+import { getWeapon, Weapon } from "./weapons";
+import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
+import {
+  Projectile,
+  spawnProjectile,
+  resolveDirectHit,
+  applyDamage,
+  blastDamageAt,
+} from "./ballistics";
+import { insurgentBrain } from "./ai/insurgent";
+import { civilianBrain } from "./ai/civilian";
+import { friendlyBrain } from "./ai/friendly";
+
+export type OrderType =
+  | "move"
+  | "assault"
+  | "hold"
+  | "engage"
+  | "suppress"
+  | "holdfire"
+  | "weaponsfree"
+  | "withdraw"
+  | "smoke"
+  | "frag"
+  | "treat"
+  | "regroup"
+  | "halt";
+
+export type MoveTechnique = "patrol" | "traveling" | "rush" | "crawl";
+
+export interface Order {
+  type: OrderType;
+  point?: Vec2;
+  targetId?: string;
+  technique?: MoveTechnique;
+  rof?: Unit["rof"];
+}
+
+export type EffectKind =
+  | "muzzle"
+  | "impact"
+  | "ricochet"
+  | "blast"
+  | "blood"
+  | "frag_air"
+  | "smoke_pop"
+  | "flare";
+
+export interface Effect {
+  id: number;
+  kind: EffectKind;
+  pos: Vec2;
+  to?: Vec2;
+  t: number;
+  ttl: number;
+  faction?: Unit["faction"];
+  size?: number;
+}
+
+export type LogKind = "info" | "contact" | "casualty" | "kia" | "radio" | "support" | "objective";
+
+export interface LogEntry {
+  id: number;
+  timeS: number;
+  msg: string;
+  kind: LogKind;
+}
+
+export type FireMissionType =
+  | "mortar60"
+  | "mortar81"
+  | "mortar120"
+  | "cas_gun"
+  | "cas_rocket"
+  | " enemy_mortar"; // enemy indirect uses same pipeline
+
+export interface FireMission {
+  id: number;
+  weaponId: string;
+  target: Vec2;
+  rounds: number;
+  roundsLeft: number;
+  etaS: number; // time until first round
+  intervalS: number;
+  nextRoundS: number;
+  faction: Unit["faction"];
+  status: "requested" | "inbound" | "firing" | "complete";
+  label: string;
+  dangerClose: boolean;
+  spread: number; // meters
+}
+
+export interface RevealedEnemy {
+  id: string;
+  pos: Vec2;
+  lastSeenS: number;
+  confirmed: boolean; // currently in sight
+}
+
+export type CombatOutcome = "ongoing" | "us_victory" | "us_withdraw" | "us_destroyed" | "stalemate";
+
+export interface CombatResult {
+  outcome: CombatOutcome;
+  usKIA: string[];
+  usWIA: string[];
+  enemyKIA: number;
+  civCasualties: number;
+  durationS: number;
+  ammoExpended: number;
+  fireMissionsUsed: number;
+}
+
+// Movement base speeds (m/s) by technique.
+const TECH_SPEED: Record<MoveTechnique, number> = {
+  patrol: 1.0,
+  traveling: 1.7,
+  rush: 4.2,
+  crawl: 0.5,
+};
+
+const STANCE_SPEED: Record<Unit["stance"], number> = {
+  stand: 1,
+  crouch: 0.58,
+  prone: 0.22,
+};
+
+export interface CombatInit {
+  terrain: Terrain;
+  rng: RNG;
+  units: Unit[];
+  light: number; // 0..1
+  weather: { visibilityM: number; wind: number; label: string };
+  /** Origin label (which patrol / where) for the after-action. */
+  context?: string;
+  /** Available COP indirect assets (weapon ids) and rounds. */
+  mortars?: { weaponId: string; rounds: number; copPos: Vec2 }[];
+  casAvailable?: boolean;
+}
+
+let _eid = 0;
+let _lid = 0;
+let _fmid = 0;
+
+/**
+ * The tactical engagement simulator. Runs at a fixed timestep; advances every
+ * unit's perception, AI, movement, fire, and morale, and resolves every round
+ * fired through the ballistics + LOS + cover model.
+ */
+export class CombatSim {
+  terrain: Terrain;
+  rng: RNG;
+  units: Unit[];
+  projectiles: Projectile[] = [];
+  smoke: SmokeScreen[] = [];
+  effects: Effect[] = [];
+  log: LogEntry[] = [];
+  fireMissions: FireMission[] = [];
+  timeS = 0;
+  light: number;
+  weather: CombatInit["weather"];
+  context: string;
+  mortars: NonNullable<CombatInit["mortars"]>;
+  casAvailable: boolean;
+  casUsed = false;
+  outcome: CombatOutcome = "ongoing";
+  ammoExpended = 0;
+  fireMissionsUsed = 0;
+  lastActivityS = 0; // last time a round was fired or detonated (for lull detection)
+  revealed: Map<string, RevealedEnemy> = new Map();
+  // index for quick lookup
+  private byId: Map<string, Unit> = new Map();
+
+  constructor(init: CombatInit) {
+    this.terrain = init.terrain;
+    this.rng = init.rng;
+    this.units = init.units;
+    this.light = init.light;
+    this.weather = init.weather;
+    this.context = init.context ?? "Contact";
+    this.mortars = init.mortars ?? [];
+    this.casAvailable = init.casAvailable ?? false;
+    for (const u of this.units) this.byId.set(u.id, u);
+  }
+
+  // ---------------------------------------------------------------- accessors
+  unit(id: string | null | undefined): Unit | undefined {
+    return id ? this.byId.get(id) : undefined;
+  }
+
+  isHostile(a: Unit, b: Unit): boolean {
+    if (!b.alive) return false;
+    const aUS = a.faction === "us" || a.faction === "ana";
+    const bUS = b.faction === "us" || b.faction === "ana";
+    if (a.faction === "civilian" || b.faction === "civilian") return false;
+    return aUS !== bUS;
+  }
+
+  playerUnits(): Unit[] {
+    return this.units.filter((u) => (u.faction === "us" || u.faction === "ana") && u.alive && !u.evac);
+  }
+
+  livingEnemies(): Unit[] {
+    return this.units.filter((u) => u.faction === "insurgent" && u.alive && !u.evac);
+  }
+
+  weaponOf(u: Unit): Weapon {
+    return getWeapon(u.weaponId === "unarmed" ? "m9" : u.weaponId);
+  }
+
+  // ---------------------------------------------------------------- logging/fx
+  addLog(msg: string, kind: LogKind = "info") {
+    this.log.push({ id: _lid++, timeS: this.timeS, msg, kind });
+    if (this.log.length > 400) this.log.splice(0, this.log.length - 400);
+  }
+
+  addEffect(kind: EffectKind, pos: Vec2, ttl: number, opts: Partial<Effect> = {}) {
+    this.effects.push({ id: _eid++, kind, pos: { ...pos }, t: 0, ttl, ...opts });
+  }
+
+  // ---------------------------------------------------------------- orders
+  issueOrder(unitIds: string[], order: Order) {
+    for (const id of unitIds) {
+      const u = this.unit(id);
+      if (!u || !u.alive || u.faction === "insurgent" || u.faction === "civilian") continue;
+      this.applyOrder(u, order);
+    }
+  }
+
+  private applyOrder(u: Unit, order: Order) {
+    u.orderType = order.type;
+    u.brainTimer = 0;
+    switch (order.type) {
+      case "move":
+      case "assault":
+      case "withdraw":
+        if (order.point) {
+          u.orderTarget = { ...order.point };
+          u.path = [{ ...order.point }];
+          u.brainState = order.type === "withdraw" ? "withdrawing" : "moving";
+        }
+        if (order.type === "assault") u.rof = "free";
+        break;
+      case "hold":
+        u.orderTarget = order.point ? { ...order.point } : { ...u.pos };
+        u.path = order.point ? [{ ...order.point }] : [];
+        u.brainState = "holding";
+        break;
+      case "engage":
+        u.targetId = order.targetId ?? u.targetId;
+        u.orderTarget = order.point ? { ...order.point } : null;
+        u.rof = "free";
+        u.brainState = "engaging";
+        break;
+      case "suppress":
+        u.orderTarget = order.point ? { ...order.point } : null;
+        u.rof = "suppress";
+        u.brainState = "suppressing";
+        break;
+      case "holdfire":
+        u.rof = "hold";
+        break;
+      case "weaponsfree":
+        u.rof = "free";
+        break;
+      case "smoke":
+        if (order.point) this.throwSmoke(u, order.point);
+        break;
+      case "frag":
+        if (order.point) u.orderTarget = { ...order.point };
+        u.brainState = "fragging";
+        break;
+      case "treat":
+        u.targetId = order.targetId ?? null;
+        u.brainState = "treating";
+        break;
+      case "regroup":
+        u.brainState = "regroup";
+        if (order.point) u.path = [{ ...order.point }];
+        break;
+      case "halt":
+        u.path = [];
+        u.orderTarget = null;
+        u.brainState = "holding";
+        break;
+    }
+    if (order.rof) u.rof = order.rof;
+    if (order.technique) (u as Unit & { technique?: MoveTechnique }).technique = order.technique;
+  }
+
+  techniqueOf(u: Unit): MoveTechnique {
+    return ((u as Unit & { technique?: MoveTechnique }).technique ?? "traveling") as MoveTechnique;
+  }
+
+  // ---------------------------------------------------------------- main tick
+  tick(dt: number) {
+    if (this.outcome !== "ongoing") return;
+    this.timeS += dt;
+
+    // 1. timers, bleeding, suppression decay, fatigue recovery
+    for (const u of this.units) this.updateTimers(u, dt);
+
+    // 2. perception (throttled per unit)
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      u.perceptTimer -= dt;
+      if (u.perceptTimer <= 0) {
+        this.updatePerception(u);
+        u.perceptTimer = 0.35 + this.rng.next() * 0.25;
+      }
+    }
+    this.updateRevealed();
+
+    // 3. AI / order execution
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      if (u.faction === "insurgent") insurgentBrain(this, u, dt);
+      else if (u.faction === "civilian") civilianBrain(this, u, dt);
+      else friendlyBrain(this, u, dt);
+    }
+
+    // 4. movement
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      this.moveUnit(u, dt);
+    }
+
+    // 5. firing (spawns projectiles)
+    for (const u of this.units) {
+      if (!u.alive || u.evac || u.conscious === false) continue;
+      this.updateFiring(u, dt);
+    }
+
+    // 6. projectiles
+    this.stepProjectiles(dt);
+
+    // 7. fire missions (indirect / CAS)
+    this.stepFireMissions(dt);
+
+    // 8. morale
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      this.updateMorale(u, dt);
+    }
+
+    // 9. effects aging
+    for (const e of this.effects) e.t += dt;
+    this.effects = this.effects.filter((e) => e.t < e.ttl);
+
+    // 10. smoke dissipation
+    for (const s of this.smoke) s.density -= dt * 0.012;
+    this.smoke = this.smoke.filter((s) => s.density > 0.04);
+
+    // 11. end conditions
+    this.checkOutcome();
+  }
+
+  private updateTimers(u: Unit, dt: number) {
+    if (u.reloading > 0) {
+      u.reloading -= dt;
+      if (u.reloading <= 0) u.reloading = 0;
+    }
+    if (u.fireCooldown > 0) u.fireCooldown -= dt;
+    if (u.roundTimer > 0) u.roundTimer -= dt;
+
+    // suppression decays
+    if (u.suppression > 0) u.suppression = Math.max(0, u.suppression - dt * 0.28);
+
+    // bleeding, with buddy-aid clotting (tourniquets / IFAK) slowing it over time
+    if (u.alive && u.bleedRate > 0) {
+      u.hp -= u.bleedRate * dt;
+      // self/buddy aid gradually stems the bleeding even before the medic arrives
+      u.bleedRate = Math.max(0, u.bleedRate - dt * 0.07);
+      if (u.hp <= 0) {
+        u.hp = 0;
+        u.alive = false;
+        u.conscious = false;
+        this.onDeath(u, "wounds");
+      } else if (u.hp < 18) {
+        u.conscious = false;
+      }
+    }
+
+    // fatigue recovers when stationary
+    if (!u.moving && u.fatigue > 0) u.fatigue = Math.max(0, u.fatigue - dt * 0.01);
+  }
+
+  // ---------------------------------------------------------------- perception
+  private updatePerception(u: Unit) {
+    if (u.faction === "civilian") {
+      // civilians notice gunfire/units but don't "target"
+      u.visibleEnemyIds = [];
+      return;
+    }
+    const opticRange = this.weaponOf(u).opticRange * (0.6 + 0.4 * u.experience);
+    const nvg = (u.faction === "us" || u.faction === "ana"); // US have NODs at night
+    const visible: string[] = [];
+    for (const e of this.units) {
+      if (!this.isHostile(u, e) || e.evac) continue;
+      const d = dist(u.pos, e.pos);
+      if (d > Math.min(opticRange, this.weather.visibilityM) * 1.2) continue;
+      const los = this.los(u, e);
+      if (!los.visible) continue;
+      const p = detectionChance({
+        los,
+        light: this.light,
+        observerNVG: nvg,
+        targetMoving: e.moving,
+        targetFiring: e.hasFired && e.fireCooldown > -0.5 && e.burstLeft >= 0 && e.roundTimer > -0.4,
+        targetProne: e.stance === "prone",
+        observerOpticRangeM: opticRange,
+        alertness: clamp01(0.5 + u.experience * 0.4 + (u.suppression > 0 ? -0.2 : 0)),
+      });
+      // accumulate detection over the throttle window
+      if (this.rng.chance(p)) {
+        visible.push(e.id);
+        u.lastSeenEnemy[e.id] = { pos: { ...e.pos }, t: this.timeS };
+      } else if (u.lastSeenEnemy[e.id]) {
+        // keep stale memory
+      }
+    }
+    u.visibleEnemyIds = visible;
+  }
+
+  private updateRevealed() {
+    // anything a living US/ANA unit currently sees is confirmed to the player
+    const nowConfirmed = new Set<string>();
+    for (const u of this.units) {
+      if ((u.faction === "us" || u.faction === "ana") && u.alive && !u.evac) {
+        for (const eid of u.visibleEnemyIds) {
+          nowConfirmed.add(eid);
+          const e = this.unit(eid);
+          if (e) {
+            this.revealed.set(eid, {
+              id: eid,
+              pos: { ...e.pos },
+              lastSeenS: this.timeS,
+              confirmed: true,
+            });
+          }
+        }
+      }
+    }
+    // decay older sightings to "suspected" then drop
+    for (const [id, r] of this.revealed) {
+      if (nowConfirmed.has(id)) continue;
+      r.confirmed = false;
+      if (this.timeS - r.lastSeenS > 25) this.revealed.delete(id);
+      const e = this.unit(id);
+      if (e && !e.alive) this.revealed.delete(id);
+    }
+  }
+
+  los(observer: Unit, target: Unit): LOSResult {
+    return lineOfSight(this.terrain, observer.pos, target.pos, {
+      observerHeight: eyeHeight(observer),
+      targetHeight: unitHeight(target),
+      smoke: this.smoke,
+    });
+  }
+
+  // ---------------------------------------------------------------- movement
+  moveUnit(u: Unit, dt: number) {
+    if (u.path.length === 0 || !u.conscious) {
+      u.moving = false;
+      u.speed = 0;
+      return;
+    }
+    const target = u.path[0];
+    const toT = sub(target, u.pos);
+    const d = len(toT);
+    if (d < 1.2) {
+      u.path.shift();
+      if (u.path.length === 0) {
+        u.moving = false;
+        u.speed = 0;
+      }
+      return;
+    }
+    const dir = scale(toT, 1 / d);
+    u.facing = angle(dir);
+    const tech = this.techniqueOf(u);
+    let speed = TECH_SPEED[tech];
+    speed *= STANCE_SPEED[u.stance];
+    speed *= this.terrain.moveCostAt(u.pos.x, u.pos.y);
+    speed *= 0.55 + 0.45 * u.fitnessMax;
+    speed *= 1 - u.fatigue * 0.45;
+    speed *= 1 - u.suppression * 0.4;
+    // leg wounds slow you
+    if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
+    speed = Math.max(0.15, speed);
+    const stepLen = Math.min(d, speed * dt);
+    u.pos = add(u.pos, scale(dir, stepLen));
+    u.moving = true;
+    u.speed = speed;
+
+    // fatigue from movement (steeper + higher = worse)
+    const slope = this.terrain.slopeAt(u.pos.x, u.pos.y);
+    const alt = clamp01((this.terrain.elevAt(u.pos.x, u.pos.y) - 1500) / 1400);
+    u.fatigue = clamp01(u.fatigue + stepLen * (0.0012 + slope * 0.004 + alt * 0.0016) * (tech === "rush" ? 2 : 1));
+  }
+
+  // ---------------------------------------------------------------- firing
+  updateFiring(u: Unit, dt: number) {
+    if (u.faction === "civilian") return;
+    if (u.reloading > 0) return;
+
+    const weapon = this.weaponOf(u);
+
+    // continue an in-progress burst
+    if (u.burstLeft > 0) {
+      if (u.roundTimer <= 0) {
+        this.fireRound(u, weapon);
+        u.burstLeft--;
+        u.roundTimer = 60 / weapon.cyclicRPM;
+        if (u.burstLeft <= 0) {
+          // pause between bursts (longer if low composure)
+          u.fireCooldown = this.rng.range(0.5, 1.4) * (weapon.auto ? 1 : 1.6) * (2 - u.composure);
+          u.aimProgress = 0;
+        }
+      }
+      return;
+    }
+
+    if (u.rof === "hold") return;
+    if (u.fireCooldown > 0) return;
+
+    // need a valid target or a suppress point
+    const target = this.unit(u.targetId);
+    let aimPos: Vec2 | null = null;
+    let targetId: string | null = null;
+    let los: LOSResult | null = null;
+
+    if (u.rof === "suppress" && u.orderTarget) {
+      aimPos = u.orderTarget;
+      const r = dist(u.pos, aimPos);
+      if (r > weapon.maxRange) return;
+    } else if (target && target.alive && !target.evac) {
+      los = this.los(u, target);
+      const r = los.rangeM;
+      if (!los.visible || r > weapon.maxRange) {
+        u.targetId = null;
+        return;
+      }
+      aimPos = target.pos;
+      targetId = target.id;
+    } else {
+      u.targetId = null;
+      return;
+    }
+    if (!aimPos) return;
+
+    // out of ammo for this weapon?
+    if (u.ammo <= 0) {
+      if (u.reserveAmmo > 0) {
+        u.reloading = weapon.reload;
+        u.ammo = Math.min(weapon.magSize, u.reserveAmmo);
+        u.reserveAmmo -= u.ammo;
+        return;
+      } else if (u.sidearmId) {
+        u.weaponId = u.sidearmId;
+        u.sidearmId = undefined;
+        u.ammo = getWeapon(u.weaponId).magSize;
+        u.reserveAmmo = u.ammo * 2;
+        return;
+      } else {
+        return; // black on ammo
+      }
+    }
+
+    // settle aim
+    u.aimProgress = clamp01(u.aimProgress + dt / Math.max(0.2, weapon.aimTime));
+    if (u.aimProgress < (weapon.cls === "sniper" || weapon.cls === "dmr" ? 0.85 : 0.4) && !u.moving) {
+      return; // still settling for a deliberate shot
+    }
+
+    // begin a burst
+    const [bmin, bmax] = weapon.burst;
+    let burst = this.rng.int(bmin, bmax);
+    if (u.rof === "suppress") burst = Math.min(weapon.magSize, Math.max(burst, Math.round(bmax * 1.2)));
+    burst = Math.min(burst, u.ammo);
+    u.burstLeft = burst;
+    u.roundTimer = 0;
+    u.facing = angle(sub(aimPos, u.pos));
+    u._fireTarget = targetId; // remember for resolution
+    u._fireLOS = los;
+  }
+
+  private fireRound(u: Unit, weapon: Weapon) {
+    if (u.ammo <= 0) {
+      u.burstLeft = 0;
+      return;
+    }
+    const targetId = u._fireTarget ?? null;
+    const target = this.unit(targetId);
+    const aimPos = target ? target.pos : u.orderTarget;
+    if (!aimPos) {
+      u.burstLeft = 0;
+      return;
+    }
+    const range = dist(u.pos, aimPos);
+    const proj = spawnProjectile(u, weapon, aimPos, targetId, range, this.rng);
+    proj._losAtFire = u._fireLOS ?? null;
+    this.projectiles.push(proj);
+    u.ammo--;
+    u.hasFired = true;
+    this.ammoExpended++;
+    this.lastActivityS = this.timeS;
+    this.addEffect("muzzle", u.pos, 0.12, {
+      faction: u.faction,
+      size: weapon.cls === "hmg" || weapon.cls === "mmg" ? 1.6 : 1,
+    });
+  }
+
+  // ---------------------------------------------------------------- projectiles
+  private stepProjectiles(dt: number) {
+    const survivors: Projectile[] = [];
+    for (const p of this.projectiles) {
+      p.age += dt;
+      if (p.indirect) {
+        p.timeToImpact -= dt;
+        if (p.timeToImpact <= 0) {
+          this.detonate(p, p.aimpoint);
+          continue;
+        }
+        survivors.push(p);
+        continue;
+      }
+      // direct fire: advance along velocity
+      const stepLen = p.speed * dt;
+      const before = p.traveled;
+      p.traveled += stepLen;
+      p.pos = add(p.origin, scale(norm(p.vel), p.traveled));
+
+      // suppression to enemies near the round's flight this step
+      this.suppressAlong(p, before, p.traveled);
+
+      // reached the aimpoint plane?
+      if (p.traveled >= p.distToAim) {
+        const target = this.unit(p.targetId);
+        if (target && target.alive && !target.evac) {
+          const owner = this.unit(p.ownerId);
+          const los = p._losAtFire ?? (owner ? this.los(owner, target) : lineOfSight(this.terrain, p.origin, target.pos));
+          const cover = this.coverFor(target, p.origin);
+          const outcome = resolveDirectHit(p, target, los, cover, this.rng);
+          if (outcome.hit) {
+            p.hit = true;
+            this.addEffect("blood", target.pos, 0.5, { faction: target.faction });
+            this.onHit(this.unit(p.ownerId), target, outcome.killed);
+          } else {
+            this.addEffect("impact", p.aimpoint, 0.35, { faction: p.faction });
+          }
+        } else {
+          this.addEffect("impact", p.aimpoint, 0.3, { faction: p.faction });
+        }
+        // explosive direct rounds (RPG/AT4) detonate on arrival
+        if (p.blastRadius > 0) this.detonate(p, p.aimpoint);
+        continue;
+      }
+      // terrain intercept (round slams into a hill)
+      if (this.terrain.elevAt(p.pos.x, p.pos.y) > this.terrain.elevAt(p.origin.x, p.origin.y) + 2 &&
+          p.traveled > p.distToAim * 0.4 && this.rng.chance(0.02)) {
+        this.addEffect("ricochet", p.pos, 0.3, { faction: p.faction });
+        if (p.blastRadius > 0) this.detonate(p, p.pos);
+        continue;
+      }
+      if (p.traveled > getWeapon(p.weaponId).maxRange) {
+        continue; // spent
+      }
+      survivors.push(p);
+    }
+    this.projectiles = survivors;
+  }
+
+  private detonate(p: Projectile, at: Vec2) {
+    const radius = p.blastRadius || 6;
+    this.lastActivityS = this.timeS;
+    this.addEffect("blast", at, 0.6, { faction: p.faction, size: radius / 8 });
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      const d = dist(u.pos, at);
+      if (d > radius * 2.2) continue;
+      // suppression in a wide ring
+      if (d <= radius * 2.2) {
+        this.addSuppression(u, p.suppression * (1 - d / (radius * 2.2)) * 1.6, at);
+      }
+      if (d <= radius) {
+        // cover/terrain mask reduces frag
+        const cover = this.terrain.coverAt(u.pos.x, u.pos.y);
+        let dmg = blastDamageAt(d, radius, p.damage) * (1 - cover * 0.55);
+        if (dmg <= 0) continue;
+        const region = this.rng.weighted(
+          ["leg", "arm", "chest", "head", "abdomen"] as const,
+          [30, 26, 16, 10, 18]
+        );
+        const before = u.alive;
+        const oc = applyDamage(u, dmg, p.damageType === "ball" ? "frag" : p.damageType, region, this.rng);
+        this.addEffect("blood", u.pos, 0.5, { faction: u.faction });
+        if (before && !u.alive) this.onDeath(u, "blast");
+        else if (oc.effectiveDamage > 5) this.onWound(u);
+      }
+    }
+  }
+
+  private suppressAlong(p: Projectile, from: number, to: number) {
+    // sample a couple of points along this step and suppress nearby enemies of shooter
+    const owner = this.unit(p.ownerId);
+    const samples = 2;
+    for (let i = 0; i < samples; i++) {
+      const t = from + ((to - from) * (i + 0.5)) / samples;
+      const pt = add(p.origin, scale(norm(p.vel), t));
+      for (const u of this.units) {
+        if (!u.alive || u.evac || u.faction === "civilian") continue;
+        if (owner && !this.isHostile(owner, u)) continue;
+        const d = dist(u.pos, pt);
+        if (d < p.suppressionRadius) {
+          this.addSuppression(u, p.suppression * (1 - d / p.suppressionRadius) * 0.5, p.origin);
+        }
+      }
+    }
+  }
+
+  addSuppression(u: Unit, amount: number, fromPos: Vec2) {
+    u.suppression = clamp01(u.suppression + amount * 0.12);
+    u.threatDir = norm(sub(fromPos, u.pos));
+  }
+
+  /** Hard cover protecting `target` from incoming rounds (stance + microterrain). */
+  coverFor(target: Unit, _fromPos: Vec2): number {
+    let cover = this.terrain.coverAt(target.pos.x, target.pos.y);
+    // prone behind microterrain adds cover
+    if (target.stance === "prone") cover = clamp01(cover + 0.18);
+    else if (target.stance === "crouch") cover = clamp01(cover + 0.08);
+    return cover;
+  }
+
+  // ---------------------------------------------------------------- hit hooks
+  private onHit(shooter: Unit | undefined, target: Unit, killed: boolean) {
+    if (killed) {
+      this.onDeath(target, "gsw");
+      if (shooter) shooter.kills++;
+    } else {
+      this.onWound(target);
+    }
+  }
+
+  private onWound(u: Unit) {
+    if (u.faction === "us" || u.faction === "ana") {
+      if (this.rng.chance(0.5))
+        this.addLog(`${this.shortName(u)} is hit — "MAN DOWN!"`, "casualty");
+    } else if (u.faction === "civilian") {
+      this.addLog(`A civilian is wounded in the crossfire.`, "casualty");
+    }
+  }
+
+  private onDeath(u: Unit, cause: string) {
+    if (u.faction === "us" || u.faction === "ana") {
+      this.addLog(`${this.rankName(u)} is KIA (${cause}).`, "kia");
+    } else if (u.faction === "civilian") {
+      this.addLog(`A civilian has been killed.`, "kia");
+    } else {
+      this.addLog(`Enemy fighter down.`, "contact");
+      this.revealed.delete(u.id);
+    }
+  }
+
+  shortName(u: Unit): string {
+    const parts = u.name.split(" ");
+    return parts[parts.length - 1];
+  }
+  rankName(u: Unit): string {
+    return `${u.rank ?? ""} ${this.shortName(u)}`.trim();
+  }
+
+  // ---------------------------------------------------------------- morale
+  private updateMorale(u: Unit, dt: number) {
+    if (u.faction === "civilian") return;
+    // leadership presence
+    let leaderBonus = 0;
+    if (!u.isLeader) {
+      for (const o of this.units) {
+        if (o.alive && o.isLeader && o.faction === u.faction && o.squadId === u.squadId) {
+          const d = dist(u.pos, o.pos);
+          if (d < 45) leaderBonus = Math.max(leaderBonus, o.leadership * (1 - d / 45));
+        }
+      }
+    }
+    // cohesion: nearby living friends
+    let friends = 0;
+    for (const o of this.units) {
+      if (o.alive && o.faction === u.faction && o !== u && dist(u.pos, o.pos) < 30) friends++;
+    }
+    const cohesion = clamp01(friends / 5);
+
+    const target =
+      u.composureMax * (0.55 + 0.25 * cohesion + 0.2 * leaderBonus) - u.suppression * 0.6 - u.fatigue * 0.15;
+    const rate = u.suppression > 0.4 ? 0.5 : 0.2;
+    u.composure = clamp(lerp(u.composure, clamp01(target), rate * dt), 0, 1);
+
+    // panic behaviors handled in AI brains via composure thresholds
+  }
+
+  // ---------------------------------------------------------------- fire support
+  /** Returns true if friendlies are within danger-close of the impact. */
+  isDangerClose(target: Vec2, blastRadius: number): boolean {
+    return this.playerUnits().some((u) => dist(u.pos, target) < blastRadius * 2.5);
+  }
+
+  requestFireMission(weaponId: string, target: Vec2, rounds: number): FireMission | null {
+    const m = this.mortars.find((x) => x.weaponId === weaponId);
+    if (!m || m.rounds <= 0) return null;
+    const weapon = getWeapon(weaponId);
+    const r = dist(m.copPos, target);
+    if (r < (weapon.minRange ?? 0) || r > weapon.maxRange) {
+      this.addLog(`${weapon.short}: target out of range.`, "support");
+      return null;
+    }
+    const useRounds = Math.min(rounds, m.rounds);
+    const fm: FireMission = {
+      id: _fmid++,
+      weaponId,
+      target: { ...target },
+      rounds: useRounds,
+      roundsLeft: useRounds,
+      etaS: this.rng.range(18, 32), // call, plot, fire
+      intervalS: 60 / weapon.cyclicRPM + this.rng.range(0.5, 1.5),
+      nextRoundS: 0,
+      faction: "us",
+      status: "requested",
+      label: weapon.short,
+      dangerClose: this.isDangerClose(target, weapon.blastRadius ?? 15),
+      spread: 12 + r * 0.01,
+    };
+    m.rounds -= useRounds;
+    this.fireMissions.push(fm);
+    this.fireMissionsUsed++;
+    this.addLog(
+      `Fire mission: ${weapon.short}, ${useRounds} rounds${fm.dangerClose ? " — DANGER CLOSE" : ""}. Shot, over.`,
+      "support"
+    );
+    return fm;
+  }
+
+  requestCAS(target: Vec2, kind: "cas_gun" | "cas_rocket"): FireMission | null {
+    if (!this.casAvailable || this.casUsed) {
+      this.addLog("No air on station.", "support");
+      return null;
+    }
+    this.casUsed = true;
+    const fm: FireMission = {
+      id: _fmid++,
+      weaponId: kind === "cas_gun" ? "m2" : "javelin",
+      target: { ...target },
+      rounds: kind === "cas_gun" ? 30 : 1,
+      roundsLeft: kind === "cas_gun" ? 30 : 1,
+      etaS: this.rng.range(40, 80),
+      intervalS: 0.08,
+      nextRoundS: 0,
+      faction: "us",
+      status: "requested",
+      label: kind === "cas_gun" ? "GUN RUN" : "HELLFIRE",
+      dangerClose: this.isDangerClose(target, 30),
+      spread: kind === "cas_gun" ? 18 : 6,
+    };
+    this.fireMissions.push(fm);
+    this.fireMissionsUsed++;
+    this.addLog(`CAS inbound — ${fm.label}. Cleared hot.`, "support");
+    return fm;
+  }
+
+  /** Enemy indirect (mortars/RPG barrage) — used by AI. */
+  enemyFireMission(weaponId: string, target: Vec2, rounds: number, etaS: number) {
+    const weapon = getWeapon(weaponId);
+    this.fireMissions.push({
+      id: _fmid++,
+      weaponId,
+      target: { ...target },
+      rounds,
+      roundsLeft: rounds,
+      etaS,
+      intervalS: 60 / weapon.cyclicRPM + this.rng.range(1, 3),
+      nextRoundS: 0,
+      faction: "insurgent",
+      status: "requested",
+      label: weapon.short,
+      dangerClose: false,
+      spread: 18,
+    });
+  }
+
+  private stepFireMissions(dt: number) {
+    for (const fm of this.fireMissions) {
+      if (fm.status === "complete") continue;
+      if (fm.etaS > 0) {
+        fm.etaS -= dt;
+        if (fm.etaS <= 0) {
+          fm.status = "firing";
+          if (fm.faction === "us") this.addLog(`${fm.label}: splash, over.`, "support");
+          else this.addLog(`Incoming! ${fm.label} rounds!`, "contact");
+        }
+        continue;
+      }
+      fm.status = "firing";
+      fm.nextRoundS -= dt;
+      if (fm.nextRoundS <= 0 && fm.roundsLeft > 0) {
+        const weapon = getWeapon(fm.weaponId);
+        const off = this.rng.inDisc(fm.target.x, fm.target.y, fm.spread);
+        // build a projectile that detonates immediately at the offset point
+        const p: Projectile = {
+          id: `fm${fm.id}-${fm.roundsLeft}`,
+          ownerId: "fire_support",
+          faction: fm.faction,
+          weaponId: fm.weaponId,
+          origin: { ...off },
+          pos: { ...off },
+          vel: { x: 0, y: 0 },
+          speed: 0,
+          aimpoint: { x: off.x, y: off.y },
+          targetId: null,
+          traveled: 0,
+          distToAim: 0,
+          damage: weapon.damage,
+          damageType: weapon.damageType,
+          penetration: weapon.penetration,
+          blastRadius: weapon.blastRadius ?? 12,
+          suppressionRadius: weapon.suppressionRadius,
+          suppression: weapon.suppression,
+          indirect: true,
+          timeToImpact: 0.01,
+          arcHeight: 200,
+          alive: true,
+          age: 0,
+          tracer: false,
+          hit: false,
+        };
+        this.detonate(p, p.aimpoint);
+        fm.roundsLeft--;
+        fm.nextRoundS = fm.intervalS;
+        if (fm.roundsLeft <= 0) fm.status = "complete";
+      }
+    }
+    this.fireMissions = this.fireMissions.filter((f) => f.status !== "complete" || f.roundsLeft > 0);
+  }
+
+  // ---------------------------------------------------------------- smoke/grenades
+  throwSmoke(u: Unit, point: Vec2) {
+    if (u.smokes <= 0) return;
+    u.smokes--;
+    const r = dist(u.pos, point);
+    if (r > 40) {
+      // can't throw that far; drop short
+      point = add(u.pos, scale(norm(sub(point, u.pos)), 35));
+    }
+    this.smoke.push({ x: point.x, y: point.y, radius: 14, density: 0.85 });
+    this.addEffect("smoke_pop", point, 1.2);
+    this.addLog(`${this.shortName(u)} pops smoke.`, "info");
+  }
+
+  throwFrag(u: Unit, point: Vec2) {
+    if (u.grenades <= 0) return;
+    u.grenades--;
+    const r = dist(u.pos, point);
+    if (r > 40) point = add(u.pos, scale(norm(sub(point, u.pos)), 38));
+    const off = this.rng.inDisc(point.x, point.y, 3);
+    const p: Projectile = {
+      id: `frag-${_eid}`,
+      ownerId: u.id,
+      faction: u.faction,
+      weaponId: "m320",
+      origin: { ...u.pos },
+      pos: { ...off },
+      vel: { x: 0, y: 0 },
+      speed: 0,
+      aimpoint: off,
+      targetId: null,
+      traveled: 0,
+      distToAim: 0,
+      damage: 55,
+      damageType: "frag",
+      penetration: 0.3,
+      blastRadius: 6,
+      suppressionRadius: 8,
+      suppression: 2,
+      indirect: true,
+      timeToImpact: 1.4,
+      arcHeight: 10,
+      alive: true,
+      age: 0,
+      tracer: false,
+      hit: false,
+    };
+    this.projectiles.push(p);
+    this.addEffect("frag_air", point, 1.4);
+  }
+
+  // ---------------------------------------------------------------- medevac
+  medevac(unitId: string): boolean {
+    const u = this.unit(unitId);
+    if (!u) return false;
+    u.evac = true;
+    u.path = [];
+    this.addLog(`${this.shortName(u)} evacuated.`, "support");
+    return true;
+  }
+
+  // ---------------------------------------------------------------- helpers for AI/UI
+  isVisibleToPlayer(u: Unit): boolean {
+    if (u.faction === "us" || u.faction === "ana") return true;
+    if (u.faction === "civilian") {
+      // visible if any friendly has LOS
+      return this.playerUnits().some((p) => this.los(p, u).visible && dist(p.pos, u.pos) < 600);
+    }
+    return this.revealed.has(u.id);
+  }
+
+  /** Order a unit to walk to a point (straight-line; terrain governs the cost). */
+  moveTo(u: Unit, point: Vec2) {
+    u.path = [{ x: clamp(point.x, 0, this.terrain.worldSize), y: clamp(point.y, 0, this.terrain.worldSize) }];
+  }
+
+  /** Pick the best currently-perceived enemy for `u` to engage. */
+  acquireTarget(u: Unit): string | null {
+    let best: string | null = null;
+    let bestScore = -Infinity;
+    const weapon = this.weaponOf(u);
+    for (const eid of u.visibleEnemyIds) {
+      const e = this.unit(eid);
+      if (!e || !e.alive || e.evac) continue;
+      const r = dist(u.pos, e.pos);
+      if (r > weapon.maxRange) continue;
+      const los = this.los(u, e);
+      if (!los.visible) continue;
+      // Prefer close, exposed, and dangerous targets (MG/RPG gunners first).
+      let threat = 1;
+      const ew = this.weaponOf(e);
+      if (ew.cls === "mmg" || ew.cls === "hmg" || ew.cls === "lmg") threat = 2.2;
+      else if (ew.cls === "rocket") threat = 2.6;
+      else if (ew.cls === "sniper" || ew.cls === "dmr") threat = 1.8;
+      const inEff = r <= weapon.effRange ? 1.4 : 0.7;
+      // Randomized weighting spreads fire across the element instead of every
+      // gun converging on the single most-exposed man (which instakills).
+      const spread = 0.45 + 0.55 * this.rng.next();
+      const score = threat * inEff * (0.4 + 0.6 * los.exposure) * (1 - r / (weapon.maxRange + 1)) * spread;
+      if (score > bestScore) {
+        bestScore = score;
+        best = eid;
+      }
+    }
+    return best;
+  }
+
+  /** Nearest conscious wounded friendly to `u` (for medics). */
+  nearestCasualty(u: Unit): Unit | null {
+    let best: Unit | null = null;
+    let bd = Infinity;
+    for (const o of this.units) {
+      if (o === u || !o.alive || o.faction !== u.faction) continue;
+      if (o.wounds.length === 0 || o.bleedRate <= 0) continue;
+      const d = dist(u.pos, o.pos);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    return best;
+  }
+
+  /** Find a nearby cell offering cover from a threat direction. */
+  findCover(from: Vec2, threatDir: Vec2 | null, maxSearch = 40): Vec2 | null {
+    let best: Vec2 | null = null;
+    let bestScore = -Infinity;
+    const step = this.terrain.cellSize;
+    for (let r = step; r <= maxSearch; r += step) {
+      for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
+        const pt = add(from, fromAngle(a, r));
+        if (pt.x < 0 || pt.y < 0 || pt.x > this.terrain.worldSize || pt.y > this.terrain.worldSize) continue;
+        const cover = this.terrain.coverAt(pt.x, pt.y);
+        if (cover < 0.2) continue;
+        let score = cover * 10 - r / step;
+        // prefer cover between us and the threat
+        if (threatDir) {
+          const toCover = norm(sub(pt, from));
+          score += (toCover.x * -threatDir.x + toCover.y * -threatDir.y) * 3;
+        }
+        if (score > bestScore) {
+          bestScore = score;
+          best = pt;
+        }
+      }
+    }
+    return best;
+  }
+
+  // ---------------------------------------------------------------- outcome
+  private checkOutcome() {
+    const us = this.units.filter((u) => (u.faction === "us" || u.faction === "ana") && u.alive && !u.evac && u.conscious);
+    // an enemy still "in the fight" is conscious, on the map, and not already breaking contact
+    const enemyEffective = this.units.filter(
+      (e) => e.faction === "insurgent" && e.alive && e.conscious && !e.evac && e.brainState !== "exfil"
+    );
+    const pendingEnemyFire = this.fireMissions.some((f) => f.faction === "insurgent");
+    if (us.length === 0) {
+      this.outcome = "us_destroyed";
+      this.addLog("All friendly elements down or evacuated.", "kia");
+    } else if (enemyEffective.length === 0 && !pendingEnemyFire) {
+      this.outcome = "us_victory";
+      this.addLog("Contact broken. Enemy destroyed or withdrawn.", "objective");
+    } else if (
+      // Lull: nobody has fired for a while and no rounds are in the air — the
+      // fight has petered out (enemy lost contact / can't get an angle).
+      this.timeS - this.lastActivityS > 28 &&
+      this.projectiles.length === 0 &&
+      !pendingEnemyFire &&
+      this.timeS > 20
+    ) {
+      this.outcome = "us_victory";
+      this.addLog("The valley has gone quiet. Contact broken.", "objective");
+    }
+  }
+
+  result(): CombatResult {
+    const usKIA = this.units.filter((u) => (u.faction === "us" || u.faction === "ana") && !u.alive).map((u) => u.id);
+    const usWIA = this.units
+      .filter((u) => (u.faction === "us" || u.faction === "ana") && u.alive && u.wounds.length > 0)
+      .map((u) => u.id);
+    const enemyKIA = this.units.filter((u) => u.faction === "insurgent" && !u.alive).length;
+    const civCasualties = this.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
+    return {
+      outcome: this.outcome,
+      usKIA,
+      usWIA,
+      enemyKIA,
+      civCasualties,
+      durationS: this.timeS,
+      ammoExpended: this.ammoExpended,
+      fireMissionsUsed: this.fireMissionsUsed,
+    };
+  }
+
+  /** Player-initiated end (break contact) once safe. */
+  withdraw() {
+    this.outcome = "us_withdraw";
+  }
+}
