@@ -25,6 +25,7 @@ import {
 import { shortName, rankName, centroidOf } from "./helpers";
 import { runDirector } from "./director";
 import { tickTasks } from "./tasks";
+import { tickGarrison } from "./garrison";
 import { tickProjects, tickResupplies } from "./projects";
 import { makeWorldEvent } from "./events";
 
@@ -147,6 +148,7 @@ export class World {
     this.tickSupplies(dt);
     this.tickSoldiers(dt);
     tickTasks(this, dt);
+    tickGarrison(this, dt);
     tickProjects(this, dt);
     tickResupplies(this);
     this.tickWeather();

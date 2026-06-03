@@ -506,6 +506,8 @@ export class CombatSim {
     if (u.path.length === 0 || !u.conscious) {
       u.moving = false;
       u.speed = 0;
+      // A halted man still holds his assigned sector (guard post / security halt).
+      if (u.faceLock != null && u.conscious) u.facing = u.faceLock;
       return;
     }
     // Pace governor: the squad leader controls the tempo so the element stays
