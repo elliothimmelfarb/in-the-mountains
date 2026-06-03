@@ -3,6 +3,7 @@ import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle } from "./vec"
 import { Terrain } from "./terrain";
 import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
 import { findPath, PathOptions } from "./path";
+import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
 import {
@@ -145,6 +146,7 @@ const STANCE_SPEED: Record<Unit["stance"], number> = {
 // stands. Objectives are kept reachable, so it always finds a way; a task-level
 // no-progress timeout is the backstop against any freeze.
 const STALL_WINDOW = 2; // seconds of continuous blocking before re-planning
+const NB_BUCKET = 4; // meters per spatial-hash bucket (neighbor queries / separation)
 
 export interface CombatInit {
   terrain: Terrain;
@@ -194,6 +196,10 @@ export class CombatSim {
   revealed: Map<string, RevealedEnemy> = new Map();
   // index for quick lookup
   private byId: Map<string, Unit> = new Map();
+  // Spatial hash of living bodies, rebuilt each tick, for O(1) neighbor queries
+  // (local steering / separation). Bucket ≈ NB_BUCKET m; a 3×3 block covers the
+  // separation radius. Keyed by a packed integer cell index.
+  private grid: Map<number, Unit[]> = new Map();
 
   constructor(init: CombatInit) {
     this.terrain = init.terrain;
@@ -369,7 +375,8 @@ export class CombatSim {
       else friendlyBrain(this, u, dt);
     }
 
-    // 4. movement
+    // 4. movement (rebuild the body grid first so steering can see neighbors)
+    this.buildSpatialGrid();
     for (const u of this.units) {
       if (!u.alive || u.evac) continue;
       this.moveUnit(u, dt);
@@ -514,6 +521,51 @@ export class CombatSim {
 
   // ---------------------------------------------------------------- movement
   /**
+   * Rebuild the per-tick spatial hash of living bodies. Bucketed at NB_BUCKET m so
+   * a 3×3 block of buckets around a unit covers the steering separation radius. This
+   * is what lets separation be O(neighbors) instead of O(units) per unit.
+   */
+  private buildSpatialGrid() {
+    this.grid.clear();
+    for (const u of this.units) {
+      if (!u.alive || u.evac) continue;
+      const key = this.bucketKey(u.pos.x, u.pos.y);
+      const cell = this.grid.get(key);
+      if (cell) cell.push(u);
+      else this.grid.set(key, [u]);
+    }
+  }
+
+  private bucketKey(x: number, y: number): number {
+    const bx = Math.floor(x / NB_BUCKET) + 2048;
+    const by = Math.floor(y / NB_BUCKET) + 2048;
+    return by * 4096 + bx;
+  }
+
+  /**
+   * Bodies near `u` that it should not walk through — everything it isn't hostile
+   * to (friendlies, civilians, and, for the enemy, other fighters). We deliberately
+   * do NOT separate from hostiles, so an assault can still close to contact instead
+   * of being magnetically held off the objective.
+   */
+  private neighborsFor(u: Unit): Unit[] {
+    const out: Unit[] = [];
+    const bx = Math.floor(u.pos.x / NB_BUCKET) + 2048;
+    const by = Math.floor(u.pos.y / NB_BUCKET) + 2048;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const cell = this.grid.get((by + dy) * 4096 + (bx + dx));
+        if (!cell) continue;
+        for (const n of cell) {
+          if (n === u) continue;
+          if (this.isHostile(u, n)) continue;
+          out.push(n);
+        }
+      }
+    return out;
+  }
+
+  /**
    * Closed-loop path following. The unit walks its path toward `pathGoal`; the
    * wire is solid (it never steps through an impassable cell); and if it stops
    * making real progress it re-plans from where it stands, giving up only when
@@ -551,10 +603,7 @@ export class CombatSim {
       }
       return;
     }
-    const dir = scale(toT, 1 / d);
-    // Walk toward the waypoint, but face the assigned security sector if one is
-    // locked (flank/rear men scan outboard while moving).
-    u.facing = u.faceLock != null ? u.faceLock : angle(dir);
+    const goalDir = scale(toT, 1 / d);
     const tech = this.techniqueOf(u);
     let speed = TECH_SPEED[tech];
     speed *= STANCE_SPEED[u.stance];
@@ -568,6 +617,16 @@ export class CombatSim {
     // the element stays together — read as a smooth slowdown, not a freeze.
     if (u.paceScale != null) speed *= Math.max(0, Math.min(1, u.paceScale));
     speed = Math.max(0.15, speed);
+
+    // Local steering: round nearby obstacles and keep clear of other bodies. With a
+    // clear lane ahead and no one crowding, this returns the goal heading unchanged,
+    // so open-ground and combat movement are unaffected — it only bends the heading
+    // where the ground (the HESCO ring, a draw) or the crowd (a choke) demands it.
+    const dir = steer(this.terrain, u, goalDir, this.neighborsFor(u), speed).dir;
+
+    // Walk the steered heading, but face the assigned security sector if one is
+    // locked (flank/rear men scan outboard while moving).
+    u.facing = u.faceLock != null ? u.faceLock : angle(dir);
     const stepLen = Math.min(d, speed * dt);
     const next = add(u.pos, scale(dir, stepLen));
     // The wire is solid: never step into an impassable cell (HESCO, compound

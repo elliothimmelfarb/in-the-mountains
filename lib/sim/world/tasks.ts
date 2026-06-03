@@ -8,6 +8,8 @@ import { centroidOf, dwellFor } from "./helpers";
 import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam } from "./formation";
 
 const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
+const LEG_ARRIVE = 18; // m — the point man has reached the objective
+const STUCK_S = 90; // s of zero route progress before a leg is declared genuinely stuck
 
 /**
  * Strategic tasks: the orders that take time. A patrol musters in the yard,
@@ -133,13 +135,30 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
   // Outside the wire: move to the objective in formation.
   steerSquad(w, t, members, target, planFormation(w, t, members), dt);
   const lead = w.sim.unit(t.leadId);
-  // The leg is made when the point man reaches the objective, or — backstop —
-  // when the element simply can't get any closer for a sustained spell.
-  if ((lead && dist(lead.pos, target) < 20) || noProgress(t, centroidOf(members), target, dt, 40)) {
+  // Progress is the navigator's REMAINING ROUTE LENGTH, not straight-line distance to
+  // the objective. Rounding a convex obstacle (the COP ring) temporarily *increases*
+  // the straight-line distance, which spuriously tripped the old distance backstop and
+  // froze the patrol half-way (the bug that stranded squads on the wire). Route length
+  // falls monotonically as the point man advances, so the backstop only fires when he
+  // genuinely can't move at all.
+  const arrived = !!lead && dist(lead.pos, target) < LEG_ARRIVE;
+  const stuck = stalled(t, lead ? routeRemaining(lead) : 0, dt, STUCK_S);
+  if (arrived || stuck) {
+    if (stuck && !arrived) w.log(`${t.label}: held up short of the objective.`, "radio");
     t.legIndex++;
     resetProgress(t);
-    if (t.legIndex >= t.route.length) enterOnStation(w, t, members, target);
+    // Only ever "set up on the objective" where the element actually is — never
+    // pretend a stalled patrol reached a point it never got to.
+    if (t.legIndex >= t.route.length) enterOnStation(w, t, members, arrived ? target : undefined);
   }
+}
+
+/** Remaining distance along a unit's current route (monotonic as it advances). */
+function routeRemaining(u: Unit): number {
+  if (!u.path || u.path.length === 0) return u.pathGoal ? dist(u.pos, u.pathGoal) : 0;
+  let total = dist(u.pos, u.path[0]);
+  for (let i = 1; i < u.path.length; i++) total += dist(u.path[i - 1], u.path[i]);
+  return total;
 }
 
 /** Bring the element home: back to the gate, then in through the ECP to muster. */
@@ -166,9 +185,19 @@ function driveReturn(w: World, t: Task, members: Unit[], dt: number, centroid: V
 
 /** No-progress backstop: true once the element hasn't closed on `goal` for `limit` s. */
 function noProgress(t: Task, from: Vec2, goal: Vec2, dt: number, limit: number): boolean {
-  const d = dist(from, goal);
-  if (t.goalDist === undefined || d < t.goalDist - 4) {
-    t.goalDist = d;
+  return stalled(t, dist(from, goal), dt, limit);
+}
+
+/**
+ * Generic stall tracker on any monotonically-decreasing progress scalar (straight-line
+ * distance, or remaining route length). Resets whenever the value drops by >2 m; once
+ * it has been flat for `limit` seconds the element is genuinely stuck. Using route
+ * length (not straight-line distance) is what lets a patrol round the COP ring without
+ * the backstop firing on the temporary distance increase.
+ */
+function stalled(t: Task, value: number, dt: number, limit: number): boolean {
+  if (t.goalDist === undefined || value < t.goalDist - 2) {
+    t.goalDist = value;
     t.noProgressS = 0;
     return false;
   }
