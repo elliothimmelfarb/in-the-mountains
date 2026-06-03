@@ -1,5 +1,6 @@
 import { Camera, worldToScreen } from "./topo";
 import { Unit } from "../sim/entities";
+import { Terrain } from "../sim/terrain";
 import { Projectile } from "../sim/ballistics";
 import { Effect } from "../sim/combat";
 import { SmokeScreen } from "../sim/los";
@@ -178,6 +179,114 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.arcTo(x, y + h, x, y, r);
   ctx.arcTo(x, y, x + w, y, r);
   ctx.closePath();
+}
+
+const COP_LABEL: Record<string, string> = {
+  barracks: "BKS",
+  toc: "TOC",
+  dfac: "DFAC",
+  armory: "ARM",
+  aid: "AID",
+  motorpool: "MOTOR",
+  latrine: "WC",
+  tower: "TWR",
+};
+
+/**
+ * Draw the combat outpost's built structure over the baked terrain: labelled
+ * building footprints, the helicopter LZ, the entry-control point, and the
+ * crew-served fighting positions/towers on the wall.
+ */
+export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Terrain) {
+  const cop = terrain.cop;
+  if (!cop) return;
+  const cs = terrain.cellSize;
+  ctx.save();
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // building footprints + labels
+  for (const b of cop.buildings) {
+    const c = terrain.cellCenter(b.cx, b.cy);
+    const [sx, sy] = worldToScreen(cam, c.x, c.y);
+    const w = (b.hw * 2 + 1) * cs * cam.ppm;
+    const h = (b.hh * 2 + 1) * cs * cam.ppm;
+    if (sx < -w || sy < -h || sx > cam.vw + w || sy > cam.vh + h) continue;
+    ctx.strokeStyle = "rgba(18,20,16,0.6)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(sx - w / 2, sy - h / 2, w, h);
+    if (cam.ppm > 1.0) {
+      ctx.fillStyle = "rgba(232,229,212,0.82)";
+      ctx.font = `${Math.min(11, Math.max(7, Math.round(cam.ppm * 2)))}px var(--font-mono, monospace)`;
+      ctx.fillText(COP_LABEL[b.kind] ?? b.kind, sx, sy);
+    }
+  }
+
+  // helicopter LZ — circle with an H
+  {
+    const c = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
+    const [sx, sy] = worldToScreen(cam, c.x, c.y);
+    const r = 2.4 * cs * cam.ppm;
+    ctx.strokeStyle = "rgba(232,229,212,0.55)";
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, 0, Math.PI * 2);
+    ctx.stroke();
+    if (cam.ppm > 0.8) {
+      ctx.fillStyle = "rgba(232,229,212,0.7)";
+      ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
+      ctx.fillText("H", sx, sy + 0.5);
+    }
+  }
+
+  // fighting positions / towers on the wall (sector chevrons pointing out)
+  for (const fp of cop.fightingPositions) {
+    const c = terrain.cellCenter(fp.cx, fp.cy);
+    const [sx, sy] = worldToScreen(cam, c.x, c.y);
+    const s = Math.max(3, 1.1 * cs * cam.ppm * 0.6);
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(fp.facing);
+    ctx.fillStyle = fp.tower ? "rgba(224,167,43,0.85)" : "rgba(120,150,200,0.8)";
+    ctx.strokeStyle = "rgba(12,13,10,0.8)";
+    ctx.lineWidth = 1;
+    if (fp.tower) {
+      ctx.beginPath();
+      ctx.rect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(s, 0);
+      ctx.lineTo(-s * 0.7, s * 0.7);
+      ctx.lineTo(-s * 0.7, -s * 0.7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // entry-control point marker
+  {
+    const c = terrain.cellCenter(cop.gate.cx, cop.gate.cy);
+    const [sx, sy] = worldToScreen(cam, c.x, c.y);
+    const r = 1.4 * cs * cam.ppm;
+    ctx.strokeStyle = "rgba(224,167,43,0.7)";
+    ctx.setLineDash([3, 3]);
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(sx, sy, r, -Math.PI / 2, Math.PI / 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (cam.ppm > 1.0) {
+      ctx.fillStyle = "rgba(224,167,43,0.85)";
+      ctx.font = "8px var(--font-mono, monospace)";
+      ctx.fillText("ECP", sx, sy - r - 6);
+    }
+  }
+
+  ctx.restore();
 }
 
 export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, projectiles: Projectile[]) {

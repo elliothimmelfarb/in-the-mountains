@@ -1,5 +1,5 @@
 import { RNG, ValueNoise, clamp, clamp01, smoothstep, lerp } from "./rng";
-import { Vec2 } from "./vec";
+import { Vec2, fromAngle, angle, angleDiff } from "./vec";
 
 /** Landcover classes. Drive cover (stops bullets), concealment (blocks sight),
  *  movement cost, and rendering tint. At 5 m fidelity the valley is resolved
@@ -27,9 +27,12 @@ export enum Land {
   Road = 18, // graded road / MSR
   Trail = 19, // foot / goat trail
   Footbridge = 20, // crossing over the river / a wash
+  Hesco = 21, // HESCO bastion / sandbag barrier — the COP's perimeter wall
+  Structure = 22, // a built structure (b-hut, TOC, conex) — enterable, blocks sight
+  Gravel = 23, // graded gravel pad — motor pool / LZ / interior yard
 }
 
-export const LAND_COUNT = 21;
+export const LAND_COUNT = 24;
 
 export interface Village {
   id: string;
@@ -46,6 +49,54 @@ export interface NamedFeature {
   cy: number;
   kind: "peak" | "saddle" | "draw" | "spur" | "bridge" | "junction";
   elevation?: number;
+}
+
+/** Kinds of structure inside the wire. */
+export type CopBuildingKind =
+  | "barracks"
+  | "toc"
+  | "dfac"
+  | "armory"
+  | "aid"
+  | "motorpool"
+  | "latrine"
+  | "tower";
+
+export interface CopBuilding {
+  kind: CopBuildingKind;
+  /** Footprint center (cells) and half-extents (cells). */
+  cx: number;
+  cy: number;
+  hw: number;
+  hh: number;
+  label: string;
+}
+
+export interface CopFightingPosition {
+  id: string;
+  cx: number;
+  cy: number;
+  facing: number; // radians, outward
+  tower: boolean;
+}
+
+/**
+ * The physical layout of the combat outpost: a HESCO-walled perimeter with a
+ * single entry-control point (gate), interior structures (barracks, TOC, aid
+ * station, armory, chow hall, motor pool), a helicopter LZ, and crew-served
+ * fighting positions on the wall. Generated from the seed so it rebuilds on load.
+ */
+export interface CopLayout {
+  center: { cx: number; cy: number };
+  radius: number; // perimeter radius (cells)
+  gate: { cx: number; cy: number }; // gate cell on the wall
+  gateInside: { cx: number; cy: number }; // just inside the wire
+  gateOutside: { cx: number; cy: number }; // staging point outside the gate
+  gateDir: Vec2; // outward unit vector through the gate
+  muster: { cx: number; cy: number }; // the yard / formation area
+  lz: { cx: number; cy: number }; // helicopter landing zone
+  buildings: CopBuilding[];
+  fightingPositions: CopFightingPosition[];
 }
 
 export interface TerrainConfig {
@@ -87,6 +138,7 @@ export class Terrain {
   villages: Village[] = [];
   features: NamedFeature[] = [];
   copCell: { cx: number; cy: number } = { cx: 0, cy: 0 };
+  cop!: CopLayout;
   /** Centerline x (in cells) of the valley floor at each row y. */
   private centerX: Float32Array;
   readonly config: TerrainConfig;
@@ -423,21 +475,156 @@ export class Terrain {
       if (!best || score > best.score) best = { cx: x, cy: y, score };
     }
     this.copCell = best ? { cx: best.cx, cy: best.cy } : { cx: Math.round(size / 2), cy: Math.round(size * 0.7) };
-    // Flatten COP footprint a touch and mark it.
+    this.buildCop(rng);
+  }
+
+  /**
+   * Lay out the combat outpost as a real fortified position: bench it flat,
+   * ring it in HESCO with a single entry-control point, drop the interior
+   * structures (TOC, barracks, aid station, armory, chow hall, motor pool),
+   * grade a helicopter LZ, and site crew-served fighting positions and towers
+   * around the wall. Stamped into the landcover so cover, sight and pathing all
+   * respect the wire.
+   */
+  private buildCop(rng: RNG) {
     const c = this.copCell;
+    const R = clamp(Math.round(85 / this.cellSize), 12, 20); // ~85 m perimeter radius
     const baseE = this.elev[this.idx(c.cx, c.cy)];
-    const fr = Math.round(18 / this.cellSize);
-    for (let dy = -fr; dy <= fr; dy++)
-      for (let dx = -fr; dx <= fr; dx++) {
+
+    // Gate faces the valley floor (toward the access trail / road).
+    const roadX = this.centerXAt(c.cy);
+    let gd: Vec2 = { x: roadX - c.cx, y: 1 };
+    if (Math.abs(gd.x) < 1 && Math.abs(gd.y) < 1) gd = { x: 0, y: 1 };
+    // Snap to the nearest of 8 compass directions for a clean gate gap.
+    const ga = Math.round(angle(gd) / (Math.PI / 4)) * (Math.PI / 4);
+    const gateDir = fromAngle(ga);
+    const perp = { x: -gateDir.y, y: gateDir.x };
+
+    // 1) Bench the footprint flat and lay gravel/grass interior.
+    const FR = R + 3;
+    for (let dy = -FR; dy <= FR; dy++)
+      for (let dx = -FR; dx <= FR; dx++) {
         const x = c.cx + dx;
         const y = c.cy + dy;
         if (!this.inBounds(x, y)) continue;
-        if (Math.hypot(dx, dy) > fr) continue;
+        const d = Math.hypot(dx, dy);
+        if (d > FR) continue;
         const i = this.idx(x, y);
-        this.elev[i] = lerp(this.elev[i], baseE, 0.6);
-        this.land[i] = Land.Grass;
+        // grade harder toward the center, feather the apron at the edge
+        this.elev[i] = lerp(this.elev[i], baseE, d <= R ? 0.85 : 0.4);
+        if (d <= R - 1) this.land[i] = rng.chance(0.55) ? Land.Gravel : Land.Grass;
       }
-    this.computeSlopeLocal(c.cx, c.cy, fr + 1);
+
+    // 2) HESCO perimeter wall (a couple of cells thick), broken only at the gate.
+    const gateHalf = Math.atan2(2.6, R); // ~5-cell entry-control point
+    const gateCell = { cx: Math.round(c.cx + gateDir.x * R), cy: Math.round(c.cy + gateDir.y * R) };
+    for (let dy = -FR; dy <= FR; dy++)
+      for (let dx = -FR; dx <= FR; dx++) {
+        const x = c.cx + dx;
+        const y = c.cy + dy;
+        if (!this.inBounds(x, y)) continue;
+        const d = Math.hypot(dx, dy);
+        if (d < R - 1.4 || d > R + 0.6) continue;
+        if (Math.abs(angleDiff(angle({ x: dx, y: dy }), ga)) < gateHalf) continue; // gate gap
+        const i = this.idx(x, y);
+        this.land[i] = Land.Hesco;
+        this.elev[i] = baseE + 2.2; // the wall stands above the pad
+      }
+
+    // 3) Interior road from the gate to the center of the yard.
+    const gateInside = { cx: Math.round(c.cx + gateDir.x * (R - 3)), cy: Math.round(c.cy + gateDir.y * (R - 3)) };
+    const muster = { cx: Math.round(c.cx + gateDir.x * (R * 0.4)), cy: Math.round(c.cy + gateDir.y * (R * 0.4)) };
+    this.stampLane(gateCell.cx, gateCell.cy, c.cx, c.cy, Land.Gravel, 1);
+
+    // 4) Structures. Positions are relative to the gate so the layout reads the
+    //    same on every valley: vehicles and the LZ up front, billets to the rear.
+    const at = (back: number, side: number) => ({
+      cx: Math.round(c.cx - gateDir.x * back * R + perp.x * side * R),
+      cy: Math.round(c.cy - gateDir.y * back * R + perp.y * side * R),
+    });
+    const buildings: CopBuilding[] = [];
+    const place = (kind: CopBuildingKind, label: string, back: number, side: number, hw: number, hh: number) => {
+      const p = at(back, side);
+      buildings.push({ kind, label, cx: p.cx, cy: p.cy, hw, hh });
+    };
+    place("toc", "TOC", 0.12, 0.0, 2, 2); // command post, center
+    place("armory", "Armory", 0.12, 0.34, 1, 2);
+    place("aid", "Aid Station", 0.12, -0.34, 2, 1);
+    place("barracks", "Barracks A", 0.62, 0.34, 3, 1);
+    place("barracks", "Barracks B", 0.62, -0.34, 3, 1);
+    place("dfac", "Chow Hall", 0.5, 0.02, 2, 2);
+    place("latrine", "Latrines", 0.74, 0.0, 1, 1);
+    place("motorpool", "Motor Pool", -0.42, 0.42, 3, 2);
+    for (const b of buildings) {
+      const land = b.kind === "motorpool" ? Land.Gravel : Land.Structure;
+      this.stampRect(b.cx, b.cy, b.hw, b.hh, land, baseE);
+    }
+
+    // 5) Helicopter LZ — a graded gravel pad opposite the motor pool, near the gate.
+    const lzp = at(-0.42, -0.45);
+    this.stampRect(lzp.cx, lzp.cy, 3, 3, Land.Gravel, baseE);
+    const lz = { cx: lzp.cx, cy: lzp.cy };
+
+    // 6) Crew-served fighting positions / towers around the wall (not at the gate).
+    const fightingPositions: CopFightingPosition[] = [];
+    const posAngles = [0, 1, 2, 3, 4, 5, 6, 7].map((k) => (k * Math.PI) / 4);
+    let fp = 0;
+    for (const a of posAngles) {
+      if (Math.abs(angleDiff(a, ga)) < gateHalf + 0.25) continue; // keep the gate clear
+      const fx = Math.round(c.cx + Math.cos(a) * (R - 1.5));
+      const fy = Math.round(c.cy + Math.sin(a) * (R - 1.5));
+      if (!this.inBounds(fx, fy)) continue;
+      fightingPositions.push({ id: `fp-${fp}`, cx: fx, cy: fy, facing: a, tower: fp % 3 === 0 });
+      fp++;
+    }
+
+    this.cop = {
+      center: { cx: c.cx, cy: c.cy },
+      radius: R,
+      gate: gateCell,
+      gateInside,
+      gateOutside: { cx: Math.round(c.cx + gateDir.x * (R + 4)), cy: Math.round(c.cy + gateDir.y * (R + 4)) },
+      gateDir,
+      muster,
+      lz,
+      buildings,
+      fightingPositions,
+    };
+
+    this.computeSlopeLocal(c.cx, c.cy, FR + 1);
+  }
+
+  /** Stamp a filled rectangle of landcover (cells), flattening it to `baseE`. */
+  private stampRect(cx: number, cy: number, hw: number, hh: number, land: Land, baseE: number) {
+    for (let dy = -hh; dy <= hh; dy++)
+      for (let dx = -hw; dx <= hw; dx++) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!this.inBounds(x, y)) continue;
+        const i = this.idx(x, y);
+        if (this.land[i] === Land.Hesco) continue; // never overwrite the wall
+        this.land[i] = land;
+        this.elev[i] = baseE;
+      }
+  }
+
+  /** Stamp a straight lane of landcover between two cells, `half` cells wide. */
+  private stampLane(x0: number, y0: number, x1: number, y1: number, land: Land, half: number) {
+    const steps = (Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1) * 2;
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const bx = Math.round(lerp(x0, x1, t));
+      const by = Math.round(lerp(y0, y1, t));
+      for (let dy = -half; dy <= half; dy++)
+        for (let dx = -half; dx <= half; dx++) {
+          const x = bx + dx;
+          const y = by + dy;
+          if (!this.inBounds(x, y)) continue;
+          const i = this.idx(x, y);
+          if (this.land[i] === Land.Hesco || this.land[i] === Land.Structure) continue;
+          this.land[i] = land;
+        }
+    }
   }
 
   private localProminence(cx: number, cy: number, r: number): number {
@@ -494,8 +681,9 @@ export class Terrain {
       const upY = vil.cy + rng.int(-8, 8);
       this.stampTrail(vil.cx, vil.cy, clamp(upX, 0, size - 1), clamp(upY, 0, size - 1));
     }
-    // COP access trail down to the road.
-    this.stampTrail(this.copCell.cx, this.copCell.cy, Math.round(this.centerX[this.copCell.cy]), this.copCell.cy);
+    // COP access trail: from just outside the gate down to the valley road.
+    const go = this.cop?.gateOutside ?? this.copCell;
+    this.stampTrail(go.cx, go.cy, Math.round(this.centerX[clamp(go.cy, 0, size - 1)]), go.cy);
   }
 
   private stampTrail(x0: number, y0: number, x1: number, y1: number) {
@@ -515,7 +703,15 @@ export class Terrain {
         }
         continue;
       }
-      if (this.land[i] === Land.Road || this.land[i] === Land.Compound || this.land[i] === Land.CompoundWall) continue;
+      if (
+        this.land[i] === Land.Road ||
+        this.land[i] === Land.Compound ||
+        this.land[i] === Land.CompoundWall ||
+        this.land[i] === Land.Hesco ||
+        this.land[i] === Land.Structure ||
+        this.land[i] === Land.Gravel
+      )
+        continue;
       this.land[i] = Land.Trail;
     }
   }
@@ -612,6 +808,7 @@ export class Terrain {
     const l = this.land[this.idx(cx, cy)] as Land;
     if (l === Land.Cliff) return false;
     if (l === Land.CompoundWall) return false;
+    if (l === Land.Hesco) return false; // the wire — only the gate is passable
     if (this.slope[this.idx(cx, cy)] > 1.25) return false;
     return true;
   }
@@ -658,6 +855,9 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
   [Land.Road]: [0.04, 0.06],
   [Land.Trail]: [0.05, 0.08],
   [Land.Footbridge]: [0.08, 0.05],
+  [Land.Hesco]: [0.92, 0.85], // HESCO bastion — the hardest cover on the map
+  [Land.Structure]: [0.55, 0.8], // walls of a building — cover + blocks sight
+  [Land.Gravel]: [0.04, 0.05], // graded pad — open, no cover
 };
 
 /** Base movement multiplier per landcover (before slope). */
@@ -683,4 +883,7 @@ const LAND_MOVE: Record<Land, number> = {
   [Land.Road]: 1,
   [Land.Trail]: 0.92,
   [Land.Footbridge]: 0.85,
+  [Land.Hesco]: 0.15, // can't walk through the wall
+  [Land.Structure]: 0.55, // moving through a building
+  [Land.Gravel]: 0.98, // graded pad — easy going
 };

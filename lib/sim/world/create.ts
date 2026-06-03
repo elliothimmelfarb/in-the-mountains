@@ -5,7 +5,7 @@ import { elderName } from "../names";
 import { VillageState, rollWeather, attitudeToMetric, CERP_PROJECTS } from "../campaign";
 import { World } from "./world";
 import { WorldState, Ids, resetIds } from "./types";
-import { buildRoutine, clampMap, crewEmplacements } from "./helpers";
+import { buildRoutine, clampMap, crewEmplacements, buildEmplacements } from "./helpers";
 
 /** Create a fresh deployment. */
 export function createWorld(seed: string, totalDays = 90): World {
@@ -35,9 +35,24 @@ export function createWorld(seed: string, totalDays = 90): World {
   });
 
   const units: Unit[] = [];
-  const copWorld = terrain.cellCenter(terrain.copCell.cx, terrain.copCell.cy);
+  const cop = terrain.cop;
+  const copWorld = terrain.cellCenter(cop.center.cx, cop.center.cy);
+  const bWorld = (kind: string, fallback: typeof copWorld) => {
+    const b = cop.buildings.find((x) => x.kind === kind);
+    return b ? terrain.cellCenter(b.cx, b.cy) : fallback;
+  };
+  const toc = bWorld("toc", copWorld);
+  const aid = bWorld("aid", copWorld);
+  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => terrain.cellCenter(b.cx, b.cy));
+  let bi = 0;
   for (const m of platoon.members) {
-    m.pos = { x: copWorld.x + rng.range(-22, 22), y: copWorld.y + rng.range(-22, 22) };
+    // Start the platoon at believable billets inside the wire (garrison life
+    // takes over once the clock runs).
+    let home = copWorld;
+    if (m.role === "platoon_leader" || m.role === "platoon_sergeant" || m.role === "rto" || m.role === "jtac") home = toc;
+    else if (m.role === "medic") home = aid;
+    else if (barracks.length) home = barracks[bi++ % barracks.length];
+    m.pos = clampMap(terrain, { x: home.x + rng.range(-7, 7), y: home.y + rng.range(-7, 7) });
     m.brainState = "garrison";
     m.rof = "free";
     m.stance = "stand";
@@ -84,12 +99,7 @@ export function createWorld(seed: string, totalDays = 90): World {
       name: "COP Vimoto",
       hesco: 60,
       claymores: 12,
-      emplacements: [
-        { id: "cp-n", weaponId: "m240", cell: { cx: terrain.copCell.cx, cy: terrain.copCell.cy - 4 }, manned: true },
-        { id: "cp-e", weaponId: "m2", cell: { cx: terrain.copCell.cx + 4, cy: terrain.copCell.cy }, manned: true },
-        { id: "cp-s", weaponId: "m240", cell: { cx: terrain.copCell.cx, cy: terrain.copCell.cy + 4 }, manned: true },
-        { id: "cp-mortar", weaponId: "mortar60", cell: { cx: terrain.copCell.cx - 2, cy: terrain.copCell.cy + 2 }, manned: true },
-      ],
+      emplacements: buildEmplacements(terrain),
       observationPosts: [],
     },
     copCell: { ...terrain.copCell },

@@ -1,5 +1,5 @@
 import { createWorld } from "../lib/sim/world";
-import { Land } from "../lib/sim/terrain";
+import { Land, LAND_COUNT } from "../lib/sim/terrain";
 
 function pct(n: number) {
   return Math.round(n) + "%";
@@ -18,8 +18,15 @@ console.log("Named features:", terrain.features.map((f) => `${f.name}(${f.elevat
 const counts: Record<number, number> = {};
 for (let i = 0; i < terrain.land.length; i++) counts[terrain.land[i]] = (counts[terrain.land[i]] ?? 0) + 1;
 const present = Object.keys(counts).map(Number).sort((a, b) => counts[b] - counts[a]);
-console.log("Landcover classes present:", present.length, "/", 21);
+console.log("Landcover classes present:", present.length, "/", LAND_COUNT);
 console.log("  " + present.map((l) => `${Land[l]}:${((counts[l] / terrain.land.length) * 100).toFixed(1)}%`).join("  "));
+
+// COP structure
+const cl = terrain.cop;
+console.log("\n=== COP LAYOUT ===");
+console.log("Center:", cl.center, "· radius", cl.radius, "cells (" + cl.radius * terrain.cellSize + " m) · gate passable:", terrain.passableCell(cl.gate.cx, cl.gate.cy), "· wall sealed:", !terrain.passableCell(cl.center.cx, cl.center.cy + cl.radius) || !terrain.passableCell(cl.center.cx + cl.radius, cl.center.cy));
+console.log("Buildings:", cl.buildings.map((b) => b.label).join(", "));
+console.log("Fighting positions:", cl.fightingPositions.length, "(towers:", cl.fightingPositions.filter((f) => f.tower).length + ")", "· LZ:", cl.lz);
 
 // form a patrol toward the first village, concealed
 const cop = terrain.copCell;
@@ -44,11 +51,15 @@ const maxTicks = 18000; // 30 game-minutes
 let projPeak = 0;
 let everContact = false;
 let enemiesSeen = 0;
+let patrolMaxOut = 0; // max patrol distance outside the wire (proves the gate works)
+const copC = terrain.cellCenter(cl.center.cx, cl.center.cy);
 while (ticks < maxTicks && !state.ended) {
   world.tick(dt);
   projPeak = Math.max(projPeak, sim.projectiles.length);
   if (world.inContact()) everContact = true;
   enemiesSeen = Math.max(enemiesSeen, sim.livingEnemies().length);
+  const pc = world.activePatrolCentroid();
+  if (pc) patrolMaxOut = Math.max(patrolMaxOut, Math.hypot(pc.x - copC.x, pc.y - copC.y));
   for (const u of sim.units) {
     if (Number.isNaN(u.pos.x) || Number.isNaN(u.pos.y)) {
       console.error("NaN position on", u.id, u.faction, u.role);
@@ -64,6 +75,7 @@ const enemyKIA = world.platoon.members.reduce((a, m) => a + m.kills, 0);
 
 console.log("\n=== AFTER", (ticks * dt / 60).toFixed(0), "GAME-MINUTES (", world.clockLabel(), ") ===");
 console.log("Contact occurred:", everContact, "· peak enemies on map:", enemiesSeen, "· peak projectiles:", projPeak);
+console.log("Patrol pushed", Math.round(patrolMaxOut), "m from the COP center (gate egress through the wire", patrolMaxOut > cl.radius * terrain.cellSize ? "OK" : "— STUCK?", ")");
 console.log("US KIA:", kia, "· US WIA:", wia, "· enemy accounted:", enemyKIA);
 console.log("Metrics:", {
   stability: pct(state.metrics.stability),

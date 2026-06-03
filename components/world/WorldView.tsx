@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useGame } from "@/state/store";
 import { Land } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawGrid, worldToScreen, screenToWorld } from "@/lib/render/topo";
-import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath } from "@/lib/render/draw";
+import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop } from "@/lib/render/draw";
 import { Unit } from "@/lib/sim/entities";
 
 const LAND_NAME: Record<number, string> = {
@@ -28,6 +28,9 @@ const LAND_NAME: Record<number, string> = {
   [Land.Road]: "Road",
   [Land.Trail]: "Trail",
   [Land.Footbridge]: "Footbridge",
+  [Land.Hesco]: "HESCO wall",
+  [Land.Structure]: "Structure",
+  [Land.Gravel]: "Gravel pad",
 };
 
 export default function WorldView() {
@@ -164,7 +167,10 @@ export default function WorldView() {
       ctx.setLineDash([]);
     }
 
-    // COP
+    // COP structure (walls/buildings are baked into the relief; this is the overlay)
+    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain);
+
+    // COP marker / flag
     const cop = w.copWorld();
     const [cx, cy] = worldToScreen(cam, cop.x, cop.y);
     ctx.fillStyle = "#4a86c6";

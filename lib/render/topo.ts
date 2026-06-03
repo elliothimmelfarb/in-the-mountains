@@ -62,6 +62,12 @@ function landColor(l: Land): [number, number, number] {
       return [128, 116, 92];
     case Land.Footbridge:
       return [120, 96, 70];
+    case Land.Hesco:
+      return [150, 134, 96]; // tan bastion baskets
+    case Land.Structure:
+      return [96, 90, 80]; // dark roofs / b-huts
+    case Land.Gravel:
+      return [120, 114, 104]; // graded gravel pad
     default:
       return [120, 116, 90];
   }

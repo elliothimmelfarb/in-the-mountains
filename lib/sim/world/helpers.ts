@@ -3,7 +3,7 @@ import { Terrain } from "../terrain";
 import { Vec2, add, fromAngle } from "../vec";
 import { Unit, Role, Platoon, CivRoutineNode } from "../entities";
 import { getWeapon } from "../weapons";
-import { VillageState } from "../campaign";
+import { VillageState, Emplacement } from "../campaign";
 import { Task, WorldState } from "./types";
 
 export function shortName(u: Unit): string {
@@ -68,16 +68,37 @@ export function buildRoutine(terrain: Terrain, v: VillageState, rng: RNG): CivRo
   return nodes;
 }
 
-/** Hand the weapons-squad gunners the crew-served weapons on the perimeter. */
+/** Crew-served weapons on the wall + the mortar pit, derived from the COP layout. */
+export function buildEmplacements(terrain: Terrain): Emplacement[] {
+  const cop = terrain.cop;
+  const fps = cop.fightingPositions;
+  const emp: Emplacement[] = [];
+  // Two heavy guns on the best wall positions.
+  (["m240", "m2"] as const).forEach((wid, i) => {
+    const fp = fps[i];
+    if (fp) emp.push({ id: `cp-${i}`, weaponId: wid, cell: { cx: fp.cx, cy: fp.cy }, manned: true });
+  });
+  // Mortar pit, dug in toward the rear of the yard.
+  emp.push({
+    id: "cp-mortar",
+    weaponId: "mortar60",
+    cell: { cx: Math.round(cop.center.cx - cop.gateDir.x * 3), cy: Math.round(cop.center.cy - cop.gateDir.y * 3) },
+    manned: true,
+  });
+  return emp;
+}
+
+/** Hand the weapons-squad gunners the crew-served guns on the perimeter. */
 export function crewEmplacements(state: WorldState, platoon: Platoon, terrain: Terrain) {
   const gunners = platoon.members.filter((m) => m.role === "machinegunner");
-  state.fob.emplacements.forEach((emp, i) => {
-    const g = gunners[i] ?? platoon.members[i];
-    if (g) {
-      g.weaponId = emp.weaponId;
-      g.pos = terrain.cellCenter(emp.cell.cx, emp.cell.cy);
-      g.ammo = getWeapon(emp.weaponId).magSize;
-      g.reserveAmmo = 800;
-    }
+  const mgEmp = state.fob.emplacements.filter((e) => e.weaponId === "m240" || e.weaponId === "m2");
+  mgEmp.forEach((emp, i) => {
+    const g = gunners[i];
+    if (!g) return;
+    g.weaponId = emp.weaponId;
+    g.pos = terrain.cellCenter(emp.cell.cx, emp.cell.cy);
+    g.ammo = getWeapon(emp.weaponId).magSize;
+    g.reserveAmmo = 800;
+    g.brainState = "manning";
   });
 }
