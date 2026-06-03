@@ -45,11 +45,22 @@ The engine knows nothing about React. The renderers know nothing about React sta
 - **`create.ts`** — `createWorld(seed, days)` and `loadWorld(blob)` factories.
 - **`director.ts`** — the enemy activity director (`runDirector`): heat drift + scheduled
   ambush / infiltration / harassment / complex-attack spawns, all routed through the terrain.
-- **`tasks.ts`** — strategic task progression (`tickTasks`): assemble → move (terrain-routed) →
-  on-station dwell → return, yielding to combat AI on contact and resuming on the lull.
+- **`tasks.ts`** — strategic task progression (`tickTasks`): muster → file out the gate → move to
+  the objective as a squad → on-station security halt → return through the gate, yielding to combat
+  AI on contact and resuming on the lull.
+- **`formation.ts`** — squad movement composed on the real squad echelon (`planFormation`,
+  `steerSquad`, `holdSecurity`): reconstructs the squad leader + two fire teams + attachments from a
+  task's roster and moves them in formation (file/wedge/column/dispersed) by doctrine, point man
+  navigating with A*, each man pulling a security sector, the SL pacing the squad so it stays
+  together.
+- **`garrison.ts`** — garrison life inside the wire (`tickGarrison`): a rotating guard roster on the
+  fighting positions/towers, MG crews on their guns, meal hours at the chow hall, barracks after
+  dark, leaders in the TOC, medic at the aid station — and a whole-COP **stand-to** when the wire
+  takes fire.
 - **`projects.ts`** — CERP project logistics (`tickProjects`) and resupply (`tickResupplies`).
 - **`events.ts`** — decision events (`makeWorldEvent`, `applyWorldEventChoice`).
-- **`helpers.ts`** — shared free functions (centroid, dwell times, enemy roles, civilian routines).
+- **`helpers.ts`** — shared free functions (centroid, dwell times, enemy roles, civilian routines,
+  the COP emplacement/crew layout).
 
 Subsystem modules take the `World` as an argument and use its public surface; they import the
 `World` type-only to avoid a runtime cycle.
@@ -71,11 +82,14 @@ There is one screen. `WorldView` owns a `requestAnimationFrame` loop that calls
 
 `lib/render/topo.ts` bakes a high-resolution shaded-relief image of the whole valley **once**
 (hillshade from the elevation gradient + landcover tint + marching-squares contour lines), cached in
-a `WeakMap` keyed by `Terrain`, capped to a fixed sheet size so the 5 m grid bakes fast. Live views
-`drawImage` that bitmap under a `Camera`, then overlay grid, intel markers, villages, project rings,
-the COP, units (`lib/render/draw.ts`: MIL-style friendly rectangles, hostile diamonds, civilian
-rings, facing wedges, health/suppression rings), tracers, effects, smoke, LOS lines, paths, and the
-live planning route. Night applies a low-light wash driven by `World.ambientLight()`.
+a `WeakMap` keyed by `Terrain`, capped to a fixed sheet size so the 5 m grid bakes fast. The COP's
+HESCO walls, structures and gravel pads are baked right into the relief (they're landcover); live
+views `drawImage` that bitmap under a `Camera`, then overlay grid, intel markers, villages, project
+rings, the **COP structure** (`drawCop`: labelled building footprints, the LZ, the ECP, sector
+chevrons and towers on the wall), units (`lib/render/draw.ts`: MIL-style friendly rectangles, hostile
+diamonds, civilian rings, facing wedges, health/suppression rings), tracers, effects, smoke, LOS
+lines, paths, and the live planning route. Night applies a low-light wash driven by
+`World.ambientLight()`.
 
 ## Determinism & saves
 

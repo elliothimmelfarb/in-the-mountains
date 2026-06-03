@@ -35,7 +35,11 @@ catastrophe of civilian casualties.
 
 ## Friendly (`friendly.ts`)
 
-The player gives intent; soldiers fill the gaps:
+The player gives intent; soldiers fill the gaps. When a patrol is *moving without contact* the squad
+is steered as a composed echelon by `world/formation.ts` (point navigation, fire-team formation,
+security sectors, pace governor) and the garrison routine runs at the COP (`world/garrison.ts`);
+the instant rounds crack those release and this combat brain takes over each man individually,
+re-forming on the lull.
 
 - **Posture** down in contact (prone/crouch by cover), stand only when moving without contact.
 - **Pinned & leaderless** → hunker and crawl to the nearest cover; leaders within ~35 m steady them.

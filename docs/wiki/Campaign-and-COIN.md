@@ -33,9 +33,11 @@ next event" fast-forwards the quiet hours, stopping on the first thing that matt
 
 Strategic orders are `Task`s that progress on the clock:
 
-- **Patrol** — `formPatrol(ids, route, mission, posture)`. The element **assembles** (kits up) at the
-  wire for a minute or three, then **moves** along a terrain-routed (A*) path with the chosen posture,
-  **dwells** on its objective (mission effects accrue), then **returns**. Combat AI takes over the
+- **Patrol** — `formPatrol(ids, route, mission, posture)`. The element **musters** in the COP yard and
+  kits up for a minute or three, **files out the gate**, then **moves to its objective as a squad** —
+  the squad leader and two fire teams in a doctrinal formation (see Simulation Systems → Squad
+  movement), terrain-routed (A*) with the chosen posture — **dwells** in a 360° security halt on the
+  objective (mission effects accrue), then **returns** through the gate. Combat AI takes over the
   instant rounds crack; the task resumes on the lull. Missions: presence, recon, ambush/interdiction,
   census, cordon & search, establish OP.
 - **KLE** — `conductKLE(ids, village, posture)`: send an element to a village to hold a shura;

@@ -45,8 +45,11 @@ timeline — quiet hours fast-forward, firefights slow to readable speed.
   gunners, marksman). Losses are permanent.
 - **Operations** — select soldiers and order them directly (move with a posture, assault, hold,
   suppress, smoke, frag, withdraw), or **plan a patrol**: pick a mission and posture, draw a
-  route, and the element kits up and steps off in real time, routing through the terrain.
-  Missions: presence, recon, ambush/interdiction, census, cordon-and-search, establish OP.
+  route, and the element musters in the yard, files out the gate, and moves to its objective **as a
+  squad** — a squad leader and two fire teams in a doctrinal formation (file/wedge/column/dispersed
+  chosen from mission, terrain and whether contact is expected), point man navigating the ground,
+  every man pulling a security sector. Missions: presence, recon, ambush/interdiction, census,
+  cordon-and-search, establish OP.
 - **Influence** — send an element for a **shura** (KLE) with a village elder, fund **CERP
   projects** (wells, schools, roads) that require materials trucked in, a contractor, and a
   squad keeping the site secure for days, or they stall and get sabotaged.
@@ -70,8 +73,8 @@ and your patrol resumes its task on the lull.
 |---|---|---|
 | RNG | `rng.ts` | Seeded mulberry32 + helpers (range, gauss, chance, pick, weighted). Deterministic. |
 | Math | `vec.ts` | Grid/world vectors, distance, bresenham, hex/grid helpers. |
-| Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 21 landcover classes, queries: elevation, slope, cover, concealment, move cost, passability. |
-| Pathfinding | `path.ts` | Terrain-aware A* foot routing with optional concealment bias; string-pulled waypoints. |
+| Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 24 landcover classes, a fortified **COP layout** (HESCO wall, gate, structures, LZ, fighting positions), queries: elevation, slope, cover, concealment, move cost, passability. |
+| Pathfinding | `path.ts` | Terrain-aware A* foot routing with concealment / road / cover biases; string-pulled waypoints; funnels through the COP gate. |
 | LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction; posture-aware detection. |
 | Weapons | `weapons.ts` | Full weapon table (US + insurgent) with ballistic & handling stats. |
 | Ballistics | `ballistics.ts` | Per-projectile flight, hit resolution vs exposure/skill/suppression, wound model. |
@@ -80,6 +83,8 @@ and your patrol resumes its task on the lull.
 | AI | `ai/*.ts` | Insurgent (ambush/shoot-scoot/withdraw), civilian (routine/flee/atmospherics), friendly (autonomy under orders). |
 | Names | `names.ts` | US roster + Afghan name generation. |
 | Campaign | `campaign.ts` | Shared strategic types + helpers (supplies, villages, weather, scoring). |
+| Squad movement | `world/formation.ts` | Doctrinal squad movement composed on the squad-leader + two fire-team echelon: formation by mission/terrain/threat, point navigation, security sectors, pace governor. |
+| Garrison | `world/garrison.ts` | Garrison life inside the wire: rotating guard roster, gun crews, chow/barracks/TOC/aid by time of day, whole-COP stand-to. |
 | World | `world/*.ts` | The continuous clock + orchestration: time-of-day, tasks, projects, resupply, enemy director, intel, events, metrics, save/load. |
 
 ### 3.1 Coordinate model
@@ -126,6 +131,29 @@ boredom/terror cycle, and bonds between soldiers.
 - Attitude per village ∈ hostile…neutral…friendly, shifted by: civcas, property damage,
   respectful behavior, projects delivered, security provided, broken promises, night raids.
 - Flee under fire; can be hit by stray/indirect fire → major attitude & higher-command hit.
+
+### 3.7 Squad movement (doctrine, not dots)
+A patrol moves as a **US infantry squad** — a squad leader plus two four-man fire teams (team
+leader, automatic rifleman, grenadier, rifleman) — composed on that structure:
+- The element musters in the COP yard, files out the **gate**, and moves to its objective in a
+  **formation** chosen by doctrine: *file* in restrictive ground or moving stealthy, *staggered
+  column* on an admin road march, *wedge* for movement to contact, *dispersed* (teams abreast) when
+  contact is expected. Interval opens up when contact is likely and tightens in close terrain.
+- The lead team's leader navigates the terrain (A*) with a rifleman on point; his SAW and grenadier
+  hold the flanks; the squad leader follows controlling with the medic/RTO; the trail team watches
+  the backtrail. Every man pulls a **security sector** — 360° coverage on the move.
+- The squad leader **paces** the element so it stays together; routing honors the posture (hug cover
+  when stealthy, take the road when fast, never the obvious road into an ambush). On the objective
+  each fire team sets a sector of a 360° security halt. Contact dissolves the formation into the
+  combat AI; it re-forms on the lull.
+
+### 3.8 The combat outpost
+The COP is a **place**, not a marker: a HESCO-walled perimeter with a single entry-control point,
+interior structures (TOC, barracks, aid station, armory, chow hall), a motor pool and helicopter
+LZ, and crew-served fighting positions and towers on the wall — all stamped into the terrain so
+cover, sight and pathing respect the wire. Off-task soldiers **live** there: a rotating guard pulls
+security, gun crews stay on their guns, the platoon eats at the chow hall on the meal hours and
+sleeps in the barracks after dark, and the whole COP **stands to** when the wire takes fire.
 
 ## 4. Campaign loop
 A deployment of configurable length (e.g., 60–270 in-game days) on one continuous clock.

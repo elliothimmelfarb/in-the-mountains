@@ -5,7 +5,7 @@ in-world **[Field Manual](../../public/manual/index.html)** and **[Tutorial](../
 
 ## Contents
 
-- **[Simulation Systems](Simulation-Systems.md)** — terrain (5 m), pathfinding, postures, LOS, ballistics, the world tick.
+- **[Simulation Systems](Simulation-Systems.md)** — terrain (5 m), the COP layout, pathfinding, postures, squad movement, garrison life, LOS, ballistics, the world tick.
 - **[AI Doctrine](AI-Doctrine.md)** — how insurgents, civilians, and friendlies think.
 - **[Campaign & COIN](Campaign-and-COIN.md)** — the continuous clock, tasks, projects, metrics, intel, events.
 - **[Weapons](Weapons.md)** — the catalog and how stats feed the model.
@@ -31,7 +31,8 @@ and drives input, with Canvas 2D doing the topographic and tactical drawing.
 1. The valley is the enemy — terrain dominates, now at 5 m fidelity.
 2. Time is real and continuous — everything takes time; the valley never stops.
 3. Every bullet matters — finite, heavy, individually simulated.
-4. People, not pieces — named soldiers with fear and fatigue; losses are permanent.
+4. People, not pieces — named soldiers in real squads (a squad leader + two fire teams) that move
+   and fight on that structure; losses are permanent. The COP is a place they live in, not a marker.
 5. Asymmetry — the enemy fights on his ground and his timeline.
 6. COIN is logistics and patience — attitudes and projects win the valley, not body count.
 7. Unpredictability — seeded but stochastic.

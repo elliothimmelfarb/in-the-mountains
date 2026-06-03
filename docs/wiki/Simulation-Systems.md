@@ -16,38 +16,94 @@ Generation is resolution-independent (landform frequencies are expressed per-met
 3. **Draws** (re-entrants) carved into one side or the other, lower and wetter — the enemy's
    covered approaches, exposed as `drawChannels`.
 4. **River incision** near the centerline; modest surface roughness everywhere.
-5. **Landcover classification** into **21 classes** by altitude band, slope, distance to the river,
+5. **Landcover classification** into **24 classes** by altitude band, slope, distance to the river,
    and a moisture field: river, marsh, **dry wash**, irrigated cropland, **terraces** and their
    stone **terrace-wall** risers (emergent from sharp downhill drops), orchards, upland meadow,
    grass, holly scrub, forest, scree, **boulder fields**, rock, **cliffs**, walled **compounds**
-   and **compound walls**, **cemeteries**, roads, trails, and **footbridges**.
+   and **compound walls**, **cemeteries**, roads, trails, **footbridges**, and the COP's **HESCO**
+   barriers, **structures** and **gravel** pads.
 6. **Villages** placed on benches, stamped with walled qalats (interior + perimeter wall),
    surrounding orchards/terraces, and an occasional cemetery.
-7. **The COP** scored onto a prominent-but-not-summit knob toward the south, then flattened.
+7. **The COP** scored onto a prominent-but-not-summit knob toward the south, then built out as a
+   real fortified position (see below).
 8. **Roads & trails** — a valley-floor road and goat trails to villages and up the draws, bridging
-   the river where a trail crosses it.
+   the river where a trail crosses it; the COP's access trail runs from its gate down to the road.
 9. **Cover & concealment** derived per cell from landcover (compound walls and terrace risers are
    real hard cover; dry washes give defilade; forest/orchard conceal).
 10. **Named features** — prominent crest peaks get names and spot elevations.
 
 Queries (world meters, bilinear where it matters): `elevAt`, `slopeAt`, `landAt`, `coverAt`
 (stops rounds), `concealAt` (blocks sight), `moveCostAt` (speed multiplier from slope + landcover),
-`passableCell` (cliffs/compound walls/very steep are impassable on foot).
+`passableCell` (cliffs/compound walls/**HESCO**/very steep are impassable on foot).
+
+## The combat outpost (`terrain.cop`)
+
+The COP isn't a dot on the map — it's a fortified position generated from the seed (`buildCop`) and
+stamped into the landcover so cover, sight and pathing all respect it. A `CopLayout` describes:
+
+- a **HESCO perimeter wall** (impassable, the hardest cover on the map) ringing a benched, graded
+  interior, broken only by a single **entry-control point** (the gate);
+- interior **structures** — TOC, two barracks, aid station, armory, chow hall, latrines — and a
+  **motor pool** and **helicopter LZ** of graded gravel near the gate;
+- **crew-served fighting positions and guard towers** sited around the wall, facing out;
+- the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form.
+
+Because the wall is impassable and only the gate is open, A* naturally funnels everyone in and out
+through the ECP, and patrols file out and back through it. The layout drives where the platoon is
+billeted, where the crew-served weapons sit, and the whole garrison routine (below).
+
+## Garrison life (`world/garrison.ts`)
+
+Off-task soldiers live in the COP rather than standing frozen. Each tick `tickGarrison` posts every
+available man by time of day and role: a **rotating guard roster** mans the wall positions and
+towers and the MG crews stay on their guns (always eyes on the wire); meal hours fill the **chow
+hall**; after dark the off-guard rack out in the **barracks**; by day leaders work the **TOC**, the
+medic keeps the **aid station**, and everyone else knocks about the yard. When fighters close on the
+wire the whole COP **stands to** and mans the nearest fighting positions, breaking to fight the
+moment they're engaged and falling back to the routine on the lull.
 
 ## Pathfinding (`path.ts`)
 
 `findPath(terrain, start, goal, opts)` is A* over a coarsened grid (~15 m nodes, so it stays cheap
-on the 5 m grid) using the terrain's movement cost, with an optional **concealment bias** so a
-"concealed" route threads forest, orchards, and dry washes instead of crossing open ground. The path
-is string-pulled (line-of-walk smoothing) to clean waypoints. Patrols and infiltrating fighters both
-route through it, so the ground genuinely shapes how everyone moves.
+on the 5 m grid) using the terrain's movement cost, with three optional biases: a **concealment
+bias** so a stealthy route threads forest, orchards, and dry washes instead of crossing open ground;
+a **road bias** so fast movement takes the valley road/trails when it can; and a **cover bias** the
+enemy uses to stay off the skyline. The path is string-pulled (line-of-walk smoothing) to clean
+waypoints. Patrols, fire teams and infiltrating fighters all route through it, so the ground
+genuinely shapes how everyone moves. The COP's HESCO wall is impassable, so A* in and out of the
+outpost is funneled through the gate.
 
 ## Movement postures
 
 Units carry a `technique` (`entities.ts`): **crawl, concealed, tactical, patrol, traveling, rush**.
 Posture sets base speed, stance (concealed/tactical crouch; crawl prone), and **detectability** —
 slow, low, cover-hugging movement reads as near-static to an observer (folded into
-`detectionChance` via a stealth term), while a rush is fast but loud and exposed.
+`detectionChance` via a stealth term), while a rush is fast but loud and exposed. The posture also
+feeds the squad's formation choice and pathfinding biases (below).
+
+## Squad movement & doctrine (`world/formation.ts`)
+
+A patrol does not move as a loose cloud of dots — it moves as a real US infantry squad: a **squad
+leader plus two four-man fire teams** (team leader, automatic rifleman, grenadier, rifleman).
+`planFormation` reconstructs that echelon from the patrol's roster and chooses doctrine from the
+mission, posture, terrain and whether the squad **expects contact**:
+
+- **Formation** — *file* in restrictive ground (forest/draws) or when moving stealthy; *staggered
+  column* on an admin road march; *wedge* for movement to contact in the open; *dispersed* (teams
+  abreast, all-round) when contact is expected. Interval opens up when contact is likely and closes
+  down in close terrain for control.
+- **Routing** — concealed/seeking postures hug cover and stay off the obvious lanes; fast postures
+  bias to roads; an ambush/recon never walks the road into its own kill zone.
+
+`steerSquad` then drives it: the lead team's leader navigates the terrain (A*) with a rifleman out
+on point; his automatic rifleman and grenadier hold the team's flanks; the squad leader follows
+controlling, with the medic/RTO; the trail team brings up the rear and watches the backtrail. Every
+man pulls a **security sector** (`Unit.faceLock`, honored even when halted), so the element provides
+360° coverage on the move. The point man **governs the pace** so the squad stays together, and
+followers route terrain-aware (straight when clear, A* around obstacles, every slot snapped to
+passable ground) so nobody strands the column on a wall or cliff. On the objective each fire team
+sets into a sector of a 360° security halt. The instant rounds crack, the formation releases and
+combat AI takes over; it re-forms on the lull.
 
 ## Line of Sight (`los.ts`)
 
