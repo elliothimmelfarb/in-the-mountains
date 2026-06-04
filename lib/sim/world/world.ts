@@ -18,6 +18,9 @@ import {
   PendingEvent,
   MissionType,
   MISSION_LABEL,
+  SquadSOP,
+  defaultSOP,
+  sopTechnique,
   DEPLOY_START,
   DAY,
   Ids,
@@ -73,9 +76,25 @@ export class World {
     this.refreshLight();
   }
 
-  serialize(): { v: number; rngState: number; state: WorldState; units: Unit[] } {
+  serialize() {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null }));
-    return { v: 3, rngState: this.rng.getState(), state: this.state, units };
+    return {
+      v: 5,
+      rngState: this.rng.getState(),
+      state: this.state,
+      units,
+      // Combat collections that outlive a single tick: buried IEDs (armed for the whole
+      // patrol), in-flight fire missions (rounds already paid for), active smoke screens, the
+      // sim clock and the CAS-used latch. Without these a save mid-firefight silently loses
+      // armed IEDs and paid mortar rounds and re-enables a spent CAS run.
+      combat: {
+        timeS: this.sim.timeS,
+        casUsed: this.sim.casUsed,
+        ieds: this.sim.ieds,
+        fireMissions: this.sim.fireMissions,
+        smoke: this.sim.smoke,
+      },
+    };
   }
 
   // ---------------------------------------------------------------- time of day
@@ -175,6 +194,11 @@ export class World {
     this.tickSupplies(dt);
     this.tickSoldiers(dt);
     tickTasks(this, dt);
+    // expire an unanswered call-for-fire, or one whose squad has finished/broken contact
+    if (this.state.fireRequest) {
+      const fr = this.state.fireRequest;
+      if (this.state.clock > fr.expires || !this.state.tasks.some((t) => t.id === fr.taskId)) this.state.fireRequest = null;
+    }
     tickGarrison(this, dt);
     tickProjects(this, dt);
     tickResupplies(this);
@@ -188,6 +212,7 @@ export class World {
 
     this.reconcileCasualties();
     this.reconcileCivilians();
+    this.tickRestraint();
     this.tickInsurgency(dt);
     this.cullEnemies();
 
@@ -352,6 +377,30 @@ export class World {
     }
   }
 
+  /**
+   * The other side of the civilian ledger: RESTRAINT. Every time a soldier held fire
+   * because a civilian was in his kill zone (the squad-combat ROE gate), the village
+   * notices — a small, slow gain in attitude and cooperation. It will never offset a
+   * single civcas (which is an order of magnitude larger), but disciplined patrols that
+   * eat fire rather than risk the qalat are how you actually buy the valley's trust.
+   */
+  private tickRestraint() {
+    const evs = this.sim.restraintEvents;
+    if (evs.length === 0) return;
+    for (const pos of evs) {
+      const vil = this.nearestVillage(pos, 500);
+      if (!vil) continue;
+      vil.attitude = clamp(vil.attitude + 0.015, -100, 100);
+      vil.cooperation = clamp(vil.cooperation + 0.02, 0, 100);
+      vil.sympathy = clamp(vil.sympathy - 0.01, 0, 100);
+    }
+    if (this.rng.chance(0.01 * evs.length)) {
+      const vil = this.nearestVillage(evs[0], 500);
+      if (vil) this.log(`A patrol held its fire with locals in the open near ${vil.name}. Word travels.`, "info");
+    }
+    this.sim.restraintEvents = [];
+  }
+
   /** Apply a CIVCAS to the strategic state: `killed` selects the magnitude, and
    *  `delta` applies only the wound→kill escalation (a wounded civ that has died). */
   private applyCivcasBacklash(u: Unit, killed: boolean, delta: boolean) {
@@ -445,17 +494,21 @@ export class World {
   // ===========================================================================
   //  Player orders
   // ===========================================================================
-  formPatrol(memberIds: string[], routeCells: { cx: number; cy: number }[], missionType: MissionType, technique: MoveTechnique): Task | null {
+  formPatrol(memberIds: string[], routeCells: { cx: number; cy: number }[], missionType: MissionType, technique: MoveTechnique, sop?: SquadSOP): Task | null {
     const ids = this.readyIds(memberIds);
     if (ids.length === 0 || routeCells.length === 0) return null;
     this.freeMembers(ids);
     const route = routeCells.map((c) => this.terrain.cellCenter(c.cx, c.cy));
+    // The SOP is the squad's standing order. If the caller gave one it is authoritative
+    // (and the movement technique follows from it); otherwise default it from the mission.
+    const finalSop = sop ?? defaultSOP(missionType);
     const t: Task = {
       id: Ids.task++,
       kind: "patrol",
       label: MISSION_LABEL[missionType],
       memberIds: ids,
-      technique,
+      technique: sop ? sopTechnique(sop.movement) : technique,
+      sop: finalSop,
       missionType,
       route,
       legIndex: 0,
@@ -469,18 +522,21 @@ export class World {
     return t;
   }
 
-  conductKLE(memberIds: string[], villageId: string, technique: MoveTechnique): Task | null {
+  conductKLE(memberIds: string[], villageId: string, technique: MoveTechnique, sop?: SquadSOP): Task | null {
     const v = this.state.villages.find((x) => x.id === villageId);
     if (!v) return null;
     const ids = this.readyIds(memberIds);
     if (ids.length === 0) return null;
     this.freeMembers(ids);
+    // A KLE goes in with a friendly posture by default — weapons tight, no aggression.
+    const finalSop: SquadSOP = sop ?? { movement: "patrol", contact: "hold", roe: "tight" };
     const t: Task = {
       id: Ids.task++,
       kind: "kle",
       label: `KLE — ${v.name}`,
       memberIds: ids,
-      technique,
+      technique: sop ? sopTechnique(sop.movement) : technique,
+      sop: finalSop,
       route: [this.terrain.cellCenter(v.cx, v.cy)],
       villageId,
       legIndex: 0,
@@ -546,6 +602,60 @@ export class World {
     }
   }
 
+  /**
+   * Re-route an in-progress squad to a fresh waypoint chain (the same grease-pencil
+   * gesture as the initial route). The leader re-paths from where he stands. If the
+   * squad is in contact the new route is simply walked once the fight lulls. Returns
+   * false if the task is gone/finished or the route is empty.
+   */
+  reroute(taskId: number, routeCells: { cx: number; cy: number }[]): boolean {
+    const t = this.state.tasks.find((x) => x.id === taskId);
+    if (!t || t.phase === "complete" || routeCells.length === 0) return false;
+    t.route = routeCells.map((c) => this.terrain.cellCenter(c.cx, c.cy));
+    t.legIndex = 0;
+    t.goalDist = undefined;
+    t.noProgressS = 0;
+    const members = t.memberIds.map((id) => this.sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
+    const inContact = (t.contactHold ?? 0) > 0 || members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    // Heading them out toward the new chain. If the squad is in contact we leave the combat
+    // brains alone — the new waypoints are walked once the fight lulls (releaseCombat re-forms);
+    // stomping paths/brainState mid-firefight would break the drill the coordinator is running.
+    if (t.phase === "onstation" || t.phase === "returning") t.phase = "moving";
+    if (!inContact) {
+      for (const m of members) {
+        m.faceLock = null;
+        m.formationHold = false;
+        m.paceScale = 1;
+        m.path = [];
+        if (m.brainState !== "garrison") m.brainState = "moving";
+      }
+    }
+    this.log(`${t.label}: re-routing — new waypoints passed to the squad leader.`, "radio");
+    return true;
+  }
+
+  /**
+   * Edit a squad's standing SOP (movement / on-contact drill / ROE). LOCKED while the
+   * squad is in contact — under "The Watch" you set the squad's orders before the fight
+   * and live with them; you cannot reach into a firefight. Returns false if locked/absent.
+   */
+  setSOP(taskId: number, sop: SquadSOP): boolean {
+    const t = this.state.tasks.find((x) => x.id === taskId);
+    if (!t) return false;
+    const members = t.memberIds.map((id) => this.sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
+    // Locked through the whole sticky-contact window, not just the instant of raw contact —
+    // otherwise the SOP could be edited in the lulls between bursts of the same firefight.
+    const inContact = (t.contactHold ?? 0) > 0 || !!t.squadState || members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    if (inContact) return false;
+    t.sop = sop;
+    t.technique = sopTechnique(sop.movement);
+    for (const m of members) {
+      m.technique = t.technique;
+      m.roe = sop.roe;
+    }
+    return true;
+  }
+
   private readyIds(memberIds: string[]): string[] {
     return memberIds.filter((id) => {
       const m = this.platoon.members.find((x) => x.id === id);
@@ -577,6 +687,42 @@ export class World {
   }
   medevac(unitId: string) {
     return this.sim.medevac(unitId);
+  }
+
+  // ---------------------------------------------------------------- AI calls for fire
+  /** The squad-combat AI raises a call-for-fire; the commander (player) approves/denies.
+   *  Throttled to one pending request, with a cooldown between requests. */
+  requestSquadFires(t: Task, weaponId: string, cx: number, cy: number, reason: string) {
+    if (this.state.fireRequest) return;
+    if (this.state.clock < (this.state.lastFireReqClock ?? -1e9) + 45) return; // cooldown
+    const lead = t.memberIds.map((id) => this.sim.unit(id)).find((u) => !!u && u.alive);
+    this.state.fireRequest = {
+      squadId: lead?.squadId ?? t.memberIds[0] ?? "",
+      taskId: t.id,
+      label: t.label,
+      weaponId,
+      cx,
+      cy,
+      reason,
+      expires: this.state.clock + 35,
+    };
+    this.state.lastFireReqClock = this.state.clock;
+    this.log(`${t.label}: ${reason} — call for fire pending your approval.`, "support");
+    this.interrupt(`${t.label} requests fire support`);
+  }
+  /** Commander approves the pending call-for-fire (optionally adjusting the aimpoint). */
+  approveFireRequest(override?: Vec2): boolean {
+    const r = this.state.fireRequest;
+    if (!r) return false;
+    const target = override ?? this.terrain.cellCenter(r.cx, r.cy);
+    if (r.weaponId === "cas_gun" || r.weaponId === "cas_rocket") this.requestCAS(target, r.weaponId as "cas_gun" | "cas_rocket");
+    else this.requestFireMission(r.weaponId, target, 4);
+    this.state.fireRequest = null;
+    return true;
+  }
+  denyFireRequest() {
+    if (this.state.fireRequest) this.log(`${this.state.fireRequest.label}: call for fire denied.`, "support");
+    this.state.fireRequest = null;
   }
 
   // ---------------------------------------------------------------- queries

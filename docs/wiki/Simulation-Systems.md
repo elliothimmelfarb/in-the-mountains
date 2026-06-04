@@ -234,7 +234,9 @@ up-valley by day / katabatic down at night — `world.windVector`) drifts bullet
 
 `CombatSim.tick(dt)` (fixed 0.1 s steps) runs, in order: timers/bleeding/suppression-decay →
 throttled **perception** (per-unit LOS scans with staggered cadence) → **fog of war** update
-(`revealed` map: confirmed vs. fading last-known) → **AI** brains → **movement** (speed from
+(`revealed` map: confirmed vs. fading last-known) → **AI** brains (`ai/friendly.ts`,
+`ai/insurgent.ts`, `ai/civilian.ts` — the per-man executors; the squad's tactical decisions are
+made one layer up in `ai/squad-combat.ts`, on the world tick before this one) → **movement** (speed from
 technique × stance × terrain × fitness × fatigue × suppression; fatigue accrues with slope &
 altitude) → **firing** (burst tracking at cyclic rate, reloads, sidearm fallback) → **projectiles**
 → **fire missions** (indirect/CAS with ETA, dispersion, danger-close) → **morale** (composure toward
@@ -243,9 +245,46 @@ a target set by leadership presence, cohesion, suppression, fatigue) → effects
 auto-resolves; the `World` manages the unit lifecycle (spawning/despawning enemies, reconciling
 casualties). The whole platoon, civilians, and active fighters all live in one sim at once.
 
-Player intent enters via `issueOrder(ids, order)` (move orders carry a posture and can `pathfind`
-through the terrain); fire support via `requestFireMission` / `requestCAS` / `medevac`. Units can be
-added/removed live (`addUnit`/`removeUnit`).
+**Combat is 100% AI** — the player never commands a man in a firefight. Player intent enters one
+layer up, at the World/store level: you pick a fixed squad and give it a **route** (`formPatrol` /
+`conductKLE`, both carrying a `SquadSOP`), and you can `reroute` a deployed squad or edit its `setSOP`
+*before* contact. Once the squad is in contact those levers lock; the **squad-combat coordinator**
+(`ai/squad-combat.ts`) runs the fight (see below). The player's only in-combat inputs are
+fire-support approvals (`requestFireMission` / `requestCAS`) and `medevac`. Units can be added/removed
+live (`addUnit`/`removeUnit`).
+
+### The squad SOP & the squad-combat coordinator (`world/types.ts`, `ai/squad-combat.ts`)
+
+A squad's entire command surface is its **`SquadSOP`** — three standing settings the player sets
+before step-off (mission type seeds sensible defaults) and that **lock once the squad is in contact**:
+
+- **MOVEMENT** (`stealth` / `patrol` / `fast`) — how it moves to its waypoints (maps to a move
+  technique, hugging cover vs. balanced vs. road-march).
+- **ON CONTACT** (`hold` / `suppress` / `assault` / `break`) — the battle drill the squad AI runs the
+  instant it makes contact.
+- **ROE** (`hold` / `tight` / `free`) — the civilian-fire rules that govern every friendly trigger.
+
+`ai/squad-combat.ts` (`squadFight`, invoked from `tickTasks` on the **world** tick — before
+`sim.tick`, so the decision lands the same tick the men act on it) is the squad leader's brain. On
+contact it orients (everyone to cover, return fire per ROE), then runs the SOP's drill — designating a
+**base-of-fire** team and a **maneuver** team and bounding onto the objective (assault), pinning and
+**raising a call-for-fire** (suppress), holding from cover (hold), or leapfrogging back to a rally
+(break) — popping smoke as needed. It only *decides*: it stamps the same per-man intent fields
+(`rof`, `brainState`, `orderType`, `orderTarget`, `roe`) that `ai/friendly.ts` already executes each
+tick (cover, return fire, buddy-aid, the per-man bound). A squad that has become **combat-ineffective
+always breaks contact automatically** — that safety overrides the SOP and is never a player dial.
+
+**The `civClear` ROE gate** (`combat.ts`) makes every friendly shot check the shooter's ROE before it
+flies: it scans living civilians for any in the keep-out bubble around the aimpoint or in the
+line-of-fire corridor, sized by ROE (`free` shrinks to danger-close, `tight`/`hold` keep a generous
+bubble) and widened for area/blast weapons. Under `tight` a soldier **holds fire rather than risk a
+civilian in the kill zone**, and that restraint is recorded (`restraintEvents`) so the World can turn
+it into a small COIN reward — held fire nudges the village's attitude up; civilian casualties tank it.
+
+**Fires & MEDEVAC are AI-requested, player-approved.** When suppressing or pinned the coordinator
+raises a call-for-fire (`requestSquadFires` → a pending `fireRequest`: squad, reason, proposed grid);
+the commander **approves** (rounds fly via `requestFireMission`/`requestCAS`) or **denies**. MEDEVAC
+likewise — the AI surfaces a casualty and the player calls the bird.
 
 ## World tick (`world/world.ts`)
 

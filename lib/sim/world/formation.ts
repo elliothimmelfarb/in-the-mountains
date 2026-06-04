@@ -31,12 +31,12 @@ export interface FormationPlan {
   expectContact: boolean;
 }
 
-interface FireTeamS {
+export interface FireTeamS {
   leaderId: string | null; // team leader (null if no NCO present)
   ids: string[]; // all team members incl. the leader
 }
 
-interface SquadS {
+export interface SquadS {
   navigatorId: string; // who runs the route (lead team leader / best scout)
   slId: string | null; // squad leader (commands the element)
   teams: FireTeamS[]; // lead team first
@@ -562,7 +562,7 @@ function projectBack(navPos: Vec2, tr: Vec2[] | undefined, pos: Vec2): { back: n
 }
 
 /** Reconstruct the squad's echelon (SL, fire teams, attachments) from a roster. */
-function buildSquad(w: World, members: Unit[]): SquadS {
+export function buildSquad(w: World, members: Unit[]): SquadS {
   const attachedIds = members.filter((m) => ATTACHED.has(m.role)).map((m) => m.id);
   const combat = members.filter((m) => !ATTACHED.has(m.role));
   const sl =

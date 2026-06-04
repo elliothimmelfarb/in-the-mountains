@@ -90,31 +90,50 @@
   </div>
 
   <h2 id="step4">4. Your First Patrol</h2>
-  <p>In the right-hand <em>Patrol Planner</em>:</p>
+  <p>You command <strong>squads, not men</strong>. You never pick individual soldiers or compose a
+  squad — you choose a fixed squad and tell it where to go and how to fight. In the right-hand
+  <em>Patrol Planner</em>:</p>
   <ol>
-    <li>Leave the mission set to <strong>Presence Patrol</strong>.</li>
-    <li>Under <em>Task Organization</em>, click a squad header (e.g. <strong>1st Squad</strong>) to add the whole squad. Then add the <strong>DOC</strong> from the HQ element — never patrol without a medic. The panel warns you in red if you forget.</li>
-    <li>Set a movement <strong>posture</strong> in the order bar — this shapes how the squad moves.
-      <em>Concealed</em> moves slow and low and threads cover (hard to spot, slow); <em>Tactical</em>
-      and <em>Patrol</em> are the workhorse paces; <em>Traveling</em>/<em>Rush</em> are fast and take
-      the road but are loud and exposed.</li>
-    <li>Hit <strong>Draw Route</strong>, then click the map to lay waypoints out toward the nearest village. The element will path through the terrain. Keep the first one short.</li>
+    <li>Leave the mission set to <strong>Presence Patrol</strong>. The mission type seeds sensible
+      defaults for the squad's standing orders (below).</li>
+    <li>Under <em>Task Organization</em>, click a squad (e.g. <strong>1st Squad</strong>) to pick it —
+      or click any of its men on the map. The squads are fixed: <em>HQ</em>, <em>1st</em>,
+      <em>2nd</em>, <em>3rd</em>, and <em>Weapons</em>. Optionally tick <strong>Send officers</strong>
+      to attach the HQ element — the platoon leader, the medic, the RTO, and the JTAC. Never patrol
+      without a medic.</li>
+    <li>Set the <strong>Squad SOP</strong> — three standing settings the leader will run by, locked
+      once the squad is in contact:
+      <ul>
+        <li><strong>Movement</strong> — how they move. <em>Stealth</em> is slow, low, and threads
+          cover (hard to spot, slow); <em>Patrol</em> is the workhorse pace; <em>Fast</em> takes the
+          road and makes time but is loud and exposed.</li>
+        <li><strong>On Contact</strong> — the battle drill the leader runs when the shooting starts:
+          <em>Hold &amp; Return Fire</em>, <em>Suppress &amp; Call Fires</em>, <em>Assault</em>, or
+          <em>Break Contact</em>.</li>
+        <li><strong>ROE</strong> — the civilian-fire rules: <em>Weapons Hold</em>, <em>Tight</em>, or
+          <em>Free</em>.</li>
+      </ul>
+    </li>
+    <li>Hit <strong>Draw Route</strong> (or press <kbd>R</kbd>), then click the map to lay waypoints
+      out toward the nearest village. The squad will path through the terrain. Keep the first one
+      short.</li>
     <li>Press <strong>Step Off</strong>.</li>
   </ol>
-  <p>The element <strong>musters in the yard</strong> and kits up for a few minutes, then files out
-  the gate and moves <strong>as a squad</strong>: a squad leader and two fire teams in a doctrinal
-  formation — a file in close country, a wedge in the open, spread out when contact is likely — with
-  a man on point reading the ground and the rest pulling security to the flanks and rear. Watch it on
-  the map and in <em>Active Elements</em>, where you can <em>recall</em> it. On the objective the
-  teams set into a 360° security halt. Press <kbd>4</kbd> or ⏩ to let time run while it patrols.
+  <p>The squad leader <strong>musters in the yard</strong> and kits the squad up for a few minutes,
+  then files out the gate and moves <strong>in formation</strong>: a squad leader and two fire teams
+  in a doctrinal shape — a file in close country, a wedge in the open, spread out when contact is
+  likely — with a man on point reading the ground and the rest pulling security to the flanks and
+  rear. Watch it on the map and in <em>Active Elements</em>, where you can <em>recall</em> it. To send
+  a deployed squad somewhere new, pick it and draw a fresh route — <em>Re-route</em>. On the objective
+  the teams set into a 360° security halt. Press <kbd>4</kbd> or ⏩ to let time run while it patrols.
   Sooner or later, the valley will fight.</p>
 
   <h2 id="step5">5. Talk to a Village</h2>
   <p>Click a village on the map. A panel shows its elder, its attitude, cooperation, hidden sympathy
   for the insurgents, and what it <em>wants</em>. Two tools win hearts:</p>
   <ul>
-    <li><strong>Send element for Shura (KLE)</strong> — select some soldiers, then send them. They walk to the village and sit with the elder; attitude, cooperation, and intel accrue over the time they spend there.</li>
-    <li><strong>CERP Projects</strong> — fund a well, school, or clinic for $5,000. But it's not instant: materials are trucked in, a contractor arrives, and <strong>a squad must keep the site secure for days</strong> while it's built, or the insurgents stall and sabotage it. Park an element on the village and let the clock run.</li>
+    <li><strong>Send squad for Shura (KLE)</strong> — pick a squad and send it. The squad walks to the village and sits with the elder; attitude, cooperation, and intel accrue over the time they spend there.</li>
+    <li><strong>CERP Projects</strong> — fund a well, school, or clinic for $5,000. But it's not instant: materials are trucked in, a contractor arrives, and <strong>a squad must keep the site secure for days</strong> while it's built, or the insurgents stall and sabotage it. Park a squad on the village and let the clock run.</li>
   </ul>
   <p>This is not a side activity. Over a tour, the shuras and the wells move your metrics as much as
   any firefight — and a cooperative village feeds you the intel that keeps your soldiers alive.</p>
@@ -126,27 +145,41 @@
   Every round is simulated against the terrain you've been walking.</p>
 
   <h2 id="step7">7. Fighting the Fight</h2>
-  <p>The instinct of a new commander is to fire back from where he's standing. The instinct that
-  keeps soldiers alive is <strong>cover first</strong>.</p>
+  <p>You do not fight the firefight by hand. <strong>Combat is autonomous.</strong> The squad leader
+  runs the battle drill you set in the SOP, and each soldier reacts on his own — taking cover,
+  returning fire within the ROE, and dragging the wounded to safety. The hardest part of command is
+  watching. Your job in contact is to read the net and pull the two levers that are yours.</p>
   <ol>
-    <li><strong>Pause</strong> (<kbd>Space</kbd>). Find the red enemy markers (those your men can see). Note where the fire is coming from.</li>
-    <li><strong>Select</strong> your element — drag a box around them, or <kbd>Left-click</kbd> individuals.</li>
-    <li><strong>Get off the X.</strong> Use the <em>Move</em> tool (or just <kbd>Right-click</kbd>) to send them to the nearest rocks, wall, or fold in the ground. Being caught in the open is what gets people killed.</li>
-    <li><strong>Return fire.</strong> Right-click an enemy to engage it, or use <em>Suppress</em> on a position to pin it while you maneuver.</li>
-    <li><strong>Treat the wounded.</strong> Your medic moves to casualties automatically, but you can select a downed soldier and call <em>MEDEVAC</em> to take them off the field — turning a likely KIA into a WIA.</li>
-    <li><strong>Bring the steel.</strong> In the Fire Support panel, pick a mortar (or CAS, weather permitting), then click the impact point. Watch the <span class="enemy">DANGER CLOSE</span> warning — and watch for civilians.</li>
+    <li><strong>Watch the drill run.</strong> On contact everyone gets off the X and into cover, then
+      the leader executes the <em>On Contact</em> drill you chose: he designates a base-of-fire team
+      and a maneuver team and <em>bounds onto the objective</em> (Assault), <em>pins and calls for
+      fire</em> (Suppress), <em>holds from cover</em> (Hold), or <em>leapfrogs back to a rally</em>
+      (Break). A squad that becomes combat-ineffective always breaks contact on its own — that is not
+      a dial you control.</li>
+    <li><strong>Approve or deny fires.</strong> When the squad is suppressing or pinned, the JTAC or
+      leader raises a <em>call for fire</em>. A prompt names the squad, the reason, and a proposed
+      grid; you <strong>Approve</strong> (rounds fly) or <strong>Deny</strong>. Watch the
+      <span class="enemy">DANGER CLOSE</span> warning — and watch for civilians near the impact.</li>
+    <li><strong>Call MEDEVAC.</strong> The medic moves to casualties automatically. When the AI
+      surfaces a wounded man, you can call the <em>9-line</em> to bring the bird in and take him off
+      the field — turning a likely KIA into a WIA.</li>
+    <li><strong>Restraint pays.</strong> Under <em>Tight</em> ROE a soldier will hold his shot rather
+      than risk a civilian in the kill zone. That restraint nudges the village's attitude up — a real
+      reward in this war. A dead civilian tanks it.</li>
   </ol>
-  <p>Unpause and let it play; pause again whenever you need to reassess. Use <kbd>2</kbd>/<kbd>3</kbd>
-  to speed through lulls.</p>
+  <p><strong>Pause</strong> (<kbd>Space</kbd>) any time to read the situation; unpause and let it
+  play. Use <kbd>2</kbd>/<kbd>3</kbd> to speed through lulls. Everything else you set
+  <em>beforehand</em> — the route and the SOP. In contact, those are locked.</p>
 
   <h2 id="step8">8. Breaking Contact</h2>
   <p>You don't have to kill every fighter. The enemy will displace up the draws when he's hurt; once
   the shooting stops, the <span class="enemy">TIC</span> banner clears, the clock frees back up, and
-  your patrol picks its task back up and continues toward its objective or home. If you've had enough
-  — the position is bad, you're low on ammo, you have wounded — select your element and use
-  <strong>Withdraw</strong> to pull them to safer ground, or hit <strong>recall</strong> on the task
-  in <em>Active Elements</em> to bring them back inside the wire. Casualties, ammo, and the outcome
-  all flow into the Command Log as they happen.</p>
+  your squad picks its task back up and continues toward its objective or home. If you've had enough —
+  the position is bad, you're low on ammo, you have wounded — hit <strong>recall</strong> on the squad
+  in <em>Active Elements</em> to bring it back inside the wire. (If you want a squad to disengage by
+  default, set its <em>On Contact</em> SOP to <strong>Break Contact</strong> before step-off; a
+  combat-ineffective squad breaks on its own regardless.) Casualties, ammo, and the outcome all flow
+  into the Command Log as they happen.</p>
 
   <h2 id="step9">9. The Long Game</h2>
   <p>The costs are real: wounded soldiers are out for days, the killed are gone for good, and your
@@ -157,12 +190,12 @@
 
   <h2 id="tips">10. Hard-Won Tips</h2>
   <ul>
-    <li><strong>Take the high ground.</strong> Elevation is line of sight, and line of sight is life.</li>
-    <li><strong>Never bunch up.</strong> Disperse your element so one burst or RPG can't catch them all.</li>
-    <li><strong>Suppress, then maneuver.</strong> Pin him with a machine gun; move on him with a team.</li>
+    <li><strong>Take the high ground.</strong> Elevation is line of sight, and line of sight is life — route your squads accordingly.</li>
+    <li><strong>The SOP is your voice.</strong> You set how a squad moves and fights before step-off. Once it's in contact, the drill is locked — so choose it for the ground you're sending them into.</li>
+    <li><strong>Match the drill to the mission.</strong> Suppress &amp; Call Fires pins him while the bird or the tube does the work; Assault closes the distance; Hold buys time; Break Contact gets them out. The leader runs it for you.</li>
     <li><strong>Mind the empty fields.</strong> When the civilians vanish, contact is coming. Read the atmospherics.</li>
-    <li><strong>Hold your fire near people.</strong> One dead civilian undoes a month of patrols.</li>
-    <li><strong>Keep your medic alive and close.</strong> He is the difference between WIA and KIA.</li>
+    <li><strong>Hold your fire near people.</strong> One dead civilian undoes a month of patrols — set <em>Tight</em> ROE near villages and let your soldiers hold their shots.</li>
+    <li><strong>Keep your medic close.</strong> Send officers so the squad has a medic; he is the difference between WIA and KIA. Call MEDEVAC early.</li>
     <li><strong>Don't chase him up the draws.</strong> That's where the next ambush is set.</li>
     <li><strong>Corroborate intel.</strong> A single ICOM intercept is a rumor, not a target.</li>
   </ul>

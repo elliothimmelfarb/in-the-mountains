@@ -43,13 +43,18 @@ timeline — quiet hours fast-forward, firefights slow to readable speed.
 - **Personnel** — roster, squads/fireteams, rest/fatigue that recover at the wire and drain in
   the field, morale, wounds & recovery over real days, specialties (medic, JTAC/RTO, SAW/240
   gunners, marksman). Losses are permanent.
-- **Operations** — select soldiers and order them directly (move with a posture, assault, hold,
-  suppress, smoke, frag, withdraw), or **plan a patrol**: pick a mission and posture, draw a
-  route, and the element musters in the yard, files out the gate, and moves to its objective **as a
-  squad** — a squad leader and two fire teams in a doctrinal formation (file/wedge/column/dispersed
-  chosen from mission, terrain and whether contact is expected), point man navigating the ground,
-  every man pulling a security sector. Missions: presence, recon, ambush/interdiction, census,
-  cordon-and-search, establish OP.
+- **Operations** — you command **squads, never individual men**. Pick a fixed squad (click it in
+  the **Task Organization** list, or click any of its men on the map; the squads are *hq / 1st / 2nd /
+  3rd / Weapons* — you never compose one), optionally **send officers** (attach the HQ element — PL,
+  medic, RTO, JTAC), draw a waypoint route, and **step off**: the squad leader musters in the yard,
+  files out the gate, and navigates the route **as a squad** — a squad leader and two fire teams in a
+  doctrinal formation (file/wedge/column/dispersed chosen from mission, terrain and whether contact is
+  expected), point man navigating the ground, every man pulling a security sector. Re-route a deployed
+  squad with the same gesture. Before step-off you set the squad's **SOP** — three standing settings
+  that lock once the squad is in contact: **Movement** (Stealth / Patrol / Fast), **On Contact** (Hold &
+  Return Fire / Suppress & Call Fires / Assault / Break Contact — the battle drill it runs), and **ROE**
+  (Weapons Hold / Tight / Free — the civilian-fire rules). Mission type seeds sensible SOP defaults.
+  Missions: presence, recon, ambush/interdiction, census, cordon-and-search, establish OP.
 - **Influence** — send an element for a **shura** (KLE) with a village elder, fund **CERP
   projects** (wells, schools, roads) that require materials trucked in, a contractor, and a
   squad keeping the site secure for days, or they stall and get sabotaged.
@@ -57,15 +62,25 @@ timeline — quiet hours fast-forward, firefights slow to readable speed.
   construction materials, burning continuously. Resupply by convoy (risky/IED) or air
   (weather-dependent).
 - **Fires & MEDEVAC** — 60/81 mortars, CAS gun runs and Hellfire, 9-line MEDEVAC, with delays,
-  danger-close risk, and weather/availability constraints. Available the moment you need them.
+  danger-close risk, and weather/availability constraints. Fires are **AI-requested, player-approved**:
+  a suppressing or pinned squad's JTAC/leader raises a call-for-fire (squad, reason, proposed grid) and
+  you **approve** (rounds fly) or **deny**. MEDEVAC likewise — the AI surfaces a casualty and you call
+  the bird. Your in-combat levers are exactly these: approve/deny fires and call MEDEVAC.
 - **Intel** — SIGINT (ICOM), HUMINT (informants of varying reliability), drone hits, pattern of
   life. An often-wrong picture of enemy disposition.
 - **Higher** — battalion issues directives and judges you on stability and losses.
 
 **Combat** is just what happens when hostile units perceive each other. The clock clamps to
-combat speed; you fight with the same selection-and-orders interface, and the fight resolves
-through the ballistics + LOS + cover model. The enemy maneuvers, breaks contact, or is destroyed,
-and your patrol resumes its task on the lull.
+combat speed and the fight is **100% AI**: on contact the squad-combat coordinator — the squad
+leader's brain — runs the SOP's battle drill, designating a base-of-fire team and a maneuver team,
+bounding onto the objective (Assault), pinning and calling for fire (Suppress), holding from cover
+(Hold), or leapfrogging back to a rally (Break); a squad that becomes combat-ineffective always
+breaks contact on its own. Every shot passes a **civilian-fire gate**: under Tight ROE a soldier
+holds fire rather than risk a civilian in the kill zone — restraint that nudges the village's
+attitude up — and civilian casualties tank it. The fight resolves through the ballistics + LOS +
+cover model. You command from the radio: the route and SOP set beforehand, and approve/deny fires
+and call MEDEVAC during. The enemy maneuvers, breaks contact, or is destroyed, and your patrol
+resumes its task on the lull. The hardest part of command is watching.
 
 ## 3. Simulation systems (engine: `lib/sim`)
 
@@ -80,8 +95,8 @@ and your patrol resumes its task on the lull.
 | Weapons | `weapons.ts` | Full weapon table (US + insurgent) with ballistic & handling stats. |
 | Ballistics | `ballistics.ts` | Per-projectile flight, hit resolution vs exposure/skill/suppression, wound model. |
 | Entities | `entities.ts` | Soldier/insurgent/civilian types, stats, state, factories, **move postures**. |
-| Combat | `combat.ts` | The fixed-timestep unit tick (orders → AI → movement → fire → projectiles → morale); runs in persistent mode inside the World. |
-| AI | `ai/*.ts` | Insurgent (ambush/shoot-scoot/withdraw), civilian (routine/flee/atmospherics), friendly (autonomy under orders). |
+| Combat | `combat.ts` | The fixed-timestep unit tick (AI → movement → fire → projectiles → morale); runs in persistent mode inside the World. Combat is 100% AI — there is no player order queue. |
+| AI | `ai/*.ts` | Insurgent (ambush/shoot-scoot/withdraw), civilian (routine/flee/atmospherics), friendly (per-man cover, return fire, buddy-aid), and the **squad-combat coordinator** (`ai/squad-combat.ts`) — the squad leader's brain that runs the SOP's battle drill (base-of-fire + maneuver) and a civilian-fire gate (`civClear`) on every friendly shot. |
 | Names | `names.ts` | US roster + Afghan name generation. |
 | Campaign | `campaign.ts` | Shared strategic types + helpers (supplies, villages, weather, scoring). |
 | Squad movement | `world/formation.ts` | Doctrinal squad movement composed on the squad-leader + two fire-team echelon: formation by mission/terrain/threat, point navigation, security sectors, pace governor. |
@@ -181,7 +196,7 @@ sleeps in the barracks after dark, and the whole COP **stands to** when the wire
 
 ## 4. Campaign loop
 A deployment of configurable length (e.g., 60–270 in-game days) on one continuous clock.
-- Order soldiers directly or plan patrols/KLEs/projects; everything takes time on the map.
+- Send squads on patrols and KLEs, fund projects; everything takes time on the map.
 - Quiet hours fast-forward (press to skip to the next event); combat slows to readable speed.
 - Random decision points pause time for a choice. Battalion directives create objectives
   (presence in every village, meet the elders, census, interdict, build).
@@ -197,13 +212,14 @@ A deployment of configurable length (e.g., 60–270 in-game days) on one continu
   speckle, flowing-water shimmer), **snow on the high crests**, a saturation lift and light altitude/haze
   grading for depth, plus marching-squares **contour lines**. Over it: grid + markers (COP, villages,
   project sites, suspected enemy, patrol route, intel) + units, facing, stance, LOS lines, tracer fire,
-  smoke, impacts, suppression/morale state, fog of war. Pan/zoom, select (click/box), order tools,
-  plan-mode waypoints, fire-support targeting.
+  smoke, impacts, suppression/morale state, fog of war. Pan/zoom, pick a squad (click it or any of
+  its men), draw a waypoint route, and step off; in contact, approve/deny fire requests and call
+  MEDEVAC. No individual-soldier selection or order tools.
 - **Aesthetic**: dark tactical "command post" theme — desaturated olive/tan/charcoal, mono
   for data, map ink for the topo. Readable, dense, military map symbology (MIL-STD-2525-ish).
 - **HUD**: top command bar (clock/light/weather/metrics + pause/speed/warp), left column
-  (active elements, directives, intel, log), right column (patrol planner / village panel +
-  logistics), bottom order bar & fire-support panel.
+  (task organization / active squads, directives, intel, log), right column (patrol planner with
+  the SOP settings / village panel + logistics), and the call-for-fire & MEDEVAC approval prompts.
 
 ## 6. Documentation deliverables
 - This design doc + a **wiki** (`docs/wiki/`) covering systems, weapons, tactics, glossary.
@@ -219,7 +235,7 @@ A deployment of configurable length (e.g., 60–270 in-game days) on one continu
 4. Campaign + patrol + events.
 5. Zustand store + React bridge.
 6. Topo map renderer + tactical renderer.
-7. HUD, screens, order flow, fire support.
+7. HUD, screens, squad/SOP/route command flow, fires approval.
 8. In-game tutorial.
 9. Docs: wiki, HTML manual, HTML tutorial.
 10. Polish, balance, build & verify.

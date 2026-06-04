@@ -11,11 +11,13 @@
                 │ reads/subscribes (tick)    │ actions
 ┌───────────────┴───────────────────────────▼───────────────┐
 │ state/store.ts  (Zustand)                                  │
-│   screen, world, selection, orderTool, posture, planning,  │
-│   paused/speed/warp, fireSupport, …                        │
+│   screen, world, activeSquadId, attachOfficers, planning,  │
+│   planRoute, planMission, planSOP, paused/speed/warp,      │
+│   fireSupport, …                                           │
 │   frame(realDt)  ← the real-time loop (steps World.tick)   │
-│   newCampaign / orderAtWorld / stepOff / conductKLE /      │
-│   fundProject / requestResupply / fireAtWorld / …          │
+│   newCampaign / selectSquad / setPlanSOP / stepOff /       │
+│   reroute / setSquadSOP / approveFires / denyFires /       │
+│   conductKLE / fundProject / requestResupply / …           │
 └───────────────▲───────────────────────────┬───────────────┘
                 │                            │
 ┌───────────────┴────────────┐  ┌────────────▼───────────────┐
@@ -37,17 +39,18 @@ The engine knows nothing about React. The renderers know nothing about React sta
 
 - **`world.ts`** — the `World` class: the master clock (`tick(dt)`), time-of-day/light, logging,
   supply burn, soldier rest/morale, metrics, casualty reconciliation, enemy culling, tour end, the
-  player **order interface** (`formPatrol`, `conductKLE`, `startProject`, `requestResupply`, fire
-  support, medevac), and queries (`inContact`, `nearestVillage`, …). It owns a single persistent
-  `CombatSim`.
+  player **command interface** (`formPatrol`/`conductKLE` step a fixed squad off with a `SquadSOP`,
+  `setSOP`/`reroute` adjust a deployed squad, `startProject`, `requestResupply`,
+  `approveFireRequest`/`denyFireRequest` gate the AI's call-for-fire, `medevac`), and queries
+  (`inContact`, `nearestVillage`, …). It owns a single persistent `CombatSim`.
 - **`types.ts`** — `WorldState`, `Task`, `Project`, `MissionType`, constants, and the shared `Ids`
   counters.
 - **`create.ts`** — `createWorld(seed, days)` and `loadWorld(blob)` factories.
 - **`director.ts`** — the enemy activity director (`runDirector`): heat drift + scheduled
   ambush / infiltration / harassment / complex-attack spawns, all routed through the terrain.
 - **`tasks.ts`** — strategic task progression (`tickTasks`): muster → file out the gate → move to
-  the objective as a squad → on-station security halt → return through the gate, yielding to combat
-  AI on contact and resuming on the lull.
+  the objective as a squad → on-station security halt → return through the gate, yielding on contact
+  to the squad-combat coordinator (`ai/squad-combat.ts`, below) and resuming on the lull.
 - **`formation.ts`** — squad movement composed on the real squad echelon (`planFormation`,
   `steerSquad`, `holdSecurity`): reconstructs the squad leader + two fire teams + attachments from a
   task's roster and moves them in formation (file/wedge/column/dispersed) by doctrine, point man
@@ -64,6 +67,35 @@ The engine knows nothing about React. The renderers know nothing about React sta
 
 Subsystem modules take the `World` as an argument and use its public surface; they import the
 `World` type-only to avoid a runtime cycle.
+
+## Combat AI (`lib/sim/ai/`)
+
+The player commands **squads, never men**: combat is 100% AI. The command surface a squad carries
+into a fight is its standing **`SquadSOP`** — three settings set before step-off and **locked once
+in contact**: MOVEMENT (Stealth / Patrol / Fast), ON CONTACT (Hold & Return Fire / Suppress & Call
+Fires / Assault / Break Contact), and ROE (Weapons Hold / Tight / Free). The mission type seeds
+sensible defaults (`defaultSOP`).
+
+- **`squad-combat.ts`** — the squad-combat coordinator (`squadFight`), the squad leader's brain,
+  invoked from `tickTasks` on contact (so the decision lands the tick the men act on it). It reads
+  the SOP and the tactical picture, then runs the doctrinal drill: react (everyone to cover, return
+  fire per ROE) → designate a base-of-fire and a maneuver element → bound onto the objective
+  (Assault), pin + raise a call-for-fire (Suppress), hold from cover (Hold), or leapfrog back to a
+  rally (Break). A squad that becomes **combat-ineffective always breaks contact automatically** —
+  the one drill the player can't override. It only *decides*: it stamps the per-man intent fields
+  (`rof`, `roe`, order target, …) that `friendlyBrain` executes each tick.
+- **`friendly.ts`** — `friendlyBrain` executes each US/ANA soldier (cover-seeking, return fire,
+  buddy-aid, the per-man assault bound). A **civilian-fire gate** (`civClear`) checks ROE on every
+  friendly shot: under Tight a soldier holds fire rather than risk a civilian in the kill zone (that
+  restraint nudges village attitude up — a real COIN reward), while civilian casualties tank it.
+- **`insurgent.ts`** / **`civilian.ts`** — the enemy state machine and the civilian routines.
+
+**Fires and MEDEVAC are AI-requested, player-approved.** When suppressing or pinned, the squad's
+JTAC/leader raises a call-for-fire (`World.state.fireRequest`: squad, reason, proposed grid); the
+commander **approves** (`approveFireRequest` — rounds fly) or **denies** (`denyFireRequest`).
+Likewise the AI surfaces a CASUALTY callout and the player calls the 9-line bird (`medevac`). The
+player's only in-combat levers are: approve/deny fires, call MEDEVAC, and the SOP + route set
+beforehand.
 
 ## Data flow
 

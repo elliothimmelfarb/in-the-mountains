@@ -54,6 +54,19 @@ export const MOVE_TECHNIQUES: MoveTechnique[] = [
   "rush",
 ];
 
+/**
+ * Rules of engagement — a squad's standing fire policy and the civilian-fire
+ * contract. Derived from the squad SOP onto each member every contact tick (like
+ * `rof`), then read by the `civClear` gate in the firing path.
+ *  - hold  = self-defense only: fire only at a PID'd shooter who just fired, and never
+ *            with a civilian in the keep-out. No pre-emptive or suppressive fire.
+ *  - tight = engage identified hostiles, but NEVER fire if a civilian is inside the
+ *            (generous) keep-out of the target or the gun-target line. The COIN default.
+ *  - free  = engage/suppress on contact; the keep-out shrinks to danger-close (a civ
+ *            standing on the aimpoint). Never zero — civcas is never "allowed", just less guarded.
+ */
+export type ROE = "hold" | "tight" | "free";
+
 export const TECHNIQUE_LABEL: Record<MoveTechnique, string> = {
   crawl: "Crawl",
   concealed: "Concealed",
@@ -143,8 +156,9 @@ export interface Unit {
   targetId?: string | null;
   orderType?: string;
   orderTarget?: Vec2 | null;
-  orderWaypoints?: Vec2[];
-  rof: "free" | "hold" | "suppress"; // rules of engagement / fire posture
+  rof: "free" | "hold" | "suppress"; // fire posture (mechanical gate): set by the squad-combat AI each tick
+  roe?: ROE; // standing rules of engagement (derived from the squad SOP); gates the civilian-fire check
+  civGuard?: number; // meters — no-fire keep-out around a visible civilian, derived from roe + weapon class
   brainState: string; // AI state label
   brainTimer: number; // seconds in state / until reconsider
   lastSeenEnemy: Record<string, { pos: Vec2; t: number }>; // enemyId -> last known

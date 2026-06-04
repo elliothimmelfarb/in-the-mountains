@@ -94,9 +94,9 @@
 
   <h2 id="loop">3. The Game Loop</h2>
   <ol>
-    <li><strong>Order</strong> — select soldiers and move them directly, or plan a patrol: pick a mission and a movement posture, draw a route, step off. The element kits up, then moves through the terrain.</li>
+    <li><strong>Order</strong> — pick a squad and a mission, set its standing SOP (how it moves, what drill it runs on contact, and its rules of engagement), draw a route, step off. The squad musters, kits up, then moves through the terrain on its own.</li>
     <li><strong>Skip</strong> — when nothing needs you, press ⏩ to fast-forward to the next event — contact, an objective reached, a project milestone, a decision at the gate.</li>
-    <li><strong>Fight</strong> — when rounds crack, the clock slows. Maneuver, suppress, call for fire, treat the wounded, break contact or destroy the enemy; the patrol resumes on the lull.</li>
+    <li><strong>Fight</strong> — when rounds crack, the clock slows. The squad fights itself to its SOP — taking cover, returning fire, bounding or breaking contact; you read the net, approve or deny its calls for fire, and call MEDEVAC for the wounded. The patrol resumes on the lull.</li>
     <li><strong>Build</strong> — run shuras, fund projects (and keep them secure), resupply, and answer the decisions that pause the clock.</li>
     <li><strong>Endure</strong> — for an entire deployment, on one clock. The valley keeps score.</li>
   </ol>
@@ -107,7 +107,8 @@
   air support), your five campaign metrics, and the <strong>time controls</strong> (pause, 1×–16×,
   and ⏩ skip-to-event). The center is the live topographic map. The left column holds your active
   elements, directives, intel, and the log; the right column holds the patrol planner / village
-  engagement and logistics; the bottom is the order bar and fire support.</p>
+  engagement and logistics; the bottom carries fire support and the prompts the squads raise — a
+  call for fire to approve or deny, a MEDEVAC request, a decision at the gate.</p>
   <p>Your men rest and recover at the wire and tire in the field; supplies burn continuously; intel
   arrives; the enemy moves. The night belongs to him.</p>
   <p>Zoom in and your COP resolves into a real fortified outpost: a ring of <strong>HESCO</strong>
@@ -163,10 +164,16 @@
         <li><span class="tag">Overwatch / OP</span> sit on high ground and watch a route.</li>
       </ul>
     </li>
-    <li><strong>Task-organize</strong> — click soldiers on the map, or a squad header to toggle the whole squad. Mind your composition; bring a medic.</li>
-    <li><strong>Posture</strong> — pick how they move: <span class="tag">Concealed</span> (slow, low, hugs forest and washes, hard to spot), <span class="tag">Tactical</span>, <span class="tag">Patrol</span>, <span class="tag">Traveling</span>, or <span class="tag">Rush</span> (fast, loud, exposed). Posture trades speed for profile — and shapes the formation the squad moves in.</li>
-    <li><strong>Route</strong> — hit <em>Draw Route</em> and click the map to drop waypoints. The element paths through the terrain (following trails and washes, avoiding cliffs).</li>
-    <li><strong>Step Off</strong> — the element <em>musters in the yard</em>, kits up, then files out the gate. It all happens in real time; watch it on the map and in the Active Elements panel, where you can <em>recall</em> it.</li>
+    <li><strong>Pick the squad</strong> — choose a fixed squad from the <strong>Task Organization</strong> list (<span class="tag">hq</span>, <span class="tag">1st</span>, <span class="tag">2nd</span>, <span class="tag">3rd</span>, or <span class="tag">Weapons</span>), or just click any of its men on the map. You command squads, not individuals — you never compose one. Optionally <strong>Send Officers</strong> to attach the HQ element (the platoon leader, medic, RTO, and JTAC) to the patrol.</li>
+    <li><strong>Set the SOP</strong> — three standing settings that you lock in before step-off. They are the squad leader's orders, and once the squad is in contact they cannot be changed:
+      <ul>
+        <li><span class="tag">Movement</span> how they move — <em>Stealth</em> (slow, low, hugs cover, hard to spot), <em>Patrol</em>, or <em>Fast</em> (quick, loud, exposed). This also shapes the formation.</li>
+        <li><span class="tag">On Contact</span> the battle drill the squad runs when it makes contact — <em>Hold &amp; Return Fire</em>, <em>Suppress &amp; Call Fires</em>, <em>Assault</em>, or <em>Break Contact</em>.</li>
+        <li><span class="tag">ROE</span> the civilian-fire rules — <em>Weapons Hold</em>, <em>Tight</em>, or <em>Free</em>.</li>
+      </ul>
+      The mission type seeds sensible defaults for all three; adjust them to your intent.</li>
+    <li><strong>Route</strong> — hit <em>Draw Route</em> (or press <kbd>R</kbd>) and click the map to drop waypoints. The squad paths through the terrain (following trails and washes, avoiding cliffs).</li>
+    <li><strong>Step Off</strong> — the squad leader <em>musters in the yard</em>, the element kits up, then files out the gate and navigates the route in formation. It all happens in real time; watch it on the map and in the Active Elements panel. To change a deployed squad's path, select it, draw a new route, and <em>Re-route</em>.</li>
   </ol>
   <div class="callout">
     <div class="h">A squad moves like a squad</div>
@@ -189,7 +196,7 @@
   a <span class="dim">cooperation</span> level (how much intel they'll share), a hidden
   <span class="enemy">sympathy</span> for the insurgents, and something it <em>wants</em>.</p>
   <ul>
-    <li><strong>Shura (KLE)</strong> — select an element and send it to sit with the elder. Attitude, cooperation, and intel accrue over the time the element spends there.</li>
+    <li><strong>Shura (KLE)</strong> — run a patrol to a village as a <em>KLE</em> mission to sit with the elder. Attitude, cooperation, and intel accrue over the time the squad spends there.</li>
     <li><strong>CERP Projects</strong> — fund a well, school, clinic, road, or footbridge. This is not instant: materials must be <em>trucked in</em>, a local <em>contractor</em> and labor brought on, and a <strong>squad must keep the site secure for days</strong> of work. Leave it unsecured and the insurgents intimidate the crew — the job stalls and can be sabotaged. A finished project is a lasting attitude swing.</li>
     <li><strong>Solatia</strong> — after you cause harm, payment and apology can repair a relationship. Offered through events.</li>
     <li><strong>Resupply</strong> — request a ground convoy (full, but it can be ambushed on the road) or air (partial, weather-dependent) from the Logistics panel; it also brings the construction materials your projects need.</li>
@@ -215,29 +222,44 @@
   <h2 id="tactical">10. Combat</h2>
   <p>Combat is not a separate screen — it happens on the same map, in the same continuous clock, the
   moment your soldiers and the enemy see each other. The clock automatically clamps to a readable
-  speed (≤4×) and the ⏩ skip is disabled while you're in contact. Select your soldiers and fight with
-  the order bar; your soldiers act with autonomy within your intent — they return fire, take cover,
-  reload, and the medic moves to the wounded — but the decisions that matter are yours. When the
-  fighting stops, a patrol picks its task back up and continues.</p>
+  speed (≤4×) and the ⏩ skip is disabled while you're in contact. <strong>You do not fight the men.</strong>
+  The squad fights itself, autonomously, to the SOP you set before step-off — the squad leader designates
+  a base of fire and a maneuver team and runs the drill (bound onto the objective on <em>Assault</em>,
+  pin and call for fire on <em>Suppress</em>, hold from cover on <em>Hold</em>, or leapfrog back to a
+  rally on <em>Break</em>); each man takes cover, returns fire under the ROE, reloads, and renders buddy
+  aid on his own. A squad that becomes combat-ineffective always breaks contact automatically.</p>
+  <p>Your levers in the fight are the radio, not the trigger: <strong>approve or deny the squad's calls
+  for fire</strong>, <strong>call MEDEVAC</strong> for a casualty the squad surfaces, and live with the
+  SOP and route you set beforehand. The hardest part of command is watching. When the fighting stops, a
+  patrol picks its task back up and continues.</p>
+  <div class="callout">
+    <div class="h">ROE is a weapon</div>
+    Under a <em>Tight</em> ROE the civilian-fire gate makes a soldier hold his shot rather than risk a
+    civilian in the kill zone — and that restraint nudges the village's attitude toward you. Civilian
+    casualties do the opposite, and worse. How you let your squads fight is itself a counterinsurgency
+    decision.
+  </div>
 
   <h2 id="controls">11. Controls</h2>
   <table>
     <thead><tr><th>Input</th><th>Action</th></tr></thead>
     <tbody>
-      <tr><td><kbd>Left-click</kbd> / drag</td><td>Select a soldier / box-select an element (or click a village)</td></tr>
-      <tr><td><kbd>Shift</kbd> + click</td><td>Add to selection</td></tr>
-      <tr><td><kbd>Right-click</kbd></td><td>Quick move (empty ground) or engage (on an enemy); right-drag to pan</td></tr>
+      <tr><td><kbd>Left-click</kbd></td><td>Select a squad (click any of its men) or open a village; click a Task Organization chip to pick a squad by name</td></tr>
+      <tr><td><kbd>Right-click</kbd> + drag</td><td>Pan the map</td></tr>
       <tr><td>Wheel</td><td>Zoom · drag with <kbd>Alt</kbd> to pan</td></tr>
       <tr><td><kbd>Space</kbd></td><td>Pause / resume</td></tr>
       <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd></td><td>Speed 1× / 2× / 4× / 8× / 16×</td></tr>
       <tr><td><kbd>T</kbd></td><td>Toggle ⏩ skip-to-next-event (fast-forward)</td></tr>
-      <tr><td><kbd>Q</kbd> <kbd>W</kbd> <kbd>E</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> <kbd>F</kbd> <kbd>X</kbd></td><td>Order tools (Select, Move, Assault, Hold, Suppress, Smoke, Frag, Withdraw)</td></tr>
-      <tr><td><kbd>Esc</kbd></td><td>Cancel fire-support targeting</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Draw Route — drop waypoints for the selected squad</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel route drawing / fire-support targeting</td></tr>
     </tbody>
   </table>
-  <p>Pick an order tool from the bottom bar, set a movement <strong>posture</strong>, then click the
-  map to issue it to the selected element. For fire support, select the asset, then click the impact
-  point. To plan a patrol, hit <em>Plan Patrol</em>, draw a route, and <em>Step Off</em>.</p>
+  <p>You command squads, not soldiers. Select a squad (a Task Org chip or any of its men), set its
+  mission and <strong>SOP</strong> (Movement / On-Contact / ROE) and, if you like, <em>Send Officers</em>;
+  press <kbd>R</kbd> to draw a route and <em>Step Off</em>. <em>Re-route</em> a deployed squad with the
+  same gesture. In contact the squad fights itself — your inputs are to <strong>approve or deny</strong>
+  a call for fire, <strong>call MEDEVAC</strong>, and, for fire support you initiate, select the asset
+  and click the impact point.</p>
 
   <h2 id="terrain">12. Terrain, Line of Sight &amp; Concealment</h2>
   <p>The valley is procedurally generated from your seed and resolved to a <strong>5-metre grid</strong>
@@ -248,7 +270,7 @@
   cemeteries, roads, trails, and footbridges. Terrain is not scenery — it is the dominant actor.</p>
   <ul>
     <li><strong>Elevation</strong> drives line of sight. A man behind a crest is in <em>dead ground</em> (defilade); only what pokes above the horizon line can be seen or hit. Partial exposure — "heads and shoulders over the ridge" — is computed smoothly, not as a binary.</li>
-    <li><strong>Concealment</strong> (forest, orchard, scrub, dry washes, smoke) blocks sight without stopping bullets. Moving <em>Concealed</em> through it makes you very hard to spot.</li>
+    <li><strong>Concealment</strong> (forest, orchard, scrub, dry washes, smoke) blocks sight without stopping bullets. A squad on <em>Stealth</em> movement hugs it and is very hard to spot.</li>
     <li><strong>Cover</strong> (compound walls, boulders, terrace walls, rock) stops rounds — mud qalat walls are the best cover in the valley. Going prone or crouching adds cover and shrinks your silhouette.</li>
     <li><strong>Movement cost</strong> punishes steep slopes, scree, brush, and the river; roads and trails are fastest. Cliffs and compound walls are impassable on foot. The climb itself is an enemy: fatigue degrades everything.</li>
   </ul>
@@ -282,11 +304,15 @@
   field — converting a probable KIA into a WIA who may return to duty.</p>
 
   <h2 id="firesupport">15. Fire Support</h2>
-  <p>From the Fire Support panel, select an asset and click the impact point:</p>
+  <p>Fires are AI-requested and commander-approved. When a squad is suppressing or pinned, its JTAC or
+  leader raises a <strong>call for fire</strong> over the net — a prompt naming the squad, the reason,
+  and a proposed grid. You <strong>approve</strong> it (the rounds fly) or <strong>deny</strong> it.
+  You can also initiate a mission yourself from the Fire Support panel: select an asset and click the
+  impact point.</p>
   <ul>
     <li><strong>Mortars (60/81mm)</strong> — your organic indirect fire from the COP, if the target is in range and rounds remain. There is a delay while the mission is plotted and fired; rounds land with realistic dispersion.</li>
     <li><strong>CAS / CCA</strong> — close air support (a gun run) or a Hellfire, available only when the weather allows aircraft. Devastating, slow to arrive, and limited.</li>
-    <li><strong>MEDEVAC</strong> — select a casualty and call the bird to take them off the field.</li>
+    <li><strong>MEDEVAC</strong> — when a man goes down the squad surfaces the casualty (a 9-line); you call the bird to take them off the field.</li>
   </ul>
   <div class="callout warn">
     <div class="h">Danger Close</div>
