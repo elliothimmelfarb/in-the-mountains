@@ -195,22 +195,40 @@ muzzle flash, prone posture, and — for a target moving **concealed/crawling** 
 (slow cover-hugging movement plus the unit's fieldcraft sharply lowers the chance of being seen).
 Acquisition is distinct from whether a bullet can connect.
 
+**Thermal optics** (CLU/LRAS3/thermal weapon sights) are a distinct sensor channel — the US
+overmatch in the valley. Carried by the few (marksman, sniper, JTAC, weapons-squad MG gunners), a
+thermal sight is **light-independent** (it reads body heat by day or in the dark) and sees **through
+vegetation** (but not terrain defilade, and only partly through smoke). `LOSResult` exposes the
+geometric/veg/smoke concealment split so thermal recombines the exposure; the perception gate is
+thermal-aware, so a fighter in dense canopy at night — invisible to the naked eye and weak on NVGs —
+reads clearly on thermal.
+
 ## Ballistics (`ballistics.ts`)
 
 Per-round, no abstract to-hit:
 
 - `dispersionSigmaM(weapon, shooter, range)` → linear dispersion (m) at the target from weapon MOA ×
   (skill, stance, suppression, fatigue, movement, composure, aim settle, range-beyond-effective).
-- `spawnProjectile(...)` picks an aimpoint = target + 2-D gaussian(σ), and builds a flying round
-  (direct) or a timed indirect round (mortars/arc).
+- `spawnProjectile(...)` picks an aimpoint = target + 2-D gaussian(σ) **+ wind drift** over the
+  round's time of flight, and builds a flying round (direct) or a timed indirect round (mortars/arc).
+- `retainedLethality(weapon, range)` — **range-dependent terminal energy**. A ball round's wounding
+  power falls with range as velocity bleeds off, on a per-kinetic-class curve: **5.56 has a sharp
+  fragmentation knee** (full <150 m, ~half by 500 m — the literal reason the valley fight demanded
+  7.62/.50/CAS), 7.62 full-power holds, .50 is ~flat, 9 mm cliffs. (Frag/HEAT are unaffected; their
+  falloff is spatial.)
 - On arrival, `resolveDirectHit(...)`: geometric hit if the aimpoint lands within the target's
   **silhouette** (which shrinks with cover/defilade), then cover may still stop it per `penetration`.
-- `applyDamage(...)`: rolls a body region (legs/arms common, head/chest lethal), applies body armor
-  (US plates/helmet; insurgents/civilians none), reduces HP, and sets a capped bleed rate.
+- `applyDamage(...)`: rolls a body region, applies body armor (US plates/helmet; insurgents/civilians
+  none), reduces HP, and sets a **split bleed** — extremity (leg/arm) wounds bleed fast but are
+  **tourniquetable** (any buddy stops them, TCCC); torso/junctional bleed internally and need a medic.
 - `blastDamageAt(...)`: falloff for indirect/explosive.
 
-`combat.ts` steps projectiles, applies suppression along the flight path and around impacts, and
-detonates explosives.
+`combat.ts` steps projectiles, applies suppression along the flight path and around impacts, detonates
+explosives, and runs **buried IEDs** (`plantIED`/`stepIeds`) that command-detonate when a patrol
+enters the kill zone. A **wind vector** (prevailing synoptic + a diurnal valley flow, anabatic
+up-valley by day / katabatic down at night — `world.windVector`) drifts bullets and smoke.
+**Combat-load weight** (`combatLoadKg` — the Korengal "every man a mule", ~30 kg for a rifleman to
+~56 kg for a 240 gunner) drags movement speed and accelerates fatigue.
 
 ## Combat tick (`combat.ts`)
 

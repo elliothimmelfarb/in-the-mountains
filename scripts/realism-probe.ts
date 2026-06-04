@@ -99,6 +99,7 @@ function engagementProbe() {
   let usKIA = 0, usWIA = 0, enKIA = 0, civCas = 0, contacts = 0;
   let roundsUS = 0, roundsEnemy = 0, fmUsed = 0;
   let minCompSum = 0, minCompCount = 0, successions = 0;
+  let seriousWIA = 0, minorWIA = 0;
 
   for (let s = 0; s < SEEDS; s++) {
     const world = createWorld(`probe-eng-${s}`, 90);
@@ -145,6 +146,8 @@ function engagementProbe() {
     if (firstDet >= 0) { firstDetTickSum += firstDet; firstDetCount++; }
     usKIA += world.platoon.members.filter((m) => !m.alive).length;
     usWIA += world.platoon.members.filter((m) => m.alive && m.wounds.length > 0).length;
+    seriousWIA += world.platoon.members.filter((m) => m.alive && (!m.conscious || m.hp < 40 || m.bleedRate > 0.3)).length;
+    minorWIA += world.platoon.members.filter((m) => m.alive && m.conscious && m.hp >= 40 && m.bleedRate <= 0.3 && m.wounds.length > 0).length;
     enKIA += world.platoon.members.reduce((a, m) => a + m.kills, 0);
     civCas += sim.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
     roundsUS += sim.ammoExpended - ammo0; // (enemy + US both counted in ammoExpended; close enough for a trend)
@@ -157,7 +160,7 @@ function engagementProbe() {
   console.log(`  Time to first detection: ${firstDetCount ? (firstDetTickSum / firstDetCount / 600).toFixed(2) : "n/a"} game-min (over ${firstDetCount} contacts)`);
   console.log(`  Suppression on patrol while in contact: mean ${(meanSuppSum / Math.max(1, suppSamples)).toFixed(3)} · peak-of-element ${(peakSuppSum / Math.max(1, suppSamples)).toFixed(3)}`);
   console.log(`  Lowest patrol composure during contact (avg of run-mins): ${(minCompSum / Math.max(1, minCompCount)).toFixed(3)} · NCO successions: ${successions}`);
-  console.log(`  Casualties: US KIA ${(usKIA / SEEDS).toFixed(2)} · US WIA ${(usWIA / SEEDS).toFixed(2)} · enemy ${(enKIA / SEEDS).toFixed(2)} · civ ${(civCas / SEEDS).toFixed(2)}`);
+  console.log(`  Casualties: US KIA ${(usKIA / SEEDS).toFixed(2)} · US WIA ${(usWIA / SEEDS).toFixed(2)} (serious/ineffective ${(seriousWIA / SEEDS).toFixed(2)} · walking-wounded ${(minorWIA / SEEDS).toFixed(2)}) · enemy ${(enKIA / SEEDS).toFixed(2)} · civ ${(civCas / SEEDS).toFixed(2)}`);
   console.log(`  Rounds expended (both sides): ${(roundsUS / SEEDS).toFixed(0)}/contact-run · fire missions ${(fmUsed / SEEDS).toFixed(2)}`);
 }
 
