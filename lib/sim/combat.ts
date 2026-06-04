@@ -153,7 +153,7 @@ export interface CombatInit {
   rng: RNG;
   units: Unit[];
   light: number; // 0..1
-  weather: { visibilityM: number; wind: number; label: string };
+  weather: { visibilityM: number; wind: number; label: string; windX?: number; windY?: number };
   /** Origin label (which patrol / where) for the after-action. */
   context?: string;
   /** Available COP indirect assets (weapon ids) and rounds. */
@@ -252,6 +252,12 @@ export class CombatSim {
 
   weaponOf(u: Unit): Weapon {
     return getWeapon(u.weaponId === "unarmed" ? "m9" : u.weaponId);
+  }
+
+  /** Effective wind vector (m/s, world frame) — set by the World's diurnal valley
+   *  model; zero for a standalone CombatSim. Drives bullet drift and smoke drift. */
+  windVec(): Vec2 {
+    return { x: this.weather.windX ?? 0, y: this.weather.windY ?? 0 };
   }
 
   // ---------------------------------------------------------------- logging/fx
@@ -404,8 +410,16 @@ export class CombatSim {
     for (const e of this.effects) e.t += dt;
     this.effects = this.effects.filter((e) => e.t < e.ttl);
 
-    // 10. smoke dissipation
-    for (const s of this.smoke) s.density -= dt * 0.012;
+    // 10. smoke dissipation + drift downwind (a screen streams with the valley wind)
+    {
+      const w = this.windVec();
+      for (const s of this.smoke) {
+        s.density -= dt * 0.012;
+        s.x += w.x * dt;
+        s.y += w.y * dt;
+        s.radius += dt * 0.25; // a screen also spreads as it ages
+      }
+    }
     this.smoke = this.smoke.filter((s) => s.density > 0.04);
 
     // 11. end conditions
@@ -783,7 +797,7 @@ export class CombatSim {
       return;
     }
     const range = dist(u.pos, aimPos);
-    const proj = spawnProjectile(u, weapon, aimPos, targetId, range, this.rng);
+    const proj = spawnProjectile(u, weapon, aimPos, targetId, range, this.rng, this.windVec());
     proj._losAtFire = u._fireLOS ?? null;
     this.projectiles.push(proj);
     u.ammo--;

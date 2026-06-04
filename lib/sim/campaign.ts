@@ -106,7 +106,8 @@ export interface FOBState {
 export interface Weather {
   label: string;
   visibilityM: number;
-  wind: number;
+  wind: number; // prevailing wind SPEED (m/s)
+  windDir: number; // prevailing (synoptic) wind direction, radians — blows toward this heading
   ceiling: number; // cloud ceiling (m) — affects air support
   airAvailable: boolean;
   precip: boolean;
@@ -127,6 +128,7 @@ export function rollWeather(rng: RNG): Weather {
     label: choice.label,
     visibilityM: choice.vis + rng.int(-200, 200),
     wind: rng.range(0, 8),
+    windDir: rng.range(0, Math.PI * 2),
     ceiling: choice.ceil,
     airAvailable: choice.ceil > 600 && !(choice.precip && rng.chance(0.5)),
     precip: choice.precip,
