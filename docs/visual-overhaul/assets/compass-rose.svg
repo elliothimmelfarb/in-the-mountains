@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- compass-rose: milspec NORTH rose. FLAT ink, no drop shadow. anchor [0.5,0.5]. -->
+  <defs>
+    <filter id="compassRose-halo" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- dark legibility halo behind the whole rose -->
+  <g filter="url(#compassRose-halo)" opacity="0.5">
+    <circle cx="32" cy="32" r="27" fill="none" stroke="#0c0d0a" stroke-width="2"/>
+    <path d="M32 5 L36 32 L32 47 L28 32 Z" fill="#0c0d0a"/>
+  </g>
+
+  <!-- fine tick ring -->
+  <circle cx="32" cy="32" r="26" fill="none" stroke="#d8d6c4" stroke-width="1.1" stroke-opacity="0.85"/>
+  <circle cx="32" cy="32" r="22.5" fill="none" stroke="#9a9a82" stroke-width="0.6" stroke-opacity="0.7"/>
+  <!-- degree ticks: 24 minor + 4 major (cardinals) -->
+  <g stroke="#d8d6c4" stroke-width="0.7" stroke-opacity="0.75">
+    <g transform="rotate(0 32 32)"><line x1="32" y1="6" x2="32" y2="9.5"/></g>
+    <g transform="rotate(15 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(30 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(45 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(60 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(75 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(90 32 32)"><line x1="32" y1="6" x2="32" y2="9.5"/></g>
+    <g transform="rotate(105 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(120 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(135 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(150 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(165 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(180 32 32)"><line x1="32" y1="6" x2="32" y2="9.5"/></g>
+    <g transform="rotate(195 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(210 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(225 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(240 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(255 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(270 32 32)"><line x1="32" y1="6" x2="32" y2="9.5"/></g>
+    <g transform="rotate(285 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(300 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(315 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(330 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+    <g transform="rotate(345 32 32)"><line x1="32" y1="6.5" x2="32" y2="9"/></g>
+  </g>
+
+  <!-- 8-point star: secondary diagonal rays (ink, slim) -->
+  <g fill="#9a9a82" fill-opacity="0.55" stroke="#0c0d0a" stroke-width="0.4" stroke-opacity="0.5">
+    <path d="M32 32 L40.5 23.5 L34.5 31 Z"/>
+    <path d="M32 32 L40.5 40.5 L33 34.5 Z"/>
+    <path d="M32 32 L23.5 40.5 L31 33 Z"/>
+    <path d="M32 32 L23.5 23.5 L29.5 31 Z"/>
+  </g>
+
+  <!-- 4-point star: E/S/W rays in ink -->
+  <g fill="#d8d6c4" stroke="#0c0d0a" stroke-width="0.4" stroke-opacity="0.55">
+    <path d="M32 32 L50 32 L34.5 30 Z"/>
+    <path d="M32 32 L50 32 L34.5 34 Z" fill="#9a9a82"/>
+    <path d="M32 32 L32 50 L30 34 Z"/>
+    <path d="M32 32 L32 50 L34 34 Z" fill="#9a9a82"/>
+    <path d="M32 32 L14 32 L30 34 Z"/>
+    <path d="M32 32 L14 32 L30 30 Z" fill="#9a9a82"/>
+  </g>
+
+  <!-- NORTH needle: amber, the hero ray -->
+  <path d="M32 14 L34.5 30 L32 32 Z" fill="#e0a72b" stroke="#0c0d0a" stroke-width="0.4" stroke-opacity="0.55"/>
+  <path d="M32 14 L29.5 30 L32 32 Z" fill="#b5821e" stroke="#0c0d0a" stroke-width="0.4" stroke-opacity="0.55"/>
+
+  <!-- center hub -->
+  <circle cx="32" cy="32" r="2.4" fill="#14160f" stroke="#d8d6c4" stroke-width="0.8"/>
+  <circle cx="32" cy="32" r="0.9" fill="#e0a72b"/>
+
+  <!-- bold N over the north tip -->
+  <g>
+    <path d="M28.6 9.2 v-6.2 M28.6 3 l3.4 6.2 M32 9.2 v-6.2" fill="none" stroke="#0c0d0a" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+    <path d="M28.6 9.2 v-6.2 M28.6 3 l3.4 6.2 M32 9.2 v-6.2" fill="none" stroke="#e0a72b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

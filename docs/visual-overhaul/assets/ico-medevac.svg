@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-medevac: helicopter with red cross. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- main rotor (top-down disc bar) -->
+    <path d="M4 4.6 L14 4.6"/>
+    <!-- mast -->
+    <path d="M9 4.6 L9 6.4"/>
+    <!-- cabin body -->
+    <path d="M5 9 C5 7.4 6.4 6.4 8 6.4 L10.6 6.4 C12.6 6.4 13.4 7.6 13.4 9 L13.4 11.6 C13.4 13 12.4 13.8 11 13.8 L7.2 13.8 C5.8 13.8 5 13 5 11.6 Z"/>
+    <!-- tail boom -->
+    <path d="M13.4 9.6 L20.5 11.4"/>
+    <!-- tail rotor -->
+    <path d="M19.6 9.6 L21.4 13.2"/>
+    <!-- skid -->
+    <path d="M6 15.6 L12.4 15.6"/>
+    <path d="M7.4 13.8 L7.4 15.6 M11 13.8 L11 15.6"/>
+  </g>
+  <!-- red medical cross on cabin -->
+  <path d="M8.4 8 h1.6 v1.4 h1.4 v1.6 h-1.4 v1.4 h-1.6 v-1.4 h-1.4 v-1.6 h1.4 z" fill="#c0392b" stroke="#f3ecd6" stroke-width="0.5" stroke-linejoin="round"/>
+</svg>

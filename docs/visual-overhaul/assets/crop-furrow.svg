@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- CROP-FURROW, tileable cropland furrow patch, flat top-down. STATIC: parallel plough
+       rows green-gold with subtle furrow shadows; blends into fields. Flat ground marking:
+       subtle NW-lit crest / SE shadow per ridge, no big cast shadow (it IS the ground). -->
+  <defs>
+    <linearGradient id="cropFurrow-field" x1="0" y1="0" x2="0.35" y2="1">
+      <stop offset="0" stop-color="#94a056"/>
+      <stop offset="1" stop-color="#80904a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- base field tile -->
+  <rect x="0" y="0" width="96" height="96" fill="url(#cropFurrow-field)"/>
+
+  <!-- plough rows. Each row = lit NW crest stroke + paired SE shadow stroke. -->
+  <g stroke-linecap="butt">
+    <!-- shadow furrows (SE side of each ridge), drawn first -->
+    <g stroke="#6c7a40" stroke-width="3.4" stroke-opacity="0.55">
+      <line x1="-4" y1="9"  x2="100" y2="3"/>
+      <line x1="-4" y1="21" x2="100" y2="15"/>
+      <line x1="-4" y1="33" x2="100" y2="27"/>
+      <line x1="-4" y1="45" x2="100" y2="39"/>
+      <line x1="-4" y1="57" x2="100" y2="51"/>
+      <line x1="-4" y1="69" x2="100" y2="63"/>
+      <line x1="-4" y1="81" x2="100" y2="75"/>
+      <line x1="-4" y1="93" x2="100" y2="87"/>
+    </g>
+    <!-- lit ridge crests (NW side), slightly above the shadow -->
+    <g stroke="#a8b466" stroke-width="2.0" stroke-opacity="0.8">
+      <line x1="-4" y1="6"  x2="100" y2="0"/>
+      <line x1="-4" y1="18" x2="100" y2="12"/>
+      <line x1="-4" y1="30" x2="100" y2="24"/>
+      <line x1="-4" y1="42" x2="100" y2="36"/>
+      <line x1="-4" y1="54" x2="100" y2="48"/>
+      <line x1="-4" y1="66" x2="100" y2="60"/>
+      <line x1="-4" y1="78" x2="100" y2="72"/>
+      <line x1="-4" y1="90" x2="100" y2="84"/>
+    </g>
+    <!-- fine bright top line on some crests -->
+    <g stroke="#c2cc82" stroke-width="0.7" stroke-opacity="0.6">
+      <line x1="-4" y1="5"  x2="100" y2="-1"/>
+      <line x1="-4" y1="29" x2="100" y2="23"/>
+      <line x1="-4" y1="53" x2="100" y2="47"/>
+      <line x1="-4" y1="77" x2="100" y2="71"/>
+    </g>
+  </g>
+
+  <!-- a few sparse crop flecks / clods for texture -->
+  <g fill="#6e7c3e" opacity="0.4">
+    <circle cx="20" cy="14" r="1"/><circle cx="55" cy="26" r="1.1"/><circle cx="78" cy="40" r="1"/>
+    <circle cx="34" cy="58" r="1"/><circle cx="66" cy="70" r="1.1"/><circle cx="14" cy="82" r="1"/>
+  </g>
+  <g fill="#b6c074" opacity="0.4">
+    <circle cx="40" cy="20" r="0.8"/><circle cx="72" cy="32" r="0.8"/><circle cx="26" cy="48" r="0.8"/>
+    <circle cx="58" cy="64" r="0.8"/><circle cx="84" cy="78" r="0.8"/>
+  </g>
+</svg>

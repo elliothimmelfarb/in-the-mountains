@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 40">
+  <!-- Afghan jingle truck (civilian commerce), top-down, facing +x (east). ROTATING sprite:
+       symmetric centered contact shadow. The ONE vibrant asset - warm reds/teals/yellows
+       ornament on a tan body, tall cargo box. footprint 7 m (length). anchor center [0.5,0.5]. -->
+  <defs>
+    <linearGradient id="vehJingle-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c2b07c"/>
+      <stop offset="0.5" stop-color="#b3a06f"/>
+      <stop offset="1" stop-color="#988859"/>
+    </linearGradient>
+    <linearGradient id="vehJingle-cargo" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cdbb84"/>
+      <stop offset="1" stop-color="#a89760"/>
+    </linearGradient>
+    <linearGradient id="vehJingle-cab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d6c58e"/>
+      <stop offset="1" stop-color="#b09e6a"/>
+    </linearGradient>
+    <radialGradient id="vehJingle-shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1c160e" stop-opacity="0.44"/>
+      <stop offset="0.65" stop-color="#1c160e" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#1c160e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="36" cy="20" rx="31" ry="13.5" fill="url(#vehJingle-shadow)"/>
+
+  <!-- six wheels (heavy cargo truck) -->
+  <g fill="#2a251a" stroke="#161109" stroke-width="0.6">
+    <rect x="46" y="6"  width="8" height="5.5" rx="2"/>
+    <rect x="46" y="28.5" width="8" height="5.5" rx="2"/>
+    <rect x="16" y="6"  width="7" height="5.5" rx="2"/>
+    <rect x="16" y="28.5" width="7" height="5.5" rx="2"/>
+    <rect x="26" y="6"  width="7" height="5.5" rx="2"/>
+    <rect x="26" y="28.5" width="7" height="5.5" rx="2"/>
+  </g>
+
+  <!-- chassis base -->
+  <rect x="7" y="12" width="52" height="16" rx="1.6" fill="url(#vehJingle-body)" stroke="#1c160e" stroke-width="1" stroke-opacity="0.6"/>
+
+  <!-- tall CARGO BOX (rear, west) -->
+  <rect x="8" y="11" width="34" height="18" rx="1.4" fill="url(#vehJingle-cargo)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <!-- cargo plank seams (length-wise) -->
+  <g stroke="#9a8a5c" stroke-width="0.5" stroke-opacity="0.6">
+    <line x1="9" y1="16" x2="41" y2="16"/>
+    <line x1="9" y1="20" x2="41" y2="20"/>
+    <line x1="9" y1="24" x2="41" y2="24"/>
+  </g>
+  <!-- DECORATIVE PANELS - vibrant ornament, the jingle truck's signature -->
+  <!-- teal side bands -->
+  <rect x="8.5" y="11.5" width="33" height="2.4" fill="#2f8f86" opacity="0.92"/>
+  <rect x="8.5" y="26.1" width="33" height="2.4" fill="#2f8f86" opacity="0.92"/>
+  <!-- red central feature panel with yellow trim -->
+  <rect x="17" y="15" width="16" height="10" rx="1" fill="#b5402f" stroke="#e0a72b" stroke-width="0.9"/>
+  <!-- yellow medallion + teal dot motif -->
+  <circle cx="25" cy="20" r="3.2" fill="#e6b73a" stroke="#9c2c20" stroke-width="0.7"/>
+  <circle cx="25" cy="20" r="1.4" fill="#2f8f86"/>
+  <!-- little painted chevrons flanking -->
+  <g fill="#e6b73a">
+    <path d="M12 16 l2.2 1.6 -2.2 1.6 z"/>
+    <path d="M12 21 l2.2 1.6 -2.2 1.6 z"/>
+    <path d="M38 16 l-2.2 1.6 2.2 1.6 z"/>
+    <path d="M38 21 l-2.2 1.6 2.2 1.6 z"/>
+  </g>
+  <!-- rear tailgate decorated edge -->
+  <rect x="8" y="11" width="2.2" height="18" fill="#9c2c20" opacity="0.85"/>
+  <rect x="8" y="14" width="2.2" height="2" fill="#e6b73a"/>
+  <rect x="8" y="19" width="2.2" height="2" fill="#2f8f86"/>
+  <rect x="8" y="24" width="2.2" height="2" fill="#e6b73a"/>
+
+  <!-- CAB (front, east) - slightly narrower, decorated roof -->
+  <rect x="43" y="13" width="13" height="14" rx="1.6" fill="url(#vehJingle-cab)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+  <!-- cab roof ornament rack -->
+  <rect x="44.5" y="14.5" width="10" height="11" rx="1" fill="none" stroke="#b5402f" stroke-width="0.8" opacity="0.85"/>
+  <rect x="48" y="15.5" width="3" height="9" fill="#2f8f86" opacity="0.8"/>
+  <line x1="46" y1="20" x2="53" y2="20" stroke="#e6b73a" stroke-width="0.9"/>
+  <!-- windshield (front edge) -->
+  <rect x="54" y="15" width="2" height="10" rx="0.6" fill="#5e6b6a" opacity="0.7"/>
+
+  <!-- short hood / grille (front tip, east) -->
+  <path d="M56 14.5 L62 17 L62 23 L56 25.5 Z" fill="#bfad79" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+  <path d="M62 18.5 L64 20 L62 21.5" fill="none" stroke="#2f2a1d" stroke-width="0.8" stroke-opacity="0.65"/>
+  <g fill="#d8cfb2"><circle cx="61" cy="18" r="0.7"/><circle cx="61" cy="22" r="0.7"/></g>
+  <!-- decorative tassels/chains hint at front bumper -->
+  <g stroke="#e6b73a" stroke-width="0.5" stroke-opacity="0.8">
+    <line x1="60" y1="16.5" x2="61.5" y2="15.5"/>
+    <line x1="60" y1="23.5" x2="61.5" y2="24.5"/>
+  </g>
+
+  <!-- NW rim light on lit upper edges -->
+  <path d="M8 11 L42 11" fill="none" stroke="#fbf4dc" stroke-width="0.6" stroke-opacity="0.4"/>
+  <path d="M43 13 L56 13" fill="none" stroke="#fbf4dc" stroke-width="0.55" stroke-opacity="0.45"/>
+  <path d="M56 14.5 L62 17" fill="none" stroke="#fbf4dc" stroke-width="0.5" stroke-opacity="0.4"/>
+</svg>

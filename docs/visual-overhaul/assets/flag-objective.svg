@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 40">
+  <!-- flag-objective: a planted objective flag, amber triangular flag on a pole.
+       PHYSICAL PIN: base shadow, anchor [0.5,0.92]. -->
+  <defs>
+    <linearGradient id="flagObj-flag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eeba48"/>
+      <stop offset="1" stop-color="#cf931e"/>
+    </linearGradient>
+    <filter id="flagObj-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.75"/>
+    </filter>
+  </defs>
+
+  <!-- SE ground shadow at the planted base -->
+  <ellipse cx="12.8" cy="36.6" rx="6.2" ry="1.9" fill="#1c160e" opacity="0.36" filter="url(#flagObj-soft)"/>
+
+  <!-- pole, planted into the ground -->
+  <rect x="11.3" y="5" width="1.6" height="31" rx="0.8" fill="#8a8270" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6"/>
+  <!-- finial -->
+  <circle cx="12.1" cy="5" r="1.3" fill="#e0a72b" stroke="#1c160e" stroke-width="0.55" stroke-opacity="0.65"/>
+  <!-- a couple of base rings to read as 'planted stake' -->
+  <ellipse cx="12.1" cy="35.6" rx="2.6" ry="0.9" fill="#7a705c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+
+  <!-- big bold triangular pennant flying right -->
+  <path d="M12.9 5.6 L25.6 11.6 L12.9 17.6 Z" fill="url(#flagObj-flag)" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.65" stroke-linejoin="round"/>
+  <!-- NW highlight fold along the hoist -->
+  <path d="M12.9 6.6 L22 11.6 L12.9 16.6" fill="none" stroke="#f7d782" stroke-width="0.7" stroke-opacity="0.6"/>
+  <!-- subtle shade on lower fly to model the SE light falloff -->
+  <path d="M12.9 11.6 L25.6 11.6 L12.9 17.6 Z" fill="#1c160e" opacity="0.1"/>
+</svg>

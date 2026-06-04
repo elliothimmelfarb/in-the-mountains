@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 30 40">
+  <!-- cop-pin: COMBAT OUTPOST. Fortified-base icon: a star-fort bastion (HESCO ring,
+       4 corner points) flying a US flag. PHYSICAL PIN, the HERO.
+       SE drop shadow, anchor [0.5,0.92]. -->
+  <defs>
+    <linearGradient id="copPin-wall" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#c4b282"/>
+      <stop offset="1" stop-color="#8c7c50"/>
+    </linearGradient>
+    <linearGradient id="copPin-court" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a8f78"/>
+      <stop offset="1" stop-color="#7a705c"/>
+    </linearGradient>
+    <linearGradient id="copPin-flag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6ea8e0"/>
+      <stop offset="1" stop-color="#3f72b0"/>
+    </linearGradient>
+    <filter id="copPin-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.85"/>
+    </filter>
+  </defs>
+
+  <!-- SE ground shadow -->
+  <ellipse cx="16" cy="36.6" rx="9.2" ry="2.7" fill="#1c160e" opacity="0.36" filter="url(#copPin-soft)"/>
+
+  <!-- BASTION star-fort: crisp 4-point plan with a heavy dark keyline -->
+  <!-- SE thickness skirt -->
+  <path d="M15 35.8 L24.6 30.6 L23 33.4 L15 37.4 L7 33.4 L5.4 30.6 Z" fill="#5f5336" opacity="0.9"/>
+
+  <path d="M15 22.4
+           L18.4 26.2 L24.6 25 L22.4 29.4 L24.6 33 L18.4 32 L15 35.8
+           L11.6 32 L5.4 33 L7.6 29.4 L5.4 25 L11.6 26.2 Z"
+        fill="url(#copPin-wall)" stroke="#1c160e" stroke-width="1.15" stroke-opacity="0.75" stroke-linejoin="round"/>
+
+  <!-- inner court, recessed and cooler -->
+  <path d="M15 26 L19 28.6 L20 31.4 L15 33.4 L10 31.4 L11 28.6 Z"
+        fill="url(#copPin-court)" stroke="#4f4530" stroke-width="0.7" stroke-opacity="0.8" stroke-linejoin="round"/>
+
+  <!-- HESCO cell ticks around the rampart -->
+  <g stroke="#6f6038" stroke-width="0.6" stroke-opacity="0.7">
+    <line x1="12.7" y1="24.4" x2="13.3" y2="26.6"/>
+    <line x1="17.3" y1="24.4" x2="16.7" y2="26.6"/>
+    <line x1="21.6" y1="26.6" x2="19.8" y2="28"/>
+    <line x1="8.4" y1="26.6" x2="10.2" y2="28"/>
+    <line x1="22" y1="31.4" x2="20" y2="30.8"/>
+    <line x1="8" y1="31.4" x2="10" y2="30.8"/>
+  </g>
+
+  <!-- NW rim light on upper-left bastion edges -->
+  <g stroke="#efe3b6" stroke-width="0.95" stroke-opacity="0.7" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11.6 26.2 L15 22.4 L18.4 26.2"/>
+    <path d="M5.4 25 L7.6 29.4"/>
+  </g>
+
+  <!-- flagpole rising from the bastion center -->
+  <rect x="14.4" y="6" width="1.4" height="20" rx="0.7" fill="#8a8270" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.55"/>
+  <circle cx="15.1" cy="6" r="1.15" fill="#c2a878" stroke="#1c160e" stroke-width="0.55" stroke-opacity="0.65"/>
+
+  <!-- US flag, blue-dominant so it survives downscale; flying right -->
+  <path d="M15.8 6.5 L27.2 9 L27.2 14.6 L15.8 12.1 Z" fill="url(#copPin-flag)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.65"/>
+  <!-- canton -->
+  <path d="M15.8 6.5 L21 7.65 L21 10.05 L15.8 9.1 Z" fill="#2f5f93"/>
+  <g fill="#f3ecd6">
+    <circle cx="17.2" cy="7.7" r="0.4"/><circle cx="19" cy="8.05" r="0.4"/>
+    <circle cx="17.8" cy="8.6" r="0.38"/>
+  </g>
+  <!-- two bold stripes on the fly so red+white reads even tiny -->
+  <path d="M21 8.0 L27.2 9.35 L27.2 10.5 L21 9.2 Z" fill="#cf3b30"/>
+  <path d="M15.8 10.0 L27.2 12.0 L27.2 13.1 L15.8 11.2 Z" fill="#cf3b30"/>
+  <path d="M15.8 11.2 L27.2 13.1 L27.2 14.2 L15.8 12.05 Z" fill="#e9e0c6"/>
+</svg>

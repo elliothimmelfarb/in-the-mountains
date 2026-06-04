@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- TASKED/DEPLOYED: amber route + map pin -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 19.5 q3 0.4 4.6 -2.2" stroke-dasharray="0.2 2.8"/>
+  </g>
+  <path d="M14 4.2 a5.2 5.2 0 0 1 5.2 5.2 c0 3.6 -5.2 9 -5.2 9 s-5.2 -5.4 -5.2 -9 a5.2 5.2 0 0 1 5.2 -5.2 z" fill="#e0a72b" stroke="#14160f" stroke-width="1.2" stroke-linejoin="round"/>
+  <circle cx="14" cy="9.4" r="1.9" fill="#14160f"/>
+</svg>

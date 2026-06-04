@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-school: building with pennant flag, open book at door. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- building body -->
+    <path d="M4.5 11 L4.5 20 L19.5 20 L19.5 11"/>
+    <!-- roof -->
+    <path d="M3.4 11 L12 6 L20.6 11"/>
+    <!-- flag pole on roof -->
+    <path d="M12 6 L12 2.6"/>
+    <!-- book pages at base (open book) -->
+    <path d="M12 14.2 C10.8 13.4 9.4 13.4 8.4 13.8 L8.4 18.6 C9.4 18.2 10.8 18.2 12 19 C13.2 18.2 14.6 18.2 15.6 18.6 L15.6 13.8 C14.6 13.4 13.2 13.4 12 14.2 Z"/>
+    <path d="M12 14.2 L12 19"/>
+  </g>
+  <!-- pennant flag (amber active accent) -->
+  <path d="M12 2.6 L15.6 3.8 L12 5 Z" fill="#e0a72b"/>
+</svg>

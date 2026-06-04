@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- qalat-small: one walled mud compound, gated entrance, flat-roof rooms, courtyard tree.
+       STATIC, NW light, SE cast shadow. anchor [0.5,0.82], footprint 16 m. -->
+  <defs>
+    <linearGradient id="qalatSm-wallTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bda072"/>
+      <stop offset="1" stop-color="#a08254"/>
+    </linearGradient>
+    <linearGradient id="qalatSm-court" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9c8158"/>
+      <stop offset="1" stop-color="#856b44"/>
+    </linearGradient>
+    <linearGradient id="qalatSm-roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ab9272"/>
+      <stop offset="1" stop-color="#8a7252"/>
+    </linearGradient>
+    <radialGradient id="qalatSm-tree" cx="0.38" cy="0.34" r="0.74">
+      <stop offset="0" stop-color="#728146"/>
+      <stop offset="1" stop-color="#3e4e2a"/>
+    </radialGradient>
+    <filter id="qalatSm-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow under the whole compound -->
+  <path d="M12 50 h38 l5 6 -4 4 h-40 z" fill="#1c160e" opacity="0.30" filter="url(#qalatSm-soft)"/>
+
+  <!-- courtyard floor first (so walls overlap inward) -->
+  <rect x="9" y="10" width="46" height="46" rx="1.5" fill="url(#qalatSm-court)"/>
+
+  <!-- outer mud wall ring as a raised rampart; top face lit, inner SE shadow gives thickness -->
+  <path d="M9 10 h46 v46 h-46 z M15.2 16.2 v33.6 h33.6 v-33.6 z"
+        fill="url(#qalatSm-wallTop)" fill-rule="evenodd"
+        stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M15.2 16.2 h33.6 v2.6 h-31 v31 h-2.6 z" fill="#6b5638" opacity="0.5"/>
+  <path d="M48.8 16.2 v33.6 h-33.6 v-1.8 h31.8 v-31.8 z" fill="#c8ad7c" opacity="0.35"/>
+
+  <!-- courtyard trodden path -->
+  <g stroke="#6f5a3c" stroke-width="0.5" stroke-opacity="0.35" fill="none">
+    <path d="M27 50 q3 -10 9 -14"/>
+  </g>
+
+  <!-- flat-roof room along N wall -->
+  <g>
+    <rect x="18.5" y="18.8" width="19" height="8.6" fill="url(#qalatSm-roof)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M18.5 27.4 h19 l1.5 1.7 h-19 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M37.5 18.8 v8.6 l1.5 1.7 v-8.6 z" fill="#5f4d34" opacity="0.9"/>
+    <g stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6">
+      <line x1="25" y1="18.8" x2="25" y2="27.4"/><line x1="31.2" y1="18.8" x2="31.2" y2="27.4"/>
+    </g>
+    <line x1="18.5" y1="18.8" x2="37.5" y2="18.8" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.6"/>
+    <line x1="18.5" y1="18.8" x2="18.5" y2="27.4" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.45"/>
+  </g>
+  <!-- flat-roof room along W wall -->
+  <g>
+    <rect x="18.5" y="35" width="8.6" height="12.5" fill="url(#qalatSm-roof)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M18.5 47.5 h8.6 l1.5 1.7 h-8.6 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M27.1 35 v12.5 l1.5 1.7 v-12.5 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="18.5" y1="41.2" x2="27.1" y2="41.2" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="18.5" y1="35" x2="27.1" y2="35" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.55"/>
+  </g>
+
+  <!-- courtyard walnut tree, NW-lit crescent -->
+  <ellipse cx="40.5" cy="42.5" rx="5.4" ry="5" fill="#1c160e" opacity="0.24" filter="url(#qalatSm-soft)" transform="translate(1.4,1.4)"/>
+  <circle cx="40.5" cy="42" r="4.7" fill="url(#qalatSm-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+  <path d="M37.2 39 a4.7 4.7 0 0 1 5.8 -1.1" fill="none" stroke="#8f9b5b" stroke-width="1.0" stroke-opacity="0.6"/>
+  <g fill="#566834" opacity="0.5">
+    <circle cx="42.6" cy="44" r="1.3"/><circle cx="39" cy="44.2" r="1.1"/>
+  </g>
+
+  <!-- gated entrance: gap in S wall + timber posts + lintel -->
+  <rect x="28.5" y="49.6" width="7" height="6.7" fill="url(#qalatSm-court)"/>
+  <rect x="27" y="49.2" width="2" height="7.1" rx="0.4" fill="#7a5a38" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="35" y="49.2" width="2" height="7.1" rx="0.4" fill="#664c2f" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="26.6" y="48.4" width="10.8" height="2" rx="0.5" fill="#8a6a40" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+  <line x1="26.6" y1="48.4" x2="37.4" y2="48.4" stroke="#c9a878" stroke-width="0.5" stroke-opacity="0.5"/>
+
+  <!-- NW rim light / SE deep edge on outer wall crests -->
+  <path d="M9 10 h46 M9 10 v46" fill="none" stroke="#efe3b6" stroke-width="0.9" stroke-opacity="0.65"/>
+  <path d="M55 10 v46 M9 56 h46" fill="none" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.4"/>
+</svg>

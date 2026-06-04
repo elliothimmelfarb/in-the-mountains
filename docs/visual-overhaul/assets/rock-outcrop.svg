@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- ROCK-OUTCROP, jagged scree cluster, top-down 2.5D. STATIC: several facets NW-lit,
+       varied greys, SE cast shadow. -->
+  <defs>
+    <linearGradient id="rockOutcrop-litA" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
+      <stop offset="0" stop-color="#bab2a2"/><stop offset="1" stop-color="#948c7e"/>
+    </linearGradient>
+    <linearGradient id="rockOutcrop-litB" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
+      <stop offset="0" stop-color="#a8a092"/><stop offset="1" stop-color="#847c6e"/>
+    </linearGradient>
+    <linearGradient id="rockOutcrop-side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#76685e"/><stop offset="1" stop-color="#564c44"/>
+    </linearGradient>
+    <filter id="rockOutcrop-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow -->
+  <ellipse cx="27" cy="33" rx="16" ry="8.5" fill="#1c160e" opacity="0.30" filter="url(#rockOutcrop-soft)"/>
+
+  <!-- SE shaded base mass -->
+  <path d="M9 26 l6 6 l8 2 l9 -2 l6 -5 l-2 5 l-7 4 l-10 1 l-9 -4 l-2 -6z"
+        fill="url(#rockOutcrop-side)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+
+  <!-- rock 1 (left, large, lit) -->
+  <path d="M10 24 l6 -8 l7 3 l-2 9 l-8 3 l-4 -5z"
+        fill="url(#rockOutcrop-litA)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- rock 2 (right, medium) -->
+  <path d="M24 18 l8 -3 l6 6 l-3 7 l-9 1 l-3 -6z"
+        fill="url(#rockOutcrop-litB)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- rock 3 (front small) -->
+  <path d="M19 27 l5 -2 l4 4 l-3 4 l-6 -1z"
+        fill="url(#rockOutcrop-litA)" stroke="#1c160e" stroke-width="0.75" stroke-opacity="0.5"/>
+
+  <!-- facet creases -->
+  <g stroke="#6a6256" stroke-width="0.55" stroke-opacity="0.6" fill="none">
+    <path d="M16 16 l-2 8"/><path d="M16 16 l5 4"/>
+    <path d="M32 15 l-3 7"/><path d="M32 15 l4 4"/>
+    <path d="M24 25 l2 5"/>
+  </g>
+  <!-- NW lit crest highlights -->
+  <g stroke="#d0c9b9" stroke-width="0.8" stroke-opacity="0.6" fill="none" stroke-linecap="round">
+    <path d="M11 23 l5 -7"/><path d="M25 19 l7 -3"/><path d="M19.5 26.5 l4.5 -1.5"/>
+  </g>
+</svg>

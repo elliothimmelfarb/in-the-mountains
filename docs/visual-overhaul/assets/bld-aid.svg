@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 54">
+  <!-- bld-aid: aid station. STATIC, NW light + SE cast shadow.
+       Rebuilt for bolder volume: a clearly EXTRUDED plywood hut with a low gable roof
+       raised on visible walls - a lit NW gable-end sliver + a tall SE shadow wall band
+       (the height read) - plus a strong SE ground cast shadow. The defining RED CROSS on
+       a WHITE roof panel stays prominent. Litter prop by the door. anchor [0.5,0.82], footprint 8 m. -->
+  <defs>
+    <linearGradient id="bldAid-roofNW" x1="0" y1="1" x2="0.08" y2="0">
+      <stop offset="0" stop-color="#968a66"/>
+      <stop offset="1" stop-color="#a99d78"/>
+    </linearGradient>
+    <linearGradient id="bldAid-roofSE" x1="0" y1="0" x2="0.05" y2="1">
+      <stop offset="0" stop-color="#6c6347"/>
+      <stop offset="1" stop-color="#564e37"/>
+    </linearGradient>
+    <linearGradient id="bldAid-wallSE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5e553b"/>
+      <stop offset="1" stop-color="#473f2b"/>
+    </linearGradient>
+    <linearGradient id="bldAid-wallNW" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b0a178"/>
+      <stop offset="1" stop-color="#928559"/>
+    </linearGradient>
+    <linearGradient id="bldAid-panel" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#f1ecdc"/>
+      <stop offset="1" stop-color="#d6cfba"/>
+    </linearGradient>
+    <filter id="bldAid-soft" x="-30%" y="-35%" width="160%" height="170%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW on the ground -->
+  <path d="M12 39 h31 l7 8 h-31z" fill="#1c160e" opacity="0.35" filter="url(#bldAid-soft)"/>
+
+  <!-- ===== EXTRUDED WALLS ===== -->
+  <!-- SE long wall (front, deep shade), tall and clearly visible -->
+  <polygon points="13,34 43,34 43,41 13,41" fill="url(#bldAid-wallSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.6"/>
+  <!-- NW gable-end sliver (left, lit) -->
+  <polygon points="9,23 13,26 13,41 9,38" fill="url(#bldAid-wallNW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.45"/>
+  <!-- plywood seams on the SE shadow wall -->
+  <g stroke="#352f20" stroke-width="0.4" stroke-opacity="0.5">
+    <line x1="20" y1="34.3" x2="20" y2="40.7"/><line x1="27" y1="34.3" x2="27" y2="40.7"/>
+    <line x1="38" y1="34.3" x2="38" y2="40.7"/>
+  </g>
+  <!-- door on the SE wall -->
+  <rect x="31" y="35.4" width="5" height="5.6" fill="#3a3120" stroke="#241d12" stroke-width="0.4"/>
+  <line x1="35.5" y1="35.9" x2="35.5" y2="40.6" stroke="#8a7c54" stroke-width="0.4" stroke-opacity="0.6"/>
+
+  <!-- ===== GABLE ROOF (ridge E-W) ===== -->
+  <!-- SE slope, shaded -->
+  <polygon points="13,28 43,28 43,34 13,34" fill="url(#bldAid-roofSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- NW slope, lit -->
+  <polygon points="9,23 39,23 43,28 13,28" fill="url(#bldAid-roofNW)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <!-- corrugation seams -->
+  <g stroke="#5b5236" stroke-width="0.42" stroke-opacity="0.5">
+    <line x1="14" y1="23" x2="14.8" y2="28"/><line x1="20" y1="23" x2="20.8" y2="28"/>
+    <line x1="26" y1="23" x2="26.8" y2="28"/><line x1="32" y1="23" x2="32.8" y2="28"/>
+    <line x1="38" y1="23" x2="38.8" y2="28"/>
+  </g>
+  <g stroke="#433c2a" stroke-width="0.42" stroke-opacity="0.55">
+    <line x1="14.8" y1="28" x2="15" y2="34"/><line x1="20.8" y1="28" x2="21" y2="34"/>
+    <line x1="26.8" y1="28" x2="27" y2="34"/><line x1="32.8" y1="28" x2="33" y2="34"/>
+    <line x1="38.8" y1="28" x2="39" y2="34"/>
+  </g>
+  <!-- ridge line + STRONG NW rim light -->
+  <line x1="9" y1="23" x2="39" y2="23" stroke="#332d20" stroke-width="0.8" stroke-opacity="0.6"/>
+  <line x1="9" y1="22.6" x2="39" y2="22.6" stroke="#efe3b6" stroke-width="1.0" stroke-opacity="0.62"/>
+  <!-- SE eave edge stays dark -->
+  <line x1="13" y1="34" x2="43" y2="34" stroke="#2c2618" stroke-width="0.6" stroke-opacity="0.5"/>
+
+  <!-- ===== RED CROSS on WHITE PANEL, mounted flat on the roof ===== -->
+  <g>
+    <!-- panel shadow on roof -->
+    <polygon points="19.5,25.2 33.5,25.2 35.1,28.8 21.1,28.8" fill="#1c160e" opacity="0.28"/>
+    <!-- white panel (skewed to sit on the NW roof plane) -->
+    <polygon points="19,24.4 33,24.4 34.6,28 20.6,28" fill="url(#bldAid-panel)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <!-- NW rim light on panel top-left edge -->
+    <line x1="19" y1="24.4" x2="33" y2="24.4" stroke="#fbf4dc" stroke-width="0.7" stroke-opacity="0.75"/>
+    <!-- RED CROSS (Geneva), skewed to the roof plane -->
+    <g fill="#9c2c20" stroke="#7a1e16" stroke-width="0.25" stroke-opacity="0.55">
+      <polygon points="22.9,25.55 30.7,25.55 31.1,26.5 23.3,26.5"/>
+      <polygon points="25.7,24.65 28.2,24.65 29.0,27.55 26.5,27.55"/>
+    </g>
+  </g>
+
+  <!-- ===== LITTER / STRETCHER prop by the door (lower-right, on the ground) ===== -->
+  <g>
+    <ellipse cx="46" cy="45.5" rx="7" ry="2.2" fill="#1c160e" opacity="0.28" filter="url(#bldAid-soft)"/>
+    <polygon points="41,43.0 50.6,44.8 50.4,46.6 40.8,44.8" fill="#857f62" stroke="#454135" stroke-width="0.35"/>
+    <line x1="40" y1="43" x2="51" y2="45" stroke="#332d20" stroke-width="1.0" stroke-linecap="round"/>
+    <line x1="40.4" y1="44.7" x2="51.4" y2="46.7" stroke="#332d20" stroke-width="1.0" stroke-linecap="round"/>
+    <line x1="40.2" y1="42.9" x2="50.8" y2="44.9" stroke="#cfc8a8" stroke-width="0.4" stroke-opacity="0.6"/>
+    <circle cx="40" cy="43" r="0.7" fill="#241d12"/><circle cx="51" cy="45" r="0.7" fill="#241d12"/>
+    <circle cx="40.4" cy="44.6" r="0.7" fill="#241d12"/><circle cx="51.4" cy="46.6" r="0.7" fill="#241d12"/>
+  </g>
+</svg>

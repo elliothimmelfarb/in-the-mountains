@@ -81,15 +81,33 @@ There is one screen. `WorldView` owns a `requestAnimationFrame` loop that calls
 ## Rendering
 
 `lib/render/topo.ts` bakes a high-resolution shaded-relief image of the whole valley **once**
-(hillshade from the elevation gradient + landcover tint + marching-squares contour lines), cached in
-a `WeakMap` keyed by `Terrain`, capped to a fixed sheet size so the 5 m grid bakes fast. The COP's
-HESCO walls, structures and gravel pads are baked right into the relief (they're landcover); live
-views `drawImage` that bitmap under a `Camera`, then overlay grid, intel markers, villages, project
-rings, the **COP structure** (`drawCop`: labelled building footprints, the LZ, the ECP, sector
-chevrons and towers on the wall), units (`lib/render/draw.ts`: MIL-style friendly rectangles, hostile
-diamonds, civilian rings, facing wedges, health/suppression rings), tracers, effects, smoke, LOS
-lines, paths, and the live planning route. Night applies a low-light wash driven by
-`World.ambientLight()`.
+(hillshade from the elevation gradient + landcover tint, with fbm-dithered class boundaries so edges
+are organic not 5 m stair-steps, + marching-squares contour lines), cached in a `WeakMap` keyed by
+`Terrain`. The COP's HESCO walls, structures and gravel pads are baked right into the relief; live
+views `drawImage` that bitmap under a `Camera`, plus a world-anchored noise overlay at high zoom that
+hides the upscale blur. Night applies a low-light wash driven by `World.ambientLight()`.
+
+### Sprite / asset system (map visual overhaul)
+
+On top of the relief, entities are drawn as **hand-authored SVG sprites** rather than primitive shapes.
+`lib/render/sprites.ts` rasterizes ~160 SVGs (`lib/render/asset-manifest.generated.ts`, built from
+`docs/visual-overhaul/assets/`) once to offscreen canvases (bake-once / blit-many) and blits them
+scaled + rotated each frame; a **level-of-detail** system crossfades by zoom (`lodAlpha`):
+
+- `lib/render/draw.ts` — `drawUnit` crossfades a NATO mil-symbol → a top-down figure sprite (per
+  faction+role) with a faction base-ring and de-cluttered nameplates; `drawCop` renders building / LZ
+  pad / ECP gate / tower / fighting-position / flag / vehicle sprites (buildings stretched to their
+  data footprint). Tracers, effects, smoke, LOS lines and the planning route still draw vectorially.
+- `lib/render/decoration.ts` — scatters tree / rock / reed sprites by landcover from a **stable
+  per-cell hash** (no jitter on pan/zoom), with clumping, clearance from roads/water/the COP, and
+  per-instance variation; fades in at tactical zoom.
+- `components/world/WorldView.tsx` — qalat village compounds + attitude-coloured banner pins, intel /
+  named-feature markers, a Black Hawk on the LZ during air resupply, and a cartographic HUD
+  (compass rose + scale bar). `components/Icon.tsx` puts the matching flat icons throughout the chrome.
+
+The full art direction, asset catalogue and before/after live in **`docs/visual-overhaul/`**
+(`ART_BIBLE.md` + the generated `asset-bible.html`). Regenerate the bundled manifest after editing any
+asset: `node scripts/build-asset-manifest.mjs` (and `build-asset-doc.mjs` for the HTML bible).
 
 ## Determinism & saves
 

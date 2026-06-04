@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- CEDAR (dark conifer) top-down. STATIC: NW-lit crescent + SE cast shadow.
+       Star/lobed dark-green canopy. FIX: brighter NW lit crescent + stronger SE
+       contact shadow so it POPS off the dark forest base. anchor [0.5,0.62], footprint 7 m. -->
+  <defs>
+    <radialGradient id="treeCedar-canopy" cx="0.40" cy="0.36" r="0.72">
+      <stop offset="0" stop-color="#5a7c4c"/>
+      <stop offset="0.45" stop-color="#3c5a36"/>
+      <stop offset="1" stop-color="#27401f"/>
+    </radialGradient>
+    <radialGradient id="treeCedar-lit" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#86ac5a"/>
+      <stop offset="0.6" stop-color="#86ac5a" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#86ac5a" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="treeCedar-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <filter id="treeCedar-softlit" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow: stronger + a darker tight core so the tree lifts off the base -->
+  <ellipse cx="27.5" cy="30.5" rx="15.5" ry="11" fill="#160f08" opacity="0.42" filter="url(#treeCedar-soft)"/>
+  <ellipse cx="27" cy="29.5" rx="9" ry="6" fill="#120c06" opacity="0.34" filter="url(#treeCedar-soft)"/>
+
+  <!-- pointed star/lobed canopy (conifer), slightly irregular lobes -->
+  <path d="M23.5 4
+           L27 11.5 L35 8.5 L31 16 L40 17.5 L32.5 22 L39.5 27.5 L30.5 28 L33 35.5 L25.5 30
+           L23.5 38 L21 30.5 L14 34.5 L16.5 27.5 L8 27 L15.5 22.5 L8.5 17.5 L17 16 L13 8.5 L20.5 11.5 Z"
+        fill="url(#treeCedar-canopy)" stroke="#15100a" stroke-width="1.0" stroke-opacity="0.7"/>
+
+  <!-- broad soft NW lit wash: brightens the whole upper-left hemisphere (kept inside canopy) -->
+  <ellipse cx="19" cy="16" rx="9" ry="8.5" fill="url(#treeCedar-lit)" opacity="0.5" filter="url(#treeCedar-softlit)"/>
+
+  <!-- NW lit crescent: bright needle lobes upper-left (brighter green) -->
+  <g fill="#84ad5c" opacity="0.95">
+    <path d="M23.5 5 L26 11 L20.5 11.5 Z"/>
+    <path d="M16.5 16 L21 13.5 L18.5 18.5 Z"/>
+    <path d="M10.5 18 L16.5 17 L13 22 Z"/>
+    <path d="M14 23 L18.5 20.5 L17 25.5 Z"/>
+    <path d="M13.5 9 L18 13 L13 14 Z"/>
+  </g>
+  <!-- brightest NW rim flecks (near rim-light) -->
+  <g fill="#c4dd96" opacity="0.85">
+    <path d="M22.5 8 l1.6 -2.2 l1 2.6 z"/>
+    <path d="M14.2 17.3 l2.2 -1.6 l0.4 2.2 z"/>
+    <path d="M11.5 19 l2 -1.2 l0.2 1.8 z"/>
+  </g>
+
+  <!-- inner needle texture: short radial strokes -->
+  <g stroke="#243a1e" stroke-width="0.55" stroke-opacity="0.6" stroke-linecap="round">
+    <line x1="24" y1="20" x2="24" y2="13"/><line x1="24" y1="20" x2="30" y2="17"/>
+    <line x1="24" y1="20" x2="31" y2="22"/><line x1="24" y1="20" x2="29" y2="27"/>
+    <line x1="24" y1="20" x2="24" y2="30"/><line x1="24" y1="20" x2="18" y2="27"/>
+    <line x1="24" y1="20" x2="16" y2="22"/><line x1="24" y1="20" x2="18" y2="17"/>
+  </g>
+
+  <!-- darker SE underside lobes to deepen the shadow side -->
+  <g fill="#1f3318" opacity="0.55">
+    <path d="M33 35.5 L25.5 30 L31 28 Z"/>
+    <path d="M39.5 27.5 L30.5 28 L32.5 22 Z"/>
+  </g>
+
+  <!-- small dark center (apex of cone seen from above) -->
+  <circle cx="24" cy="20" r="2.4" fill="#1f3318"/>
+  <circle cx="23.1" cy="19.1" r="1.0" fill="#5a7c4c" opacity="0.85"/>
+</svg>

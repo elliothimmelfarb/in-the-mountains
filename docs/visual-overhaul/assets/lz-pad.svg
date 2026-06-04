@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- LZ pad: graded dirt/gravel helipad. STATIC, anchor [0.5,0.5], footprint 24 m.
+       Sits IN the ground: SE cast shadow + scuffed outer rim, irregular gravel apron
+       feathering into COP gravel, painted white H-in-circle, chevron touchdowns,
+       corner lights, windsock. NW key light. -->
+  <defs>
+    <!-- main graded gravel surface, NW-lit warm -->
+    <radialGradient id="lzPad-grav" cx="0.40" cy="0.38" r="0.70">
+      <stop offset="0" stop-color="#988b71"/>
+      <stop offset="0.55" stop-color="#897d68"/>
+      <stop offset="0.86" stop-color="#766a56"/>
+      <stop offset="1" stop-color="#6a5f4d"/>
+    </radialGradient>
+    <!-- feathered apron: warm gravel fading to transparent at the ragged edge -->
+    <radialGradient id="lzPad-apron" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#867c6a" stop-opacity="0.95"/>
+      <stop offset="0.62" stop-color="#867c6a" stop-opacity="0.9"/>
+      <stop offset="0.82" stop-color="#7e7058" stop-opacity="0.6"/>
+      <stop offset="0.95" stop-color="#776a52" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#776a52" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="lzPad-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+    <filter id="lzPad-feather" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+
+  <!-- (1) SE cast shadow: offset down-right, soft, pokes out past the apron on the
+       lower-right so the pad reads as sitting IN a shallow scrape. -->
+  <ellipse cx="52.5" cy="53.5" rx="41.5" ry="40.5" fill="#1c160e" opacity="0.32" filter="url(#lzPad-soft)"/>
+
+  <!-- (2) Feathered scraped-earth apron: deliberately lobed/irregular border (bites and
+       bulges) so the edge is scraped earth, not a clean circle; fades into COP gravel. -->
+  <path filter="url(#lzPad-feather)" fill="url(#lzPad-apron)" d="
+    M48 3
+    C58 4 67 5 78 14
+    C84 19 88 26 90 33
+    C92 40 90 45 92 51
+    C93 60 84 70 79 78
+    C72 88 60 90 50 89
+    C40 92 30 89 20 81
+    C13 75 9 68 6 60
+    C3 53 6 48 4 42
+    C3 33 9 24 16 17
+    C24 9 35 5 48 3 Z"/>
+
+  <!-- spilled gravel / disturbed-earth flecks scattered OUTSIDE the main pad edge so it
+       grades into the ground instead of ending at a rim -->
+  <g fill="#7a6f5a" opacity="0.55">
+    <ellipse cx="14" cy="34" rx="2.2" ry="1.4" transform="rotate(-20 14 34)"/>
+    <ellipse cx="84" cy="60" rx="2.6" ry="1.5" transform="rotate(15 84 60)"/>
+    <ellipse cx="36" cy="86" rx="2.4" ry="1.3"/>
+    <ellipse cx="68" cy="14" rx="2.0" ry="1.2" transform="rotate(-10 68 14)"/>
+    <ellipse cx="88" cy="40" rx="1.8" ry="1.1"/>
+    <circle cx="22" cy="76" r="1.2"/><circle cx="78" cy="80" r="1.3"/>
+    <circle cx="10" cy="52" r="1.1"/><circle cx="58" cy="89" r="1.2"/>
+    <circle cx="30" cy="12" r="1.1"/><circle cx="12" cy="28" r="1.0"/>
+    <ellipse cx="48" cy="6" rx="2.0" ry="1.1"/>
+  </g>
+
+  <!-- scuffed darker outer rim of disturbed earth around the graded pad -->
+  <path fill="#6b6050" opacity="0.5" filter="url(#lzPad-feather)" d="
+    M48 7
+    C60 7.5 70 11 78 19
+    C85 26 88 36 87 47
+    C88 58 82 68 74 76
+    C66 83 55 86 47 85
+    C36 86 26 81 19 73
+    C12 65 9 54 10 46
+    C9 35 15 25 23 18
+    C31 11 40 7 48 7 Z"/>
+
+  <!-- (3) main graded gravel surface, ragged scraped edge (not a perfect circle:
+       flat-graded bites on NE and S, bulge on W) -->
+  <path fill="url(#lzPad-grav)" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.22" d="
+    M48 9
+    C58 9 66 11 73 17
+    C79 22 83 28 85 35
+    C87 42 85 47 86 52
+    C86 60 79 69 72 74
+    C64 80 55 83 47 83
+    C37 84 28 79 21 72
+    C15 66 12 57 11 49
+    C11 39 13 30 21 21
+    C29 13 38 10 48 9 Z"/>
+
+  <!-- NW lit crescent rim (upper-left) -->
+  <path d="M21 20 A40 40 0 0 1 73 14" fill="none" stroke="#d7cba8" stroke-width="1.8" stroke-opacity="0.58"/>
+  <!-- SE shaded rim (lower-right), darker -->
+  <path d="M80 73 A40 40 0 0 1 24 80" fill="none" stroke="#1c160e" stroke-width="2.0" stroke-opacity="0.30"/>
+
+  <!-- faint grading-blade arcs scraped across the dirt -->
+  <g stroke="#6f6655" stroke-width="0.6" stroke-opacity="0.32" fill="none">
+    <path d="M19 50 A29 29 0 0 1 77 50"/>
+    <path d="M25 60 A23 23 0 0 0 71 60"/>
+  </g>
+  <!-- scattered gravel speckle -->
+  <g fill="#6e6249" opacity="0.5">
+    <circle cx="31" cy="33" r="0.9"/><circle cx="63" cy="31" r="0.7"/><circle cx="72" cy="55" r="0.9"/>
+    <circle cx="27" cy="62" r="0.7"/><circle cx="45" cy="74" r="0.8"/><circle cx="59" cy="69" r="0.7"/>
+    <circle cx="38" cy="24" r="0.6"/><circle cx="24" cy="44" r="0.7"/>
+  </g>
+  <!-- a few lighter scuff scrapes catching NW light -->
+  <g fill="#a89b81" opacity="0.4">
+    <circle cx="34" cy="40" r="0.7"/><circle cx="50" cy="29" r="0.6"/><circle cx="66" cy="42" r="0.6"/>
+  </g>
+
+  <!-- painted H in a circle -->
+  <circle cx="48" cy="48" r="22" fill="none" stroke="#d8cfb6" stroke-width="2.4" stroke-opacity="0.82"/>
+  <circle cx="48.6" cy="48.8" r="22" fill="none" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.18"/>
+  <g fill="#e0d8c0" fill-opacity="0.9" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.2">
+    <rect x="38" y="36" width="4.4" height="24"/>
+    <rect x="53.6" y="36" width="4.4" height="24"/>
+    <rect x="38" y="45.8" width="20" height="4.4"/>
+  </g>
+  <!-- NW highlight on H strokes -->
+  <g stroke="#f3ecd6" stroke-width="0.6" stroke-opacity="0.45">
+    <line x1="38" y1="36" x2="42.4" y2="36"/>
+    <line x1="53.6" y1="36" x2="58" y2="36"/>
+  </g>
+
+  <!-- chevron touchdown markings (4 sides) -->
+  <g fill="none" stroke="#d8cfb6" stroke-width="2.0" stroke-opacity="0.7" stroke-linejoin="round">
+    <path d="M40 17 L48 23 L56 17"/>
+    <path d="M40 79 L48 73 L56 79"/>
+    <path d="M17 40 L23 48 L17 56"/>
+    <path d="M79 40 L73 48 L79 56"/>
+  </g>
+
+  <!-- corner lights -->
+  <g>
+    <circle cx="48" cy="9" r="2.1" fill="#e0a72b" stroke="#1c160e" stroke-width="0.5"/>
+    <circle cx="48" cy="87" r="2.1" fill="#c89a3a" stroke="#1c160e" stroke-width="0.5"/>
+    <circle cx="9" cy="48" r="2.1" fill="#e0a72b" stroke="#1c160e" stroke-width="0.5"/>
+    <circle cx="87" cy="48" r="2.1" fill="#c89a3a" stroke="#1c160e" stroke-width="0.5"/>
+    <circle cx="47.4" cy="8.4" r="0.7" fill="#f6e6b0"/>
+    <circle cx="8.4" cy="47.4" r="0.7" fill="#f6e6b0"/>
+  </g>
+
+  <!-- windsock at NE, with its own SE shadow -->
+  <g>
+    <ellipse cx="80" cy="21.5" rx="3.2" ry="1.1" fill="#1c160e" opacity="0.28" filter="url(#lzPad-soft)"/>
+    <line x1="78.6" y1="21" x2="78.6" y2="10" stroke="#7e7253" stroke-width="1.4"/>
+    <line x1="78.2" y1="21" x2="78.2" y2="10" stroke="#cdbf9e" stroke-width="0.5"/>
+    <path d="M78.6 9.5 C82 9 85 10 86.4 11.6 C85 12.6 82 13 78.6 12.6 Z" fill="#c96a2a"/>
+    <path d="M82.4 9.7 C84 10.1 85.4 10.9 86.4 11.6 C85.4 12.2 84 12.5 82.4 12.5 Z" fill="#d8cdb2"/>
+  </g>
+</svg>

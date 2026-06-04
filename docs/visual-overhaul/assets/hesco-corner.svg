@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+  <!-- HESCO bastion L-corner: two gabion runs meeting at 90 deg, forming an L so walls turn.
+       STATIC: full NW light + SE cast shadow. Same gabion/gravel/sandbag craft as hesco-straight. -->
+  <defs>
+    <linearGradient id="hescoCorner-top" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b6a472"/>
+      <stop offset="1" stop-color="#9c8c5e"/>
+    </linearGradient>
+    <linearGradient id="hescoCorner-face" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8c7c50"/>
+      <stop offset="1" stop-color="#6e6140"/>
+    </linearGradient>
+    <linearGradient id="hescoCorner-faceW" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a89464"/>
+      <stop offset="1" stop-color="#86764c"/>
+    </linearGradient>
+    <filter id="hescoCorner-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.9"/>
+    </filter>
+  </defs>
+  <!-- SE cast shadow following the whole L footprint -->
+  <path d="M14 40 h11 V19 l7 0 v22 l5 5 h-32 z" fill="#1c160e" opacity="0.30" filter="url(#hescoCorner-soft)"/>
+  <!-- ARM A: the back run, going N (up the screen) -->
+  <polygon points="22,14 26,11 26,29 22,32" fill="url(#hescoCorner-faceW)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+  <polygon points="32,14 36,11 36,18 32,21" fill="url(#hescoCorner-face)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+  <polygon points="22,14 32,14 36,11 26,11" fill="url(#hescoCorner-top)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <g stroke="#6f6038" stroke-width="0.6" stroke-opacity="0.7">
+    <line x1="25" y1="14" x2="29" y2="11"/><line x1="29" y1="14" x2="33" y2="11"/>
+  </g>
+  <!-- ARM B: the front run, going E (to the right) -->
+  <rect x="22" y="22" width="22" height="10" fill="url(#hescoCorner-face)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <g stroke="#564a2e" stroke-width="0.7" stroke-opacity="0.6">
+    <line x1="29" y1="22" x2="29" y2="32"/><line x1="36" y1="22" x2="36" y2="32"/>
+  </g>
+  <g stroke="#cdbb86" stroke-width="0.3" stroke-opacity="0.4">
+    <line x1="22" y1="26" x2="44" y2="26"/><line x1="22" y1="29" x2="44" y2="29"/>
+  </g>
+  <polygon points="22,22 44,22 47,16 25,16" fill="url(#hescoCorner-top)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <polygon points="22,14 26,14 26,22 22,22" fill="url(#hescoCorner-top)"/>
+  <line x1="26" y1="14" x2="26" y2="22" stroke="#564a2e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <g fill="#7e6f46" opacity="0.5">
+    <circle cx="30" cy="19" r="0.7"/><circle cx="36" cy="20" r="0.6"/><circle cx="41" cy="18.6" r="0.7"/>
+    <circle cx="24" cy="19" r="0.5"/><circle cx="28" cy="13" r="0.6"/><circle cx="32" cy="12.6" r="0.5"/>
+  </g>
+  <g stroke="#6f6038" stroke-width="0.6" stroke-opacity="0.7">
+    <line x1="29" y1="22" x2="32" y2="16"/><line x1="36" y1="22" x2="39" y2="16"/>
+  </g>
+  <!-- NW rim light along the lit top-back edges of both arms -->
+  <line x1="25" y1="16" x2="47" y2="16" stroke="#efe3b6" stroke-width="0.9" stroke-opacity="0.65"/>
+  <line x1="26" y1="11" x2="26" y2="22" stroke="#efe3b6" stroke-width="0.8" stroke-opacity="0.5"/>
+  <!-- sandbags on the parapets of both arms -->
+  <g stroke-width="0.4">
+    <ellipse cx="30" cy="16" rx="3" ry="1.7" fill="#b0a172" stroke="#7a6a44"/>
+    <ellipse cx="36" cy="15.6" rx="3" ry="1.7" fill="#a89968" stroke="#7a6a44"/>
+    <ellipse cx="42" cy="16" rx="3" ry="1.7" fill="#b0a172" stroke="#7a6a44"/>
+    <ellipse cx="24.5" cy="15.6" rx="2.8" ry="1.7" fill="#b0a172" stroke="#7a6a44"/>
+    <ellipse cx="27" cy="13" rx="2.6" ry="1.5" fill="#a89968" stroke="#7a6a44"/>
+    <ellipse cx="29" cy="11.4" rx="2.4" ry="1.4" fill="#b0a172" stroke="#7a6a44"/>
+  </g>
+</svg>

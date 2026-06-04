@@ -4,6 +4,9 @@ import { useGame } from "@/state/store";
 import { Land } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawGrid, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop } from "@/lib/render/draw";
+import { drawDecoration } from "@/lib/render/decoration";
+import { loadSprites, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
+import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
 
 const LAND_NAME: Record<number, string> = {
@@ -41,6 +44,17 @@ export default function WorldView() {
   const dragRef = useRef<{ sx: number; sy: number; x: number; y: number; box: boolean; pan: boolean } | null>(null);
   const hoverRef = useRef<{ wx: number; wy: number } | null>(null);
   const initCam = useRef(false);
+
+  // Rasterize the authored SVG asset library once on mount (bake-once / blit-many).
+  useEffect(() => {
+    if (ASSETS.length) loadSprites(ASSETS);
+    // dev: programmatic camera control for screenshot verification
+    (window as unknown as { __setCam?: (x: number, y: number, ppm?: number) => void }).__setCam = (x, y, ppm) => {
+      camRef.current.cx = x;
+      camRef.current.cy = y;
+      if (ppm) camRef.current.ppm = ppm;
+    };
+  }, []);
 
   useEffect(() => {
     const w0 = useGame.getState().world;
@@ -91,63 +105,99 @@ export default function WorldView() {
     const night = 1 - w.ambientLight();
     ctx.clearRect(0, 0, cam.vw, cam.vh);
     drawTerrain(ctx, terrain, cam, night * 0.7);
+    drawDecoration(ctx, terrain, cam); // scattered trees/rocks fade in at tactical zoom
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
     drawSmoke(ctx, cam, sim.smoke);
 
-    // named features
+    // named features — milspec terrain glyphs + label
     ctx.textAlign = "center";
     for (const f of terrain.features) {
       const c = terrain.cellCenter(f.cx, f.cy);
       const [x, y] = worldToScreen(cam, c.x, c.y);
       if (x < -40 || y < -40 || x > cam.vw + 40 || y > cam.vh + 40) continue;
-      ctx.fillStyle = "rgba(216,214,196,0.5)";
-      ctx.font = "9px var(--font-mono, monospace)";
-      ctx.fillText("▲ " + f.name, x, y - 4);
+      const fid = "marker-" + (f.kind === "bridge" ? "bridge" : f.kind === "junction" ? "junction" : f.kind === "saddle" ? "saddle" : f.kind === "spur" ? "spur" : f.kind === "draw" ? "draw" : "peak");
+      const drew = hasSprite(fid) && drawScreenSprite(ctx, fid, x, y, 22);
+      if (!drew) {
+        ctx.fillStyle = "rgba(216,214,196,0.5)";
+        ctx.font = "9px var(--font-mono, monospace)";
+        ctx.fillText("▲ " + f.name, x, y - 4);
+      } else if (cam.ppm > 0.4) {
+        ctx.fillStyle = "rgba(216,214,196,0.62)";
+        ctx.font = "9px var(--font-mono, monospace)";
+        ctx.fillText(f.name, x, y + 16);
+      }
     }
 
-    // intel markers
+    // intel markers — source-typed milspec glyphs sized by reliability
     for (const r of w.state.intel.slice(0, 24)) {
       if (r.cx === undefined || r.cy === undefined) continue;
       const c = terrain.cellCenter(r.cx, r.cy);
       const [x, y] = worldToScreen(cam, c.x, c.y);
-      const col = r.source === "SIGINT" ? "224,167,43" : r.source === "HUMINT" ? "111,174,84" : "200,120,60";
-      ctx.fillStyle = `rgba(${col},${0.18 + r.reliability * 0.4})`;
-      ctx.beginPath();
-      ctx.arc(x, y, 3 + r.reliability * 5, 0, Math.PI * 2);
-      ctx.fill();
+      const iid = r.source === "SIGINT" ? "marker-intel-sigint" : r.source === "HUMINT" ? "marker-intel-humint" : "marker-intel-visual";
+      const drew = hasSprite(iid) && drawScreenSprite(ctx, iid, x, y, 13 + r.reliability * 9, { alpha: 0.5 + r.reliability * 0.5 });
+      if (!drew) {
+        const col = r.source === "SIGINT" ? "224,167,43" : r.source === "HUMINT" ? "111,174,84" : "200,120,60";
+        ctx.fillStyle = `rgba(${col},${0.18 + r.reliability * 0.4})`;
+        ctx.beginPath();
+        ctx.arc(x, y, 3 + r.reliability * 5, 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
-    // villages
+    // villages — qalat compound footprint fades in at zoom; attitude banner pin always
     for (const v of w.state.villages) {
       const c = terrain.cellCenter(v.cx, v.cy);
       const [x, y] = worldToScreen(cam, c.x, c.y);
-      if (x < -60 || y < -60 || x > cam.vw + 60 || y > cam.vh + 60) continue;
-      const col = v.attitude > 20 ? "#6fae54" : v.attitude < -20 ? "#c0392b" : "#e0a72b";
-      ctx.fillStyle = col;
-      ctx.strokeStyle = st.selectedVillage === v.id ? "#f0e4c0" : "#0c0d0a";
-      ctx.lineWidth = st.selectedVillage === v.id ? 2 : 1;
-      ctx.beginPath();
-      ctx.rect(x - 5, y - 4, 10, 8);
-      ctx.fill();
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(x - 6, y - 4);
-      ctx.lineTo(x, y - 9);
-      ctx.lineTo(x + 6, y - 4);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = "rgba(216,214,196,0.92)";
+      if (x < -80 || y < -80 || x > cam.vw + 80 || y > cam.vh + 80) continue;
+      const sel = st.selectedVillage === v.id;
+      const pid = v.attitude > 20 ? "pin-village-good" : v.attitude < -20 ? "pin-village-hostile" : "pin-village-neutral";
+
+      // qalat compound footprint fades in at tactical zoom (pin fades out under it)
+      const qA = lodAlpha(cam.ppm, 0.7, 1.6);
+      const tier = v.population < 140 ? 0 : v.population < 340 ? 1 : 2;
+      const qid = tier === 0 ? "qalat-small" : tier === 1 ? "qalat-medium" : "qalat-large";
+      const qW = tier === 0 ? 24 : tier === 1 ? 36 : 50;
+      if (qA > 0.02 && hasSprite(qid)) drawWorldSprite(ctx, cam, qid, c.x, c.y, { widthM: qW, alpha: qA });
+      const pinA = 1 - qA * 0.82;
+
+      if (sel) {
+        ctx.strokeStyle = "rgba(240,228,192,0.9)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, 18, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      if (pinA > 0.04 && hasSprite(pid)) {
+        drawScreenSprite(ctx, pid, x, y - (qA > 0.1 ? qW * cam.ppm * 0.5 : 0), 28, { alpha: pinA });
+      } else if (!hasSprite(pid)) {
+        const col = v.attitude > 20 ? "#6fae54" : v.attitude < -20 ? "#c0392b" : "#e0a72b";
+        ctx.fillStyle = col;
+        ctx.strokeStyle = sel ? "#f0e4c0" : "#0c0d0a";
+        ctx.lineWidth = sel ? 2 : 1;
+        ctx.beginPath();
+        ctx.rect(x - 5, y - 4, 10, 8);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x - 6, y - 4);
+        ctx.lineTo(x, y - 9);
+        ctx.lineTo(x + 6, y - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+      }
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(232,229,212,0.95)";
       ctx.font = "10px var(--font-mono, monospace)";
-      ctx.fillText(v.name, x, y + 18);
+      ctx.fillText(v.name, x, y + 14);
       if (v.lastVisitedDay >= 0) {
         ctx.fillStyle = "#6fae54";
-        ctx.fillText("✓", x + 13, y - 6);
+        ctx.fillText("✓", x + 20, y - 8);
       }
       if (v.projects.length) {
         ctx.fillStyle = "#5b9bd8";
-        ctx.fillText("⚒", x - 13, y - 6);
+        ctx.fillText("⚒", x - 20, y - 8);
       }
     }
 
@@ -170,23 +220,41 @@ export default function WorldView() {
     // COP structure (walls/buildings are baked into the relief; this is the overlay)
     if (cam.ppm > 0.3) drawCop(ctx, cam, terrain);
 
-    // COP marker / flag
+    // a Black Hawk on the LZ during the air-resupply landing window (the bird on station)
+    if (terrain.cop && cam.ppm > 0.45 && hasSprite("helo-uh60")) {
+      const clk = w.state.clock;
+      const air = w.state.resupplies.find((r) => r.kind === "air" && clk > r.eta - 1500 && clk < r.eta + 600);
+      if (air) {
+        const lz = terrain.cellCenter(terrain.cop.lz.cx, terrain.cop.lz.cy);
+        const head = Math.atan2(-terrain.cop.gateDir.y, -terrain.cop.gateDir.x); // nose toward the wire
+        drawWorldSprite(ctx, cam, "helo-uh60", lz.x, lz.y, { widthM: 16, rot: head, alpha: lodAlpha(cam.ppm, 0.45, 0.95) });
+      }
+    }
+
+    // COP marker — fortified-base pin, fading out at high zoom where the built COP shows
     const cop = w.copWorld();
     const [cx, cy] = worldToScreen(cam, cop.x, cop.y);
-    ctx.fillStyle = "#4a86c6";
-    ctx.strokeStyle = "#0c0d0a";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.rect(cx - 7, cy - 6, 14, 12);
-    ctx.fill();
-    ctx.stroke();
-    ctx.strokeStyle = "#d8d6c4";
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - 6);
-    ctx.lineTo(cx, cy - 16);
-    ctx.stroke();
-    ctx.fillStyle = "#4a86c6";
-    ctx.fillRect(cx, cy - 16, 8, 5);
+    const copPinA = 1 - lodAlpha(cam.ppm, 1.3, 2.4);
+    const drewCop = copPinA > 0.02 && hasSprite("cop-pin") && drawScreenSprite(ctx, "cop-pin", cx, cy, 34, { alpha: copPinA });
+    if (!drewCop && copPinA > 0.02) {
+      ctx.save();
+      ctx.globalAlpha *= copPinA;
+      ctx.fillStyle = "#4a86c6";
+      ctx.strokeStyle = "#0c0d0a";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.rect(cx - 7, cy - 6, 14, 12);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = "#d8d6c4";
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - 6);
+      ctx.lineTo(cx, cy - 16);
+      ctx.stroke();
+      ctx.fillStyle = "#4a86c6";
+      ctx.fillRect(cx, cy - 16, 8, 5);
+      ctx.restore();
+    }
 
     // selection LOS + paths
     const selSet = new Set(st.selection);
@@ -198,10 +266,16 @@ export default function WorldView() {
       }
     }
 
+    // At STRATEGIC zoom the COP garrison collapses into the cop-pin (per the LOD policy),
+    // so the sheet shows a clean base icon, not a pile of mil-symbols. Field patrols stay.
+    const copR2 = (terrain.cop ? (terrain.cop.radius + 6) * terrain.cellSize : 0);
+    const copR2sq = copR2 * copR2;
+    const inGarrison = (u: Unit) => cam.ppm < 0.5 && copR2 > 0 && (u.pos.x - cop.x) ** 2 + (u.pos.y - cop.y) ** 2 < copR2sq;
+
     // dead bodies (under living)
-    for (const u of sim.units) if (!u.alive && u.faction !== "civilian") drawUnit(ctx, cam, u, {});
+    for (const u of sim.units) if (!u.alive && u.faction !== "civilian" && !inGarrison(u)) drawUnit(ctx, cam, u, {});
     // civilians (if visible)
-    for (const u of sim.units) if (u.faction === "civilian" && u.alive && sim.isVisibleToPlayer(u)) drawUnit(ctx, cam, u, {});
+    for (const u of sim.units) if (u.faction === "civilian" && u.alive && sim.isVisibleToPlayer(u) && !inGarrison(u)) drawUnit(ctx, cam, u, {});
     // enemies via fog of war
     for (const [id, r] of sim.revealed) {
       const e = sim.unit(id);
@@ -212,8 +286,8 @@ export default function WorldView() {
     }
     // friendlies on top
     for (const u of sim.units) {
-      if ((u.faction === "us" || u.faction === "ana") && u.alive) {
-        drawUnit(ctx, cam, u, { selected: selSet.has(u.id), showLabel: cam.ppm > 1.2 });
+      if ((u.faction === "us" || u.faction === "ana") && u.alive && !inGarrison(u)) {
+        drawUnit(ctx, cam, u, { selected: selSet.has(u.id), showLabel: cam.ppm > 2.5 });
       }
     }
 
@@ -242,14 +316,19 @@ export default function WorldView() {
       st.planRoute.forEach((wp, i) => {
         const wc = terrain.cellCenter(wp.cx, wp.cy);
         const [px, py] = worldToScreen(cam, wc.x, wc.y);
-        ctx.fillStyle = "#e0a72b";
-        ctx.beginPath();
-        ctx.arc(px, py, 7, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = "#0c0d0a";
+        const drewWp = hasSprite("flag-waypoint") && drawScreenSprite(ctx, "flag-waypoint", px, py, 22);
+        if (!drewWp) {
+          ctx.fillStyle = "#e0a72b";
+          ctx.beginPath();
+          ctx.arc(px, py, 7, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = drewWp ? "#1c160e" : "#0c0d0a";
         ctx.font = "bold 9px var(--font-mono, monospace)";
         ctx.textAlign = "center";
-        ctx.fillText(String(i + 1), px, py + 0.5);
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(i + 1), px, drewWp ? py - 2 : py + 0.5);
+        ctx.textBaseline = "alphabetic";
       });
       const last = st.planRoute[st.planRoute.length - 1];
       const lc = terrain.cellCenter(last.cx, last.cy);
@@ -287,6 +366,39 @@ export default function WorldView() {
       ctx.fillRect(x, y, Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
       ctx.strokeRect(x, y, Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
     }
+
+    drawHud(ctx, cam);
+  }
+
+  // Cartographic HUD: compass rose (top-right) + an accurate, zoom-aware scale bar.
+  function drawHud(ctx: CanvasRenderingContext2D, cam: Camera) {
+    if (hasSprite("compass-rose")) drawScreenSprite(ctx, "compass-rose", cam.vw - 52, 54, 68, { alpha: 1 });
+
+    // scale bar: a "nice" round distance occupying ~120 px
+    const targetM = 120 / cam.ppm;
+    const pow = Math.pow(10, Math.floor(Math.log10(targetM)));
+    const niceM = (targetM / pow >= 5 ? 5 : targetM / pow >= 2 ? 2 : 1) * pow;
+    const barPx = niceM * cam.ppm;
+    const bx = cam.vw - barPx - 18;
+    const by = 100;
+    ctx.save();
+    ctx.lineWidth = 1;
+    const segs = 4;
+    for (let i = 0; i < segs; i++) {
+      ctx.fillStyle = i % 2 === 0 ? "rgba(216,214,196,0.9)" : "rgba(28,22,14,0.85)";
+      ctx.fillRect(bx + (i * barPx) / segs, by, barPx / segs, 4);
+    }
+    ctx.strokeStyle = "rgba(28,22,14,0.9)";
+    ctx.strokeRect(bx, by, barPx, 4);
+    ctx.fillStyle = "rgba(232,229,212,0.92)";
+    ctx.font = "9px var(--font-mono, monospace)";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "alphabetic";
+    const label = niceM >= 1000 ? `${niceM / 1000} km` : `${niceM} m`;
+    ctx.fillText(label, bx + barPx, by - 3);
+    ctx.textAlign = "left";
+    ctx.fillText("0", bx, by - 3);
+    ctx.restore();
   }
 
   // ----------------------------------------------------------------- input

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-road: paved road segment in perspective with center line. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- road edges converging toward top (perspective) -->
+    <path d="M3 21 L9.5 4"/>
+    <path d="M21 21 L14.5 4"/>
+  </g>
+  <!-- dashed center line (amber active accent) -->
+  <path d="M12 20 L12 5" fill="none" stroke="#e0a72b" stroke-width="1.7" stroke-linecap="round" stroke-dasharray="2 2.6"/>
+</svg>

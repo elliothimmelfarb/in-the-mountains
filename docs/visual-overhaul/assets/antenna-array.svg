@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <defs>
+    <linearGradient id="antennaArray-frame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7e8166"/>
+      <stop offset="1" stop-color="#5c5f48"/>
+    </linearGradient>
+    <linearGradient id="antennaArray-dish" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#cfc8b2"/>
+      <stop offset="1" stop-color="#9a937e"/>
+    </linearGradient>
+    <filter id="antennaArray-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+  </defs>
+  <ellipse cx="25" cy="40.5" rx="13" ry="3.4" fill="#1c160e" opacity="0.30" filter="url(#antennaArray-soft)"/>
+  <g stroke="#1c160e" stroke-opacity="0.20" stroke-width="1.1" stroke-linecap="round" filter="url(#antennaArray-soft)">
+    <line x1="16" y1="38.5" x2="24" y2="40"/>
+    <line x1="22" y1="38.5" x2="30" y2="40"/>
+    <line x1="28" y1="38.5" x2="35" y2="40"/>
+  </g>
+  <polygon points="12,35 34,35 37,31 15,31" fill="url(#antennaArray-frame)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+  <rect x="12" y="35" width="22" height="3.4" fill="#4e5140" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+  <line x1="15" y1="31" x2="37" y2="31" stroke="#d6cfb4" stroke-width="0.7" stroke-opacity="0.5"/>
+  <g stroke-linecap="round">
+    <line x1="18" y1="33" x2="15.5" y2="11" stroke="#54584a" stroke-width="1.0"/>
+    <line x1="18" y1="33" x2="15.7" y2="12" stroke="#c9c2a6" stroke-width="0.45"/>
+    <circle cx="15.5" cy="11" r="0.9" fill="#8a5a36"/>
+    <line x1="23" y1="33" x2="21" y2="5" stroke="#54584a" stroke-width="1.1"/>
+    <line x1="23" y1="33" x2="21.2" y2="6" stroke="#cfc8ac" stroke-width="0.5"/>
+    <circle cx="21" cy="5" r="0.9" fill="#8a5a36"/>
+    <line x1="28" y1="33" x2="26.6" y2="14" stroke="#54584a" stroke-width="1.0"/>
+    <line x1="28" y1="33" x2="26.8" y2="15" stroke="#c9c2a6" stroke-width="0.45"/>
+    <circle cx="26.6" cy="14" r="0.8" fill="#8a5a36"/>
+  </g>
+  <line x1="32" y1="33" x2="33" y2="26" stroke="#54584a" stroke-width="1.1"/>
+  <g transform="rotate(-22 33 23)">
+    <ellipse cx="33" cy="23" rx="6.2" ry="4.2" fill="url(#antennaArray-dish)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <ellipse cx="33" cy="23" rx="6.2" ry="4.2" fill="none" stroke="#efe7cf" stroke-width="0.5" stroke-opacity="0.5"/>
+    <ellipse cx="33" cy="23" rx="2.6" ry="1.8" fill="#1c160e" opacity="0.10"/>
+    <line x1="33" y1="23" x2="36.5" y2="20.5" stroke="#54584a" stroke-width="0.7"/>
+    <circle cx="36.7" cy="20.4" r="0.9" fill="#7e8166"/>
+  </g>
+</svg>

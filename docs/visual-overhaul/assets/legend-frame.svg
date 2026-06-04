@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 90">
+  <!-- legend-frame: legend card frame. panel fill, ink border, amber title bar, empty rows. FLAT. anchor [0,0]. -->
+  <defs>
+    <linearGradient id="legendFrame-title" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e9b53d"/>
+      <stop offset="1" stop-color="#c9941f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- panel body -->
+  <rect x="2" y="2" width="116" height="86" rx="2.5" fill="#14160f" stroke="#2c3022" stroke-width="1"/>
+  <!-- inner keyline for crispness -->
+  <rect x="3.5" y="3.5" width="113" height="83" rx="1.8" fill="none" stroke="#0c0d0a" stroke-width="0.6" stroke-opacity="0.7"/>
+
+  <!-- amber title bar -->
+  <rect x="3.5" y="3.5" width="113" height="14" rx="1.6" fill="url(#legendFrame-title)"/>
+  <rect x="3.5" y="3.5" width="113" height="14" rx="1.6" fill="none" stroke="#0c0d0a" stroke-width="0.6" stroke-opacity="0.45"/>
+  <!-- title underline rule -->
+  <line x1="3.5" y1="17.5" x2="116.5" y2="17.5" stroke="#2c3022" stroke-width="1"/>
+  <!-- small stencil corner notches on the title bar -->
+  <g fill="#0c0d0a" opacity="0.35">
+    <path d="M3.5 3.5 h3 l-3 3 z"/>
+    <path d="M116.5 3.5 h-3 l3 3 z"/>
+  </g>
+
+  <!-- legend rows: swatch box + an empty rule line (renderer fills text) -->
+  <g>
+    <!-- row 1 friendly -->
+    <rect x="9" y="24" width="7" height="7" rx="1" fill="#6fae54" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.5"/>
+    <line x1="21" y1="27.5" x2="108" y2="27.5" stroke="#2c3022" stroke-width="0.8"/>
+    <!-- row 2 neutral -->
+    <rect x="9" y="38" width="7" height="7" rx="1" fill="#e0a72b" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.5"/>
+    <line x1="21" y1="41.5" x2="108" y2="41.5" stroke="#2c3022" stroke-width="0.8"/>
+    <!-- row 3 hostile -->
+    <rect x="9" y="52" width="7" height="7" rx="1" fill="#c0392b" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.5"/>
+    <line x1="21" y1="55.5" x2="108" y2="55.5" stroke="#2c3022" stroke-width="0.8"/>
+    <!-- row 4 US -->
+    <rect x="9" y="66" width="7" height="7" rx="1" fill="#4a86c6" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.5"/>
+    <line x1="21" y1="69.5" x2="108" y2="69.5" stroke="#2c3022" stroke-width="0.8"/>
+  </g>
+
+  <!-- faint corner registration ticks (outer) -->
+  <g stroke="#d8d6c4" stroke-width="0.7" stroke-opacity="0.4">
+    <path d="M2 9 v-6 h6" fill="none"/>
+    <path d="M118 81 v6 h-6" fill="none"/>
+  </g>
+</svg>

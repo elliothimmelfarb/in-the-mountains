@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 84 84">
+  <!-- CEMETERY: Muslim graveyard, rows of small upright stone markers (aligned NE-SW),
+       a few prayer flags/cloth on poles, a low wall around it. Sparse, quiet. STATIC, NW.
+       anchor [0.5,0.82], footprint 18 m. -->
+  <defs>
+    <linearGradient id="cem-ground" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9a9064"/>
+      <stop offset="1" stop-color="#827852"/>
+    </linearGradient>
+    <linearGradient id="cem-stone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b6ad96"/>
+      <stop offset="1" stop-color="#8c8268"/>
+    </linearGradient>
+    <filter id="cem-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow of the plot -->
+  <path d="M16 64 h48 l5 5 h-48z" fill="#1c160e" opacity="0.26" filter="url(#cem-soft)"/>
+
+  <!-- ground plot -->
+  <rect x="14" y="18" width="56" height="48" rx="2" fill="url(#cem-ground)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.5"/>
+  <!-- sparse dry tufts -->
+  <g stroke="#6f6644" stroke-width="0.5" stroke-opacity="0.4">
+    <line x1="20" y1="60" x2="21" y2="57"/><line x1="60" y1="24" x2="61" y2="21.5"/><line x1="46" y1="62" x2="47" y2="59"/>
+  </g>
+
+  <!-- low perimeter wall: NW-lit top edge, SE shade base -->
+  <rect x="14" y="18" width="56" height="48" rx="2" fill="none" stroke="#c2a87c" stroke-width="1.5" stroke-opacity="0.5"/>
+  <rect x="15.6" y="19.6" width="52.8" height="44.8" rx="1.5" fill="none" stroke="#6e5736" stroke-width="0.9" stroke-opacity="0.4"/>
+
+  <!-- GRAVE MARKERS: each is a small upright stone, lit NW face + thin SE cast shadow.
+       Aligned in rows. -->
+  <g>
+    <!-- ROW 1 (y~30) -->
+    <g><path d="M22 31 l1.8 1.6 h-1 v0" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M21 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="21.3" y1="29" x2="22.9" y2="29" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M30 31 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M29 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="29.3" y1="29" x2="30.9" y2="29" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M38 31 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M37 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="37.3" y1="29" x2="38.9" y2="29" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M46 31 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M45 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+    <g><path d="M54 31 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M53 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="53.3" y1="29" x2="54.9" y2="29" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M62 31 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M61 30.5 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+
+    <!-- ROW 2 (y~44) -->
+    <g><path d="M22 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M21 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="21.3" y1="42.5" x2="22.9" y2="42.5" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M30 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M29 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+    <g><path d="M38 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M37 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="37.3" y1="42.5" x2="38.9" y2="42.5" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M46 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M45 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+    <g><path d="M54 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M53 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="53.3" y1="42.5" x2="54.9" y2="42.5" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M62 44.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M61 44 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+
+    <!-- ROW 3 (y~57) -->
+    <g><path d="M26 57.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M25 57 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+    <g><path d="M34 57.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M33 57 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/>
+       <line x1="33.3" y1="55.5" x2="34.9" y2="55.5" stroke="#d8d0b6" stroke-width="0.4" stroke-opacity="0.7"/></g>
+    <g><path d="M50 57.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M49 57 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+    <g><path d="M58 57.5 l1.8 1.6 h-1z" fill="#1c160e" opacity="0.28" filter="url(#cem-soft)"/>
+       <path d="M57 57 h2.2 l-0.3 -2.8 a0.9 0.9 0 0 0 -1.6 0z" fill="url(#cem-stone)" stroke="#3a3528" stroke-width="0.4"/></g>
+  </g>
+
+  <!-- PRAYER FLAGS on slender poles: small triangular pennants of faded cloth streaming SE,
+       each pole dropping a thin SE shadow. Quiet, not festive. -->
+  <g>
+    <line x1="42" y1="49" x2="45.5" y2="52" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.22"/>
+    <line x1="42" y1="49" x2="42" y2="37" stroke="#5a4a30" stroke-width="0.7"/>
+    <path d="M42 37 L47 38.4 L42 39.8z" fill="#557e58" stroke="#2c402f" stroke-width="0.3"/>
+
+    <line x1="58" y1="37" x2="61" y2="40" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.22"/>
+    <line x1="58" y1="37" x2="58" y2="26" stroke="#5a4a30" stroke-width="0.7"/>
+    <path d="M58 26 L62.4 27.2 L58 28.4z" fill="#b3a785" stroke="#7a6a44" stroke-width="0.3"/>
+
+    <line x1="28" y1="50" x2="30.5" y2="52.5" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.22"/>
+    <line x1="28" y1="50" x2="28" y2="40" stroke="#5a4a30" stroke-width="0.7"/>
+    <path d="M28 40 L31.8 41 L28 42z" fill="#4f7a52" stroke="#2c402f" stroke-width="0.3"/>
+  </g>
+
+  <!-- low arched gate gap in the south wall -->
+  <rect x="38" y="65" width="8" height="2" fill="#8e795c"/>
+</svg>

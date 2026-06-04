@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 44">
+  <!-- MRAP/MATV: tall angular armored truck, top-down, facing +x (east). ROTATING sprite:
+       symmetric centered contact shadow + rotation-tolerant centered top highlight.
+       footprint 6 m (length). anchor center [0.5,0.5]. -->
+  <defs>
+    <linearGradient id="vehMrap-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c0ae7a"/>
+      <stop offset="0.5" stop-color="#b3a06f"/>
+      <stop offset="1" stop-color="#988859"/>
+    </linearGradient>
+    <linearGradient id="vehMrap-hood" x1="0" y1="0" x2="1" y2="0.6">
+      <stop offset="0" stop-color="#c6b47e"/>
+      <stop offset="1" stop-color="#a08f59"/>
+    </linearGradient>
+    <radialGradient id="vehMrap-turret" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#ac9c68"/>
+      <stop offset="1" stop-color="#796b44"/>
+    </radialGradient>
+    <radialGradient id="vehMrap-shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1c160e" stop-opacity="0.45"/>
+      <stop offset="0.65" stop-color="#1c160e" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#1c160e" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="vehMrap-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow (centered, no directional offset) -->
+  <ellipse cx="32" cy="22" rx="26" ry="14" fill="url(#vehMrap-shadow)"/>
+
+  <!-- wheels: 4 big armored tires at corners, chunky -->
+  <g fill="#2a251a" stroke="#161109" stroke-width="0.6">
+    <rect x="14" y="6.5" width="9" height="6" rx="2.2"/>
+    <rect x="14" y="31.5" width="9" height="6" rx="2.2"/>
+    <rect x="39" y="6.5" width="9" height="6" rx="2.2"/>
+    <rect x="39" y="31.5" width="9" height="6" rx="2.2"/>
+  </g>
+  <!-- tire tread hint -->
+  <g stroke="#3c352440" stroke-width="0.5">
+    <line x1="14" y1="9.5" x2="23" y2="9.5"/><line x1="14" y1="34.5" x2="23" y2="34.5"/>
+    <line x1="39" y1="9.5" x2="48" y2="9.5"/><line x1="39" y1="34.5" x2="48" y2="34.5"/>
+  </g>
+
+  <!-- main hull: boxy, tall, heavy -->
+  <path d="M12 13 L48 13 L48 31 L12 31 Z" fill="url(#vehMrap-body)" stroke="#1c160e" stroke-width="1.1" stroke-opacity="0.65"/>
+
+  <!-- sloped armored nose (front, east) - the MRAP's distinctive angled snout -->
+  <path d="M48 14 L58 22 L48 30 Z" fill="url(#vehMrap-hood)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <g stroke="#6c6347" stroke-width="0.5" stroke-opacity="0.6">
+    <line x1="48.5" y1="17" x2="56" y2="22"/>
+    <line x1="48.5" y1="27" x2="56" y2="22"/>
+  </g>
+  <!-- bumper / brush guard tip -->
+  <path d="M57 20.5 L59.5 22 L57 23.5" fill="none" stroke="#2f2a1d" stroke-width="1" stroke-opacity="0.7"/>
+
+  <!-- armored cab roof (front section) with windshield armor slits -->
+  <rect x="35" y="15.5" width="12" height="13" rx="1.5" fill="#a99a66" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.45"/>
+  <g fill="#6c6347" opacity="0.75">
+    <rect x="45.5" y="17.5" width="1.8" height="9" rx="0.5"/>
+  </g>
+  <!-- side mirror nubs -->
+  <g fill="#2f2a1d"><rect x="46.5" y="14" width="2.5" height="1.4" rx="0.5"/><rect x="46.5" y="28.6" width="2.5" height="1.4" rx="0.5"/></g>
+
+  <!-- rear crew compartment roof, hatch seams -->
+  <rect x="14" y="15.5" width="20" height="13" rx="1.2" fill="#b1a16d" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.4"/>
+  <g stroke="#7e7048" stroke-width="0.5" stroke-opacity="0.55">
+    <line x1="21" y1="15.5" x2="21" y2="28.5"/>
+    <line x1="27.5" y1="15.5" x2="27.5" y2="28.5"/>
+  </g>
+  <!-- rear roof hatch -->
+  <rect x="16" y="18.5" width="4.5" height="7" rx="0.7" fill="#998959" stroke="#6c6347" stroke-width="0.4"/>
+
+  <!-- ROOF TURRET ring + gun, centered for rotation tolerance -->
+  <circle cx="31" cy="22" r="5.3" fill="url(#vehMrap-turret)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.6"/>
+  <circle cx="31" cy="22" r="3.1" fill="#8a7c52" stroke="#6c6347" stroke-width="0.5"/>
+  <!-- gunner shield arc (forward) -->
+  <path d="M33.5 18 a4.4 4.4 0 0 1 0 8" fill="none" stroke="#796b44" stroke-width="1.3" stroke-opacity="0.75"/>
+  <!-- gun barrel pointing forward (+x) -->
+  <rect x="35.5" y="21" width="13" height="2" rx="0.9" fill="#2f2a1d" stroke="#161109" stroke-width="0.3"/>
+  <circle cx="31" cy="22" r="0.9" fill="#6c6347"/>
+
+  <!-- antennas (rear whips) -->
+  <g stroke="#2a251a" stroke-width="0.8" stroke-opacity="0.85">
+    <line x1="15" y1="16.5" x2="9" y2="8"/>
+    <line x1="17" y1="27.5" x2="11" y2="36"/>
+  </g>
+  <g fill="#2a251a"><circle cx="9" cy="8" r="0.7"/><circle cx="11" cy="36" r="0.7"/></g>
+
+  <!-- NW rim light on the lit (upper-left) hull edge -->
+  <path d="M12 13 L48 13" fill="none" stroke="#fbf4dc" stroke-width="0.8" stroke-opacity="0.5"/>
+  <path d="M48 14 L58 22" fill="none" stroke="#fbf4dc" stroke-width="0.6" stroke-opacity="0.4"/>
+  <line x1="35.4" y1="16" x2="46.5" y2="16" stroke="#fbf4dc" stroke-width="0.5" stroke-opacity="0.4"/>
+</svg>

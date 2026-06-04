@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 48">
+  <!-- bld-barracks: plywood B-hut billet. STATIC, NW light + SE cast shadow.
+       Rebuilt with bold EXTRUDED volume: a long corrugated GABLE roof (NW slope lit,
+       SE slope shade) lifted on clearly visible walls - a lit NW gable-end sliver and a
+       tall SE shadow wall band (~14% of height) - plus a soft SE ground cast shadow.
+       Identity: long low corrugated gable + sandbag blast wall. anchor [0.5,0.82], footprint 9 m. -->
+  <defs>
+    <linearGradient id="bldBarracks-roofNW" x1="0" y1="1" x2="0.1" y2="0">
+      <stop offset="0" stop-color="#9a8e6a"/>
+      <stop offset="1" stop-color="#b0a481"/>
+    </linearGradient>
+    <linearGradient id="bldBarracks-roofSE" x1="0" y1="0" x2="0.05" y2="1">
+      <stop offset="0" stop-color="#6c6347"/>
+      <stop offset="1" stop-color="#564e37"/>
+    </linearGradient>
+    <linearGradient id="bldBarracks-wallSE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5e553b"/>
+      <stop offset="1" stop-color="#473f2b"/>
+    </linearGradient>
+    <linearGradient id="bldBarracks-wallNW" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b0a178"/>
+      <stop offset="1" stop-color="#928559"/>
+    </linearGradient>
+    <filter id="bldBarracks-soft" x="-25%" y="-35%" width="150%" height="170%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW on the ground -->
+  <path d="M11 33 h51 l7 8 h-51z" fill="#1c160e" opacity="0.35" filter="url(#bldBarracks-soft)"/>
+
+  <!-- ===== EXTRUDED WALLS ===== -->
+  <!-- SE long wall (front, deep shade), tall and clearly visible -->
+  <polygon points="13,28 61,28 61,35 13,35" fill="url(#bldBarracks-wallSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.6"/>
+  <!-- NW gable-end sliver (left short wall, lit) -->
+  <polygon points="9,17 13,20 13,35 9,32" fill="url(#bldBarracks-wallNW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.45"/>
+  <!-- plywood seams on the SE shadow wall -->
+  <g stroke="#352f20" stroke-width="0.4" stroke-opacity="0.5">
+    <line x1="21" y1="28.3" x2="21" y2="34.7"/><line x1="29" y1="28.3" x2="29" y2="34.7"/>
+    <line x1="37" y1="28.3" x2="37" y2="34.7"/><line x1="53" y1="28.3" x2="53" y2="34.7"/>
+  </g>
+  <!-- door on the SE wall -->
+  <rect x="44" y="29.4" width="5" height="5.6" fill="#3a3120" stroke="#241d12" stroke-width="0.4"/>
+  <line x1="48.5" y1="29.9" x2="48.5" y2="34.6" stroke="#8a7c54" stroke-width="0.4" stroke-opacity="0.6"/>
+  <!-- small window -->
+  <rect x="23" y="30" width="3.6" height="3.0" fill="#384246" stroke="#241d12" stroke-width="0.35"/>
+
+  <!-- ===== GABLE ROOF: two slopes meeting at a ridge running E-W ===== -->
+  <!-- SE (front, lower) roof slope, shaded -->
+  <polygon points="13,22 61,22 61,28 13,28" fill="url(#bldBarracks-roofSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- NW (back, upper) roof slope, lit -->
+  <polygon points="9,17 57,17 61,22 13,22" fill="url(#bldBarracks-roofNW)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.5"/>
+
+  <!-- corrugation seams running down each slope -->
+  <g stroke="#5b5236" stroke-width="0.45" stroke-opacity="0.5">
+    <line x1="14" y1="17" x2="14.9" y2="22"/><line x1="20" y1="17" x2="20.9" y2="22"/>
+    <line x1="26" y1="17" x2="26.9" y2="22"/><line x1="32" y1="17" x2="32.9" y2="22"/>
+    <line x1="38" y1="17" x2="38.9" y2="22"/><line x1="44" y1="17" x2="44.9" y2="22"/>
+    <line x1="50" y1="17" x2="50.9" y2="22"/>
+  </g>
+  <g stroke="#433c2a" stroke-width="0.45" stroke-opacity="0.55">
+    <line x1="14.9" y1="22" x2="15.1" y2="28"/><line x1="20.9" y1="22" x2="21.1" y2="28"/>
+    <line x1="26.9" y1="22" x2="27.1" y2="28"/><line x1="32.9" y1="22" x2="33.1" y2="28"/>
+    <line x1="38.9" y1="22" x2="39.1" y2="28"/><line x1="44.9" y1="22" x2="45.1" y2="28"/>
+    <line x1="50.9" y1="22" x2="51.1" y2="28"/>
+  </g>
+  <!-- ridge line + rust streak -->
+  <line x1="9" y1="17" x2="57" y2="17" stroke="#332d20" stroke-width="0.8" stroke-opacity="0.6"/>
+  <line x1="35" y1="17.4" x2="35.2" y2="21.6" stroke="#8a5a36" stroke-width="0.7" stroke-opacity="0.45"/>
+  <!-- STRONG NW rim light on the lit ridge -->
+  <line x1="9" y1="16.6" x2="57" y2="16.6" stroke="#efe3b6" stroke-width="1.0" stroke-opacity="0.62"/>
+  <!-- SE eave edge stays dark -->
+  <line x1="13" y1="28" x2="61" y2="28" stroke="#2c2618" stroke-width="0.6" stroke-opacity="0.5"/>
+
+  <!-- ===== SANDBAG BLAST WALL along the SE long side ===== -->
+  <g stroke="#7a6a44" stroke-width="0.35">
+    <!-- lower course -->
+    <ellipse cx="15" cy="37.6" rx="2.7" ry="1.7" fill="#aa9b6c"/>
+    <ellipse cx="20" cy="37.9" rx="2.7" ry="1.7" fill="#b0a172"/>
+    <ellipse cx="25" cy="38.1" rx="2.7" ry="1.7" fill="#aa9b6c"/>
+    <ellipse cx="30" cy="38.2" rx="2.7" ry="1.7" fill="#b0a172"/>
+    <ellipse cx="35" cy="38.2" rx="2.7" ry="1.7" fill="#aa9b6c"/>
+    <ellipse cx="51" cy="38.0" rx="2.7" ry="1.7" fill="#b0a172"/>
+    <ellipse cx="56" cy="37.6" rx="2.7" ry="1.7" fill="#aa9b6c"/>
+    <ellipse cx="60.5" cy="37.0" rx="2.6" ry="1.6" fill="#b0a172"/>
+    <!-- upper course (offset, lit tops) -->
+    <ellipse cx="17.5" cy="36.1" rx="2.4" ry="1.4" fill="#bcae7c"/>
+    <ellipse cx="22.5" cy="36.4" rx="2.4" ry="1.4" fill="#b6a774"/>
+    <ellipse cx="27.5" cy="36.6" rx="2.4" ry="1.4" fill="#bcae7c"/>
+    <ellipse cx="53.5" cy="36.4" rx="2.4" ry="1.4" fill="#b6a774"/>
+    <ellipse cx="58.2" cy="35.9" rx="2.4" ry="1.4" fill="#bcae7c"/>
+  </g>
+</svg>

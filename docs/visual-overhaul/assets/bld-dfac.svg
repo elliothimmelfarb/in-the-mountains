@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 76 54">
+  <!-- bld-dfac: chow hall. STATIC, NW light + SE cast shadow.
+       Rebuilt for bolder volume: a wide DOMED canvas tent that clearly bulges upward -
+       a bright NW-lit crown, a tall SE-shaded lower canvas band (the volume read), an
+       eave wall sliver, and a strong SE ground cast shadow. Identity: wide domed
+       canvas/tent on a gravel hardstand + water buffalo trailer. anchor [0.5,0.82], footprint 9 m. -->
+  <defs>
+    <radialGradient id="bldDfac-canvas" cx="0.36" cy="0.28" r="0.85">
+      <stop offset="0" stop-color="#cabf9a"/>
+      <stop offset="0.5" stop-color="#b3a785"/>
+      <stop offset="1" stop-color="#8a7f5e"/>
+    </radialGradient>
+    <linearGradient id="bldDfac-canvasSE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9a8f6c"/>
+      <stop offset="1" stop-color="#6f664a"/>
+    </linearGradient>
+    <linearGradient id="bldDfac-trailer" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7e8262"/>
+      <stop offset="1" stop-color="#5c6045"/>
+    </linearGradient>
+    <radialGradient id="bldDfac-pad" cx="0.4" cy="0.35" r="0.85">
+      <stop offset="0" stop-color="#9a907a"/>
+      <stop offset="1" stop-color="#867c68"/>
+    </radialGradient>
+    <filter id="bldDfac-soft" x="-30%" y="-35%" width="160%" height="170%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+
+  <!-- gravel hardstand under the whole thing -->
+  <ellipse cx="34" cy="36" rx="32" ry="14" fill="url(#bldDfac-pad)" stroke="#5b5340" stroke-width="0.5" stroke-opacity="0.35"/>
+  <g fill="#62593f" opacity="0.4">
+    <circle cx="15" cy="42" r="0.6"/><circle cx="21" cy="46" r="0.5"/><circle cx="51" cy="46" r="0.6"/>
+    <circle cx="57" cy="42" r="0.5"/><circle cx="45" cy="48" r="0.5"/><circle cx="25" cy="48" r="0.5"/>
+  </g>
+
+  <!-- SOFT SE CAST SHADOW of the tent (offset down-right, grounding) -->
+  <path d="M14 31 q21 -4 42 0 l6 8 q-24 4 -52 0z" fill="#1c160e" opacity="0.36" filter="url(#bldDfac-soft)"/>
+
+  <!-- guy-lines from eaves to ground stakes -->
+  <g stroke="#332d20" stroke-width="0.45" stroke-opacity="0.7">
+    <line x1="12" y1="28" x2="7" y2="35"/>
+    <line x1="13" y1="21" x2="8" y2="27"/>
+    <line x1="57" y1="28" x2="62" y2="35"/>
+    <line x1="56" y1="21" x2="61" y2="27"/>
+  </g>
+  <g fill="#241d12">
+    <circle cx="7" cy="35" r="0.8"/><circle cx="8" cy="27" r="0.7"/>
+    <circle cx="62" cy="35" r="0.8"/><circle cx="61" cy="27" r="0.7"/>
+  </g>
+
+  <!-- SE eave wall sliver (long front, shade) - the base of the volume -->
+  <path d="M12 28 q22 3.4 44 0 l0 4.4 q-22 3.4 -44 0z" fill="url(#bldDfac-canvasSE)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+
+  <!-- ===== WIDE DOMED CANVAS ROOF ===== -->
+  <!-- full dome body -->
+  <path d="M12 28
+           q1 -13 22 -14
+           q22 1 22 14
+           q-22 -5 -44 0z"
+        fill="url(#bldDfac-canvas)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.55"/>
+  <!-- SE lower band of canvas in shade (gives the dome its rounded fall-off) -->
+  <path d="M12 28 q22 3.4 44 0 q-1 5.5 -8 6.6 q-14 1.6 -28 0 q-7 -1.1 -8 -6.6z"
+        fill="#6f664a" opacity="0.40"/>
+  <!-- deeper SE-right shade lobe to round the dome corner -->
+  <path d="M40 28.6 q9 -2.6 16 0.2 q-1.5 4.8 -7.5 5.8 q-5 0.7 -10 0 q4 -3.6 1.5 -6z"
+        fill="#5e553b" opacity="0.30"/>
+  <!-- ridge cap line along the crown -->
+  <path d="M16 14.6 q18 -1.4 36 0" fill="none" stroke="#9a9070" stroke-width="0.6" stroke-opacity="0.6"/>
+  <!-- canvas rib seams arching down each side from the crown -->
+  <g stroke="#8a7f5e" stroke-width="0.5" stroke-opacity="0.55" fill="none">
+    <path d="M20 14.6 q-4 6 -8 12.4"/>
+    <path d="M28 14.2 q-2 6.5 -5 13"/>
+    <path d="M34 14 v13.6"/>
+    <path d="M40 14.2 q2 6.5 5 13"/>
+    <path d="M48 14.6 q4 6 8 12.4"/>
+  </g>
+  <!-- door flap on the lit NW-left end -->
+  <path d="M13 27 q3 -8 8 -10 l0 1.4 q-4 2 -6 9z" fill="#5a523c" stroke="#241d12" stroke-width="0.35"/>
+  <!-- STRONG NW rim light along the lit crown -->
+  <path d="M15 15.4 q19 -1.6 38 0" fill="none" stroke="#efe3b6" stroke-width="1.0" stroke-opacity="0.62"/>
+  <path d="M15 15.4 q-2.5 4 -3 12.6" fill="none" stroke="#efe3b6" stroke-width="0.7" stroke-opacity="0.45"/>
+
+  <!-- ===== WATER BUFFALO (water trailer) parked at SE-right ===== -->
+  <g>
+    <ellipse cx="62" cy="47.5" rx="7.5" ry="3.0" fill="#1c160e" opacity="0.32" filter="url(#bldDfac-soft)"/>
+    <line x1="55" y1="42.5" x2="50" y2="41.5" stroke="#332d20" stroke-width="0.9"/>
+    <rect x="54.5" y="38" width="14" height="7.5" rx="3.6" fill="url(#bldDfac-trailer)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+    <rect x="55.2" y="38.4" width="12.6" height="2.6" rx="1.3" fill="#929670" opacity="0.85"/>
+    <line x1="61" y1="38.4" x2="61" y2="45.2" stroke="#454935" stroke-width="0.5" stroke-opacity="0.6"/>
+    <circle cx="58.5" cy="39.6" r="1.1" fill="#454935" stroke="#241d12" stroke-width="0.3"/>
+    <rect x="67.8" y="42" width="1.8" height="1.5" fill="#332d20"/>
+    <ellipse cx="58" cy="46" rx="1.7" ry="1.5" fill="#2a2820" stroke="#161410" stroke-width="0.3"/>
+    <ellipse cx="65" cy="46" rx="1.7" ry="1.5" fill="#2a2820" stroke="#161410" stroke-width="0.3"/>
+  </g>
+</svg>

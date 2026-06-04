@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
+  <!-- qalat-medium: 2-3 connected mud compounds sharing walls, alley, well, walnut trees.
+       STATIC, NW light, SE cast shadow. anchor [0.5,0.82], footprint 26 m. -->
+  <defs>
+    <linearGradient id="qalatMd-wallTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bda072"/>
+      <stop offset="1" stop-color="#a08254"/>
+    </linearGradient>
+    <linearGradient id="qalatMd-court" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9c8158"/>
+      <stop offset="1" stop-color="#856b44"/>
+    </linearGradient>
+    <linearGradient id="qalatMd-court2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#96794f"/>
+      <stop offset="1" stop-color="#7e633e"/>
+    </linearGradient>
+    <linearGradient id="qalatMd-roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ac9374"/>
+      <stop offset="1" stop-color="#8a7252"/>
+    </linearGradient>
+    <linearGradient id="qalatMd-roof2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a08a6a"/>
+      <stop offset="1" stop-color="#7e684a"/>
+    </linearGradient>
+    <radialGradient id="qalatMd-tree" cx="0.38" cy="0.34" r="0.74">
+      <stop offset="0" stop-color="#728146"/>
+      <stop offset="1" stop-color="#3e4e2a"/>
+    </radialGradient>
+    <filter id="qalatMd-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow under the whole cluster -->
+  <path d="M14 66 h64 l8 8 -6 6 h-66 z" fill="#1c160e" opacity="0.30" filter="url(#qalatMd-soft)"/>
+
+  <!-- courtyards (floors) -->
+  <rect x="10" y="14" width="42" height="64" rx="1.5" fill="url(#qalatMd-court)"/>
+  <rect x="50" y="18" width="36" height="50" rx="1.5" fill="url(#qalatMd-court2)"/>
+
+  <!-- wall rings, raised ramparts; right shares left compound's right wall -->
+  <path d="M10 14 h42 v64 h-42 z M16 20 v52 h30 v-52 z"
+        fill="url(#qalatMd-wallTop)" fill-rule="evenodd"
+        stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M46 18 h40 v50 h-40 z M52 24 v38 h28 v-38 z"
+        fill="url(#qalatMd-wallTop)" fill-rule="evenodd"
+        stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+
+  <!-- inner SE-facing wall shade (thickness) -->
+  <path d="M16 20 h30 v2.4 h-27.6 v49.6 h-2.4 z" fill="#6b5638" opacity="0.5"/>
+  <path d="M52 24 h28 v2.4 h-25.6 v35.6 h-2.4 z" fill="#6b5638" opacity="0.5"/>
+  <!-- inner NW-facing wall light -->
+  <path d="M46 20 v52 h-30 v-1.6 h28.4 v-50.4 z" fill="#c8ad7c" opacity="0.32"/>
+  <path d="M80 24 v38 h-28 v-1.6 h26.4 v-36.4 z" fill="#c8ad7c" opacity="0.32"/>
+
+  <!-- narrow shared-wall alley accent -->
+  <rect x="50.4" y="40" width="2.2" height="26" fill="#5e4c32" opacity="0.55"/>
+
+  <!-- left compound: N long block -->
+  <g>
+    <rect x="18.5" y="23" width="25" height="9" fill="url(#qalatMd-roof)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M18.5 32 h25 l1.6 1.8 h-25 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M43.5 23 v9 l1.6 1.8 v-9 z" fill="#5f4d34" opacity="0.9"/>
+    <g stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"><line x1="26.5" y1="23" x2="26.5" y2="32"/><line x1="35" y1="23" x2="35" y2="32"/></g>
+    <line x1="18.5" y1="23" x2="43.5" y2="23" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.6"/>
+  </g>
+  <!-- left compound: W tall block -->
+  <g>
+    <rect x="18.5" y="48" width="11" height="18" fill="url(#qalatMd-roof2)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M18.5 66 h11 l1.8 2 h-11 z" fill="#6a5538" opacity="0.9"/>
+    <path d="M29.5 48 v18 l1.8 2 v-18 z" fill="#5a4830" opacity="0.92"/>
+    <line x1="18.5" y1="57" x2="29.5" y2="57" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="18.5" y1="48" x2="29.5" y2="48" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.55"/>
+  </g>
+
+  <!-- right compound: E tall block -->
+  <g>
+    <rect x="68" y="27" width="11" height="20" fill="url(#qalatMd-roof)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M68 47 h11 l1.8 2 h-11 z" fill="#6a5538" opacity="0.9"/>
+    <path d="M79 27 v20 l1.8 2 v-20 z" fill="#5a4830" opacity="0.92"/>
+    <line x1="68" y1="37" x2="79" y2="37" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="68" y1="27" x2="79" y2="27" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.6"/>
+    <line x1="68" y1="27" x2="68" y2="47" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.45"/>
+  </g>
+  <!-- right compound: N small room -->
+  <g>
+    <rect x="55" y="27" width="9" height="8" fill="url(#qalatMd-roof2)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M55 35 h9 l1.4 1.6 h-9 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M64 27 v8 l1.4 1.6 v-8 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="55" y1="27" x2="64" y2="27" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.55"/>
+  </g>
+  <!-- right compound: S small room -->
+  <g>
+    <rect x="57" y="51" width="9" height="9" fill="url(#qalatMd-roof2)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+    <path d="M57 60 h9 l1.4 1.6 h-9 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M66 51 v9 l1.4 1.6 v-9 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="57" y1="51" x2="66" y2="51" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.55"/>
+  </g>
+
+  <!-- well in left courtyard -->
+  <ellipse cx="35" cy="60" rx="3.4" ry="3.2" fill="#1c160e" opacity="0.22" filter="url(#qalatMd-soft)" transform="translate(1,1)"/>
+  <circle cx="34.5" cy="59.5" r="3" fill="#9a8060" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <circle cx="34.5" cy="59.5" r="1.4" fill="#352a1c"/>
+  <path d="M31.9 57.3 a3 3 0 0 1 3.9 -0.6" fill="none" stroke="#d0b483" stroke-width="0.6" stroke-opacity="0.6"/>
+
+  <!-- walnut trees -->
+  <ellipse cx="40" cy="44" rx="5.2" ry="4.8" fill="#1c160e" opacity="0.24" filter="url(#qalatMd-soft)" transform="translate(1.6,1.6)"/>
+  <circle cx="40" cy="43.5" r="4.5" fill="url(#qalatMd-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+  <path d="M36.8 40.6 a4.5 4.5 0 0 1 5.6 -1" fill="none" stroke="#8f9b5b" stroke-width="1.0" stroke-opacity="0.6"/>
+  <g fill="#566834" opacity="0.5"><circle cx="42" cy="45.4" r="1.2"/><circle cx="38.4" cy="45.6" r="1.0"/></g>
+  <ellipse cx="62" cy="44" rx="4.4" ry="4" fill="#1c160e" opacity="0.24" filter="url(#qalatMd-soft)" transform="translate(1.6,1.6)"/>
+  <circle cx="62" cy="43.5" r="3.7" fill="url(#qalatMd-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+  <path d="M59.4 41.2 a3.7 3.7 0 0 1 4.6 -0.8" fill="none" stroke="#8f9b5b" stroke-width="0.9" stroke-opacity="0.6"/>
+
+  <!-- gate on left compound S wall -->
+  <rect x="28.5" y="71.6" width="7" height="6.7" fill="url(#qalatMd-court)"/>
+  <rect x="27" y="71.2" width="2" height="7.1" rx="0.4" fill="#7a5a38" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="35" y="71.2" width="2" height="7.1" rx="0.4" fill="#664c2f" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="26.6" y="70.4" width="10.8" height="2" rx="0.5" fill="#8a6a40" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+
+  <!-- NW rim light / SE deep edge on outer crests -->
+  <path d="M10 14 h36 M10 14 v64 M46 18 h40 M46 18 v6" fill="none" stroke="#efe3b6" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M10 78 h42 M86 18 v50 M50 78 v0" fill="none" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.4"/>
+</svg>

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cas-hellfire: aircraft (chevron) launching a guided missile (amber streak). -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- aircraft as a bold swept chevron, nose to lower-right -->
+    <path d="M2.6 8.2 L9 6 L8 11"/>
+    <!-- fuselage spine -->
+    <path d="M5.2 7.1 L10.4 11.6"/>
+  </g>
+  <!-- guided missile: bold amber streak with fins + warhead, down-right -->
+  <g fill="none" stroke="#e0a72b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M11.6 12.4 L18.4 19.2"/>
+    <!-- tail fins -->
+    <path d="M12.4 13.2 L10.9 14.7 M12.4 13.2 L13.9 11.7"/>
+  </g>
+  <!-- warhead tip -->
+  <circle cx="19.3" cy="20.1" r="1.5" fill="#e0a72b"/>
+</svg>

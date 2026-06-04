@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- north-arrow: standalone corner north arrow. FLAT ink, no drop shadow. anchor [0.5,0.5]. -->
+  <defs>
+    <filter id="northArrow-halo" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.6"/>
+    </filter>
+  </defs>
+
+  <!-- legibility halo -->
+  <g filter="url(#northArrow-halo)" opacity="0.5">
+    <path d="M24 6 L31 30 L24 25 L17 30 Z" fill="#0c0d0a"/>
+    <circle cx="24" cy="44" r="3" fill="#0c0d0a"/>
+  </g>
+
+  <!-- needle: amber lit half + dim shade half -->
+  <path d="M24 6 L31 30 L24 25 Z" fill="#e0a72b" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.55"/>
+  <path d="M24 6 L17 30 L24 25 Z" fill="#9a8a4a" stroke="#0c0d0a" stroke-width="0.5" stroke-opacity="0.55"/>
+  <!-- NW rim on lit edge -->
+  <line x1="24" y1="6.5" x2="17.6" y2="29" stroke="#fbf4dc" stroke-width="0.6" stroke-opacity="0.5"/>
+
+  <!-- base pivot dot -->
+  <circle cx="24" cy="29" r="2.1" fill="#14160f" stroke="#d8d6c4" stroke-width="0.9"/>
+
+  <!-- bold N below -->
+  <g>
+    <path d="M20.4 44.4 v-7 M20.4 37.4 l7 7 M27.4 44.4 v-7" fill="none" stroke="#0c0d0a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+    <path d="M20.4 44.4 v-7 M20.4 37.4 l7 7 M27.4 44.4 v-7" fill="none" stroke="#e0a72b" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

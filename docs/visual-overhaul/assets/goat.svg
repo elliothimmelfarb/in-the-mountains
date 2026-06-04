@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- GOAT: small top-down animal prop (footprint ~0.8 m), tan/brown body, small head.
+       Facing +x (head forward). ROTATING: symmetric contact shadow + gentle top light.
+       Body is elongated along x (snout-to-tail), narrower than a person. -->
+  <defs>
+    <radialGradient id="goat-body" cx="0.4" cy="0.3" r="0.95">
+      <stop offset="0" stop-color="#b8a785"/>
+      <stop offset="0.6" stop-color="#94815f"/>
+      <stop offset="1" stop-color="#6c5c41"/>
+    </radialGradient>
+    <filter id="goat-soft" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="0.85"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="24" cy="24.6" rx="7.2" ry="4.4" fill="#181308" opacity="0.30" filter="url(#goat-soft)"/>
+
+  <!-- four small legs hinted at the corners -->
+  <circle cx="20.4" cy="21.6" r="0.95" fill="#5a4c37"/>
+  <circle cx="20.4" cy="26.4" r="0.95" fill="#5a4c37"/>
+  <circle cx="27.6" cy="21.8" r="0.9" fill="#5a4c37"/>
+  <circle cx="27.6" cy="26.2" r="0.9" fill="#5a4c37"/>
+
+  <!-- body: elongated oval along x (the spine), widest mid-body -->
+  <ellipse cx="23.4" cy="24" rx="6.6" ry="3.8" fill="url(#goat-body)" stroke="#241c12" stroke-width="0.8" stroke-opacity="0.6"/>
+  <!-- spine ridge + NW back highlight -->
+  <path d="M18 24 q5.6 -0.6 11 0" fill="none" stroke="#5e5037" stroke-width="0.55" stroke-opacity="0.45"/>
+  <path d="M19.4 21.6 q4 -1.2 8.2 -0.4" fill="none" stroke="#d2c4a2" stroke-width="0.8" stroke-opacity="0.55" stroke-linecap="round"/>
+
+  <!-- tail at the rear (-x) -->
+  <path d="M17 24 q-2 -0.6 -2.4 0.6" fill="none" stroke="#6c5c41" stroke-width="1.4" stroke-linecap="round"/>
+
+  <!-- neck + small head forward (+x) -->
+  <path d="M29 24 q2.2 -0.3 3.6 -0.2" fill="none" stroke="#8c7a58" stroke-width="3.2" stroke-linecap="round"/>
+  <ellipse cx="33.6" cy="23.8" rx="2.6" ry="2" fill="url(#goat-body)" stroke="#241c12" stroke-width="0.75"/>
+  <!-- two small backswept horns -->
+  <path d="M33 22.2 q1.6 -1.8 3 -2" fill="none" stroke="#4e4534" stroke-width="0.8" stroke-linecap="round"/>
+  <path d="M33.4 25.2 q1.6 1.6 3 1.6" fill="none" stroke="#4e4534" stroke-width="0.8" stroke-linecap="round"/>
+  <!-- snout tip -->
+  <ellipse cx="35.8" cy="23.9" rx="0.9" ry="0.8" fill="#5a4c37"/>
+</svg>

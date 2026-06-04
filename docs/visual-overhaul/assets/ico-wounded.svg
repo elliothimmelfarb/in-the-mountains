@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- WOUNDED: red badge with a bandage / cross -->
+  <circle cx="12" cy="12" r="8" fill="none" stroke="#c0392b" stroke-width="1.7"/>
+  <path d="M12 8 v8 M8 12 h8" stroke="#c0392b" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

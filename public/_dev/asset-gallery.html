@@ -1,0 +1,89 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ITM Asset Gallery</title>
+<style>
+  :root { --bg:#0c0d0a; --panel:#14160f; --line:#2c3022; --ink:#d8d6c4; --amber:#e0a72b; }
+  * { box-sizing: border-box; }
+  body { background:var(--bg); color:var(--ink); font-family: ui-monospace, Menlo, monospace; margin:0; padding:18px; }
+  h1 { font-size:14px; letter-spacing:2px; color:var(--amber); text-transform:uppercase; margin:0 0 4px; }
+  .sub { font-size:11px; color:#9a9a82; margin-bottom:16px; }
+  .grid { display:flex; flex-wrap:wrap; gap:14px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:4px; padding:8px 10px 10px; }
+  .card .id { font-size:10px; color:var(--amber); margin-bottom:6px; letter-spacing:0.5px; }
+  .card .meta { font-size:9px; color:#9a9a82; margin-bottom:8px; }
+  .swatches { display:flex; gap:8px; align-items:flex-end; }
+  .sw { display:flex; flex-direction:column; align-items:center; gap:3px; }
+  .sw .lbl { font-size:8px; color:#777; }
+  .tile { display:flex; align-items:center; justify-content:center; border-radius:3px; }
+  .bg-dark { background:#14160f; } .bg-crop { background:#8a984e; } .bg-scree { background:#9c927e; }
+  .bg-forest { background:#324c30; } .bg-river { background:#40687a; }
+  .rot { display:flex; gap:6px; margin-top:8px; }
+  .rot .tile { background:#8a984e; }
+  svg { display:block; }
+</style>
+</head>
+<body>
+<h1 id="title">ITM Asset Gallery</h1>
+<div class="sub" id="sub">loading…</div>
+<div class="grid" id="grid"></div>
+<script>
+const params = new URLSearchParams(location.search);
+const manifest = params.get('manifest') || '/_dev/assets.json';
+const sizes = (params.get('sizes') || '24,40,64,96').split(',').map(Number);
+const bgs = [['bg-dark','panel'],['bg-crop','crop'],['bg-scree','scree'],['bg-forest','forest']];
+
+function tile(svg, px, bgClass) {
+  const t = document.createElement('div');
+  t.className = 'tile ' + bgClass;
+  t.style.width = (px+10)+'px'; t.style.height = (px+10)+'px';
+  t.innerHTML = svg;
+  const s = t.querySelector('svg');
+  if (s) { s.setAttribute('width', px); s.setAttribute('height', px); }
+  return t;
+}
+
+fetch(manifest).then(r=>r.json()).then(list=>{
+  document.getElementById('title').textContent = (params.get('title')||'ITM Asset Gallery') + ' — ' + list.length + ' assets';
+  document.getElementById('sub').textContent = manifest + ' · sizes ' + sizes.join('/') + 'px · backgrounds: panel / cropland / scree / forest';
+  const grid = document.getElementById('grid');
+  for (const a of list) {
+    const card = document.createElement('div'); card.className='card';
+    const id = document.createElement('div'); id.className='id'; id.textContent=a.id; card.appendChild(id);
+    const meta = document.createElement('div'); meta.className='meta';
+    meta.textContent = (a.footprint!=null?('~'+a.footprint+'m '):'') + (a.rotating?'· rotating ':'· static ') + (a.anchor?('· anchor '+a.anchor.join(',')):'');
+    card.appendChild(meta);
+    const sw = document.createElement('div'); sw.className='swatches';
+    // pick representative bg per asset: figures on crop, structures on scree, markers on dark
+    const showBgs = a.rotating ? ['bg-crop','bg-forest','bg-dark'] : ['bg-scree','bg-crop','bg-dark'];
+    for (const sz of sizes) {
+      const col = document.createElement('div'); col.className='sw';
+      col.appendChild(tile(a.svg, sz, showBgs[0]));
+      const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=sz+'px'; col.appendChild(lbl);
+      sw.appendChild(col);
+    }
+    // extra backgrounds at one size
+    for (const b of showBgs.slice(1)) {
+      const col=document.createElement('div'); col.className='sw';
+      col.appendChild(tile(a.svg, 64, b));
+      const lbl=document.createElement('div'); lbl.className='lbl'; lbl.textContent=b.replace('bg-',''); col.appendChild(lbl);
+      sw.appendChild(col);
+    }
+    card.appendChild(sw);
+    if (a.rotating) {
+      const rot = document.createElement('div'); rot.className='rot';
+      for (const deg of [0,45,90,135,180,225,270,315]) {
+        const t = tile(a.svg, 44, 'bg-crop');
+        const s = t.querySelector('svg'); if (s) s.style.transform = 'rotate('+deg+'deg)';
+        rot.appendChild(t);
+      }
+      card.appendChild(rot);
+    }
+    grid.appendChild(card);
+  }
+  document.body.setAttribute('data-ready','1');
+}).catch(e=>{ document.getElementById('sub').textContent='ERROR: '+e; });
+</script>
+</body>
+</html>

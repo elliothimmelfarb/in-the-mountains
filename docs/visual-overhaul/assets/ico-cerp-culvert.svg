@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-culvert: pipe under a road embankment, water flowing through. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- road/embankment top surface -->
+    <path d="M2.6 7.4 L21.4 7.4"/>
+    <!-- embankment slopes down to the pipe opening -->
+    <path d="M2.6 7.4 L6 13"/>
+    <path d="M21.4 7.4 L18 13"/>
+    <!-- ground line either side -->
+    <path d="M2.6 17.6 L6 17.6 M18 17.6 L21.4 17.6"/>
+    <!-- pipe mouth (front circle) -->
+    <ellipse cx="12" cy="15.3" rx="6" ry="2.4"/>
+  </g>
+  <!-- water flowing through (amber active accent) -->
+  <path d="M7.4 15.3 C9 14.4 10 16.2 12 15.3 C14 14.4 15 16.2 16.6 15.3" fill="none" stroke="#e0a72b" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

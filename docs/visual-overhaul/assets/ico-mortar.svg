@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-mortar: mortar tube on bipod, round arcing out. ui-support flat ink. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- tube, angled up-right -->
+    <path d="M6 18.6 L14.4 7.8"/>
+    <!-- baseplate / ground -->
+    <path d="M4.2 19.2 L9 19.2"/>
+    <!-- bipod legs from a clamp on the tube -->
+    <path d="M10 13.2 L7 19"/>
+    <path d="M10 13.2 L12.6 19"/>
+    <!-- arcing trajectory (dashed, clearly visible) -->
+    <path d="M14.4 7.8 C17.6 4.8 19.8 5.4 20.4 8.6" stroke-dasharray="0.1 2.4"/>
+  </g>
+  <!-- round leaving the tube (amber active accent) -->
+  <circle cx="15.7" cy="6.4" r="1.7" fill="#e0a72b"/>
+</svg>

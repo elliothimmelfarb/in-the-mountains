@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- REEDS, riverbank reed/grass clump, top-down (slight tilt). STATIC: thin vertical
+       green-tan blades tapering to lighter tips, SE cast shadow. No hard base ring. -->
+  <defs>
+    <filter id="reeds-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow (soft, no rim) -->
+  <ellipse cx="26" cy="35" rx="12" ry="4.5" fill="#1c160e" opacity="0.26" filter="url(#reeds-soft)"/>
+
+  <!-- soft low tuft base, feathered (not a hard ring) -->
+  <ellipse cx="24" cy="33.5" rx="9" ry="3.2" fill="#5c6638" opacity="0.55" filter="url(#reeds-soft)"/>
+
+  <!-- shaded SE blades (darker, set behind/right) -->
+  <g stroke="#4e5a30" stroke-opacity="0.9" stroke-linecap="round" fill="none">
+    <path d="M28 33 q2 -9 1.5 -18" stroke-width="1.0"/>
+    <path d="M31 33 q3 -7 4.5 -13" stroke-width="0.9"/>
+    <path d="M26 33 q0.5 -10 -0.5 -17" stroke-width="1.0"/>
+    <path d="M33 33 q3 -6 6.5 -10" stroke-width="0.8"/>
+    <path d="M29.5 33 q2.5 -8 3 -15" stroke-width="0.85"/>
+  </g>
+  <!-- lit NW blades (front-left, brighter) -->
+  <g stroke="#86964e" stroke-opacity="0.95" stroke-linecap="round" fill="none">
+    <path d="M22 33 q-2 -9 -2.5 -17" stroke-width="1.05"/>
+    <path d="M19 33 q-3 -7 -5.5 -12" stroke-width="0.95"/>
+    <path d="M24 33 q1 -10 0 -18" stroke-width="1.05"/>
+    <path d="M16.5 33 q-2 -5 -3.5 -9" stroke-width="0.85"/>
+    <path d="M21 33 q-1 -8 -0.5 -14" stroke-width="0.95"/>
+    <path d="M25.5 33 q1.5 -9 1.5 -16" stroke-width="0.9"/>
+  </g>
+  <!-- fine bright blade tips (taper) -->
+  <g stroke="#bcc480" stroke-opacity="0.9" stroke-linecap="round" fill="none">
+    <path d="M19.5 18 q-0.4 -2.5 -1 -4.5" stroke-width="0.7"/>
+    <path d="M24 16 q0 -2.5 0 -4" stroke-width="0.7"/>
+    <path d="M13.5 22.5 q-0.6 -1.8 -1.2 -3" stroke-width="0.6"/>
+    <path d="M29.5 16 q0.3 -2.5 0.8 -4.5" stroke-width="0.65"/>
+    <path d="M25.5 18 q0.3 -2 0.5 -3.5" stroke-width="0.6"/>
+    <path d="M35.5 21 q0.6 -1.5 1.2 -2.5" stroke-width="0.55"/>
+  </g>
+</svg>

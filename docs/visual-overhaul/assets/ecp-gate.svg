@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 72">
+  <!-- ECP (Entry Control Point): vehicle gate in the wire. Road runs through N->S; a red/white swing-arm
+       boom blocks it; jersey barriers form a serpentine chicane; a guard shack sits beside; concertina
+       coils flank the wire; a STOP/checkpoint sign on the approach. NW light + SE cast shadows. -->
+  <defs>
+    <linearGradient id="ecpGate-road" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#83755e"/><stop offset="0.5" stop-color="#8c7e64"/><stop offset="1" stop-color="#776a54"/>
+    </linearGradient>
+    <linearGradient id="ecpGate-barrierTop" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#aaa79a"/><stop offset="1" stop-color="#928f82"/>
+    </linearGradient>
+    <linearGradient id="ecpGate-barrierFace" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#807d72"/><stop offset="1" stop-color="#65624f"/>
+    </linearGradient>
+    <filter id="ecpGate-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+  </defs>
+  <!-- road running through (N top -> S bottom) -->
+  <path d="M34 0 L40 0 L52 72 L40 72 Z" fill="url(#ecpGate-road)" opacity="0.95"/>
+  <g stroke="#6e624e" stroke-width="0.8" stroke-opacity="0.5">
+    <path d="M37 0 L48 72" fill="none"/><path d="M41 0 L52 72" fill="none"/>
+  </g>
+  <ellipse cx="46" cy="40" rx="30" ry="22" fill="#867c6a" opacity="0.18"/>
+  <!-- concertina wire coils flanking the wire line -->
+  <g stroke="#8f8a78" stroke-width="0.7" fill="none" opacity="0.9">
+    <path d="M2 30 q3 -4 6 0 q3 4 6 0 q3 -4 6 0 q3 4 6 0 q3 -4 6 0"/>
+    <path d="M2 31.5 q3 4 6 0 q3 -4 6 0 q3 4 6 0 q3 -4 6 0 q3 4 6 0"/>
+    <path d="M62 30 q3 -4 6 0 q3 4 6 0 q3 -4 6 0 q3 4 6 0 q3 -4 6 0 q3 4 6 0"/>
+    <path d="M62 31.5 q3 4 6 0 q3 -4 6 0 q3 4 6 0 q3 -4 6 0 q3 4 6 0 q3 -4 6 0"/>
+  </g>
+  <g stroke="#1c160e" stroke-width="1.4" stroke-opacity="0.12" fill="none" filter="url(#ecpGate-soft)">
+    <path d="M2 33 h30"/><path d="M62 33 h30"/>
+  </g>
+  <!-- jersey-barrier serpentine chicane -->
+  <g>
+    <g>
+      <path d="M22 21 h13 l2 3 h-13 z" fill="#1c160e" opacity="0.28" filter="url(#ecpGate-soft)"/>
+      <rect x="22" y="18" width="13" height="4" fill="url(#ecpGate-barrierFace)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+      <polygon points="22,18 35,18 36,15 23,15" fill="url(#ecpGate-barrierTop)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+      <line x1="23" y1="15" x2="36" y2="15" stroke="#d8d5c8" stroke-width="0.5" stroke-opacity="0.6"/>
+    </g>
+    <g>
+      <path d="M52 33 h13 l2 3 h-13 z" fill="#1c160e" opacity="0.28" filter="url(#ecpGate-soft)"/>
+      <rect x="52" y="30" width="13" height="4" fill="url(#ecpGate-barrierFace)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+      <polygon points="52,30 65,30 66,27 53,27" fill="url(#ecpGate-barrierTop)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+      <line x1="53" y1="27" x2="66" y2="27" stroke="#d8d5c8" stroke-width="0.5" stroke-opacity="0.6"/>
+    </g>
+    <g>
+      <path d="M26 49 h13 l2 3 h-13 z" fill="#1c160e" opacity="0.28" filter="url(#ecpGate-soft)"/>
+      <rect x="26" y="46" width="13" height="4" fill="url(#ecpGate-barrierFace)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+      <polygon points="26,46 39,46 40,43 27,43" fill="url(#ecpGate-barrierTop)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+      <line x1="27" y1="43" x2="40" y2="43" stroke="#d8d5c8" stroke-width="0.5" stroke-opacity="0.6"/>
+    </g>
+  </g>
+  <!-- swing-arm boom across the road -->
+  <g>
+    <ellipse cx="30" cy="37" rx="3" ry="2" fill="#1c160e" opacity="0.26" filter="url(#ecpGate-soft)"/>
+    <circle cx="30" cy="36" r="2.2" fill="#6b6f4a" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6"/>
+    <path d="M31 38 L58 36 L58 38 L31 40 z" fill="#1c160e" opacity="0.22" filter="url(#ecpGate-soft)"/>
+    <g>
+      <rect x="30" y="34.2" width="28" height="2.6" rx="1.2" fill="#c8c2b0" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+      <rect x="33" y="34.2" width="3.5" height="2.6" fill="#b5532a"/>
+      <rect x="40" y="34.2" width="3.5" height="2.6" fill="#b5532a"/>
+      <rect x="47" y="34.2" width="3.5" height="2.6" fill="#b5532a"/>
+      <rect x="54" y="34.2" width="3.5" height="2.6" fill="#b5532a"/>
+      <line x1="30" y1="34.5" x2="58" y2="34.5" stroke="#f3ecd6" stroke-width="0.4" stroke-opacity="0.5"/>
+    </g>
+  </g>
+  <!-- guard shack beside the gate (SE) -->
+  <g>
+    <ellipse cx="66" cy="51" rx="9" ry="3.5" fill="#1c160e" opacity="0.28" filter="url(#ecpGate-soft)"/>
+    <polygon points="64,42 72,46 72,50 64,46" fill="#7a6c46" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6"/>
+    <polygon points="64,42 56,46 56,50 64,46" fill="#9a8a5c" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6"/>
+    <rect x="59" y="46" width="2.5" height="3.2" fill="#2a2418"/>
+    <polygon points="64,36 55,42 64,42" fill="#94895f" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+    <polygon points="64,36 73,42 64,42" fill="#756b4c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+    <polygon points="55,42 64,46 64,42" fill="#807653" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+    <polygon points="73,42 64,46 64,42" fill="#605838" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+    <line x1="64" y1="36" x2="55" y2="42" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.55"/>
+    <line x1="64" y1="36" x2="64" y2="42" stroke="#cdbb86" stroke-width="0.4" stroke-opacity="0.5"/>
+    <g stroke="#6c6347" stroke-width="0.35" stroke-opacity="0.5">
+      <line x1="61" y1="38" x2="57" y2="41.5"/><line x1="60" y1="40" x2="58" y2="41.6"/>
+    </g>
+  </g>
+  <!-- STOP / checkpoint sign -->
+  <g>
+    <ellipse cx="32" cy="17" rx="3.4" ry="1.5" fill="#1c160e" opacity="0.26" filter="url(#ecpGate-soft)"/>
+    <line x1="31" y1="16" x2="31" y2="9" stroke="#9a978c" stroke-width="1"/>
+    <polygon points="27,4 34,4 38,8 38,14 34,18 27,18 23,14 23,8" fill="#9c2c20" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+    <polygon points="27.5,4.7 33.5,4.7 37.3,8.5 37.3,13.5 33.5,17.3 27.5,17.3 23.7,13.5 23.7,8.5" fill="none" stroke="#e6e0cf" stroke-width="0.7" stroke-opacity="0.9"/>
+    <rect x="26" y="10" width="9" height="2" rx="0.3" fill="#e6e0cf"/>
+  </g>
+  <!-- HESCO/sandbag nub anchoring the wire on the east -->
+  <g>
+    <rect x="74" y="44" width="7" height="5" rx="1" fill="#a89668" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+    <ellipse cx="77.5" cy="43.5" rx="3.4" ry="1.4" fill="#b3a06f" stroke="#7a6a44" stroke-width="0.3"/>
+  </g>
+</svg>

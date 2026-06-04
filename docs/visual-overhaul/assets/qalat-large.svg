@@ -1,0 +1,185 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <!-- qalat-large: a hamlet - several mud compounds packed together, winding alleys,
+       varied roof heights, animal pens, a small open space. STATIC, NW light, SE cast shadow.
+       anchor [0.5,0.82], footprint 40 m. -->
+  <defs>
+    <linearGradient id="qalatLg-wallTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bda072"/>
+      <stop offset="1" stop-color="#a08254"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-court" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9c8158"/>
+      <stop offset="1" stop-color="#856b44"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-court2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#96794f"/>
+      <stop offset="1" stop-color="#7e633e"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-court3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#a18560"/>
+      <stop offset="1" stop-color="#896f47"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ac9374"/>
+      <stop offset="1" stop-color="#8a7252"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-roof2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a08a6a"/>
+      <stop offset="1" stop-color="#7e684a"/>
+    </linearGradient>
+    <linearGradient id="qalatLg-roof3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b29a78"/>
+      <stop offset="1" stop-color="#917a58"/>
+    </linearGradient>
+    <radialGradient id="qalatLg-tree" cx="0.38" cy="0.34" r="0.74">
+      <stop offset="0" stop-color="#728146"/>
+      <stop offset="1" stop-color="#3e4e2a"/>
+    </radialGradient>
+    <filter id="qalatLg-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.4"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow under the whole hamlet -->
+  <path d="M16 90 h84 l12 10 -8 8 h-88 z" fill="#1c160e" opacity="0.30" filter="url(#qalatLg-soft)"/>
+
+  <!-- courtyard floors -->
+  <rect x="12" y="14" width="46" height="50" rx="1.5" fill="url(#qalatLg-court)"/>
+  <rect x="58" y="18" width="42" height="44" rx="1.5" fill="url(#qalatLg-court2)"/>
+  <rect x="18" y="62" width="44" height="44" rx="1.5" fill="url(#qalatLg-court3)"/>
+  <rect x="62" y="60" width="46" height="46" rx="1.5" fill="url(#qalatLg-court)"/>
+
+  <!-- wall rings (raised ramparts) -->
+  <path d="M12 14 h46 v50 h-46 z M18 20 v38 h34 v-38 z"
+        fill="url(#qalatLg-wallTop)" fill-rule="evenodd" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M54 18 h46 v44 h-46 z M60 24 v32 h34 v-32 z"
+        fill="url(#qalatLg-wallTop)" fill-rule="evenodd" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M18 60 h44 v46 h-44 z M24 66 v34 h32 v-34 z"
+        fill="url(#qalatLg-wallTop)" fill-rule="evenodd" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <path d="M58 60 h50 v46 h-50 z M64 66 v34 h38 v-34 z"
+        fill="url(#qalatLg-wallTop)" fill-rule="evenodd" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+
+  <!-- inner SE-facing wall shade (thickness) -->
+  <path d="M18 20 h34 v2.2 h-31.8 v35.8 h-2.2 z" fill="#6b5638" opacity="0.5"/>
+  <path d="M60 24 h34 v2.2 h-31.8 v29.8 h-2.2 z" fill="#6b5638" opacity="0.5"/>
+  <path d="M24 66 h32 v2.2 h-29.8 v31.8 h-2.2 z" fill="#6b5638" opacity="0.5"/>
+  <path d="M64 66 h38 v2.2 h-35.8 v31.8 h-2.2 z" fill="#6b5638" opacity="0.5"/>
+  <!-- inner NW-facing wall light -->
+  <path d="M52 20 v38 h-34 v-1.4 h32.6 v-36.6 z" fill="#c8ad7c" opacity="0.3"/>
+  <path d="M94 24 v32 h-34 v-1.4 h32.6 v-30.6 z" fill="#c8ad7c" opacity="0.3"/>
+  <path d="M56 66 v34 h-32 v-1.4 h30.6 v-32.6 z" fill="#c8ad7c" opacity="0.3"/>
+  <path d="M102 66 v34 h-38 v-1.4 h36.6 v-32.6 z" fill="#c8ad7c" opacity="0.3"/>
+
+  <!-- winding alleys (shadowed seams) -->
+  <rect x="56" y="22" width="2.4" height="40" fill="#5a4830" opacity="0.55"/>
+  <rect x="60" y="58" width="44" height="2.4" fill="#5a4830" opacity="0.5"/>
+  <rect x="14" y="58" width="42" height="2.4" fill="#5a4830" opacity="0.5"/>
+  <rect x="60" y="60" width="2.4" height="22" fill="#5a4830" opacity="0.5"/>
+
+  <!-- NW compound: N long block -->
+  <g>
+    <rect x="20.5" y="22.5" width="26" height="9" fill="url(#qalatLg-roof)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M20.5 31.5 h26 l1.5 1.7 h-26 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M46.5 22.5 v9 l1.5 1.7 v-9 z" fill="#5f4d34" opacity="0.9"/>
+    <g stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"><line x1="28.5" y1="22.5" x2="28.5" y2="31.5"/><line x1="37" y1="22.5" x2="37" y2="31.5"/></g>
+    <line x1="20.5" y1="22.5" x2="46.5" y2="22.5" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.6"/>
+  </g>
+  <!-- NW compound: W tall block -->
+  <g>
+    <rect x="20.5" y="40" width="10" height="15" fill="url(#qalatLg-roof2)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M20.5 55 h10 l1.7 1.9 h-10 z" fill="#6a5538" opacity="0.9"/>
+    <path d="M30.5 40 v15 l1.7 1.9 v-15 z" fill="#5a4830" opacity="0.92"/>
+    <line x1="20.5" y1="47.5" x2="30.5" y2="47.5" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="20.5" y1="40" x2="30.5" y2="40" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.55"/>
+  </g>
+  <!-- NE compound: E block -->
+  <g>
+    <rect x="82" y="27" width="10" height="22" fill="url(#qalatLg-roof)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M82 49 h10 l1.7 1.9 h-10 z" fill="#6a5538" opacity="0.9"/>
+    <path d="M92 27 v22 l1.7 1.9 v-22 z" fill="#5a4830" opacity="0.92"/>
+    <line x1="82" y1="38" x2="92" y2="38" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="82" y1="27" x2="92" y2="27" stroke="#efe3b6" stroke-width="0.55" stroke-opacity="0.6"/>
+    <line x1="82" y1="27" x2="82" y2="49" stroke="#efe3b6" stroke-width="0.45" stroke-opacity="0.45"/>
+  </g>
+  <!-- NE compound: N small room -->
+  <g>
+    <rect x="62.5" y="27" width="9" height="8" fill="url(#qalatLg-roof3)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M62.5 35 h9 l1.4 1.6 h-9 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M71.5 27 v8 l1.4 1.6 v-8 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="62.5" y1="27" x2="71.5" y2="27" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.55"/>
+  </g>
+  <!-- SW compound: S block -->
+  <g>
+    <rect x="26.5" y="68.5" width="11" height="10" fill="url(#qalatLg-roof2)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M26.5 78.5 h11 l1.6 1.8 h-11 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M37.5 68.5 v10 l1.6 1.8 v-10 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="26.5" y1="68.5" x2="37.5" y2="68.5" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.55"/>
+  </g>
+  <!-- SW compound: W tall block -->
+  <g>
+    <rect x="26.5" y="82" width="9" height="15" fill="url(#qalatLg-roof)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M26.5 97 h9 l1.5 1.7 h-9 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M35.5 82 v15 l1.5 1.7 v-15 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="26.5" y1="89.5" x2="35.5" y2="89.5" stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="26.5" y1="82" x2="35.5" y2="82" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.55"/>
+  </g>
+  <!-- SE compound: big tall block -->
+  <g>
+    <rect x="88" y="69" width="12" height="22" fill="url(#qalatLg-roof)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M88 91 h12 l2 2.2 h-12 z" fill="#665036" opacity="0.92"/>
+    <path d="M100 69 v22 l2 2.2 v-22 z" fill="#56442d" opacity="0.94"/>
+    <g stroke="#7a6446" stroke-width="0.4" stroke-opacity="0.6"><line x1="88" y1="80" x2="100" y2="80"/><line x1="94" y1="69" x2="94" y2="91"/></g>
+    <line x1="88" y1="69" x2="100" y2="69" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.6"/>
+    <line x1="88" y1="69" x2="88" y2="91" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.5"/>
+  </g>
+  <!-- SE compound: N small room -->
+  <g>
+    <rect x="66.5" y="69" width="10" height="9" fill="url(#qalatLg-roof3)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+    <path d="M66.5 78 h10 l1.5 1.7 h-10 z" fill="#6f5a3c" opacity="0.85"/>
+    <path d="M76.5 69 v9 l1.5 1.7 v-9 z" fill="#5f4d34" opacity="0.9"/>
+    <line x1="66.5" y1="69" x2="76.5" y2="69" stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.55"/>
+  </g>
+
+  <!-- animal pen (SW courtyard) -->
+  <rect x="42" y="84" width="12" height="12" fill="#8a7250" opacity="0.55" stroke="#5e4c32" stroke-width="0.6" stroke-opacity="0.6"/>
+  <g stroke="#7a5a38" stroke-width="0.5" stroke-opacity="0.7">
+    <line x1="42" y1="88" x2="54" y2="88"/><line x1="42" y1="92" x2="54" y2="92"/>
+    <line x1="46" y1="84" x2="46" y2="96"/><line x1="50" y1="84" x2="50" y2="96"/>
+  </g>
+  <g fill="#cdbf9a" stroke="#6e5c3c" stroke-width="0.3"><ellipse cx="44.5" cy="90" rx="1.2" ry="0.8"/><ellipse cx="51" cy="86.5" rx="1.1" ry="0.7"/></g>
+
+  <!-- well (SE open space) -->
+  <ellipse cx="80" cy="92" rx="3" ry="2.8" fill="#1c160e" opacity="0.22" filter="url(#qalatLg-soft)" transform="translate(1,1)"/>
+  <circle cx="79.5" cy="91.5" r="2.7" fill="#9a8060" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <circle cx="79.5" cy="91.5" r="1.2" fill="#352a1c"/>
+
+  <!-- walnut trees (NW-lit canopies, each grounded by SE shadow) -->
+  <g>
+    <ellipse cx="44" cy="46" rx="5" ry="4.6" fill="#1c160e" opacity="0.24" filter="url(#qalatLg-soft)" transform="translate(1.6,1.6)"/>
+    <circle cx="44" cy="45.5" r="4.3" fill="url(#qalatLg-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+    <path d="M40.9 42.7 a4.3 4.3 0 0 1 5.4 -1" fill="none" stroke="#8f9b5b" stroke-width="0.9" stroke-opacity="0.6"/>
+  </g>
+  <g>
+    <ellipse cx="73" cy="46" rx="4.4" ry="4" fill="#1c160e" opacity="0.24" filter="url(#qalatLg-soft)" transform="translate(1.6,1.6)"/>
+    <circle cx="73" cy="45.5" r="3.7" fill="url(#qalatLg-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+    <path d="M70.4 43.2 a3.7 3.7 0 0 1 4.6 -0.8" fill="none" stroke="#8f9b5b" stroke-width="0.8" stroke-opacity="0.6"/>
+  </g>
+  <g>
+    <ellipse cx="50" cy="74.5" rx="3.9" ry="3.6" fill="#1c160e" opacity="0.24" filter="url(#qalatLg-soft)" transform="translate(1.4,1.4)"/>
+    <circle cx="50" cy="74" r="3.4" fill="url(#qalatLg-tree)" stroke="#2c3a1e" stroke-width="0.5" stroke-opacity="0.7"/>
+    <path d="M47.6 71.8 a3.4 3.4 0 0 1 4.2 -0.7" fill="none" stroke="#8f9b5b" stroke-width="0.8" stroke-opacity="0.6"/>
+  </g>
+
+  <!-- gates -->
+  <rect x="32" y="57.6" width="6.5" height="2.6" fill="url(#qalatLg-court)"/>
+  <rect x="30.6" y="56.4" width="1.7" height="3.4" rx="0.3" fill="#7a5a38" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.55"/>
+  <rect x="38.3" y="56.4" width="1.7" height="3.4" rx="0.3" fill="#664c2f" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.55"/>
+  <rect x="80" y="99.6" width="7" height="6.4" fill="url(#qalatLg-court)"/>
+  <rect x="78.5" y="99.2" width="1.9" height="6.8" rx="0.4" fill="#7a5a38" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="86.6" y="99.2" width="1.9" height="6.8" rx="0.4" fill="#664c2f" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <rect x="78.1" y="98.4" width="10.4" height="1.9" rx="0.5" fill="#8a6a40" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+
+  <!-- NW rim light / SE deep edge on outer crests -->
+  <path d="M12 14 h46 M12 14 v50 M58 18 h42 M58 18 v0 M18 60 h0 M18 60 v46 M58 60 h50" fill="none" stroke="#efe3b6" stroke-width="0.85" stroke-opacity="0.55"/>
+  <path d="M12 64 h46 M58 62 v0 M108 60 v46 M18 106 h44 M58 106 h50" fill="none" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.38"/>
+</svg>

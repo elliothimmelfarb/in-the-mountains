@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 54">
+  <!-- GP TENT: military general-purpose tent, arched tan canvas, ridge line, guy-lines + stakes,
+       door flap on the NW end. VOLUME: bold half-cylinder — bright NW-lit upper face, deep SE
+       shade face, dark vertical sidewall band where the canvas meets the ground, NW rim,
+       grounding SE cast shadow.
+       STATIC: NW light + SE cast shadow. anchor [0.5,0.80]. footprint 6 m. -->
+  <defs>
+    <linearGradient id="bldTent-canvasNW" x1="0" y1="1" x2="0.08" y2="0">
+      <stop offset="0" stop-color="#bcaf86"/>
+      <stop offset="0.5" stop-color="#d4c89e"/>
+      <stop offset="1" stop-color="#b3a785"/>
+    </linearGradient>
+    <linearGradient id="bldTent-canvasSE" x1="0" y1="0" x2="0.06" y2="1">
+      <stop offset="0" stop-color="#94885f"/>
+      <stop offset="1" stop-color="#766a4c"/>
+    </linearGradient>
+    <linearGradient id="bldTent-wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6e6244"/>
+      <stop offset="1" stop-color="#544a34"/>
+    </linearGradient>
+    <linearGradient id="bldTent-end" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#aca078"/>
+      <stop offset="1" stop-color="#8a7e5c"/>
+    </linearGradient>
+    <filter id="bldTent-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW (offset down-right, grounds the tent) -->
+  <ellipse cx="35" cy="42" rx="24" ry="6.5" fill="#1c160e" opacity="0.34" filter="url(#bldTent-soft)"/>
+
+  <!-- guy-lines and stakes (drawn under the canvas, splaying out) -->
+  <g stroke="#6e5d3c" stroke-width="0.5" stroke-opacity="0.7">
+    <line x1="14" y1="22" x2="6" y2="16"/><line x1="22" y1="18" x2="18" y2="10"/>
+    <line x1="33" y1="16" x2="33" y2="8"/><line x1="46" y1="18" x2="51" y2="11"/>
+    <line x1="14" y1="36" x2="8" y2="42"/><line x1="50" y1="36" x2="57" y2="42"/>
+    <line x1="52" y1="24" x2="59" y2="22"/>
+  </g>
+  <g fill="#5a4a30">
+    <circle cx="6" cy="16" r="0.8"/><circle cx="18" cy="10" r="0.8"/><circle cx="33" cy="8" r="0.8"/>
+    <circle cx="51" cy="11" r="0.8"/><circle cx="8" cy="42" r="0.8"/><circle cx="57" cy="42" r="0.8"/>
+    <circle cx="59" cy="22" r="0.8"/>
+  </g>
+
+  <!-- ===== SE-facing shaded SIDEWALL BAND (vertical canvas meeting ground, clearly dark) ===== -->
+  <path d="M12 32 q4 -1 21 -1 q17 0 21 1 l0 5 q-4 -1 -21 -1 q-17 0 -21 1 z"
+        fill="url(#bldTent-wall)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+
+  <!-- SE (far/lower) half of the canvas arch (shade) -->
+  <path d="M12 32 q4 -18 21 -18 q17 0 21 18 l-5 0 q-4 -13 -16 -13 q-12 0 -16 13 z"
+        fill="url(#bldTent-canvasSE)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+
+  <!-- NW (near/upper) LIT face of the canvas arch (bright, broad) -->
+  <path d="M12 32 q4 -18 21 -18 q17 0 21 18 q-4 -11.5 -21 -11.5 q-17 0 -21 11.5 z"
+        fill="url(#bldTent-canvasNW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.45"/>
+
+  <!-- ridge line along the top of the arch -->
+  <path d="M12 32 q4 -18 21 -18 q17 0 21 18" fill="none" stroke="#857a5c" stroke-width="0.9" stroke-opacity="0.6"/>
+  <!-- STRONG NW RIM HIGHLIGHT along the lit crest -->
+  <path d="M13 31 q4 -16 20 -16 q16 0 20 16" fill="none" stroke="#efe6c4" stroke-width="0.9" stroke-opacity="0.6"/>
+
+  <!-- canvas seam ribs (following the arch, lit side) -->
+  <g stroke="#9a8e6c" stroke-width="0.4" stroke-opacity="0.55" fill="none">
+    <path d="M19 31 q3 -11 7 -13.5"/>
+    <path d="M27 31 q1 -11 3 -15"/>
+    <path d="M40 31 q-1 -11 -3 -15"/>
+    <path d="M48 31 q-3 -11 -7 -13.5"/>
+  </g>
+  <!-- shade-side seam ribs -->
+  <g stroke="#6e6246" stroke-width="0.4" stroke-opacity="0.5" fill="none">
+    <path d="M23 31.6 q2 -3.5 3 -4.5"/>
+    <path d="M30 32 q0 -2.5 0 -3.5"/>
+    <path d="M44 31.6 q-2 -3.5 -3 -4.5"/>
+  </g>
+
+  <!-- ridge vent cap near the apex -->
+  <ellipse cx="33" cy="14.5" rx="3.2" ry="1.4" fill="#aca078" stroke="#74684c" stroke-width="0.4" stroke-opacity="0.6"/>
+
+  <!-- door flap on the NW end (rolled/tied open, dark interior) -->
+  <path d="M14 32 q3 -14.5 11 -17 l0 17 z" fill="url(#bldTent-end)" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.5"/>
+  <!-- dark doorway opening -->
+  <path d="M17 31.6 q2 -9 6 -12 l0 12 z" fill="#5a523c"/>
+  <path d="M18.5 30.8 q1.6 -6.5 4.5 -9.5 l0 9.5 z" fill="#41513f" opacity="0.85"/>
+  <!-- tied-back flap edge highlight -->
+  <path d="M14 32 q3 -14.5 11 -17" fill="none" stroke="#d8cea4" stroke-width="0.5" stroke-opacity="0.5"/>
+  <!-- base hem keyline grounding the tent -->
+  <path d="M12 37 q21 4 42 0" fill="none" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+</svg>

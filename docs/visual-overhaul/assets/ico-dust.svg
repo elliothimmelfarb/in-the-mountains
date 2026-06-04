@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- DUST/HAZE: wind & dust swirl lines -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3.5 8.5 h11 a2.4 2.4 0 1 0 -2.4 -2.4"/>
+    <path d="M3.5 12 h14 a2.6 2.6 0 1 1 -2.6 2.6"/>
+    <path d="M3.5 15.5 h8 a2.1 2.1 0 1 1 -2.1 2.1"/>
+  </g>
+  <circle cx="6" cy="18.4" r="1.05" fill="#e0a72b"/>
+</svg>

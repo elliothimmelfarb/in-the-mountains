@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- ACM RPG GUNNER (RPG-7), top-down, facing +x. ROTATING: symmetric contact shadow +
+       rotation-tolerant top light. anchor [0.5,0.5], footprint 1.4 m.
+       Earth-tone man-dress, ROUND turban head, red scarf accent. RPG-7 over the
+       shoulder: long tube angled diagonally with a BULBOUS warhead at the front. -->
+  <defs>
+    <radialGradient id="acmRpg-head" cx="0.4" cy="0.34" r="0.85">
+      <stop offset="0" stop-color="#b6a274"/>
+      <stop offset="0.6" stop-color="#8c7a52"/>
+      <stop offset="1" stop-color="#5e5036"/>
+    </radialGradient>
+    <linearGradient id="acmRpg-body" x1="0.25" y1="0.05" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#9c8a62"/>
+      <stop offset="1" stop-color="#665636"/>
+    </linearGradient>
+    <linearGradient id="acmRpg-tube" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a6048"/>
+      <stop offset="1" stop-color="#3e382a"/>
+    </linearGradient>
+    <radialGradient id="acmRpg-warhead" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#7a6e50"/>
+      <stop offset="1" stop-color="#3a3224"/>
+    </radialGradient>
+    <filter id="acmRpg-soft" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="24" cy="25" rx="10.6" ry="9.4" fill="#181308" opacity="0.30" filter="url(#acmRpg-soft)"/>
+
+  <!-- torso / man-dress -->
+  <path d="M18.5 18
+           q-3 0.5 -3 6 q0 5.5 3 6
+           q5.4 0.8 9.6 -1 q2.2 -1 2.2 -5 q0 -4 -2.2 -5 q-4.2 -1.8 -9.6 -1z"
+        fill="url(#acmRpg-body)" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.6"/>
+  <g stroke="#564730" stroke-width="0.45" stroke-opacity="0.5" fill="none">
+    <path d="M20 20.4 q3 3.6 0 7.2"/>
+  </g>
+  <!-- shoulder caps -->
+  <ellipse cx="20" cy="19.4" rx="3" ry="2.1" fill="#7e6c48" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.4"/>
+  <ellipse cx="20" cy="28.6" rx="3" ry="2.1" fill="#7e6c48" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.4"/>
+
+  <!-- back arm bracing the tube at the rear shoulder -->
+  <path d="M20 28 q4 0.6 7 3.6" fill="none" stroke="#6f5e3e" stroke-width="2.6" stroke-linecap="round"/>
+
+  <!-- RPG-7 launcher carried over the shoulder, diagonal -->
+  <g>
+    <!-- rear venturi flare -->
+    <path d="M16.5 32.4 l3.4 -1.9 1.2 2.1 -3.4 1.9z" fill="#3a3224" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+    <!-- main tube -->
+    <line x1="18.4" y1="31.4" x2="36" y2="21.6" stroke="#1c160e" stroke-width="3.4" stroke-linecap="round" stroke-opacity="0.55"/>
+    <line x1="18.4" y1="31.4" x2="36" y2="21.6" stroke="url(#acmRpg-tube)" stroke-width="2.6" stroke-linecap="round"/>
+    <!-- grip + trigger pack hint -->
+    <line x1="26" y1="29.4" x2="27.6" y2="32" stroke="#2a2418" stroke-width="1.8" stroke-linecap="round"/>
+    <!-- bulbous warhead at the FRONT -->
+    <ellipse cx="38.4" cy="20.1" rx="3.3" ry="2.5" fill="url(#acmRpg-warhead)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.6" transform="rotate(-29 38.4 20.1)"/>
+    <!-- warhead nose cap -->
+    <circle cx="40.6" cy="18.9" r="0.95" fill="#2a2418"/>
+  </g>
+
+  <!-- front arm cradling under the tube -->
+  <path d="M22 21 q6.4 1.2 10.4 4.8" fill="none" stroke="#7d6a44" stroke-width="2.7" stroke-linecap="round"/>
+
+  <!-- head: ROUND turban, focal & forward -->
+  <circle cx="25.6" cy="24" r="5.5" fill="url(#acmRpg-head)" stroke="#1c160e" stroke-width="0.9"/>
+  <g stroke="#5e5036" stroke-width="0.6" stroke-opacity="0.6" fill="none">
+    <path d="M20.7 22.4 a5.5 5.5 0 0 1 9.2 -0.6"/>
+    <path d="M20.5 25.6 a5.5 5.5 0 0 0 9.6 0.8"/>
+  </g>
+  <path d="M21.6 20.8 a5.5 5.5 0 0 1 4.3 -1.8" fill="none" stroke="#efe3b6" stroke-width="0.9" stroke-opacity="0.6" stroke-linecap="round"/>
+  <!-- red scarf accent trailing off the shoulder -->
+  <path d="M19 17.8 q-2.4 -0.6 -4 0.8" fill="none" stroke="#c0392b" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M29.6 25 q1.8 0.6 2.8 -0.4" fill="none" stroke="#c0392b" stroke-width="1.3" stroke-linecap="round" stroke-opacity="0.85"/>
+</svg>

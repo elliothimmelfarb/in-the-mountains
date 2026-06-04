@@ -1,0 +1,1442 @@
+{
+  "sol-us-squadleader": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-saw": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-grenadier": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-medic": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-rto": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-marksman": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-sniper": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-jtac": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-machinegunner": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.5,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-us-engineer": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "sol-ana-rifleman": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "ana-soldiers"
+  },
+  "sol-ana-leader": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "ana-soldiers"
+  },
+  "sol-ana-mg": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "ana-soldiers"
+  },
+  "sol-ana-rpg": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "ana-soldiers"
+  },
+  "sol-interpreter": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "ana-soldiers"
+  },
+  "acm-fighter": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-rpg": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-mg": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-commander": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-marksman": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-spotter": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-ied": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "acm-suspected": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "insurgents"
+  },
+  "civ-villager": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "civ-farmer": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "civ-herder": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "civ-elder": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "civ-child": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 0.9,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "civ-woman": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "goat": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 0.8,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "donkey": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "civilians"
+  },
+  "sol-us-rifleman": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 1.4,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "marker-intel-sigint": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-intel-humint": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-intel-visual": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-peak": {
+    "anchor": [
+      0.5,
+      0.85
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-saddle": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-spur": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-draw": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-junction": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "marker-bridge": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "pin-village-good": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "pin-village-neutral": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "pin-village-hostile": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "cop-pin": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "flag-objective": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "flag-waypoint": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "medevac-marker": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "contact-marker": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "ied-marker": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "map-markers"
+  },
+  "compass-rose": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "north-arrow": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "scale-bar": {
+    "anchor": [
+      0,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "legend-frame": {
+    "anchor": [
+      0,
+      0
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "map-edge-frame": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "coordinate-tab": {
+    "anchor": [
+      0,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "range-ring": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "hud-cartography"
+  },
+  "bld-toc": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 10,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-barracks": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 9,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-dfac": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 9,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-aid": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 8,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-armory": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-motorpool": {
+    "anchor": [
+      0.5,
+      0.78
+    ],
+    "footprint": 12,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-latrine": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 4,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-bhut": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 7,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-conex": {
+    "anchor": [
+      0.5,
+      0.8
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "bld-tent": {
+    "anchor": [
+      0.5,
+      0.8
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "cop-buildings"
+  },
+  "hesco-corner": {
+    "anchor": [
+      0.5,
+      0.78
+    ],
+    "footprint": 1.5,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "guard-tower": {
+    "anchor": [
+      0.5,
+      0.84
+    ],
+    "footprint": 3.5,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "fighting-position": {
+    "anchor": [
+      0.5,
+      0.74
+    ],
+    "footprint": 3,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "ecp-gate": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 8,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "sandbag-wall": {
+    "anchor": [
+      0.5,
+      0.8
+    ],
+    "footprint": 2,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "concertina": {
+    "anchor": [
+      0.5,
+      0.78
+    ],
+    "footprint": 2,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "jersey-barrier": {
+    "anchor": [
+      0.5,
+      0.8
+    ],
+    "footprint": 3,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "cop-flag": {
+    "anchor": [
+      0.5,
+      0.95
+    ],
+    "footprint": 2,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "antenna-array": {
+    "anchor": [
+      0.5,
+      0.84
+    ],
+    "footprint": 2,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "windsock": {
+    "anchor": [
+      0.5,
+      0.92
+    ],
+    "footprint": 3,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "lz-pad": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 24,
+    "rotating": false,
+    "family": "aviation-vehicles"
+  },
+  "helo-uh60": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 16,
+    "rotating": false,
+    "family": "aviation"
+  },
+  "helo-ch47": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 20,
+    "rotating": false,
+    "family": "aviation"
+  },
+  "veh-mrap": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 6,
+    "rotating": true,
+    "family": "vehicles"
+  },
+  "veh-hmmwv": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 5,
+    "rotating": true,
+    "family": "vehicles"
+  },
+  "veh-pickup": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 5,
+    "rotating": true,
+    "family": "vehicles"
+  },
+  "veh-jingle-truck": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 7,
+    "rotating": true,
+    "family": "vehicles"
+  },
+  "qalat-small": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 16,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "qalat-medium": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 26,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "qalat-large": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 40,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "mosque": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 14,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "cemetery": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 18,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "bazaar-stall": {
+    "anchor": [
+      0.5,
+      0.82
+    ],
+    "footprint": 5,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "terrace-field": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 24,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "footbridge": {
+    "anchor": [
+      0.5,
+      0.78
+    ],
+    "footprint": 10,
+    "rotating": false,
+    "family": "village-compounds"
+  },
+  "tree-cedar": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 7,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "tree-walnut": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "tree-poplar": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 4,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "bush-scrub": {
+    "anchor": [
+      0.5,
+      0.6
+    ],
+    "footprint": 2.5,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "boulder": {
+    "anchor": [
+      0.5,
+      0.66
+    ],
+    "footprint": 2.5,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "rock-outcrop": {
+    "anchor": [
+      0.5,
+      0.66
+    ],
+    "footprint": 5,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "reeds": {
+    "anchor": [
+      0.5,
+      0.74
+    ],
+    "footprint": 3,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "crop-furrow": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 12,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "hesco-straight": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 1.5,
+    "rotating": false,
+    "family": "cop-defenses"
+  },
+  "ico-select": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-move": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-assault": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-hold": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-suppress": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-smoke": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-frag": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-withdraw": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-presence": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-recon": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-ambush": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-census": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-cordon": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-overwatch": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-orders"
+  },
+  "ico-mortar": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cas-gun": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cas-hellfire": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-medevac": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-well": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-school": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-clinic": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-road": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-hydro": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-wall": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-culvert": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-footbridge": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-cerp-mosque": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-support"
+  },
+  "ico-ammo": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-fuel": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-water": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-food": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-medical": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-construction": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-ready": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-wounded": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-kia": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-tasked": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-clear": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-cloud": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-rain": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-dust": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-snow": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-logistics"
+  },
+  "ico-role-pl": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-sl": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-rfl": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-grn": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-saw": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-mg": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-dm": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-snp": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-doc": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-rto": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-fo": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "ico-role-eng": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "crest-us": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "crest-ana": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "crest-acm": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-roles"
+  },
+  "tree-cedar-b": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 7,
+    "rotating": false,
+    "family": "vegetation"
+  },
+  "tree-walnut-b": {
+    "anchor": [
+      0.5,
+      0.62
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "vegetation"
+  }
+}

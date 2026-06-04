@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Saddle/pass glyph: two humps with a dip between. FLAT milspec ink.
+       footprint:null (screen-fixed), anchor [0.5,0.5], rotating:false. -->
+  <defs>
+    <filter id="markerSaddle-halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+  </defs>
+  <!-- dark keyline halo behind -->
+  <g filter="url(#markerSaddle-halo)" stroke="#0c0d0a" stroke-opacity="0.5" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2.5 18 C5 18 5.5 7 8.5 7 C11 7 11.4 12.3 12 12.3 C12.6 12.3 13 7 15.5 7 C18.5 7 19 18 21.5 18"/>
+    <circle cx="12" cy="12.6" r="1.5"/>
+    <line x1="7" y1="20" x2="17" y2="20"/>
+  </g>
+  <!-- ink: two humps with the saddle dip between -->
+  <path d="M2.5 18 C5 18 5.5 7 8.5 7 C11 7 11.4 12.3 12 12.3 C12.6 12.3 13 7 15.5 7 C18.5 7 19 18 21.5 18"
+        fill="none" stroke="#d8d6c4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- pass route: a through-line across the low point, with the saddle node -->
+  <g stroke="#e0a72b" stroke-width="1.6" stroke-linecap="round" fill="none">
+    <line x1="7.2" y1="20" x2="16.8" y2="20"/>
+  </g>
+  <circle cx="12" cy="12.5" r="1.5" fill="#e0a72b"/>
+</svg>

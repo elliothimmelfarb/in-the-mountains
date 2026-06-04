@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72">
+  <!-- TERRACE FIELD: stepped agricultural terrace tile. Retaining walls following contours,
+       green crop on steps, an irrigation channel. Flat-ish, tileable, blends with cropland.
+       STATIC, NW light. anchor [0.5,0.5], footprint 24 m. -->
+  <defs>
+    <linearGradient id="ter-crop1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#94a258"/>
+      <stop offset="1" stop-color="#74883f"/>
+    </linearGradient>
+    <linearGradient id="ter-crop2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a9a50"/>
+      <stop offset="1" stop-color="#6c8038"/>
+    </linearGradient>
+    <linearGradient id="ter-crop3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9ba85e"/>
+      <stop offset="1" stop-color="#7c8e44"/>
+    </linearGradient>
+    <linearGradient id="ter-wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b09872"/>
+      <stop offset="1" stop-color="#8a704c"/>
+    </linearGradient>
+    <linearGradient id="ter-water" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#4a6e7a"/>
+      <stop offset="1" stop-color="#3a5e6e"/>
+    </linearGradient>
+  </defs>
+
+  <!-- base tile (slightly darker so steps read) -->
+  <rect x="0" y="0" width="72" height="72" fill="#74883f"/>
+
+  <!-- STEP 3 (highest, NW/back) crop band -->
+  <path d="M0 0 h72 v22 H0z" fill="url(#ter-crop3)"/>
+  <path d="M0 22 h72 v3 H0z" fill="url(#ter-wall)"/>
+  <line x1="0" y1="22" x2="72" y2="22" stroke="#cbb288" stroke-width="0.9" stroke-opacity="0.7"/>
+  <path d="M0 25 h72 v2.4 H0z" fill="#1c160e" opacity="0.22"/>
+
+  <!-- STEP 2 (middle) -->
+  <path d="M0 25 h72 v22 H0z" fill="url(#ter-crop2)"/>
+  <path d="M0 47 h72 v3 H0z" fill="url(#ter-wall)"/>
+  <line x1="0" y1="47" x2="72" y2="47" stroke="#cbb288" stroke-width="0.9" stroke-opacity="0.7"/>
+  <path d="M0 50 h72 v2.4 H0z" fill="#1c160e" opacity="0.22"/>
+
+  <!-- STEP 1 (lowest, front/SE) -->
+  <path d="M0 50 h72 v22 H0z" fill="url(#ter-crop1)"/>
+
+  <!-- contour curve in the walls (terraces follow the slope, not dead-straight) -->
+  <g fill="none" stroke="#9a8460" stroke-width="0.5" stroke-opacity="0.45">
+    <path d="M0 21 q36 3 72 0"/>
+    <path d="M0 46 q36 3 72 0"/>
+  </g>
+
+  <!-- CROP FURROWS: short vertical strokes on each step, suggesting planted rows -->
+  <g stroke="#5e7232" stroke-width="0.6" stroke-opacity="0.55">
+    <line x1="8" y1="6" x2="8" y2="20"/><line x1="18" y1="6" x2="18" y2="20"/><line x1="28" y1="6" x2="28" y2="20"/>
+    <line x1="40" y1="6" x2="40" y2="20"/><line x1="52" y1="6" x2="52" y2="20"/><line x1="62" y1="6" x2="62" y2="20"/>
+    <line x1="12" y1="29" x2="12" y2="45"/><line x1="24" y1="29" x2="24" y2="45"/><line x1="36" y1="29" x2="36" y2="45"/>
+    <line x1="48" y1="29" x2="48" y2="45"/><line x1="60" y1="29" x2="60" y2="45"/>
+    <line x1="8" y1="54" x2="8" y2="70"/><line x1="20" y1="54" x2="20" y2="70"/><line x1="32" y1="54" x2="32" y2="70"/>
+    <line x1="44" y1="54" x2="44" y2="70"/><line x1="56" y1="54" x2="56" y2="70"/><line x1="66" y1="54" x2="66" y2="70"/>
+  </g>
+  <!-- NW-side lighter crop highlight per step -->
+  <g fill="#aeb96e" opacity="0.3">
+    <rect x="0" y="2" width="72" height="4"/><rect x="0" y="27" width="72" height="4"/><rect x="0" y="52" width="72" height="4"/>
+  </g>
+
+  <!-- IRRIGATION CHANNEL running down the left edge, stepping with the terraces -->
+  <g>
+    <path d="M4 0 v22 l3 3 v22 l3 3 v22" fill="none" stroke="#3a5460" stroke-width="2.6" stroke-opacity="0.5"/>
+    <path d="M4 0 v22 l3 3 v22 l3 3 v22" fill="none" stroke="url(#ter-water)" stroke-width="1.6"/>
+    <path d="M4 0 v22 l3 3 v22 l3 3 v22" fill="none" stroke="#9fc4cc" stroke-width="0.5" stroke-opacity="0.5"/>
+  </g>
+  <!-- small water spill cuts where channel feeds each step -->
+  <g stroke="#4a6e7a" stroke-width="0.8" stroke-opacity="0.55">
+    <line x1="7" y1="34" x2="13" y2="36"/><line x1="10" y1="59" x2="16" y2="61"/>
+  </g>
+</svg>
