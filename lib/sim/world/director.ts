@@ -1,5 +1,5 @@
 import { clamp, clamp01 } from "../rng";
-import { Vec2, add, sub, norm, fromAngle, angle, dist } from "../vec";
+import { Vec2, add, sub, norm, scale, len, fromAngle, angle, dist } from "../vec";
 import { makeInsurgent, Unit } from "../entities";
 import { lineOfSight } from "../los";
 import type { World } from "./world";
@@ -28,8 +28,11 @@ export function runDirector(w: World, dt: number) {
   if (w.state.enemyStrengthAbs <= 1) return;
 
   const r = w.rng.next();
-  if (r < 0.42) spawnAmbushOnPatrol(w);
-  else if (r < 0.7) spawnInfiltration(w);
+  if (r < 0.42) {
+    // Against a patrol in a hotter valley, the ambush is often IED-initiated.
+    if (w.state.enemyHeat > 0.45 && w.activePatrolCentroid() && w.rng.chance(0.5)) spawnIedAmbush(w);
+    else spawnAmbushOnPatrol(w);
+  } else if (r < 0.7) spawnInfiltration(w);
   else if (r < 0.88 || !night) spawnHarass(w);
   else spawnComplexAttack(w);
 
@@ -75,6 +78,49 @@ function spawnAmbushOnPatrol(w: World) {
     e.rof = "hold";
     e.stance = "prone";
   });
+}
+
+/**
+ * An IED-initiated complex ambush — the signature valley opener. A charge is buried
+ * ahead of the patrol on its outbound axis; an L-shaped cell lies in wait, weapons
+ * tight, until the blast initiates and the whole element opens up at once. Activates
+ * the dead `ied_team` role (the triggerman) and the engine's IED system.
+ */
+function spawnIedAmbush(w: World) {
+  const patrol = w.activePatrolCentroid();
+  if (!patrol) return;
+  const cop = w.copWorld();
+  let dir = norm(sub(patrol, cop)); // the patrol is generally outbound from the wire
+  if (len(dir) < 0.1) dir = { x: 0, y: -1 };
+  // kill point a short bound ahead of the patrol, snapped to passable ground
+  let kill = clampMap(w.terrain, add(patrol, scale(dir, w.rng.range(40, 85))));
+  const kc = w.terrain.nearestPassable(Math.floor(kill.x / w.terrain.cellSize), Math.floor(kill.y / w.terrain.cellSize));
+  kill = w.terrain.cellCenter(kc.cx, kc.cy);
+  const count = drawEnemy(w, w.rng.int(3, 6));
+  if (count === 0) return;
+  const cellId = `acm-ied-${w.state.clock | 0}`;
+  // Concealed firing positions around the kill zone (the L), weapons tight.
+  const positions = firingPositions(w, kill, scale(dir, -1), count, 30, 120);
+  positions.forEach((pos, i) => {
+    const e = spawnFighter(w, pos, i, count);
+    e.squadId = cellId;
+    e.brainState = "ambush";
+    e.rof = "hold";
+    e.stance = "prone";
+    e.iedInit = true; // hold fire until the charge initiates
+    e.brainTimer = w.rng.range(4, 14);
+    if (i === 0) e.role = "ied_team"; // the triggerman who set and watches the charge
+  });
+  w.sim.plantIED(kill, cellId);
+  if (w.rng.chance(0.45)) {
+    w.addIntel({
+      source: "SIGINT",
+      text: `ICOM: "...it is ready on the road... wait until they reach it..."`,
+      reliability: 0.5,
+      cx: Math.round(kill.x / w.terrain.cellSize),
+      cy: Math.round(kill.y / w.terrain.cellSize),
+    });
+  }
 }
 
 /** Fighters move through the draws toward a village to cache / intimidate. */

@@ -107,6 +107,18 @@ export interface RevealedEnemy {
   confirmed: boolean; // currently in sight
 }
 
+/** A buried IED — command- or victim-detonated — that initiates a complex ambush
+ *  when the patrol walks into the kill zone. The signature opener in the valley. */
+export interface IED {
+  id: string;
+  pos: Vec2;
+  triggerRadius: number; // m — a US/ANA man this close sets it off
+  damage: number;
+  blastRadius: number;
+  armed: boolean;
+  cellSquadId?: string; // the ambush element this initiates
+}
+
 export type CombatOutcome = "ongoing" | "us_victory" | "us_withdraw" | "us_destroyed" | "stalemate";
 
 export interface CombatResult {
@@ -204,6 +216,7 @@ export class CombatSim {
   units: Unit[];
   projectiles: Projectile[] = [];
   smoke: SmokeScreen[] = [];
+  ieds: IED[] = [];
   effects: Effect[] = [];
   log: LogEntry[] = [];
   fireMissions: FireMission[] = [];
@@ -413,6 +426,9 @@ export class CombatSim {
       if (!u.alive || u.evac) continue;
       this.moveUnit(u, dt);
     }
+
+    // 4b. buried IEDs — a patrol that walks into the kill zone sets one off
+    this.stepIeds();
 
     // 5. firing (spawns projectiles)
     for (const u of this.units) {
@@ -1199,6 +1215,61 @@ export class CombatSim {
       dangerClose: false,
       spread: 38, // large CEP — unregistered, hand-laid tube
     });
+  }
+
+  /** Bury an IED in the kill zone, linked to the ambush cell it initiates. */
+  plantIED(pos: Vec2, cellSquadId: string, opts: { triggerRadius?: number; damage?: number; blastRadius?: number } = {}): IED {
+    const ied: IED = {
+      id: `ied-${_fmid++}`,
+      pos: { ...pos },
+      // The triggerman detonates with the lead men well inside the lethal radius, so
+      // the trigger sits INSIDE the blast (not at its edge).
+      triggerRadius: opts.triggerRadius ?? 8,
+      damage: opts.damage ?? 135, // a stacked-shell / pressure-cooker main charge
+      blastRadius: opts.blastRadius ?? 14,
+      armed: true,
+      cellSquadId,
+    };
+    this.ieds.push(ied);
+    return ied;
+  }
+
+  /** Trigger any armed IED whose kill zone now holds a friendly: it detonates (a big
+   *  command/victim blast) and initiates its linked ambush — the signature opener. */
+  private stepIeds() {
+    let fired = false;
+    for (const ied of this.ieds) {
+      if (!ied.armed) continue;
+      const inKill = this.units.some(
+        (u) => u.alive && !u.evac && (u.faction === "us" || u.faction === "ana") && dist(u.pos, ied.pos) <= ied.triggerRadius
+      );
+      if (!inKill) continue;
+      ied.armed = false;
+      fired = true;
+      this.addLog(`IED! Command-detonated blast — CONTACT!`, "contact");
+      // a big buried charge, attributed to the insurgents (frag → civcas-attributable)
+      const p: Projectile = {
+        id: `ied-${_eid}`, ownerId: "ied", faction: "insurgent", weaponId: "mortar82",
+        origin: { ...ied.pos }, pos: { ...ied.pos }, vel: { x: 0, y: 0 }, speed: 0,
+        aimpoint: { ...ied.pos }, targetId: null, traveled: 0, distToAim: 0,
+        damage: ied.damage, damageType: "frag", penetration: 0.5, blastRadius: ied.blastRadius,
+        suppressionRadius: ied.blastRadius * 2.4, suppression: 4, indirect: true, timeToImpact: 0,
+        arcHeight: 0, alive: true, age: 0, tracer: false, hit: false,
+      };
+      this.detonate(p, ied.pos);
+      // initiate the linked ambush: the cell springs from hold to engage at once
+      if (ied.cellSquadId) {
+        for (const e of this.units) {
+          if (e.faction !== "insurgent" || e.squadId !== ied.cellSquadId || !e.alive) continue;
+          e.iedInit = false; // the charge has gone — open up
+          e.brainState = "engage";
+          e.rof = "free";
+          e.brainTimer = this.rng.range(8, 16);
+          e.targetId = this.acquireTarget(e);
+        }
+      }
+    }
+    if (fired) this.ieds = this.ieds.filter((i) => i.armed);
   }
 
   private stepFireMissions(dt: number) {

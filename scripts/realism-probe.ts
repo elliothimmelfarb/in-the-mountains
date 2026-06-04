@@ -413,10 +413,45 @@ function saveloadProbe() {
   console.log(`  3000 ticks post-load: NaN unit samples ${nanUnits}, NaN projectile samples ${nanProj}  ${nanUnits + nanProj === 0 ? "✓ CLEAN" : "✗ CORRUPTED"}`);
 }
 
+/** Probe 10 (IED ambush, #10): a patrol walks onto a buried charge linked to a
+ *  waiting cell — it detonates and the ambush springs. Activates the dead ied_team. */
+function iedProbe() {
+  const { CombatSim } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+  const { makeInsurgent } = require("../lib/sim/entities") as typeof import("../lib/sim/entities");
+  const weather = { visibilityM: 4000, wind: 0, label: "Clear" };
+  console.log("\n=== IED AMBUSH (#10): patrol walks onto a buried charge ===");
+  const w = createWorld("ied-probe", 90);
+  const sim = new CombatSim({ terrain: w.terrain, rng: w.rng, units: [], light: 1, weather, persistent: true });
+  const g = flatGround(w.terrain);
+  const killPt = { x: Math.min(w.terrain.worldSize - 30, g.x + 60), y: g.y };
+  const squad = w.platoon.squads.find((s) => s.id === "sq1")!.memberIds.map((id) => w.platoon.members.find((m) => m.id === id)!);
+  squad.forEach((u, i) => {
+    u.pos = { x: g.x - i * 3, y: g.y }; u.alive = true; u.hp = 100; u.conscious = true; u.wounds = []; u.bleedRate = 0;
+    u.technique = "patrol"; u.brainState = "moving"; u.rof = "hold"; sim.addUnit(u); sim.moveTo(u, killPt);
+  });
+  const cellId = "acm-ied-test";
+  for (let i = 0; i < 4; i++) {
+    const e = makeInsurgent(w.rng.fork("amb" + i), i === 0 ? "ied_team" : "fighter", { x: killPt.x + 18, y: killPt.y + 12 + i * 4 }, 0.6);
+    e.squadId = cellId; e.brainState = "ambush"; e.rof = "hold"; e.stance = "prone"; e.iedInit = true; sim.addUnit(e);
+  }
+  sim.plantIED(killPt, cellId);
+  let detonated = false, cellEngaged = false, detTick = -1;
+  for (let t = 0; t < 2500; t++) {
+    sim.tick(0.1);
+    for (const u of squad) if (u.alive && u.conscious && u.path.length === 0 && u.brainState === "moving") sim.moveTo(u, killPt);
+    if (!detonated && sim.ieds.length === 0) { detonated = true; detTick = t; }
+    if (detonated && sim.units.some((e) => e.faction === "insurgent" && e.squadId === cellId && e.alive && e.brainState === "engage")) cellEngaged = true;
+  }
+  const usCas = squad.filter((u) => !u.alive || u.wounds.length > 0).length;
+  console.log(`  IED detonated: ${detonated}${detTick >= 0 ? ` (at ${(detTick / 10).toFixed(0)}s, as the point man hit the kill zone)` : ""}`);
+  console.log(`  ambush cell sprang hold→engage: ${cellEngaged} · US casualties in the kill zone: ${usCas}/${squad.length}`);
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
 if (which === "all" || which === "saveload") saveloadProbe();
+if (which === "all" || which === "ied") iedProbe();
 if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();

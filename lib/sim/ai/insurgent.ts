@@ -47,22 +47,29 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
       const trigger = weapon.effRange * (0.45 + 0.35 * u.aggression);
       const tgt = sim.acquireTarget(u);
       const enemy = sim.unit(tgt);
-      const inKillZone = enemy && dist(u.pos, enemy.pos) <= trigger;
-      if ((inKillZone || u.brainTimer <= -8) && tgt) {
+      // A cell waiting on an IED holds fire no matter how close the patrol gets — the
+      // CHARGE initiates the ambush (stepIeds flips them to engage), not the small arms.
+      const inKillZone = !u.iedInit && enemy && dist(u.pos, enemy.pos) <= trigger;
+      if ((inKillZone || (!u.iedInit && u.brainTimer <= -8)) && tgt) {
         u.targetId = tgt;
         u.rof = "free";
         u.brainState = "engage";
         u.brainTimer = sim.rng.range(8, 16);
         if (sim.rng.chance(0.5)) sim.addLog("CONTACT! Small arms from the high ground!", "contact");
-      } else if (u.brainTimer <= -22 && !tgt) {
-        // Nothing ever came into the sights — give up the position and melt away,
-        // or reposition to find an angle. Don't sit in ambush forever.
-        if (sim.rng.chance(0.5)) {
-          u.brainState = "exfil";
-          u.rof = "hold";
-        } else {
+      } else if (u.brainTimer <= (u.iedInit ? -90 : -22)) {
+        // Patience exhausted. The IED triggerman is disciplined and waits much longer
+        // for the kill zone to fill; only a no-show finally compromises the position.
+        if (tgt && sim.rng.chance(0.5)) {
+          // the position is compromised; open up with what we have
+          u.iedInit = false;
+          u.targetId = tgt;
+          u.rof = "free";
           u.brainState = "engage";
           u.brainTimer = sim.rng.range(4, 8);
+        } else {
+          // melt away up the draws
+          u.brainState = "exfil";
+          u.rof = "hold";
         }
       }
       break;

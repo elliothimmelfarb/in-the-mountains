@@ -151,6 +151,7 @@ export interface Unit {
   perceptTimer: number; // throttle for LOS scans
   visibleEnemyIds: string[]; // currently perceived enemies
   threatDir: Vec2 | null; // direction of most recent incoming fire (for cover)
+  iedInit?: boolean; // ambusher holding fire until the IED initiates (won't auto-trigger)
   evac: boolean; // removed from the field (MEDEVAC'd / fled off-map)
   spawnAtM?: number; // reinforcement schedule (game minutes)
   hasFired: boolean;

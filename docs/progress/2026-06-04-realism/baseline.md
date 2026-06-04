@@ -261,3 +261,19 @@ experiments. Fixes applied (all verified):
 - **Enemy cells now share a `squadId`** → the previously-dead enemy `promoteSuccessor`
   works: a fallen commander's cell promotes a successor and feels its losses (the
   enemy side of #3). tsc clean; no strands; enemy indirect still fires.
+
+### #10 IED-initiated complex ambush — `combat.ts` IED system, `director.spawnIedAmbush`
+Activates the dead `ied_team` role and a new buried-IED system. A charge is buried
+ahead of a patrol on its outbound axis; an L-shaped cell lies in wait with weapons
+**tight** (`iedInit` — they will NOT trigger on small arms, no matter how close the
+patrol gets). When the point man enters the kill zone the charge command-detonates
+and the whole cell springs hold→engage at once — the signature valley opener
+(previously impossible: the patrol's small arms always initiated). The buried device
+is invisible (only an ICOM hint betrays it); the blast is attributed to the
+insurgents (so a civilian caught in it routes through #6).
+
+Controlled probe (squad walks onto a linked charge): **IED detonates at 53 s as the
+point man hits the kill zone**, cell **springs hold→engage**, point man wounded (a
+maimed lead man, not a wiped squad — US armor/cover + the L-cell then fights it out).
+Iterated twice: longer triggerman patience (so the charge initiates before the cell
+loses discipline) and trigger radius pulled inside the blast. tsc clean.
