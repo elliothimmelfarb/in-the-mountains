@@ -2,7 +2,7 @@ import { RNG, clamp, clamp01, lerp } from "./rng";
 import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle } from "./vec";
 import { Terrain } from "./terrain";
 import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
-import { findPath, PathOptions } from "./path";
+import { findPath, walkable, PathOptions } from "./path";
 import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
@@ -1203,6 +1203,30 @@ export class CombatSim {
     u.path = [p];
     u.pathGoal = p;
     this.resetStall(u);
+  }
+
+  /**
+   * Short-range move that respects solid obstacles. Walks a straight line when the
+   * way is clear (cheap — the common case), and only routes around with A* when the
+   * straight segment is actually blocked by the wire, a building or a wall. This is
+   * the one mechanism that lets garrison soldiers move among now-solid buildings
+   * (issue 004) and assembling patrols route to the muster yard around them (issue
+   * 003) without any per-situation special-casing.
+   */
+  walkTo(u: Unit, point: Vec2) {
+    const p = { x: clamp(point.x, 2, this.terrain.worldSize - 2), y: clamp(point.y, 2, this.terrain.worldSize - 2) };
+    u.path = walkable(this.terrain, u.pos, p) ? [p] : findPath(this.terrain, u.pos, p);
+    u.pathGoal = p;
+    this.resetStall(u);
+  }
+
+  /**
+   * Civilian movement: as walkTo, but the goal is first snapped to passable ground
+   * that is never inside the COP wire/apron, so villagers by an outpost never have a
+   * goal across the HESCO (the "villagers wander into the wire" bug).
+   */
+  civMoveTo(u: Unit, point: Vec2) {
+    this.walkTo(u, this.terrain.civSafePoint(point.x, point.y));
   }
 
   /** Route a unit to a point following the terrain, honoring its move posture. */

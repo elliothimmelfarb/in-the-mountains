@@ -48,13 +48,15 @@ export function tickGarrison(w: World, dt: number) {
 
   // Building / post lookups (world meters).
   const fps = cop.fightingPositions.map((f) => ({ pos: w.terrain.cellCenter(f.cx, f.cy), face: f.facing }));
+  // Buildings are solid (issue 004), so a "post" at a building is its yard-side
+  // doorway (toward the COP centre), never boxed between the building and the wall.
   const at = (kind: string): Vec2 => {
     const b = cop.buildings.find((x) => x.kind === kind);
-    return b ? w.terrain.cellCenter(b.cx, b.cy) : center;
+    return b ? w.terrain.buildingSeat(b) : center;
   };
   const toc = at("toc");
   const aid = at("aid");
-  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => w.terrain.cellCenter(b.cx, b.cy));
+  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => w.terrain.buildingSeat(b));
   const dfac = at("dfac");
 
   // Rotating guard roster from the riflemen/NCOs (gun crews are posted separately).
@@ -115,9 +117,12 @@ export function tickGarrison(w: World, dt: number) {
     }
 
     m.faceLock = face;
-    if (m.path.length === 0 && dist(m.pos, post) > ARRIVE) {
-      w.sim.moveTo(m, post);
-    } else if (dist(m.pos, post) <= ARRIVE) {
+    // Keep the seat on passable ground (a jittered post can land on a solid wall/
+    // building) and route to it around solids instead of pinning on them.
+    const seat = w.terrain.passablePoint(post.x, post.y);
+    if (m.path.length === 0 && dist(m.pos, seat) > ARRIVE) {
+      w.sim.walkTo(m, seat);
+    } else if (dist(m.pos, seat) <= ARRIVE) {
       m.path = [];
     }
   }

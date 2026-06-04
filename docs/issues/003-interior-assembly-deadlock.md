@@ -57,3 +57,20 @@ is `R*0.4` along the gate axis.)
 
 - 004 (buildings are passable — units phase through them today, which masks/changes this behavior; if
   buildings become solid this issue's framing changes and the A* assembly fix becomes mandatory).
+
+## Resolution (2026-06-04)
+
+Both contributing factors were fixed (and, as predicted, the A* fix became mandatory once buildings
+went solid — see 004):
+
+- **Garrison seats moved to building YARD-side doorways.** `terrain.buildingSeat` steps off each
+  footprint toward the COP centre before snapping passable, so no soldier is ever boxed between a
+  building and the wall. On `survey-9` the squad *navigator* had been seated on the wall side of a
+  barracks and could never reach muster — that single boxed-in point man was the whole deadlock.
+- **Assembly routes with A*.** `world/tasks.ts` (assembling) and `world/garrison.ts` now call a new
+  `sim.walkTo` (straight when the line is clear, else `findPath`) instead of straight `moveTo`, so
+  members thread around now-solid buildings to the muster yard.
+
+Verified — `survey-9` now assembles **9/9 at the muster yard** within the timer and the patrol reaches
+its objective; wall/structure-blocked ticks across the diag seeds fell sharply (e.g. `korengal`
+8518 → 311, `valley-3` 8937 → ~400). `scripts/balance.ts`: no elements stranded.

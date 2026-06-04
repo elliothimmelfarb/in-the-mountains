@@ -10,15 +10,32 @@ The headline thing to internalize: **the movement system is now solid** (see
 problems — a COP gets sited or shaped such that it is hard or impossible to move around — not movement
 bugs. Fix the generation and the movement follows.
 
-## The issues
+## Status — ALL RESOLVED (2026-06-04)
 
-| # | Issue | Severity | Confidence |
-|---|-------|----------|------------|
-| [001](001-gate-egress-on-broken-ground.md) | Gate / immediate egress sited on impassable or broken ground; perimeter track has gaps | **High** | High (reproduced) |
-| [002](002-cop-siting-ignores-objective-bearing.md) | COP siting ignores where the villages/objectives are (gate faces away) | Medium | High (measured) |
-| [003](003-interior-assembly-deadlock.md) | Squad can't assemble/egress — members deadlock in the interior | Medium | Medium (one synthetic seed) |
-| [004](004-buildings-are-passable.md) | Interior buildings are passable (you can walk through the TOC) | Low (fidelity) | High (in code) |
-| [005](005-coarse-pathfinding-vs-gate-and-walls.md) | Coarse pathfinding fragility: a thin gate in a thick wall can seal at 15 m resolution | Medium | Medium |
+All five issues plus the player-reported "villagers wander into the wire" bug were fixed in
+the 2026-06-04 terrain-generation pass and verified with the harnesses below. See
+`docs/progress/2026-06-04-terrain/report.md` for the full write-up and before/after numbers.
+
+| # | Issue | Severity | Status | Verified by |
+|---|-------|----------|--------|-------------|
+| [001](001-gate-egress-on-broken-ground.md) | Gate egress on broken ground; ring gaps | **High** | ✅ Fixed | `copaudit`: egress 0/16 blocked, ring 98% (was 1/9, 90%) |
+| [002](002-cop-siting-ignores-objective-bearing.md) | COP siting/gate ignores the villages | Medium | ✅ Fixed | `copaudit`: gate faces >90° away 0/16 (was 7/9) |
+| [003](003-interior-assembly-deadlock.md) | Squad deadlocks assembling in the interior | Medium | ✅ Fixed | `survey-9` assembles 9/9 at muster, patrol arrives |
+| [004](004-buildings-are-passable.md) | Buildings are passable | Low (fidelity) | ✅ Fixed | `copaudit`: structures solid 16/16, no strandings |
+| [005](005-coarse-pathfinding-vs-gate-and-walls.md) | Thin gate can seal at coarse resolution | Medium | ✅ Fixed | benched ECP apron + generation-time portal guard, 0/16 disconnected |
+| — | **Villagers wander into the wire** (player report) | High | ✅ Fixed | `copaudit`: wire-pin ticks 0 (was 4467) |
+
+The original issue text is preserved below each file with a **Resolution** section appended.
+
+### Open / follow-up (surfaced during the same pass)
+
+| # | Issue | Severity | Status |
+|---|-------|----------|--------|
+| [006](006-far-village-reachability.md) | Far villages are a long march (cliff-isolation); reachability metric vs. time-warp | Low–Medium | Characterised, partially mitigated (graded village trails) |
+| [007](007-sim-level-terrain-ecology.md) | Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats, hydrology) | Low (fidelity) | Future measured pass |
+
+New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
+**`reachability.ts`** (the fair all-villages movement metric — see 006).
 
 ## Reproduction toolkit
 

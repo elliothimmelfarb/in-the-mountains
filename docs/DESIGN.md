@@ -162,15 +162,20 @@ leader, automatic rifleman, grenadier, rifleman) — composed on that structure:
 
 ### 3.8 The combat outpost
 The COP is a **place**, not a marker: a HESCO-walled perimeter with a single entry-control point,
-interior structures (TOC, barracks, aid station, armory, chow hall), a motor pool and helicopter
-LZ, and crew-served fighting positions and towers on the wall — all stamped into the terrain so
-cover, sight and pathing respect the wire. It is sited like the real Korengal Outpost — on a
-**commanding bench or low spur near the valley** (a few tens of metres above the floor, close enough
-to be supplied by road), not an alpine perch — and reached by a **narrow switchbacked access road**
-that follows the terrain down to the valley road, grading the ground only enough to keep the tread
-walkable instead of bulldozing a straight ramp. A **benched perimeter track** rings the wall (and the
-wall is thick enough to read as a real barrier at the pathfinding scale), so a patrol bound for the far
-side of the gate rounds the wire on a road rather than clawing across the hillside. Off-task soldiers **live** there: a rotating guard pulls
+interior structures (TOC, barracks, aid station, armory, chow hall — all **solid**, walked around not
+through), a motor pool and helicopter LZ, and crew-served fighting positions and towers on the wall —
+all stamped into the terrain so cover, sight and pathing respect the wire. It is sited like the real
+Korengal Outpost — on a **commanding bench or low spur near the valley** that also **overwatches its
+villages** (the siting score rewards a tactical standoff from the nearest village and a benchable
+perimeter), not an alpine perch. Its **gate is scored, not guessed**: of the 8 compass headings it takes
+the one with a passable, gentle apron that faces the area of operations (the villages it patrols) — so a
+real ECP looks out over its ground, never onto a cliff. A **benched ≥7-cell ECP apron** holds the gate
+and its egress flat regardless of the downhill grade, and a **narrow switchbacked access road** descends
+from the apron's far end to the valley road, following the terrain instead of bulldozing a ramp. A
+**benched perimeter track** rings the wall, and every **village is tied into the valley road by a graded
+foot trail**, so the valley is a connected network and a patrol rounds the wire on a road rather than
+clawing the hillside. (Generation also runs a coarse-connectivity check so the gate is always a working
+portal at the pathfinding scale.) Off-task soldiers **live** there: a rotating guard pulls
 security, gun crews stay on their guns, the platoon eats at the chow hall on the meal hours and
 sleeps in the barracks after dark, and the whole COP **stands to** when the wire takes fire.
 
@@ -185,10 +190,15 @@ A deployment of configurable length (e.g., 60–270 in-game days) on one continu
   a reflective end-of-tour after-action that grades the deployment, heavily penalizing losses.
 
 ## 5. Rendering & UI
-- **One live surface** (`WorldView`): Canvas 2D. Hillshade (relief) + contour lines + landcover
-  tint + grid + markers (COP, villages, project sites, suspected enemy, patrol route, intel) +
-  units, facing, stance, LOS lines, tracer fire, smoke, impacts, suppression/morale state, fog of
-  war. Pan/zoom, select (click/box), order tools, plan-mode waypoints, fire-support targeting.
+- **One live surface** (`WorldView`): Canvas 2D over a once-baked relief sheet. The bake
+  (`render/topo.ts`) is a **field-guide topographic image**: two-light shaded relief (NW key + soft SE
+  fill) with a sky-ambient/occlusion term for tall ridges, **per-landcover procedural texture** (dappled
+  forest/orchard canopy with planted rows, patchwork cropland with contour furrows, grainy rock/scree
+  speckle, flowing-water shimmer), **snow on the high crests**, a saturation lift and light altitude/haze
+  grading for depth, plus marching-squares **contour lines**. Over it: grid + markers (COP, villages,
+  project sites, suspected enemy, patrol route, intel) + units, facing, stance, LOS lines, tracer fire,
+  smoke, impacts, suppression/morale state, fog of war. Pan/zoom, select (click/box), order tools,
+  plan-mode waypoints, fire-support targeting.
 - **Aesthetic**: dark tactical "command post" theme — desaturated olive/tan/charcoal, mono
   for data, map ink for the topo. Readable, dense, military map symbology (MIL-STD-2525-ish).
 - **HUD**: top command bar (clock/light/weather/metrics + pause/speed/warp), left column

@@ -37,13 +37,14 @@ export function createWorld(seed: string, totalDays = 90): World {
   const units: Unit[] = [];
   const cop = terrain.cop;
   const copWorld = terrain.cellCenter(cop.center.cx, cop.center.cy);
+  // Seat billets at building yard-side doorways (structures are solid — issue 004).
   const bWorld = (kind: string, fallback: typeof copWorld) => {
     const b = cop.buildings.find((x) => x.kind === kind);
-    return b ? terrain.cellCenter(b.cx, b.cy) : fallback;
+    return b ? terrain.buildingSeat(b) : fallback;
   };
   const toc = bWorld("toc", copWorld);
   const aid = bWorld("aid", copWorld);
-  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => terrain.cellCenter(b.cx, b.cy));
+  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => terrain.buildingSeat(b));
   let bi = 0;
   for (const m of platoon.members) {
     // Start the platoon at believable billets inside the wire (garrison life
@@ -52,7 +53,9 @@ export function createWorld(seed: string, totalDays = 90): World {
     if (m.role === "platoon_leader" || m.role === "platoon_sergeant" || m.role === "rto" || m.role === "jtac") home = toc;
     else if (m.role === "medic") home = aid;
     else if (barracks.length) home = barracks[bi++ % barracks.length];
-    m.pos = clampMap(terrain, { x: home.x + rng.range(-7, 7), y: home.y + rng.range(-7, 7) });
+    // Buildings are solid now (issue 004) — start the billet at the building's
+    // passable doorway/yard edge, not on the (impassable) roof.
+    m.pos = terrain.passablePoint(home.x + rng.range(-7, 7), home.y + rng.range(-7, 7));
     m.brainState = "garrison";
     m.rof = "free";
     m.stance = "stand";
@@ -65,7 +68,9 @@ export function createWorld(seed: string, totalDays = 90): World {
       const roles: Role[] = ["farmer", "herder", "villager", "child", "elder"];
       const role = rng.weighted(roles, [40, 20, 25, 12, 3]);
       const c = terrain.cellCenter(v.cx + rng.int(-spread, spread), v.cy + rng.int(-spread, spread));
-      const civ = makeCivilian(rng.fork(`civ-${v.id}-${i}`), role, clampMap(terrain, c), v.id);
+      // Spawn on passable ground that's never inside the wire (a village hard by the COP
+      // must not seed villagers on the HESCO).
+      const civ = makeCivilian(rng.fork(`civ-${v.id}-${i}`), role, terrain.civSafePoint(c.x, c.y), v.id);
       civ.routine = buildRoutine(terrain, v, rng);
       units.push(civ);
     }

@@ -53,3 +53,20 @@ combination avoids it, but the failure mode is real and the margin is unknown.
 
 - 001 (gate egress terrain), the movement report's "Bug 3" section
   (`docs/progress/2026-06-03-movement-report.html`).
+
+## Resolution (2026-06-04)
+
+Both suggested directions were implemented:
+
+- **The gate is now a guaranteed coarse portal.** The benched ECP apron (issue 001) is ≥7 cells wide
+  and flat from `R-3` out to `R+8`, so a clean 15 m coarse node always sits on the opening, clear of the
+  wall and at low barrier-penalty — exactly "carve the gate ≥1 full coarse node wide on passable,
+  low-penalty ground."
+- **A generation-time assertion + auto-repair** — `terrain.ensureGatePortal()` runs after the COP and
+  roads are built: it floods the COP-vicinity coarse nodes from the inside-gate node and, if the
+  outside-gate node isn't reachable at the 15 m scale, widens the gate corridor (overwriting wall, never
+  a qalat) until it is. Cheap insurance that would have caught the rebuild's wall/penalty tuning
+  regressions instantly. With the apron it never has to fire on shipped tuning.
+
+Verified — `copaudit.ts 16`: **gate portal disconnected 0/16** (a `findPath(muster → far-outside)`
+probe), wall still sealed (`smoke.ts`).

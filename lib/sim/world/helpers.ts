@@ -61,7 +61,9 @@ export function buildRoutine(terrain: Terrain, v: VillageState, rng: RNG): CivRo
     const p = add(home, fromAngle(rng.range(0, Math.PI * 2), rng.range(20, 110)));
     nodes.push({
       phase: "day",
-      target: clampMap(terrain, p),
+      // Pattern-of-life waypoints sit on passable ground and never inside the COP
+      // wire/apron, so villagers by an outpost work their fields instead of the wire.
+      target: terrain.civSafePoint(p.x, p.y),
       activity: rng.pick(["fields", "herding", "water", "market"]),
     });
   }

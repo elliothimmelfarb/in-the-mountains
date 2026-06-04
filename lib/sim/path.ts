@@ -290,7 +290,7 @@ function stringPull(terrain: Terrain, start: Vec2, pts: Vec2[], opts: PathOption
 }
 
 /** Is the straight segment between a and b passable on foot the whole way. */
-function walkable(terrain: Terrain, a: Vec2, b: Vec2): boolean {
+export function walkable(terrain: Terrain, a: Vec2, b: Vec2): boolean {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const d = Math.hypot(dx, dy);
