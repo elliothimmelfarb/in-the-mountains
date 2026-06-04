@@ -217,3 +217,15 @@ Controlled probe (identical wound, bare CombatSim, only aid varies):
 The lone death is the unattended unconscious extremity bleed — the #1 *preventable*
 battlefield death, now in the model. Completes with #9 (a buddy closes to treat).
 tsc clean; smoke OK.
+
+### #8 Combat-load weight → speed & fatigue — `combat.combatLoadKg`, `moveUnit`
+`roundWeight`/carried weight were unused in movement. Now every man's combat load
+(kg) — US armor+water+ammo+the squad's heavy weapons vs the insurgent's light chest
+rig — drags his pace above a 25 kg reference and burns him out faster, with fitness
+offsetting some. Ammo dominates the variable load and lightens as he shoots. RNG-neutral.
+
+Probe loads (real Korengal figures): rifleman **30 kg**, SAW gunner **40 kg**, 240
+gunner **56 kg**. Over the same ground the 240 gunner fatigues **+20%** (0.53 vs 0.44)
+— the gun team sets the tempo. Matched-seed A/B: load adds KIA 1.00→1.40, WIA
+3.70→4.70 (a tired squad arrives at the fight shooting worse) — the "every man a mule"
+realism, flagged for the final global calibration. tsc clean; smoke OK; no strands.

@@ -140,6 +140,27 @@ function isStealthTechnique(t: MoveTechnique): boolean {
  *  the LLDR, and the weapons-squad MG gunners behind tripod thermals/LRAS3. */
 const THERMAL_ROLES = new Set(["marksman", "sniper", "jtac", "machinegunner"]);
 
+/** Rough carried weight of a weapon SYSTEM on a foot patrol (kg). Crew-served guns
+ *  (M2/Mk19/mortars) are emplaced or crew-hauled, so they're light per-man here. */
+const WEAPON_KG: Record<string, number> = {
+  carbine: 3.5, rifle: 4, lmg: 8, mmg: 12, dmr: 5.5, sniper: 7, gl: 1.5,
+  rocket: 7, missile: 11, pistol: 1, hmg: 14, agl: 14, mortar: 6,
+};
+
+/** Reference fighting load (kg) above which load starts to bite into speed/fatigue. */
+const REF_LOAD_KG = 25;
+
+/** A unit's current combat load (kg) — the Korengal "every man a mule". US troops
+ *  carry armor, water, ammo and the squad's heavy weapons; insurgents travel light.
+ *  Ammo dominates the variable load and the man gets lighter as he shoots. */
+export function combatLoadKg(u: Unit, w: Weapon): number {
+  let kg = u.faction === "us" || u.faction === "ana" ? 22 : 8; // IOTV/plates/water vs a chest rig
+  kg += WEAPON_KG[w.cls] ?? 4;
+  kg += (u.ammo + u.reserveAmmo) * w.roundWeight;
+  kg += (u.grenades ?? 0) * 0.4 + (u.smokes ?? 0) * 0.5 + (u.glRounds ?? 0) * 0.23;
+  return kg;
+}
+
 const STANCE_SPEED: Record<Unit["stance"], number> = {
   stand: 1,
   crouch: 0.58,
@@ -657,6 +678,11 @@ export class CombatSim {
     speed *= 0.55 + 0.45 * u.fitnessMax;
     speed *= 1 - u.fatigue * 0.45;
     speed *= 1 - u.suppression * 0.4;
+    // Combat load: every man a mule. A heavy load (the SAW/240 gunner, the man
+    // humping mortar rounds) drags the pace and burns him out faster; fitness offsets
+    // some of it. Computed here (cheap), the same figure feeds the fatigue accrual.
+    const overload = Math.max(0, combatLoadKg(u, this.weaponOf(u)) - REF_LOAD_KG);
+    speed *= clamp(1 - overload * (0.006 * (1.3 - u.fitnessMax)), 0.5, 1);
     // leg wounds slow you
     if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
     // squad pace governor: the point man eases the throttle (never a dead stop) so
@@ -693,10 +719,12 @@ export class CombatSim {
     u.moving = true;
     u.speed = blocked ? 0 : speed;
 
-    // fatigue from movement (steeper + higher = worse)
+    // fatigue from movement (steeper + higher + heavier = worse)
     const slope = this.terrain.slopeAt(u.pos.x, u.pos.y);
     const alt = clamp01((this.terrain.elevAt(u.pos.x, u.pos.y) - 1500) / 1400);
-    u.fatigue = clamp01(u.fatigue + stepLen * (0.0012 + slope * 0.004 + alt * 0.0016) * (tech === "rush" ? 2 : 1));
+    u.fatigue = clamp01(
+      u.fatigue + stepLen * (0.0012 + slope * 0.004 + alt * 0.0016) * (tech === "rush" ? 2 : 1) * (1 + overload * 0.012)
+    );
 
     this.watchStall(u, dt, blocked);
   }
