@@ -1,13 +1,18 @@
-import { Terrain, Land } from "./terrain";
+import { Terrain, Land, COARSE_F, COARSE_DIR8 } from "./terrain";
 import { Vec2 } from "./vec";
 
 /**
- * Terrain-aware foot pathfinding. Hierarchical A* (a fast coarse route across
- * the valley, repaired at full resolution only where it would clip a 5 m wall)
- * using the terrain's movement cost, with optional concealment / road / cover
- * biases so a "concealed" route threads forest and washes while a "traveling"
- * one takes the road. Patrols and infiltrating fighters both route through this,
- * so the ground genuinely shapes how everyone moves.
+ * Terrain-aware foot pathfinding. Two-stage and corridor-constrained:
+ *   1. a cheap COARSE A* (~15 m nodes) lays the global line across the valley;
+ *   2. a full-resolution A* run INSIDE A CORRIDOR around that line produces the path a
+ *      unit actually walks — so it honours every 5 m feature (it crosses the wash at the
+ *      real ford, threads the ECP gate, slips through a qalat gap) and is always genuinely
+ *      walkable, while the corridor keeps the search cheap and makes a looping/spiralling
+ *      path impossible. If the corridor can't reach the goal it widens; if the goal is
+ *      truly walled off it walks as close as the ground allows.
+ * Movement cost carries optional concealment / road / cover biases, so a "concealed" route
+ * threads forest and washes while a "traveling" one takes the road. Patrols and infiltrating
+ * fighters both route through this, so the ground genuinely shapes how everyone moves.
  */
 
 export interface PathOptions {
@@ -69,17 +74,32 @@ class Heap {
 }
 
 /**
- * Pathfinding is hierarchical, which is what makes it both correct and cheap:
- *  - a fast **coarse** A* (≈15 m nodes) finds the long route across the valley
- *    for next to nothing (a few thousand node expansions);
- *  - then string-pulling walks that route, and wherever a straight segment would
- *    clip a 5 m feature (a wall, a cliff lip) it splices in a short **fine** A*
- *    (full-resolution, but only over that ~15 m gap) to get cleanly around it.
- * So long-range stays coarse-cheap, and the only full-resolution work is the few
- * metres where it actually matters — no unit is ever handed a path it can't walk.
+ * Why corridor-constrained full-resolution instead of plain hierarchical repair: a coarse
+ * node is "passable" if ANY of its 5 m cells is, so the coarse line is OPTIMISTIC — it will
+ * happily cut across a node that a thin wash bank or wall actually seals. Trusting that line
+ * and only "repairing" the clipped bits is what made patrols spiral the COP: a fine A* asked
+ * to honour a coarse waypoint stranded across a barrier would detour hundreds of metres (a
+ * long, cheap trail loop can cost less than a short scramble), so the squad orbited instead
+ * of taking the real descent. Running the WHOLE fine path inside a corridor around the coarse
+ * line fixes both failure modes at once: full resolution means the path is genuinely walkable
+ * (no clipping), and the corridor bound means it physically cannot wander off to loop. The
+ * coarse line only has to point the right general way; the corridor pass finds the true route.
  */
-const COARSE = 3; // ~15 m coarse nodes on the 5 m grid
-const BARRIER_PENALTY = 10; // how hard a coarse node is charged for the walls/cliffs it contains
+const COARSE = COARSE_F; // ~15 m coarse nodes on the 5 m grid (shared with terrain.ts)
+const BARRIER_PENALTY = 16; // how hard a coarse node is charged for the walls/cliffs it contains
+const FINE_CLIP_MARGIN = 10; // cells (~50 m) of slack around a fine repair — room for a local
+// detour around a wash bank or wall corner, but far too tight to loop the COP ring. This is
+// what keeps the fine repair honest: it physically cannot wander, so it can never reintroduce
+// the "spiral the outpost" path that an unbounded cost-minimizing fine A* would (a long detour
+// on cheap trail can cost less than a short scramble over a rough bank to a fixed waypoint).
+
+/** A fine-cell bounding box, used to confine a fine A* repair to the local region. */
+interface ClipRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
 
 // Reusable A* scratch. At full resolution the working arrays are large (one
 // entry per cell), so allocating + clearing them every call dominates the cost.
@@ -101,15 +121,70 @@ function ensureScratch(n: number) {
   closedGen = new Int32Array(n);
 }
 
+// Corridor radii (cells) tried in turn. We start tight (cheap, hugs the coarse line) and
+// widen only if the full-resolution pass can't get through — so a route that needs to
+// swing wide to reach the real crossing (a far bench descent) still finds it, while the
+// common case stays a narrow, fast search.
+const CORRIDOR_RADII = [7, 15, 30];
+
 /**
- * Find a foot route from `start` to `goal` (world meters). Returns world-space
- * waypoints (excluding the start), or a single straight-line waypoint to the
- * goal if no route is found. Coarse global route + fine local repair.
+ * Find a foot route from `start` to `goal` (world meters). Two stages:
+ *  1. a cheap COARSE A* gives the global line across the valley (it may be optimistic —
+ *     it can cut a corner a 5 m wall actually blocks);
+ *  2. a full-resolution A* CONFINED TO A CORRIDOR around that line produces the path the
+ *     unit actually walks. Full-res means it honours every 5 m detail — it crosses the
+ *     wash at the real ford, threads the ECP gate, slips through a qalat gap — so the
+ *     route is always genuinely walkable. The corridor makes it cheap (a thin band, not
+ *     the whole map) AND makes looping impossible (it physically can't wander off to
+ *     spiral the outpost). We widen the corridor only if the tight one can't get through.
+ * Returns world-space waypoints (excluding the start); a straight shot if truly unreachable.
  */
 export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions = {}): Vec2[] {
   const coarse = route(terrain, start, goal, COARSE, opts, 60000);
   if (!coarse) return [{ ...goal }]; // unreachable — best effort
+  let widest = CORRIDOR_RADII[0];
+  for (const R of CORRIDOR_RADII) {
+    widest = R;
+    const gen = rasterizeCorridor(terrain, start, coarse, R);
+    const fine = route(terrain, start, goal, 1, opts, 40000, gen);
+    if (fine) return stringPull(terrain, start, fine, opts); // smooth the walkable fine path
+  }
+  // Couldn't reach the exact goal in any corridor (it's walled off / across a barrier).
+  // Walk as close as the terrain allows — a genuinely walkable approach, not a clipping
+  // coarse line — so the unit sets up where it can actually get to.
+  const gen = rasterizeCorridor(terrain, start, coarse, widest);
+  const best = route(terrain, start, goal, 1, opts, 40000, gen, undefined, true);
+  if (best) return stringPull(terrain, start, best, opts);
   return stringPull(terrain, start, coarse, opts);
+}
+
+// Generation-stamped corridor membership: cell i is in the current corridor iff
+// corridorStamp[i] === the gen returned by the matching rasterizeCorridor call.
+let corridorStamp = new Int32Array(0);
+let CORRIDOR_GEN = 0;
+
+/** Stamp the band of cells within `R` (Chebyshev) of the polyline start→pts into the
+ *  corridor scratch, and return the generation id identifying that band. */
+function rasterizeCorridor(terrain: Terrain, start: Vec2, pts: Vec2[], R: number): number {
+  const size = terrain.size;
+  if (corridorStamp.length < size * size) corridorStamp = new Int32Array(size * size);
+  const gen = ++CORRIDOR_GEN;
+  const cs = terrain.cellSize;
+  const stampBox = (cx: number, cy: number) => {
+    for (let yy = Math.max(0, cy - R); yy <= Math.min(size - 1, cy + R); yy++)
+      for (let xx = Math.max(0, cx - R); xx <= Math.min(size - 1, cx + R); xx++) corridorStamp[yy * size + xx] = gen;
+  };
+  let prev = start;
+  for (const p of pts) {
+    const ax = prev.x / cs, ay = prev.y / cs, bx = p.x / cs, by = p.y / cs;
+    const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay)));
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      stampBox(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t));
+    }
+    prev = p;
+  }
+  return gen;
 }
 
 /**
@@ -117,8 +192,21 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
  * (snapped onto passable ground) ending at `goal`, or null if unreachable
  * within the budget. Uses generation-stamped scratch — no per-call clear.
  */
-function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathOptions, maxExpand: number): Vec2[] | null {
+function route(
+  terrain: Terrain,
+  start: Vec2,
+  goal: Vec2,
+  f: number,
+  opts: PathOptions,
+  maxExpand: number,
+  corrGen?: number,
+  clip?: ClipRect,
+  bestEffort = false
+): Vec2[] | null {
   const cw = Math.ceil(terrain.size / f);
+  // Corridor constraint only applies at full resolution (f === 1, cw === size); the cells
+  // and the stamp are 1:1 there. A coarse pass ignores it.
+  const useCorridor = corrGen !== undefined && f === 1 && corridorStamp.length === cw * cw ? corrGen : undefined;
   const concealBias = opts.concealBias ?? 0;
   const coverBias = opts.coverBias ?? 0;
   const roadBias = opts.roadBias ?? 0;
@@ -193,6 +281,8 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
 
   let expanded = 0;
   let found = false;
+  let bestI = startI; // closest-to-goal cell expanded so far (for best-effort fallback)
+  let bestH = h(startI);
   while (open.size > 0) {
     const cur = open.pop()!;
     if (closedGen[cur.i] === gen) continue;
@@ -201,36 +291,50 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
       found = true;
       break;
     }
+    const hc = h(cur.i);
+    if (hc < bestH) {
+      bestH = hc;
+      bestI = cur.i;
+    }
     if (++expanded > maxExpand) break;
     const cx = cur.i % cw;
     const cy = (cur.i / cw) | 0;
-    for (let dy = -1; dy <= 1; dy++) {
-      for (let dx = -1; dx <= 1; dx++) {
-        if (dx === 0 && dy === 0) continue;
-        const nx = cx + dx;
-        const ny = cy + dy;
-        if (nx < 0 || ny < 0 || nx >= cw || ny >= cw) continue;
-        const ni = ny * cw + nx;
-        if (closedGen[ni] === gen) continue;
-        const stepCost = nodeCost(ni);
-        if (!isFinite(stepCost)) continue;
-        if (dx !== 0 && dy !== 0) {
-          if (!isFinite(nodeCost(cy * cw + nx)) && !isFinite(nodeCost(ny * cw + cx))) continue; // no corner-cut
-        }
-        const tentative = cur.g + stepCost * (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1);
-        if (tentative < gOf(ni)) {
-          gScratch[ni] = tentative;
-          gGen[ni] = gen;
-          cameScratch[ni] = cur.i;
-          open.push({ i: ni, g: tentative, f: tentative + h(ni) });
-        }
+    for (let d = 0; d < 8; d++) {
+      const dx = COARSE_DIR8[d][0];
+      const dy = COARSE_DIR8[d][1];
+      const nx = cx + dx;
+      const ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= cw || ny >= cw) continue;
+      const ni = ny * cw + nx;
+      // Corridor constraint: at full resolution, never leave the stamped band around the
+      // coarse line. This is what keeps the fine search cheap and makes looping impossible.
+      if (useCorridor !== undefined && corridorStamp[ni] !== useCorridor) continue;
+      // Bounded repair: a clipped fine A* can't leave its window, so it can never loop.
+      if (clip && (nx < clip.x0 || ny < clip.y0 || nx > clip.x1 || ny > clip.y1)) continue;
+      if (closedGen[ni] === gen) continue;
+      const stepCost = nodeCost(ni);
+      if (!isFinite(stepCost)) continue;
+      if (dx !== 0 && dy !== 0) {
+        if (!isFinite(nodeCost(cy * cw + nx)) && !isFinite(nodeCost(ny * cw + cx))) continue; // no corner-cut
+      }
+      const tentative = cur.g + stepCost * (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1);
+      if (tentative < gOf(ni)) {
+        gScratch[ni] = tentative;
+        gGen[ni] = gen;
+        cameScratch[ni] = cur.i;
+        open.push({ i: ni, g: tentative, f: tentative + h(ni) });
       }
     }
   }
-  if (!found) return null;
+  // Not reached. Either give up (null) or, in best-effort mode, return the route to the
+  // closest cell we got to — so a unit ordered somewhere it can't fully reach (a walled
+  // courtyard, a goal across an uncrossable draw) still walks up to the nearest approach
+  // and stops there, instead of falling back to a route that clips terrain.
+  const endI = found ? goalI : bestEffort && bestI !== startI ? bestI : -1;
+  if (endI === -1) return null;
 
   const cells: number[] = [];
-  let ci = goalI;
+  let ci = endI;
   while (ci !== -1) {
     cells.push(ci);
     if (ci === startI) break;
@@ -243,7 +347,7 @@ function route(terrain: Terrain, start: Vec2, goal: Vec2, f: number, opts: PathO
     const c = terrain.nearestPassable(Math.min(terrain.size - 1, ax * f + (f >> 1)), Math.min(terrain.size - 1, ay * f + (f >> 1)), f);
     return terrain.cellCenter(c.cx, c.cy);
   });
-  pts.push({ ...goal });
+  if (found) pts.push({ ...goal });
   return pts;
 }
 
@@ -276,7 +380,11 @@ function stringPull(terrain: Terrain, start: Vec2, pts: Vec2[], opts: PathOption
       i++;
       continue;
     }
-    const fine = route(terrain, anchor, pts[i], 1, opts, 6000);
+    // Repair the blocked segment with a fine A*, but CONFINED to a window around it.
+    // With the honest coarse graph, consecutive waypoints are genuinely connected, so
+    // the real crossing is always inside this window — and the clip makes it impossible
+    // for the repair to wander off and loop the outpost (the old failure mode).
+    const fine = route(terrain, anchor, pts[i], 1, opts, 6000, undefined, fineClip(terrain, anchor, pts[i]));
     if (fine) {
       for (const p of fine) out.push(p);
       anchor = out[out.length - 1];
@@ -287,6 +395,19 @@ function stringPull(terrain: Terrain, start: Vec2, pts: Vec2[], opts: PathOption
     i++;
   }
   return out;
+}
+
+/** Fine-cell window around the segment a→b, padded by FINE_CLIP_MARGIN, for a bounded repair. */
+function fineClip(terrain: Terrain, a: Vec2, b: Vec2): ClipRect {
+  const cs = terrain.cellSize;
+  const ax = a.x / cs, ay = a.y / cs, bx = b.x / cs, by = b.y / cs;
+  const M = FINE_CLIP_MARGIN;
+  return {
+    x0: Math.max(0, Math.floor(Math.min(ax, bx)) - M),
+    y0: Math.max(0, Math.floor(Math.min(ay, by)) - M),
+    x1: Math.min(terrain.size - 1, Math.ceil(Math.max(ax, bx)) + M),
+    y1: Math.min(terrain.size - 1, Math.ceil(Math.max(ay, by)) + M),
+  };
 }
 
 /** Is the straight segment between a and b passable on foot the whole way. */
