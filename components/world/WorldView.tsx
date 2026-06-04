@@ -4,6 +4,7 @@ import { useGame } from "@/state/store";
 import { Land } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawGrid, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop } from "@/lib/render/draw";
+import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
 import { loadSprites, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
@@ -35,6 +36,39 @@ const LAND_NAME: Record<number, string> = {
   [Land.Structure]: "Structure",
   [Land.Gravel]: "Gravel pad",
 };
+
+/** Screen-space centroid helper for the squad-intent overlays. */
+function unitsCentroid(us: { pos: { x: number; y: number } }[]): { x: number; y: number } {
+  let x = 0, y = 0;
+  for (const u of us) { x += u.pos.x; y += u.pos.y; }
+  const n = Math.max(1, us.length);
+  return { x: x / n, y: y / n };
+}
+
+/** A capped maneuver arrow with a filled head (screen coords). */
+function drawManeuverArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string) {
+  const ang = Math.atan2(y1 - y0, x1 - x0);
+  const len = Math.min(Math.hypot(x1 - x0, y1 - y0), 95);
+  if (len < 8) return;
+  const ex = x0 + Math.cos(ang) * len;
+  const ey = y0 + Math.sin(ang) * len;
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([5, 4]);
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(ex, ey);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  const h = 7;
+  ctx.beginPath();
+  ctx.moveTo(ex, ey);
+  ctx.lineTo(ex - Math.cos(ang - 0.5) * h, ey - Math.sin(ang - 0.5) * h);
+  ctx.lineTo(ex - Math.cos(ang + 0.5) * h, ey - Math.sin(ang + 0.5) * h);
+  ctx.closePath();
+  ctx.fill();
+}
 
 export default function WorldView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -220,6 +254,13 @@ export default function WorldView() {
     // COP structure (walls/buildings are baked into the relief; this is the overlay)
     if (cam.ppm > 0.3) drawCop(ctx, cam, terrain);
 
+    // record fresh combat events (blasts → scorch craters; hidden-shooter muzzles →
+    // suspected pinpoints), then draw the surviving craters on the ground under units
+    const confirmedEnemies: { x: number; y: number }[] = [];
+    for (const [eid, rv] of sim.revealed) { if (rv.confirmed) { const ee = sim.unit(eid); if (ee) confirmedEnemies.push(ee.pos); } }
+    noteCombatEffects(sim.effects, confirmedEnemies);
+    drawScorchDecals(ctx, cam);
+
     // a Black Hawk on the LZ during the air-resupply landing window (the bird on station)
     if (terrain.cop && cam.ppm > 0.45 && hasSprite("helo-uh60")) {
       const clk = w.state.clock;
@@ -256,8 +297,12 @@ export default function WorldView() {
       ctx.restore();
     }
 
-    // selection LOS + paths
-    const selSet = new Set(st.selection);
+    // active-squad highlight + LOS (you command the squad, so the whole squad lights up)
+    const selSet = new Set<string>();
+    if (st.activeSquadId) {
+      const sq = w.platoon.squads.find((s) => s.id === st.activeSquadId);
+      if (sq) for (const id of sq.memberIds) selSet.add(id);
+    }
     for (const u of sim.units) {
       if (selSet.has(u.id) && u.alive) {
         drawPath(ctx, cam, u);
@@ -276,14 +321,26 @@ export default function WorldView() {
     for (const u of sim.units) if (!u.alive && u.faction !== "civilian" && !inGarrison(u)) drawUnit(ctx, cam, u, {});
     // civilians (if visible)
     for (const u of sim.units) if (u.faction === "civilian" && u.alive && sim.isVisibleToPlayer(u) && !inGarrison(u)) drawUnit(ctx, cam, u, {});
-    // enemies via fog of war
+    // enemies via fog of war — confirmed sightings are solid; a SUSPECTED ghost (last
+    // known position) fades as the intel goes stale toward the 25 s cull, so the player
+    // reads "this is where he WAS, a while ago" not "he is here now."
     for (const [id, r] of sim.revealed) {
       const e = sim.unit(id);
       if (!e || !e.alive) continue;
       const pos = r.confirmed ? e.pos : r.pos;
       const ghost: Unit = r.confirmed ? e : ({ ...e, pos } as Unit);
-      drawUnit(ctx, cam, ghost, { selected: selSet.has(id), revealedSuspect: !r.confirmed });
+      if (r.confirmed) {
+        drawUnit(ctx, cam, ghost, { selected: selSet.has(id), revealedSuspect: false });
+      } else {
+        const fade = Math.max(0.18, 1 - (sim.timeS - r.lastSeenS) / 25);
+        ctx.save();
+        ctx.globalAlpha = fade;
+        drawUnit(ctx, cam, ghost, { selected: selSet.has(id), revealedSuspect: true });
+        ctx.restore();
+      }
     }
+    // suspected-shooter pinpoints (hidden enemies revealed by their muzzle flash)
+    drawFogReveals(ctx, cam);
     // friendlies on top
     for (const u of sim.units) {
       if ((u.faction === "us" || u.faction === "ana") && u.alive && !inGarrison(u)) {
@@ -291,8 +348,101 @@ export default function WorldView() {
       }
     }
 
+    // squad intent banners — read each tasked squad's drill straight off the map (the
+    // hands-off model lives or dies on legibility: you watch the fight, you don't click it)
+    for (const t of w.state.tasks) {
+      if (t.phase === "complete") continue;
+      const mem = t.memberIds.map((id) => sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
+      if (mem.length === 0) continue;
+      const lead = (t.leadId ? sim.unit(t.leadId) : null) ?? mem[0];
+      const [bx, byTop] = worldToScreen(cam, lead.pos.x, lead.pos.y);
+      if (bx < -80 || byTop < -40 || bx > cam.vw + 80 || byTop > cam.vh + 40) continue;
+      // base-of-fire arc + maneuver arrow — literally see the fire-and-movement you authored:
+      // a shaded suppression cone from the base-of-fire team, an arrow for the maneuver team.
+      if (t.threatPt && (t.squadState === "assault" || t.squadState === "suppress" || t.squadState === "hold" || t.squadState === "break")) {
+        const bof = (t.bofIds ?? []).map((id) => sim.unit(id)).filter((u): u is Unit => !!u && u.alive && u.conscious);
+        const mnvr = (t.mnvrIds ?? []).map((id) => sim.unit(id)).filter((u): u is Unit => !!u && u.alive && u.conscious);
+        const [tx, ty] = worldToScreen(cam, t.threatPt.x, t.threatPt.y);
+        if (bof.length) {
+          const bc = unitsCentroid(bof);
+          const [bcx, bcy] = worldToScreen(cam, bc.x, bc.y);
+          const ang = Math.atan2(ty - bcy, tx - bcx);
+          const r = Math.min(Math.hypot(tx - bcx, ty - bcy), 230);
+          ctx.fillStyle = "rgba(224,167,43,0.09)";
+          ctx.beginPath();
+          ctx.moveTo(bcx, bcy);
+          ctx.arc(bcx, bcy, r, ang - 0.32, ang + 0.32);
+          ctx.closePath();
+          ctx.fill();
+        }
+        const objPt = t.squadState === "break" ? t.rallyPt : t.threatPt;
+        if (mnvr.length && objPt) {
+          const mc = unitsCentroid(mnvr);
+          const [mcx, mcy] = worldToScreen(cam, mc.x, mc.y);
+          const [ox, oy] = worldToScreen(cam, objPt.x, objPt.y);
+          drawManeuverArrow(ctx, mcx, mcy, ox, oy, t.squadState === "break" ? "rgba(224,80,40,0.75)" : "rgba(120,200,120,0.85)");
+        }
+      }
+      const sqName = w.platoon.squads.find((s) => s.id === lead.squadId)?.name ?? t.label;
+      const ss = t.squadState;
+      let txt = sqName;
+      let col = "rgba(150,168,110,0.92)";
+      if (ss === "assault") { txt = `${sqName} · ASSAULT`; col = "rgba(224,80,40,0.96)"; }
+      else if (ss === "break") { txt = `${sqName} · BREAKING`; col = "rgba(224,80,40,0.96)"; }
+      else if (ss === "suppress") { txt = `${sqName} · SUPPRESSING`; col = "rgba(224,167,43,0.96)"; }
+      else if (ss === "hold" || ss === "react") { txt = `${sqName} · CONTACT`; col = "rgba(224,167,43,0.96)"; }
+      else if (cam.ppm < 0.4) continue; // out of contact: only label at closer zoom to avoid clutter
+      ctx.font = "bold 9px var(--font-mono, monospace)";
+      const wpx = ctx.measureText(txt).width + 8;
+      const ly = byTop - 24;
+      ctx.fillStyle = "rgba(12,13,10,0.72)";
+      ctx.fillRect(bx - wpx / 2, ly - 9, wpx, 12);
+      ctx.fillStyle = col;
+      ctx.textAlign = "center";
+      ctx.fillText(txt, bx, ly);
+    }
+
+    // civilian no-fire rings — the civClear ROE gate made visible. When a fight is near,
+    // each visible civilian wears an amber keep-out bubble: that is the ground your soldiers
+    // will NOT fire across under Tight/Hold ROE. It is the answer to "why isn't he shooting?"
+    {
+      const fighting = sim.playerUnits().filter((u) => u.suppression > 0.2 || u.visibleEnemyIds.length > 0);
+      if (fighting.length) {
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        for (const c of sim.units) {
+          if (c.faction !== "civilian" || !c.alive || !c.conscious || c.evac) continue;
+          if (!sim.isVisibleToPlayer(c)) continue;
+          let roe: string | null = null;
+          let nd = 130;
+          for (const f of fighting) {
+            const d = Math.hypot(f.pos.x - c.pos.x, f.pos.y - c.pos.y);
+            if (d < nd) { nd = d; roe = f.roe ?? "tight"; }
+          }
+          if (!roe || roe === "free") continue; // free ROE shrinks the bubble to danger-close — nothing to show
+          const guard = roe === "hold" ? 28 : 22;
+          const [cx2, cy2] = worldToScreen(cam, c.pos.x, c.pos.y);
+          ctx.strokeStyle = "rgba(224,167,43,0.42)";
+          ctx.beginPath();
+          ctx.arc(cx2, cy2, guard * cam.ppm, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+    }
+
     drawProjectiles(ctx, cam, sim.projectiles);
     drawEffects(ctx, cam, sim.effects);
+    // indirect / CAS beaten-zone reticles (ETA countdown + danger-close hazard on our men)
+    drawFireMissions(ctx, cam, sim.fireMissions, sim.playerUnits());
+    // threat-bearing crescent + pinned ring on friendlies actually under fire
+    drawSuppressionCues(ctx, cam, sim.playerUnits());
+    // arterial-bleed pools + buddy-aid links (the wounds-not-kills medical read)
+    drawCasualtyCues(ctx, cam, sim.playerUnits());
+    // LOD aggregation: below tactical zoom, small-arms fire collapses to a warm haze
+    drawCombatHaze(ctx, cam, sim.projectiles, sim.effects);
+    // contact-onset (TIC) starburst + zoomed-out aggregate marker
+    drawContactMarker(ctx, cam, sim.playerUnits());
 
     // planning route
     if (st.planning && st.planRoute.length > 0) {
@@ -341,6 +491,29 @@ export default function WorldView() {
       ctx.textAlign = "center";
     }
 
+    // pending AI call-for-fire: show the JTAC's proposed grid as a pulsing reticle
+    if (w.state.fireRequest) {
+      const fc = terrain.cellCenter(w.state.fireRequest.cx, w.state.fireRequest.cy);
+      const [fx, fy] = worldToScreen(cam, fc.x, fc.y);
+      const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+      ctx.strokeStyle = `rgba(224,80,40,${0.55 + 0.4 * pulse})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(fx, fy, 16 + pulse * 5, 0, Math.PI * 2);
+      ctx.moveTo(fx - 24, fy); ctx.lineTo(fx - 8, fy);
+      ctx.moveTo(fx + 8, fy); ctx.lineTo(fx + 24, fy);
+      ctx.moveTo(fx, fy - 24); ctx.lineTo(fx, fy - 8);
+      ctx.moveTo(fx, fy + 8); ctx.lineTo(fx, fy + 24);
+      ctx.stroke();
+      ctx.fillStyle = "rgba(12,13,10,0.8)";
+      ctx.fillRect(fx + 12, fy - 22, 96, 13);
+      ctx.fillStyle = "#e05028";
+      ctx.font = "bold 9px var(--font-mono, monospace)";
+      ctx.textAlign = "left";
+      ctx.fillText("CALL FOR FIRE", fx + 16, fy - 12);
+      ctx.textAlign = "center";
+    }
+
     // fire-support reticle
     if (st.fireSupport && hoverRef.current) {
       const [hx, hy] = worldToScreen(cam, hoverRef.current.wx, hoverRef.current.wy);
@@ -355,17 +528,6 @@ export default function WorldView() {
       ctx.stroke();
     }
 
-    // selection box
-    const d = dragRef.current;
-    if (d && d.box) {
-      ctx.strokeStyle = "rgba(224,167,43,0.8)";
-      ctx.fillStyle = "rgba(224,167,43,0.12)";
-      ctx.lineWidth = 1;
-      const x = Math.min(d.sx, d.x);
-      const y = Math.min(d.sy, d.y);
-      ctx.fillRect(x, y, Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
-      ctx.strokeRect(x, y, Math.abs(d.x - d.sx), Math.abs(d.y - d.sy));
-    }
 
     drawHud(ctx, cam);
   }
@@ -426,22 +588,6 @@ export default function WorldView() {
     }
     return best;
   }
-  function enemyAt(wx: number, wy: number): string | null {
-    const w = useGame.getState().world;
-    if (!w) return null;
-    let best: string | null = null;
-    let bd = 16 / camRef.current.ppm;
-    for (const [id, r] of w.sim.revealed) {
-      const e = w.sim.unit(id);
-      const pos = e && r.confirmed ? e.pos : r.pos;
-      const dd = Math.hypot(pos.x - wx, pos.y - wy);
-      if (dd < bd) {
-        bd = dd;
-        best = id;
-      }
-    }
-    return best;
-  }
   function villageAt(wx: number, wy: number): string | null {
     const w = useGame.getState().world;
     if (!w) return null;
@@ -484,63 +630,39 @@ export default function WorldView() {
           const st = useGame.getState();
           const [wx, wy] = cursorWorld(e);
 
+          // fire-support targeting (place / approve the reticle on the ground)
           if (st.fireSupport) {
             st.fireAtWorld(wx, wy);
             return;
           }
 
-          // planning route: clicks drop waypoints
+          // drawing a waypoint route for the active squad
           if (st.planning) {
             const cell = { cx: Math.floor(wx / st.world!.terrain.cellSize), cy: Math.floor(wy / st.world!.terrain.cellSize) };
             if (st.world!.terrain.inBounds(cell.cx, cell.cy)) st.addWaypoint(cell.cx, cell.cy);
             return;
           }
 
-          if (d.box) {
-            const w = st.world;
-            if (!w) return;
-            const [x0, y0] = screenToWorld(camRef.current, Math.min(d.sx, d.x), Math.min(d.sy, d.y));
-            const [x1, y1] = screenToWorld(camRef.current, Math.max(d.sx, d.x), Math.max(d.sy, d.y));
-            const ids = w.sim.units
-              .filter(
-                (u) =>
-                  (u.faction === "us" || u.faction === "ana") && u.alive &&
-                  u.pos.x >= x0 && u.pos.x <= x1 && u.pos.y >= y0 && u.pos.y <= y1
-              )
-              .map((u) => u.id);
-            st.selectUnits(ids, e.shiftKey);
+          // a genuine drag (not a click) never changes the selection
+          if (d.box) return;
+
+          // A click selects the SQUAD a soldier belongs to — never an individual man.
+          const f = friendlyAt(wx, wy);
+          if (f) {
+            if (f.squadId) st.selectSquad(f.squadId);
             return;
           }
-
-          if (st.orderTool === "select") {
-            const f = friendlyAt(wx, wy);
-            if (f) {
-              st.selectUnits([f.id], e.shiftKey);
-              return;
-            }
-            const vid = villageAt(wx, wy);
-            if (vid) {
-              st.selectVillage(vid);
-              return;
-            }
-            if (!e.shiftKey) st.selectUnits([]);
-          } else {
-            const enemyId = enemyAt(wx, wy);
-            if (enemyId && (st.orderTool === "assault" || st.orderTool === "suppress")) {
-              st.orderTarget(enemyId);
-            } else {
-              st.orderAtWorld(wx, wy);
-            }
+          const vid = villageAt(wx, wy);
+          if (vid) {
+            st.selectVillage(vid);
+            return;
           }
+          st.selectVillage(null); // clicking open ground drops the village focus; the active squad stays
         }}
         onContextMenu={(e) => {
           e.preventDefault();
           const st = useGame.getState();
-          if (!st.world || st.selection.length === 0) return;
-          const [wx, wy] = cursorWorld(e);
-          const enemyId = enemyAt(wx, wy);
-          if (enemyId) st.orderTarget(enemyId);
-          else st.orderAtWorld(wx, wy);
+          if (st.planning) st.popWaypoint(); // right-click backs up a waypoint while drawing a route
         }}
         onWheel={(e) => {
           const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;

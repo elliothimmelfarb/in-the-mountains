@@ -1,9 +1,19 @@
 # AI Doctrine
 
-Three brains in `lib/sim/ai`, each a pure function `(sim, unit, dt)` called every tick. They read
-the sim through public helpers (`acquireTarget`, `los`, `findCover`, `moveTo`, `nearestCasualty`,
-`throwSmoke/throwFrag`, `addLog`, `enemyFireMission`) and mutate the unit's order/brain state;
-movement and firing are then executed by the core tick.
+Combat in the valley is **100% AI**. The player is a commander on the radio, not a trigger man: you
+set where a squad goes, how it moves, what battle drill it runs on contact, and the rules of
+engagement — then you read the net and live with how it plays out. Once a squad is in contact you do
+not steer a single soldier. There is no man-select, no order tool, no manual target lock. Your
+in-fight levers are narrow and deliberate: **approve or deny a call-for-fire**, **call the MEDEVAC**,
+and the **SOP and route you set before step-off**.
+
+Four brains in `lib/sim/ai`. Three are per-man brains — `(sim, unit, dt)` pure functions called every
+tick (`friendlyBrain`, `insurgent`, `civilianBrain`). Above the friendly per-man brain sits a
+squad-level coordinator, `squadFight` (`squad-combat.ts`) — the squad leader's tactical brain, run
+from the world tick once per squad. The per-man brains read the sim through public helpers
+(`acquireTarget`, `los`, `findCover`, `moveTo`, `nearestCasualty`, `throwSmoke/throwFrag`, `addLog`,
+`enemyFireMission`, `civClear`) and mutate the unit's brain state; movement and firing are then
+executed by the core tick. The coordinator decides; the per-man brains execute.
 
 ## Insurgent (`insurgent.ts`)
 
@@ -42,21 +52,25 @@ compound. When calm they amble along their pattern of life. Their flight is the 
 sharp player learns to read; their presence near a fight complicates fire and risks the COIN
 catastrophe of civilian casualties.
 
-## Friendly (`friendly.ts`)
+## Friendly per-man brain (`friendly.ts`)
 
-The player gives intent; soldiers fill the gaps. When a patrol is *moving without contact* the squad
-is steered as a composed echelon by `world/formation.ts` (point navigation, fire-team formation,
-security sectors, pace governor) and the garrison routine runs at the COP (`world/garrison.ts`);
-the instant rounds crack those release and this combat brain takes over each man individually,
-re-forming on the lull.
+The per-man brain is the soldier filling the gaps the way trained infantry do: he reads the standing
+intent the coordinator stamped on him (his fire posture, his brain state, his bound objective, the
+ROE) and executes it — return fire, hit the dirt when rounds snap past, reload, drag and treat the
+wounded, keep fighting unless he is pinned and leaderless. When a patrol is *moving without contact*
+the squad is steered as a composed echelon by `world/formation.ts` (point navigation, fire-team
+formation, security sectors, pace governor) and the garrison routine runs at the COP
+(`world/garrison.ts`); the instant rounds crack those release, the squad coordinator wakes, and this
+brain takes over each man individually, re-forming on the lull.
 
 - **Posture** down in contact (prone/crouch by cover), stand only when moving without contact.
 - **Pinned & leaderless** → hunker and crawl to the nearest cover; leaders within ~35 m steady them.
 - **moving** → the instant rounds are effective or an enemy is seen, bound off the X to cover, go
   prone, and return fire (`suppressed_halt`), then resume the move once the suppression eases.
-- **assault** → *fire and maneuver*, not a banzai walk: the automatic weapons (SAW/240) hold cover
-  and set a **base of fire** suppressing the objective while the riflemen and leaders **bound** onto
-  it under that fire. **withdraw / hold / engage / suppress / frag** → the corresponding behavior.
+- **assault** (`orderType: "assault"`, set by the coordinator's maneuver split) → *fire and maneuver*,
+  not a banzai walk: a man carrying an automatic weapon (SAW/240) holds cover and adds to the **base
+  of fire** suppressing the objective while riflemen and leaders **bound** onto it under that fire.
+- **withdrawing** → bound back toward the rally point the coordinator set, peeling fire as you go.
 - **Casualty care is every soldier's job** (TCCC), not just the medic's: when a buddy goes down the
   nearest able man (one per casualty) breaks to him, **drags him to cover**, and applies a tourniquet.
 - **Medics** auto-seek and stabilize the nearest casualty; they alone can stop **internal/junctional**
@@ -69,6 +83,120 @@ Target acquisition (`CombatSim.acquireTarget`) prefers close, exposed, and dange
 (MG/RPG/sniper crews first), with a randomized weighting so an element's fire **spreads** across the
 enemy instead of every gun converging on one man. Thermal-equipped men (marksman, sniper, JTAC,
 weapons-squad gunners) acquire through foliage and in the dark where the naked eye and NVGs cannot.
+Every individual shot then passes the **civilian-fire gate** (`CombatSim.civClear`) before it goes
+out — see the squad-combat doctrine below.
+
+## Friendly squad-combat doctrine (`squad-combat.ts`)
+
+`squadFight` is the squad leader the player used to be. It is invoked once per deployed squad from the
+world tick (`tickTasks`), which runs **before** `sim.tick`, so a decision lands the same tick the men
+act on it. It only **decides**: it stamps the same per-man intent fields (`rof`, `brainState`,
+`orderType`, `orderTarget`, `roe`) that `friendlyBrain` already executes. Squad-level decisions are
+throttled (`RECONSIDER`, ~1.2 s) — the per-man brains fill the gaps every tick. Every pass it also
+pushes the squad ROE onto each man (the civ-fire gate reads it) and drops the march locks, because the
+parade formation does not hold in a firefight.
+
+The whole command surface for a fight is set **before** step-off, in the squad's standing SOP
+(`world/types.ts:SquadSOP`), and **locks** once the squad is in contact. Three settings, seeded with
+sensible defaults by mission type (`defaultSOP`):
+
+- **MOVEMENT** — Stealth / Patrol / Fast — how the squad moves to its waypoints (slow & hugging cover,
+  balanced, or a road march).
+- **ON CONTACT** — Hold & Return Fire / Suppress & Call Fires / Assault / Break Contact — the standing
+  battle drill the coordinator runs the instant it makes contact.
+- **ROE** — Weapons Hold / Tight / Free — the civilian-fire rules every friendly shot is vetted against.
+
+### The contact FSM — react → hold / suppress / assault / break
+
+The coordinator mirrors the state-machine shape of `insurgent.ts` (FM 3-24 / Battle Drill 1A,
+React to Contact):
+
+- **react** — first contact. *Everyone* orients on the threat, gets into the nearest cover, and
+  returns fire as the ROE allows while the leader sizes up the fight (CONTACT report on the net,
+  bearing to the threat). The next pass commits to the SOP's standing drill.
+- **hold** (Hold & Return Fire) — fight in place from cover. Automatic weapons build a base of fire;
+  riflemen engage PID'd targets. Holds the ground; does not maneuver.
+- **suppress** (Suppress & Call Fires) — as *hold* but with everyone leaning on suppressive fire to
+  pin the enemy, and the JTAC/leader raising a **call-for-fire** (below).
+- **assault** (Assault Through) — the base-of-fire element pins the enemy while the maneuver element
+  fire-and-moves onto the objective.
+- **break** (Break Contact / Battle Drill 3) — leapfrog back to a rally toward home under covering
+  fire and smoke.
+
+### Base of fire vs. maneuver — the two fire teams
+
+On an assault the coordinator splits the squad's **two fire teams** (`assignElements`, reading
+`buildSquad`): each team is scored on automatic weapons (a SAW/240 weights heavily), the cover it is
+already in, and how close its eyes-on is to the enemy. The higher-scoring team becomes the **base of
+fire** — it stays in cover and hoses the objective (`rof: "suppress"`); the other becomes the
+**maneuver element**. The SL and the HQ attachments (PL, medic, RTO, JTAC, if officers were sent) are
+neither — they hold the center, self-defense only, ready to consolidate casualties. A single or broken
+team can't bound safely, so everyone holds as base of fire.
+
+### Bounding & screening smoke
+
+The maneuver element **bounds** onto the objective: each man gets `orderType: "assault"` and
+`friendlyBrain`'s assault path runs the per-man fire-and-move (auto-riflemen set their own local base
+of fire, riflemen close under it), routing around walls and terrain with A* when a lane is blocked. If
+a bound crosses open ground (`exposedRun`), the coordinator pops **one screening smoke** partway to
+the enemy — a screen between the maneuver run and the enemy guns. Smoke is throttled on the world
+clock (`SMOKE_COOLDOWN_S`, ~28 s; a screen lasts ~67 s) so a sustained drill doesn't burn the squad's
+whole smoke load. Break Contact screens the same way — smoke between the squad and the enemy as the
+peel goes back.
+
+### The automatic break-contact safety
+
+This is the one piece of "when to break" that is **not** a player dial. Every reconsider pass the
+coordinator measures the squad's **effectiveness** (`effectiveness`): the fraction of the *assigned*
+strength still conscious, un-evac'd, and not fully suppressed (the denominator is the strength at
+step-off, so attrition still counts even as casualties are dragged off or MEDEVAC'd). If the squad has
+become **combat-ineffective** — effectiveness below ~60%, or below ~78% with the squad leader down, or
+a small element badly outnumbered — the coordinator **forces a break contact**, overriding the SOP.
+You never feed a destroyed element into the fight; a squad that is being killed always disengages
+itself.
+
+The break drill leapfrogs: the men nearest the enemy lay a base of fire while the rest bound to a
+**rally point** ~70 m back (`rallyPoint`, blending "away from the enemy" with "toward home" and
+snapping to cover). Once the squad closes on that rally and is still in contact, the rally jumps
+another bound back — without the leapfrog the squad froze at one rally and ate fire forever.
+
+### Casualty handling & MEDEVAC
+
+The per-man TCCC behavior is unchanged (buddy-aid, drag to cover, tourniquet; medics for the
+slow-killing internal bleeds). What changed is who calls the bird: **MEDEVAC is AI-surfaced,
+player-approved**. When a man is hit hard enough to need evacuation the AI raises it on the net (the
+"WIA / MEDEVAC" interrupt); the **commander calls the 9-line** (`World.medevac`). The coordinator
+keeps the squad fighting around the casualty — the effectiveness count already knows a man is down, so
+a squad bleeding out trends toward the automatic break.
+
+### The civilian-ROE gate & the restraint reward
+
+Every friendly shot — return fire, suppression, a bounding rifleman's burst — passes
+`CombatSim.civClear` before it leaves the muzzle. The gate keeps a **keep-out bubble** around the
+aimpoint and a **corridor** along the gun→target line, sized by the squad ROE: *Free* shrinks to
+danger-close, *Tight* (the COIN default) keeps a generous bubble, *Weapons Hold* wider still and a man
+opens up only in self-defense. Area weapons (the MGs, anything on `suppress`) and blast weapons widen
+the bubble further. A civilian inside it **fouls the shot** and the soldier holds fire rather than risk
+the qalat.
+
+That restraint is a real **COIN reward**, not just a missed shot. Each held shot is recorded
+(`restraintEvents`); the world (`tickRestraint`) turns it into a small, slow gain in the nearest
+village's **attitude** and **cooperation** and a dip in **sympathy**. It will never offset a single
+civilian casualty — a CIVCAS is an order of magnitude larger and hardens the village — but disciplined
+patrols that eat fire rather than spray a compound are how you actually buy the valley's trust. This
+is the doctrinal heart of the fight: the squad that wins the firefight by leveling the village has
+lost the campaign.
+
+### AI-requested fires (call-for-fire)
+
+Fires are **AI-requested, player-approved**. When the SOP calls for it (*Suppress & Call Fires*) or
+the squad is pinned and losing ground, the JTAC/leader raises a call-for-fire (`maybeRequestFires` →
+`World.requestSquadFires`) — but **only onto a position the squad has actually seen or been shot
+from**, never a fabricated grid. The request surfaces to the commander with the squad, the reason
+(pinned / enemy fixed), and the proposed grid; one request pending at a time, with a cooldown. The
+commander **approves** (`approveFireRequest`, optionally adjusting the aimpoint) and rounds fly, or
+**denies** it (`denyFireRequest`). The same approve/deny pattern, plus calling the MEDEVAC, plus the SOP and route set
+beforehand, is the player's entire in-combat toolkit.
 
 ## Strategic / COIN feedback (`world/`)
 

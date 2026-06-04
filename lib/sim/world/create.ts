@@ -4,7 +4,7 @@ import { makePlatoon, makeCivilian, Platoon, RosterMember, Unit, Role, resetIdCo
 import { elderName } from "../names";
 import { VillageState, rollWeather, attitudeToMetric, CERP_PROJECTS } from "../campaign";
 import { World } from "./world";
-import { WorldState, Ids, resetIds } from "./types";
+import { WorldState, Ids, resetIds, defaultSOP } from "./types";
 import { buildRoutine, clampMap, crewEmplacements, buildEmplacements } from "./helpers";
 
 /** Create a fresh deployment. */
@@ -131,11 +131,25 @@ export function createWorld(seed: string, totalDays = 90): World {
 }
 
 /** Restore a saved deployment. */
-export function loadWorld(data: { rngState: number; state: WorldState; units: Unit[] }): World {
+export function loadWorld(data: {
+  rngState: number;
+  state: WorldState;
+  units: Unit[];
+  combat?: {
+    timeS?: number;
+    casUsed?: boolean;
+    ieds?: World["sim"]["ieds"];
+    fireMissions?: World["sim"]["fireMissions"];
+    smoke?: World["sim"]["smoke"];
+  };
+}): World {
   const state = data.state;
   // Migration: pre-windDir saves (v<3) lack weather.windDir — default it so the wind
   // vector never produces NaN (which would silently corrupt combat).
   if (state.weather && state.weather.windDir === undefined) state.weather.windDir = 0;
+  // v<4 saves predate squad SOP — default each task's SOP from its mission so the
+  // combat AI and the civilian-fire gate have a policy to read.
+  for (const t of state.tasks) if (!t.sop) t.sop = defaultSOP(t.missionType);
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);
@@ -158,7 +172,17 @@ export function loadWorld(data: { rngState: number; state: WorldState; units: Un
     .map((id) => byId.get(id))
     .filter((u): u is RosterMember => !!u) as RosterMember[];
   const platoon: Platoon = { callsign: state.platoon.callsign, members, squads: state.platoon.squads };
-  return new World(terrain, rng, state, data.units, platoon);
+  const world = new World(terrain, rng, state, data.units, platoon);
+  // v5: restore combat collections that outlive a tick, so a mid-firefight save isn't lossy.
+  if (data.combat) {
+    const sim = world.sim;
+    if (typeof data.combat.timeS === "number") sim.timeS = data.combat.timeS;
+    sim.casUsed = !!data.combat.casUsed;
+    if (data.combat.ieds) sim.ieds = data.combat.ieds;
+    if (data.combat.fireMissions) sim.fireMissions = data.combat.fireMissions;
+    if (data.combat.smoke) sim.smoke = data.combat.smoke;
+  }
+  return world;
 }
 
 function issueInitialDirectives(w: World) {

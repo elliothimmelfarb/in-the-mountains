@@ -1,4 +1,4 @@
-import { MoveTechnique } from "../entities";
+import { MoveTechnique, ROE } from "../entities";
 import { Vec2 } from "../vec";
 import {
   Supplies,
@@ -23,6 +23,64 @@ export const MISSION_LABEL: Record<MissionType, string> = {
   overwatch: "Establish OP",
 };
 
+// ===========================================================================
+//  Squad SOP — the standing operating procedure (the entire UX↔AI contract).
+//  You set it before the squad steps off; it locks while the squad is in contact.
+//  Three settings, nothing else: how they MOVE, what they do ON CONTACT, and the
+//  RULES OF ENGAGEMENT that govern the trigger.
+// ===========================================================================
+
+/** How the squad moves to its waypoints. */
+export type MovementSOP = "stealth" | "patrol" | "fast";
+/** The standing battle drill the squad AI runs the instant it makes contact. */
+export type ContactSOP = "hold" | "assault" | "break" | "suppress";
+
+export interface SquadSOP {
+  movement: MovementSOP; // stealth = slow, hug cover; patrol = balanced; fast = road march
+  contact: ContactSOP; // hold & return fire / assault through / break contact / suppress & call fires
+  roe: ROE; // weapons hold / tight (civilian-safe, the COIN default) / free
+}
+
+export const MOVEMENT_SOP_LABEL: Record<MovementSOP, string> = {
+  stealth: "Stealth",
+  patrol: "Patrol",
+  fast: "Fast",
+};
+export const CONTACT_SOP_LABEL: Record<ContactSOP, string> = {
+  hold: "Hold & Return Fire",
+  assault: "Assault",
+  break: "Break Contact",
+  suppress: "Suppress & Call Fires",
+};
+export const ROE_LABEL: Record<ROE, string> = {
+  hold: "Weapons Hold",
+  tight: "Tight",
+  free: "Weapons Free",
+};
+
+/** Map the movement SOP to the underlying squad movement technique. */
+export function sopTechnique(m: MovementSOP): MoveTechnique {
+  return m === "stealth" ? "concealed" : m === "fast" ? "traveling" : "patrol";
+}
+
+/** Sensible default SOP seeded by the mission type (the player can override before step-off). */
+export function defaultSOP(mission: MissionType | undefined): SquadSOP {
+  switch (mission) {
+    case "ambush":
+      return { movement: "stealth", contact: "suppress", roe: "tight" };
+    case "recon":
+      return { movement: "stealth", contact: "break", roe: "tight" };
+    case "overwatch":
+      return { movement: "patrol", contact: "suppress", roe: "tight" };
+    case "cordon":
+      return { movement: "patrol", contact: "hold", roe: "tight" };
+    case "census":
+    case "presence":
+    default:
+      return { movement: "patrol", contact: "hold", roe: "tight" };
+  }
+}
+
 export type TaskKind = "patrol" | "kle" | "project" | "return" | "standto";
 
 export interface Task {
@@ -31,9 +89,22 @@ export interface Task {
   label: string;
   memberIds: string[];
   technique: MoveTechnique;
+  /** The squad's standing operating procedure (movement / on-contact drill / ROE).
+   *  Set before step-off, locked while the squad is in contact. The combat AI reads it. */
+  sop?: SquadSOP;
   missionType?: MissionType;
   villageId?: string;
   projectId?: number;
+  /** Squad-combat coordinator state (transient combat bookkeeping; persisted so a
+   *  firefight survives a save/load mid-contact). Set/cleared by ai/squad-combat.ts. */
+  squadState?: string; // react | suppress_hold | assault | break_contact | go_firm
+  squadTimer?: number; // min-dwell / reconsider hysteresis
+  contactHold?: number; // seconds the squad stays "in contact" after the last round/sighting (anti-flicker)
+  bofIds?: string[]; // base-of-fire element this contact
+  mnvrIds?: string[]; // maneuver element this contact
+  rallyPt?: Vec2; // break-contact / casualty-collection rally point
+  threatPt?: Vec2; // the squad's current threat centroid (for the map's base-of-fire/maneuver overlay)
+  lastSmokeClock?: number; // world clock of the squad's last smoke pop (throttle)
   /** Objective waypoints (world meters), not counting the return leg. */
   route: Vec2[];
   legIndex: number;
@@ -93,6 +164,20 @@ export interface ResupplyRun {
   frac: number;
 }
 
+/** A squad's call for fire — under hands-off combat the JTAC/squad leader AI requests
+ *  indirect/CAS and the COMMANDER (player) approves or denies it (keeping a human in the
+ *  civilian-casualty loop). One pending request at a time; it auto-expires if ignored. */
+export interface FireRequest {
+  squadId: string;
+  taskId: number;
+  label: string;
+  weaponId: string; // proposed asset (mortar60 / mortar81 / cas_gun)
+  cx: number;
+  cy: number; // proposed grid (the JTAC's call)
+  reason: string;
+  expires: number; // clock seconds — clears if the commander never answers
+}
+
 export interface WorldState {
   seed: string;
   totalDays: number;
@@ -113,6 +198,9 @@ export interface WorldState {
   tasks: Task[];
   projects: Project[];
   resupplies: ResupplyRun[];
+  /** A pending AI call-for-fire awaiting the commander's approval (null when none). */
+  fireRequest?: FireRequest | null;
+  lastFireReqClock?: number; // throttle: clock of the last request raised
   tourScore: number;
   ended: boolean;
   endReason?: string;

@@ -9,6 +9,17 @@ export type {
   ProjectStage,
   PendingEvent,
   ResupplyRun,
+  FireRequest,
   MissionType,
+  SquadSOP,
+  MovementSOP,
+  ContactSOP,
 } from "./types";
-export { MISSION_LABEL } from "./types";
+export {
+  MISSION_LABEL,
+  MOVEMENT_SOP_LABEL,
+  CONTACT_SOP_LABEL,
+  ROE_LABEL,
+  defaultSOP,
+  sopTechnique,
+} from "./types";

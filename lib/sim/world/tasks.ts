@@ -3,13 +3,15 @@ import { dist, Vec2 } from "../vec";
 import { Unit } from "../entities";
 import { Land } from "../terrain";
 import type { World } from "./world";
-import { Task } from "./types";
+import { Task, defaultSOP } from "./types";
 import { centroidOf, dwellFor } from "./helpers";
 import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam } from "./formation";
+import { squadFight } from "../ai/squad-combat";
 
 const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
 const LEG_ARRIVE = 18; // m — the point man has reached the objective
 const STUCK_S = 90; // s of zero route progress before a leg is declared genuinely stuck
+const CONTACT_HOLD_S = 10; // s a squad stays "in contact" after the last round/sighting (anti-flicker)
 
 /**
  * Strategic tasks: the orders that take time. A patrol musters in the yard,
@@ -27,7 +29,13 @@ export function tickTasks(w: World, dt: number) {
       continue;
     }
     const centroid = centroidOf(members);
-    const contact = members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    // Sticky contact: a squad stays "in contact" for a few seconds after the last round
+    // or sighting, so a momentary break in LOS (the enemy ducking) doesn't make the whole
+    // element stand up, declare all-clear, and walk on — only to be hit again next tick.
+    const rawContact = members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    if (rawContact) t.contactHold = CONTACT_HOLD_S;
+    else if (t.contactHold) t.contactHold = Math.max(0, t.contactHold - dt);
+    const contact = rawContact || (t.contactHold ?? 0) > 0;
 
     switch (t.phase) {
       case "assembling": {
@@ -43,10 +51,14 @@ export function tickTasks(w: World, dt: number) {
           t.legIndex = 0;
           t.exited = false;
           resetProgress(t);
-          for (const m of members) {
-            m.technique = t.technique;
-            m.brainState = "moving";
-            m.rof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
+          {
+            const sop = t.sop ?? defaultSOP(t.missionType);
+            for (const m of members) {
+              m.technique = t.technique;
+              m.brainState = "moving";
+              m.rof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
+              m.roe = sop.roe; // the civilian-fire gate reads this from the start of the patrol
+            }
           }
           w.log(`${t.label}: ${members.length} pax filing out the gate (${t.technique}).`, "radio");
           w.interrupt(`${t.label} steps off`);
@@ -54,11 +66,18 @@ export function tickTasks(w: World, dt: number) {
         break;
       }
       case "moving": {
-        if (!contact) drivePatrol(w, t, members, dt);
+        if (contact) squadFight(w, t, members, dt);
+        else {
+          if (t.squadState) releaseCombat(w, t, members);
+          drivePatrol(w, t, members, dt);
+        }
         break;
       }
       case "onstation": {
-        if (!contact) {
+        if (contact) {
+          squadFight(w, t, members, dt);
+        } else {
+          if (t.squadState) releaseCombat(w, t, members);
           t.timer -= dt;
           onStationEffects(w, t, members, dt);
           if (t.timer <= 0) {
@@ -71,7 +90,11 @@ export function tickTasks(w: World, dt: number) {
         break;
       }
       case "returning": {
-        if (!contact) driveReturn(w, t, members, dt, centroid);
+        if (contact) squadFight(w, t, members, dt);
+        else {
+          if (t.squadState) releaseCombat(w, t, members);
+          driveReturn(w, t, members, dt, centroid);
+        }
         break;
       }
     }
@@ -210,6 +233,38 @@ function stalled(t: Task, value: number, dt: number, limit: number): boolean {
 function resetProgress(t: Task) {
   t.goalDist = undefined;
   t.noProgressS = 0;
+}
+
+/**
+ * Contact has broken — hand the squad back from the combat coordinator to the task
+ * machine. Clear the combat bookkeeping, reset each man's fire posture to the mission
+ * default, and re-establish the right baseline for the phase (re-secure the objective
+ * on-station, otherwise resume the march). Called once on the contact→lull transition.
+ */
+function releaseCombat(w: World, t: Task, members: Unit[]) {
+  if (!t.squadState) return;
+  t.squadState = undefined;
+  t.bofIds = undefined;
+  t.mnvrIds = undefined;
+  t.rallyPt = undefined;
+  const sop = t.sop ?? defaultSOP(t.missionType);
+  const baseRof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
+  for (const m of members) {
+    if (!m.alive) continue;
+    m.orderType = undefined;
+    m.orderTarget = null;
+    m.rof = baseRof;
+    m.roe = sop.roe;
+    m.brainState = t.phase === "onstation" ? "holding" : "moving";
+  }
+  releaseFormation(members);
+  if (t.phase === "onstation") {
+    holdSecurity(w, byTeam(w, members), centroidOf(members), t.kind === "kle" ? 14 : 20);
+  }
+  w.log(
+    `${t.label}: contact broken — ${t.phase === "returning" ? "continuing exfil" : t.phase === "onstation" ? "re-securing the objective" : "resuming movement"}.`,
+    "radio"
+  );
 }
 
 function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {

@@ -10,7 +10,7 @@ const STEPS: Step[] = [
   {
     title: "Welcome to the COP",
     body:
-      "You command this combat outpost and the soldiers in it. There are no turns — one clock runs the whole valley, all the time. The big map is your ground: shaded-relief terrain at 5-metre fidelity, your COP (blue flag), and the villages. Drag to pan, scroll to zoom.",
+      "You are the commander on the radio. You command SQUADS, never individual soldiers — you give a squad its ground and its orders, and the squad leader and his men do the rest. There are no turns — one clock runs the whole valley, all the time. The big map is your ground: shaded-relief terrain at 5-metre fidelity, your COP (blue flag), and the villages. Drag to pan, scroll to zoom.",
   },
   {
     title: "Time Is Always Moving",
@@ -25,12 +25,12 @@ const STEPS: Step[] = [
   {
     title: "Send a Patrol",
     body:
-      "Select soldiers on the map (click or drag a box) or toggle whole squads in the Patrol Planner on the right. Pick a mission and a movement POSTURE — Concealed is slow and hard to spot and hugs forest and washes; Rush is fast, loud and exposed. Hit 'Draw Route', click waypoints on the map, then 'Step Off'. The element kits up, then moves — it all takes time.",
+      "Pick a squad — click one in Task Organization on the right, or click any of its men on the map. Choose a mission, then set its SOP, the standing orders it fights by: MOVEMENT (Stealth hugs cover and is hard to spot; Fast takes the roads), ON CONTACT (Hold & Return Fire, Suppress & Call Fires, Assault, or Break Contact), and ROE (Weapons Hold / Tight / Free — Tight keeps your fire off civilians). Optionally send officers (the HQ medic/JTAC). Hit 'Draw Route', click waypoints, then 'Step Off'. The squad leader gets them there.",
   },
   {
-    title: "When Rounds Crack",
+    title: "The Fight You Don't Click",
     body:
-      "Contact happens organically when units see each other. The clock slows to combat speed. Select your soldiers and use the order bar — Move, Assault, Hold, Suppress, Smoke, Frag, Withdraw — and right-click to quick-move or engage. Get people behind cover; the terrace walls and qalats stop bullets, the open ground does not. Call mortars or air from Fire Support, and MEDEVAC your wounded.",
+      "When rounds crack, the squad fights itself — you do NOT move men or pull triggers. Watch it run the drill you set: it sets a base of fire and bounds a maneuver team onto the enemy (Assault), pins and calls for fire (Suppress), or peels back to a rally point (Break). A squad that is shot up breaks contact on its own. Its SOP locks the moment it's in contact — you set the conditions beforehand and live with them. When the JTAC requests fire support, APPROVE or DENY the call. Your levers are the radio: fires, MEDEVAC, and the orders you gave before they stepped off.",
   },
   {
     title: "Win the People",
@@ -40,7 +40,7 @@ const STEPS: Step[] = [
   {
     title: "You Have the Watch",
     body:
-      "That's the loop, and it never stops: patrol, fight, build, resupply, rest — across a whole deployment, on one clock. Read the full Field Manual from the menu any time. Keep your soldiers alive and the valley leaning your way. Good luck, commander.",
+      "That's the loop, and it never stops: choose where your squads go and how they fight, then read the net and live with how it plays out — patrol, fight, build, resupply, rest, across a whole deployment on one clock. The hardest part of command is trusting your plan and your men. Read the full Field Manual from the menu any time. Keep your soldiers alive and the valley leaning your way. Good luck, commander.",
   },
 ];
 

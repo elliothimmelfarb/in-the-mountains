@@ -1,10 +1,14 @@
 "use client";
 import { useEffect, type ReactNode } from "react";
-import { useGame, OrderTool, SPEEDS } from "@/state/store";
+import { useGame, SPEEDS } from "@/state/store";
 import WorldView from "@/components/world/WorldView";
 import { getWeapon } from "@/lib/sim/weapons";
-import { Unit, MoveTechnique, MOVE_TECHNIQUES, TECHNIQUE_LABEL } from "@/lib/sim/entities";
-import { MISSION_LABEL, MissionType } from "@/lib/sim/world";
+import { Unit, ROE } from "@/lib/sim/entities";
+import {
+  MISSION_LABEL, MissionType,
+  MovementSOP, ContactSOP, SquadSOP,
+  MOVEMENT_SOP_LABEL, CONTACT_SOP_LABEL, ROE_LABEL,
+} from "@/lib/sim/world";
 import { Supplies, CERP_PROJECTS } from "@/lib/sim/campaign";
 import { Icon } from "@/components/Icon";
 
@@ -33,17 +37,10 @@ function weatherIcon(label: string): string {
   return "ico-clear";
 }
 
-const ORDER_TOOLS: { id: OrderTool; label: string; key: string; danger?: boolean }[] = [
-  { id: "select", label: "Select", key: "Q" },
-  { id: "move", label: "Move", key: "W" },
-  { id: "assault", label: "Assault", key: "E" },
-  { id: "hold", label: "Hold", key: "A" },
-  { id: "suppress", label: "Suppress", key: "S" },
-  { id: "smoke", label: "Smoke", key: "D" },
-  { id: "frag", label: "Frag", key: "F" },
-  { id: "withdraw", label: "Withdraw", key: "X", danger: true },
-];
 const MISSIONS: MissionType[] = ["presence", "recon", "ambush", "census", "cordon", "overwatch"];
+const MOVEMENTS: MovementSOP[] = ["stealth", "patrol", "fast"];
+const CONTACTS: ContactSOP[] = ["hold", "suppress", "assault", "break"];
+const ROES: ROE[] = ["hold", "tight", "free"];
 
 function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%" }: { label: ReactNode; value: number; color?: string; max?: number; suffix?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
@@ -72,8 +69,8 @@ export default function DeployScreen() {
   const togglePause = useGame((s) => s.togglePause);
   const setSpeed = useGame((s) => s.setSpeed);
   const toggleWarp = useGame((s) => s.toggleWarp);
-  const setOrderTool = useGame((s) => s.setOrderTool);
   const setFireSupport = useGame((s) => s.setFireSupport);
+  const setPlanning = useGame((s) => s.setPlanning);
   useGame((s) => s.tick);
 
   useEffect(() => {
@@ -85,19 +82,21 @@ export default function DeployScreen() {
         return;
       }
       const k = e.key.toUpperCase();
-      const tool = ORDER_TOOLS.find((t) => t.key === k);
-      if (tool) setOrderTool(tool.id);
       if (e.key === "1") setSpeed(1);
       if (e.key === "2") setSpeed(2);
       if (e.key === "3") setSpeed(4);
       if (e.key === "4") setSpeed(8);
       if (e.key === "5") setSpeed(16);
       if (k === "T") toggleWarp();
-      if (e.key === "Escape") setFireSupport(null);
+      if (k === "R") setPlanning(!useGame.getState().planning); // R = draw/route mode for the active squad
+      if (e.key === "Escape") {
+        setFireSupport(null);
+        if (useGame.getState().planning) setPlanning(false);
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [togglePause, setSpeed, toggleWarp, setOrderTool, setFireSupport]);
+  }, [togglePause, setSpeed, toggleWarp, setFireSupport, setPlanning]);
 
   if (!world) return null;
 
@@ -330,44 +329,34 @@ function BannerOverlay() {
 // ---------------------------------------------------------------- order bar
 function OrderBar() {
   const world = useGame((s) => s.world)!;
-  const selection = useGame((s) => s.selection);
-  const orderTool = useGame((s) => s.orderTool);
-  const setOrderTool = useGame((s) => s.setOrderTool);
-  const posture = useGame((s) => s.posture);
-  const setPosture = useGame((s) => s.setPosture);
   const fireSupport = useGame((s) => s.fireSupport);
   const setFireSupport = useGame((s) => s.setFireSupport);
   const medevacSelected = useGame((s) => s.medevacSelected);
+  const approveFires = useGame((s) => s.approveFires);
+  const denyFires = useGame((s) => s.denyFires);
   useGame((s) => s.tick);
   const sim = world.sim;
+  // any friendly down in the field → surface the 9-line
+  const casualtyInField = sim.units.some((u) => (u.faction === "us" || u.faction === "ana") && u.alive && !u.evac && (!u.conscious || u.bleedRate > 0.3));
+  const fr = world.state.fireRequest;
 
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-panel/95 border-t border-line p-2 z-10">
       <div className="flex items-start gap-3 flex-wrap">
-        <div>
-          <div className="stencil text-[9px] text-amber mb-1">Orders {selection.length === 0 && <span className="text-inkdim normal-case">— select soldiers</span>}{selection.length > 0 && <span className="text-inkdim normal-case"> ({selection.length})</span>}</div>
-          <div className="flex flex-wrap gap-1 max-w-[460px]">
-            {ORDER_TOOLS.map((t) => (
-              <button key={t.id} className={`tac-btn inline-flex items-center gap-1.5 ${orderTool === t.id ? "active" : ""} ${t.danger ? "tac-btn-danger" : ""}`} onClick={() => setOrderTool(t.id)}>
-                <Icon name={`ico-${t.id}`} size={13} />
-                {t.label} <span className="text-inkdim text-[9px]">[{t.key}]</span>
-              </button>
-            ))}
+        <SquadReadout />
+        {fr && (
+          <div className="border-l border-rust pl-3 animate-pulse">
+            <div className="stencil text-[9px] text-rust mb-1">▲ Call for Fire — {fr.label}</div>
+            <div className="font-mono text-[10px] text-ink max-w-[200px] mb-1">{fr.reason}. Requesting <span className="text-amber">{getWeapon(fr.weaponId).short}</span> on grid {String(fr.cx).padStart(3, "0")}–{String(fr.cy).padStart(3, "0")}.</div>
+            <div className="flex gap-1">
+              <button className="tac-btn tac-btn-danger active flex-1 text-[10px]" onClick={approveFires}>✓ CLEARED HOT</button>
+              <button className="tac-btn flex-1 text-[10px]" onClick={denyFires}>✕ DENY</button>
+            </div>
           </div>
-          <div className="flex gap-1 mt-1.5 items-center">
-            <span className="text-inkdim text-[9px] font-mono">POSTURE</span>
-            <select value={posture} onChange={(e) => setPosture(e.target.value as MoveTechnique)} className="bg-bg border border-line text-ink text-[10px] font-mono px-1 py-0.5 outline-none focus:border-amber">
-              {MOVE_TECHNIQUES.map((t) => (<option key={t} value={t}>{TECHNIQUE_LABEL[t]}</option>))}
-            </select>
-            <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "holdfire" })}>Hold Fire</button>
-            <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "weaponsfree" })}>Wpns Free</button>
-            <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "halt" })}>Halt</button>
-            <button className="tac-btn tac-btn-danger inline-flex items-center gap-1 text-[10px]" onClick={medevacSelected}><Icon name="ico-medevac" size={13} /> MEDEVAC</button>
-          </div>
-        </div>
+        )}
         <div className="border-l border-line pl-3">
-          <div className="stencil text-[9px] text-amber mb-1">Fire Support</div>
-          <div className="flex flex-col gap-1 max-w-[220px]">
+          <div className="stencil text-[9px] text-amber mb-1">Fire Support <span className="text-inkdim normal-case">— click the map to place</span></div>
+          <div className="flex flex-col gap-1 max-w-[230px]">
             {sim.mortars.map((mt) => {
               const wp = getWeapon(mt.weaponId);
               return (
@@ -380,60 +369,46 @@ function OrderBar() {
               <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
               <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
             </div>
+            <button className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${casualtyInField ? "tac-btn-danger active" : ""}`} onClick={medevacSelected}>
+              <Icon name="ico-medevac" size={13} /> 9-LINE MEDEVAC {casualtyInField && <span className="text-[9px]">· casualty down</span>}
+            </button>
           </div>
         </div>
-        <SelectionReadout />
       </div>
     </div>
   );
 }
 
-function SelectionReadout() {
+const PHASE_LABEL: Record<string, string> = {
+  assembling: "kitting up", moving: "moving", onstation: "on station", returning: "returning", complete: "",
+};
+
+// The squad you're commanding: its strength, status, and the standing SOP it's running.
+function SquadReadout() {
   const world = useGame((s) => s.world)!;
-  const selection = useGame((s) => s.selection);
+  const activeSquadId = useGame((s) => s.activeSquadId);
   useGame((s) => s.tick);
-  const units = selection.map((id) => world.sim.unit(id)).filter((u): u is Unit => !!u);
-  if (units.length === 0) return null;
-  if (units.length === 1) return <div className="border-l border-line pl-3 min-w-[230px]"><UnitCard u={units[0]} /></div>;
-  const alive = units.filter((u) => u.alive);
-  const avgHp = alive.reduce((a, u) => a + u.hp, 0) / Math.max(1, alive.length);
-  const avgMorale = alive.reduce((a, u) => a + u.composure, 0) / Math.max(1, alive.length);
+  if (!activeSquadId) return <div className="font-mono text-[10px] text-inkdim pl-1 self-center">No squad selected — pick one in Task Org, or click a squad on the map.</div>;
+  const sq = world.platoon.squads.find((s) => s.id === activeSquadId);
+  if (!sq) return null;
+  const members = sq.memberIds.map((id) => world.sim.unit(id)).filter((u): u is Unit => !!u);
+  const alive = members.filter((u) => u.alive);
+  const task = world.state.tasks.find((t) => sq.memberIds.some((id) => t.memberIds.includes(id)));
+  const sop = task?.sop;
+  const inContact = !!task && (!!task.squadState || (task.contactHold ?? 0) > 0 || alive.some((u) => u.visibleEnemyIds.length > 0 || u.suppression > 0.3));
+  const avgComp = alive.reduce((a, u) => a + u.composure, 0) / Math.max(1, alive.length);
   return (
-    <div className="border-l border-line pl-3 font-mono text-[10px] min-w-[200px]">
-      <div className="stencil text-[9px] text-amber mb-1">Selected ({units.length})</div>
-      <div className="text-inkdim">{alive.length} effective · {units.length - alive.length} down</div>
-      <div className="text-inkdim">Avg HP {Math.round(avgHp)} · Morale {Math.round(avgMorale * 100)}</div>
-      <div className="text-inkdim/70 text-[9px] mt-1">Orders apply to the whole selection.</div>
-    </div>
-  );
-}
-
-function statBar(v: number, color: string) {
-  return (
-    <div className="flex-1 h-1.5 bg-bg border border-line overflow-hidden">
-      <div className="h-full" style={{ width: Math.max(0, Math.min(100, v * 100)) + "%", background: color }} />
-    </div>
-  );
-}
-
-function UnitCard({ u }: { u: Unit }) {
-  const w = getWeapon(u.weaponId === "unarmed" ? "m9" : u.weaponId);
-  const state = !u.alive ? "KIA" : !u.conscious ? "DOWN" : u.brainState;
-  return (
-    <div className="font-mono text-[11px]">
-      <div className="flex justify-between gap-2">
-        <span className="text-ink font-semibold truncate">{u.rank} {u.name}</span>
-        <span className={`${!u.alive ? "text-rust" : u.suppression > 0.5 ? "text-amber" : "text-good"}`}>{state}</span>
+    <div className="font-mono text-[10px] min-w-[230px]">
+      <div className="stencil text-[10px] text-amber mb-1">
+        {sq.name}
+        {task && <span className={`normal-case ${inContact ? "text-rust" : "text-good"}`}> · {inContact ? "IN CONTACT" : (PHASE_LABEL[task.phase] || "tasked")}</span>}
       </div>
-      <div className="text-inkdim mb-1 truncate">{w.name} · {u.stance}</div>
-      <div className="flex items-center gap-1.5 mb-0.5"><span className="w-9 text-inkdim">HP</span>{statBar(u.hp / 100, u.hp > 50 ? "#6fae54" : u.hp > 25 ? "#e0a72b" : "#c0392b")}</div>
-      <div className="flex items-center gap-1.5 mb-0.5"><span className="w-9 text-inkdim">Suppr</span>{statBar(u.suppression, "#e0a72b")}</div>
-      <div className="flex justify-between text-inkdim mt-0.5">
-        <span>AMMO <span className="text-ink">{u.ammo}</span>/{u.reserveAmmo}</span>
-        {u.grenades > 0 && <span>FRAG {u.grenades}</span>}
-        {u.smokes > 0 && <span>SMK {u.smokes}</span>}
-      </div>
-      {u.wounds.length > 0 && <div className="text-rust mt-0.5">WOUNDS: {u.wounds.map((wd) => wd.region).join(", ")}{u.bleedRate > 0 ? " · BLEEDING" : ""}</div>}
+      <div className="text-inkdim">{alive.length}/{members.length} effective · morale {Math.round(avgComp * 100)}</div>
+      {sop ? (
+        <div className="text-inkdim mt-0.5">SOP <span className="text-ink">{MOVEMENT_SOP_LABEL[sop.movement]} · {CONTACT_SOP_LABEL[sop.contact]} · {ROE_LABEL[sop.roe]}</span>{inContact && <span className="text-inkdim/60"> (locked)</span>}</div>
+      ) : (
+        <div className="text-inkdim/70 mt-0.5">at the COP — plan a patrol →</div>
+      )}
     </div>
   );
 }
@@ -450,79 +425,140 @@ function RightColumn() {
   );
 }
 
+// A segmented button group — one row of the SOP card.
+function Seg<T extends string>({ label, options, value, labelOf, onChange, disabled }: { label: string; options: T[]; value: T; labelOf: (v: T) => string; onChange: (v: T) => void; disabled?: boolean }) {
+  return (
+    <div className="mb-1">
+      <div className="text-inkdim text-[9px] font-mono mb-0.5">{label}</div>
+      <div className="flex gap-0.5 flex-wrap">
+        {options.map((o) => (
+          <button key={o} disabled={disabled} onClick={() => onChange(o)} className={`tac-btn text-[10px] px-1.5 py-0.5 ${value === o ? "active" : ""} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+            {labelOf(o)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// The squad's standing operating procedure: how they move, what they do on contact, the ROE.
+function SopCard({ sop, onChange, locked }: { sop: SquadSOP; onChange: (patch: Partial<SquadSOP>) => void; locked?: boolean }) {
+  return (
+    <div className="border border-line bg-bg p-1.5 mb-1.5">
+      <div className="flex justify-between items-center mb-1">
+        <div className="stencil text-[9px] text-amber">Squad SOP</div>
+        {locked && <span className="text-rust text-[9px] font-mono">LOCKED · in contact</span>}
+      </div>
+      <Seg label="MOVEMENT" options={MOVEMENTS} value={sop.movement} labelOf={(m) => MOVEMENT_SOP_LABEL[m]} disabled={locked} onChange={(m) => onChange({ movement: m })} />
+      <Seg label="ON CONTACT" options={CONTACTS} value={sop.contact} labelOf={(c) => CONTACT_SOP_LABEL[c]} disabled={locked} onChange={(c) => onChange({ contact: c })} />
+      <Seg label="RULES OF ENGAGEMENT" options={ROES} value={sop.roe} labelOf={(r) => ROE_LABEL[r]} disabled={locked} onChange={(r) => onChange({ roe: r })} />
+    </div>
+  );
+}
+
 function ElementPanel() {
   const world = useGame((s) => s.world)!;
-  const selection = useGame((s) => s.selection);
-  const selectUnits = useGame((s) => s.selectUnits);
-  const squadIds = useGame((s) => s.squadIds);
+  const activeSquadId = useGame((s) => s.activeSquadId);
+  const selectSquad = useGame((s) => s.selectSquad);
+  const attachOfficers = useGame((s) => s.attachOfficers);
+  const toggleOfficers = useGame((s) => s.toggleOfficers);
   const planning = useGame((s) => s.planning);
   const planRoute = useGame((s) => s.planRoute);
   const planMission = useGame((s) => s.planMission);
   const setMission = useGame((s) => s.setMission);
+  const planSOP = useGame((s) => s.planSOP);
+  const setPlanSOP = useGame((s) => s.setPlanSOP);
   const setPlanning = useGame((s) => s.setPlanning);
   const stepOff = useGame((s) => s.stepOff);
+  const reroute = useGame((s) => s.reroute);
+  const setSquadSOP = useGame((s) => s.setSquadSOP);
+  const patrolIds = useGame((s) => s.patrolIds);
   const setJacket = useGame((s) => s.setJacket);
   useGame((s) => s.tick);
 
-  const hasMedic = selection.some((id) => world.platoon.members.find((x) => x.id === id)?.role === "medic");
-  const canStep = selection.length > 0 && planRoute.length > 0;
+  const activeSq = world.platoon.squads.find((s) => s.id === activeSquadId) ?? null;
+  const activeTask = activeSq ? world.state.tasks.find((t) => activeSq.memberIds.some((id) => t.memberIds.includes(id))) : null;
+  // Mirror world.setSOP's lock exactly (whole TASK roster incl. attached officers, plus the
+  // coordinator's combat state and the sticky-contact window) so the SOP card never shows
+  // editable when setSOP would reject the edit.
+  const inContact = !!activeTask && (!!activeTask.squadState || (activeTask.contactHold ?? 0) > 0 ||
+    activeTask.memberIds.some((id) => { const u = world.sim.unit(id); return !!u && (u.visibleEnemyIds.length > 0 || u.suppression > 0.3); }));
+  const ids = patrolIds();
+  const hasMedic = ids.some((id) => world.platoon.members.find((x) => x.id === id)?.role === "medic");
+  const canStep = !activeTask && ids.length > 0 && planRoute.length > 0;
+  const canReroute = !!activeTask && planRoute.length > 0;
 
-  const toggleSquad = (sid: string) => {
-    const ids = squadIds(sid);
-    const allIn = ids.every((id) => selection.includes(id));
-    if (allIn) selectUnits(selection.filter((id) => !ids.includes(id)));
-    else selectUnits([...new Set([...selection, ...ids])]);
+  const sop: SquadSOP = activeTask?.sop ?? planSOP;
+  const onSop = (patch: Partial<SquadSOP>) => {
+    if (activeTask) setSquadSOP(activeTask.id, { ...sop, ...patch });
+    else setPlanSOP(patch);
   };
 
   return (
     <div className="border-b border-line flex flex-col min-h-0 flex-1">
+      {/* orders for the active squad */}
       <div className="p-2 border-b border-line">
-        <div className="stencil text-[10px] text-amber mb-1.5">Patrol Planner</div>
-        <div className="flex flex-wrap gap-1 mb-1.5">
-          {MISSIONS.map((mt) => (
-            <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
-          ))}
-        </div>
-        {!hasMedic && selection.length > 0 && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — wounded will bleed.</div>}
-        <div className="text-inkdim text-[10px] mb-1 font-mono">{selection.length} selected · {planRoute.length} waypoints{planning ? " · click the map to draw" : ""}</div>
-        <div className="flex gap-1">
-          <button className={`tac-btn flex-1 ${planning ? "active" : ""}`} onClick={() => setPlanning(!planning)}>{planning ? "Drawing route…" : "✚ Draw Route"}</button>
-          <button className={`tac-btn flex-1 ${canStep ? "active" : ""}`} disabled={!canStep} onClick={stepOff}>▸ Step Off</button>
-        </div>
-      </div>
-      <div className="p-2 overflow-y-auto flex-1 min-h-0">
         <div className="flex items-center justify-between mb-1.5">
-          <div className="stencil text-[10px] text-amber">Task Organization</div>
-          <span className="font-mono text-[10px] text-inkdim">{selection.length} sel</span>
+          <div className="stencil text-[10px] text-amber">{activeSq ? `${activeSq.name} — Orders` : "Squad Orders"}</div>
+          {activeTask && <span className="text-[9px] font-mono text-good">● DEPLOYED</span>}
         </div>
+        {!activeSq ? (
+          <div className="text-inkdim text-[10px] font-mono">Select a squad below (or click one on the map) to give it orders.</div>
+        ) : (
+          <>
+            {!activeTask && (
+              <div className="flex flex-wrap gap-1 mb-1.5">
+                {MISSIONS.map((mt) => (
+                  <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
+                ))}
+              </div>
+            )}
+            <SopCard sop={sop} onChange={onSop} locked={inContact} />
+            {!activeTask && !hasMedic && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — attach officers (HQ) for the doc, or expect bleed-outs.</div>}
+            {!activeTask && (
+              <label className="flex items-center gap-1.5 text-[10px] font-mono text-inkdim mb-1.5 cursor-pointer">
+                <input type="checkbox" checked={attachOfficers} onChange={toggleOfficers} className="accent-amber" />
+                Send officers (HQ: PL · medic · RTO · JTAC)
+              </label>
+            )}
+            <div className="text-inkdim text-[10px] mb-1 font-mono">{ids.length} pax · {planRoute.length} waypoints{planning ? " · click the map to draw" : ""}</div>
+            <div className="flex gap-1">
+              <button className={`tac-btn flex-1 ${planning ? "active" : ""}`} onClick={() => setPlanning(!planning)}>{planning ? "Drawing…" : "✚ Draw Route [R]"}</button>
+              {activeTask
+                ? <button className={`tac-btn flex-1 ${canReroute ? "active" : ""}`} disabled={!canReroute} onClick={reroute}>↳ Re-route</button>
+                : <button className={`tac-btn flex-1 ${canStep ? "active" : ""}`} disabled={!canStep} onClick={stepOff}>▸ Step Off</button>}
+            </div>
+          </>
+        )}
+      </div>
+      {/* the platoon's fixed squads — pick which to command (never a man) */}
+      <div className="p-2 overflow-y-auto flex-1 min-h-0">
+        <div className="stencil text-[10px] text-amber mb-1.5">Task Organization</div>
         {world.platoon.squads.map((sq) => {
           const members = sq.memberIds.map((id) => world.platoon.members.find((x) => x.id === id)).filter(Boolean) as NonNullable<ReturnType<typeof world.platoon.members.find>>[];
-          const readyCount = members.filter((mm) => mm.alive && mm.status === "ready").length;
+          const readyCount = members.filter((mm) => mm.alive && (mm.status === "ready" || mm.status === "rest")).length;
+          const tasked = world.state.tasks.some((t) => t.memberIds.some((id) => sq.memberIds.includes(id)));
+          const active = sq.id === activeSquadId;
           return (
             <div key={sq.id} className="mb-2">
-              <button className="w-full flex justify-between items-center text-[11px] text-ink hover:text-amber py-0.5" onClick={() => toggleSquad(sq.id)}>
-                <span className="font-semibold">{sq.name}</span>
-                <span className="font-mono text-[9px] text-inkdim">{readyCount}/{members.length} ready ▾</span>
+              <button className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`} onClick={() => selectSquad(sq.id)}>
+                <span className="font-semibold inline-flex items-center gap-1.5">{active && <span>▸</span>}{sq.name}</span>
+                <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1">●deployed</span>}{readyCount}/{members.length} ready</span>
               </button>
-              <div className="grid grid-cols-1 gap-0.5 mt-0.5">
-                {members.map((mm) => {
-                  const sel = selection.includes(mm.id);
-                  const tasked = world.state.tasks.some((t) => t.memberIds.includes(mm.id));
-                  return (
-                    <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-1 border text-left text-[10px] ${sel ? "border-amber bg-[#3a4126]" : "border-line bg-bg"} ${!mm.alive ? "opacity-40" : "hover:border-olive"}`}>
-                      <button disabled={!mm.alive} onClick={() => selectUnits(sel ? selection.filter((x) => x !== mm.id) : [...selection, mm.id])} className="flex items-center gap-1.5 flex-1 min-w-0 text-left">
-                        <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
-                        <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
-                        <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
-                        {tasked && <span className="text-amber text-[9px]">●</span>}
-                        <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
-                        <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
-                      </button>
+              {active && (
+                <div className="grid grid-cols-1 gap-0.5 mt-0.5">
+                  {members.map((mm) => (
+                    <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-0.5 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
+                      <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
+                      <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
+                      <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
+                      <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
                       <button title="Service record" onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber px-1 shrink-0">ⓘ</button>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
           );
         })}
@@ -536,8 +572,11 @@ function VillagePanel({ villageId }: { villageId: string }) {
   const conductKLE = useGame((s) => s.conductKLE);
   const fundProject = useGame((s) => s.fundProject);
   const selectVillage = useGame((s) => s.selectVillage);
-  const selection = useGame((s) => s.selection);
+  const activeSquadId = useGame((s) => s.activeSquadId);
+  const patrolIds = useGame((s) => s.patrolIds);
   useGame((s) => s.tick);
+  const kleSquad = world.platoon.squads.find((s) => s.id === activeSquadId);
+  const klePax = activeSquadId && activeSquadId !== "hq" ? patrolIds().length : 0;
   const v = world.state.villages.find((x) => x.id === villageId);
   if (!v) return null;
   const attColor = v.attitude > 20 ? "#6fae54" : v.attitude < -20 ? "#c0392b" : "#e0a72b";
@@ -564,7 +603,7 @@ function VillagePanel({ villageId }: { villageId: string }) {
         </div>
       )}
       <button className="tac-btn w-full mb-2" onClick={() => conductKLE(v.id)}>
-        ☕ Send element for Shura (KLE){selection.length ? ` — ${selection.length} pax` : " — HQ"}
+        ☕ Send for Shura (KLE){klePax ? ` — ${kleSquad?.name ?? "squad"}` : " — HQ element"}
       </button>
       <div className="stencil text-[10px] text-amber mb-1">CERP Projects <span className="text-inkdim normal-case">(${world.state.cerp.toLocaleString()} · $5k ea)</span></div>
       <div className="flex flex-wrap gap-1">

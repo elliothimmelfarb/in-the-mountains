@@ -33,15 +33,21 @@ next event" fast-forwards the quiet hours, stopping on the first thing that matt
 
 Strategic orders are `Task`s that progress on the clock:
 
-- **Patrol** — `formPatrol(ids, route, mission, posture)`. The element **musters** in the COP yard and
-  kits up for a minute or three, **files out the gate**, then **moves to its objective as a squad** —
-  the squad leader and two fire teams in a doctrinal formation (see Simulation Systems → Squad
-  movement), terrain-routed (A*) with the chosen posture — **dwells** in a 360° security halt on the
-  objective (mission effects accrue), then **returns** through the gate. Combat AI takes over the
-  instant rounds crack; the task resumes on the lull. Missions: presence, recon, ambush/interdiction,
-  census, cordon & search, establish OP.
-- **KLE** — `conductKLE(ids, village, posture)`: send an element to a village to hold a shura;
-  attitude/cooperation and intel accrue over the dwell.
+- **Patrol** — `formPatrol(ids, route, mission, technique, sop?)`. You pick a fixed squad and draw a
+  waypoint route; the element **musters** in the COP yard and kits up for a minute or three, **files
+  out the gate**, then **moves to its objective as a squad** — the squad leader and two fire teams in
+  a doctrinal formation (see Simulation Systems → Squad movement), terrain-routed (A*) at the squad's
+  movement tempo — **dwells** in a 360° security halt on the objective (mission effects accrue), then
+  **returns** through the gate. The squad carries a **SOP** — its standing orders for the patrol. If a
+  `sop` is supplied it is **authoritative** (the movement technique derives from it via `sopTechnique`,
+  overriding the bare `technique` argument); otherwise the SOP is seeded from the mission type
+  (`defaultSOP`). Combat AI takes over the instant rounds crack — it runs the SOP's on-contact drill
+  (see Simulation Systems → Squad combat) — and the task resumes on the lull. Missions: presence,
+  recon, ambush/interdiction, census, cordon & search, establish OP.
+- **KLE** — `conductKLE(ids, village, technique, sop?)`: send a squad to a village to hold a shura;
+  attitude/cooperation and intel accrue over the dwell. As with patrols a supplied `sop` is
+  authoritative and drives the movement technique; without one a KLE goes in friendly by default —
+  patrol tempo, hold on contact, weapons tight.
 - Elements can be **recalled** at any time.
 
 ## Projects — logistics & patience (`projects.ts`)
@@ -74,6 +80,15 @@ Each `VillageState` has an attitude (−100…+100), cooperation (intel willingn
 and what it `wants` (a project type). Raise attitude by showing up (presence), shuras, and finished
 projects. Cooperative villages feed better HUMINT. Civilian casualties are catastrophic: villages
 harden, sympathy and heat rise, and battalion confidence drops.
+
+The fight feeds this ledger too, through the squad's **ROE**. Every friendly shot passes a
+**civilian-fire gate** (`civClear`): under **Tight** ROE — the COIN default — a soldier holds fire
+rather than put a round near a civilian in the kill zone, where **Free** lets it fly and **Hold**
+keeps weapons cold. Each held shot is recorded as a **restraint** event, and the nearest village
+notices — a small, slow gain in attitude and cooperation and a dip in sympathy. It will never offset
+a single civcas (an order of magnitude larger), but disciplined patrols that eat fire rather than
+risk the qalat are how you actually buy the valley's trust. You set ROE in the squad SOP before
+step-off; it locks once the squad is in contact.
 
 ## Metrics & scoring
 

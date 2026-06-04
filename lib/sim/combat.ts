@@ -1,8 +1,8 @@
 import { RNG, clamp, clamp01, lerp } from "./rng";
-import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle } from "./vec";
+import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle, segDist } from "./vec";
 import { Terrain } from "./terrain";
 import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
-import { findPath, walkable, PathOptions } from "./path";
+import { findPath, walkable } from "./path";
 import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
@@ -17,34 +17,11 @@ import { insurgentBrain } from "./ai/insurgent";
 import { civilianBrain } from "./ai/civilian";
 import { friendlyBrain } from "./ai/friendly";
 
-export type OrderType =
-  | "move"
-  | "assault"
-  | "hold"
-  | "engage"
-  | "suppress"
-  | "holdfire"
-  | "weaponsfree"
-  | "withdraw"
-  | "smoke"
-  | "frag"
-  | "treat"
-  | "regroup"
-  | "halt";
-
 export type { MoveTechnique } from "./entities";
 
-export interface Order {
-  type: OrderType;
-  point?: Vec2;
-  targetId?: string;
-  technique?: MoveTechnique;
-  rof?: Unit["rof"];
-  /** Route the move along the terrain (A*) instead of a straight line. */
-  pathfind?: boolean;
-  /** 0..1 preference for concealment when pathfinding. */
-  concealBias?: number;
-}
+// Player-issued orders were removed in the squad-command overhaul: there is no
+// individual-soldier control. All combat intent now comes from the squad-combat
+// coordinator (ai/squad-combat.ts), which writes Unit fields the brains execute.
 
 export type EffectKind =
   | "muzzle"
@@ -65,6 +42,8 @@ export interface Effect {
   ttl: number;
   faction?: Unit["faction"];
   size?: number;
+  facing?: number; // muzzle flash: shooter's heading (rad), for a directional flash cone
+  ied?: boolean; // blast: a buried-charge initiation (a bigger, dirtier scar than a mortar)
 }
 
 export type LogKind = "info" | "contact" | "casualty" | "kia" | "radio" | "support" | "objective";
@@ -238,6 +217,12 @@ export class CombatSim {
   ammoExpended = 0;
   fireMissionsUsed = 0;
   lastActivityS = 0; // last time a round was fired or detonated (for lull detection)
+  /** World positions where a friendly held fire for ROE (a civilian in the kill zone)
+   *  since the last drain. The World turns these into a small COIN restraint reward for
+   *  the nearest village — buying the valley's trust by NOT taking the shot. Capped. */
+  restraintEvents: Vec2[] = [];
+  // Living civilians, rebuilt each tick in buildSpatialGrid — civClear scans this, not all units.
+  private civilians: Unit[] = [];
   revealed: Map<string, RevealedEnemy> = new Map();
   // index for quick lookup
   private byId: Map<string, Unit> = new Map();
@@ -313,86 +298,6 @@ export class CombatSim {
 
   addEffect(kind: EffectKind, pos: Vec2, ttl: number, opts: Partial<Effect> = {}) {
     this.effects.push({ id: _eid++, kind, pos: { ...pos }, t: 0, ttl, ...opts });
-  }
-
-  // ---------------------------------------------------------------- orders
-  issueOrder(unitIds: string[], order: Order) {
-    for (const id of unitIds) {
-      const u = this.unit(id);
-      if (!u || !u.alive || u.faction === "insurgent" || u.faction === "civilian") continue;
-      this.applyOrder(u, order);
-    }
-  }
-
-  private applyOrder(u: Unit, order: Order) {
-    u.orderType = order.type;
-    u.brainTimer = 0;
-    // Any explicit order breaks the squad's formation locks.
-    u.faceLock = null;
-    u.formationHold = false;
-    u.paceScale = 1;
-    this.resetStall(u);
-    switch (order.type) {
-      case "move":
-      case "assault":
-      case "withdraw":
-        if (order.point) {
-          u.orderTarget = { ...order.point };
-          u.pathGoal = { ...order.point };
-          u.path = order.pathfind
-            ? findPath(this.terrain, u.pos, order.point, this.pathOptsFor(u, order))
-            : [{ ...order.point }];
-          u.brainState = order.type === "withdraw" ? "withdrawing" : "moving";
-        }
-        if (order.type === "assault") u.rof = "free";
-        break;
-      case "hold":
-        u.orderTarget = order.point ? { ...order.point } : { ...u.pos };
-        u.pathGoal = order.point ? { ...order.point } : null;
-        u.path = order.point ? [{ ...order.point }] : [];
-        u.brainState = "holding";
-        break;
-      case "engage":
-        u.targetId = order.targetId ?? u.targetId;
-        u.orderTarget = order.point ? { ...order.point } : null;
-        u.rof = "free";
-        u.brainState = "engaging";
-        break;
-      case "suppress":
-        u.orderTarget = order.point ? { ...order.point } : null;
-        u.rof = "suppress";
-        u.brainState = "suppressing";
-        break;
-      case "holdfire":
-        u.rof = "hold";
-        break;
-      case "weaponsfree":
-        u.rof = "free";
-        break;
-      case "smoke":
-        if (order.point) this.throwSmoke(u, order.point);
-        break;
-      case "frag":
-        if (order.point) u.orderTarget = { ...order.point };
-        u.brainState = "fragging";
-        break;
-      case "treat":
-        u.targetId = order.targetId ?? null;
-        u.brainState = "treating";
-        break;
-      case "regroup":
-        u.brainState = "regroup";
-        if (order.point) u.path = [{ ...order.point }];
-        break;
-      case "halt":
-        u.path = [];
-        u.orderTarget = null;
-        u.pathGoal = null;
-        u.brainState = "holding";
-        break;
-    }
-    if (order.rof) u.rof = order.rof;
-    if (order.technique) u.technique = order.technique;
   }
 
   techniqueOf(u: Unit): MoveTechnique {
@@ -632,8 +537,10 @@ export class CombatSim {
    */
   private buildSpatialGrid() {
     this.grid.clear();
+    this.civilians.length = 0; // rebuilt here (once/tick, before firing) so civClear doesn't rescan all units
     for (const u of this.units) {
       if (!u.alive || u.evac) continue;
+      if (u.faction === "civilian") this.civilians.push(u);
       const key = this.bucketKey(u.pos.x, u.pos.y);
       const cell = this.grid.get(key);
       if (cell) cell.push(u);
@@ -846,6 +753,18 @@ export class CombatSim {
     }
     if (!aimPos) return;
 
+    // ROE gate (belt-and-suspenders): a civilian — or the gun-target line — may have
+    // shifted since this target was acquired. Holding fire with a civ in the kill zone is
+    // the COIN moral core; record the restraint so the World can reward the village's trust.
+    if (!this.civClear(u, aimPos, target ?? null)) {
+      u.targetId = null;
+      u.aimProgress = 0;
+      // hesitate before re-checking (throttles the restraint signal and models the held breath)
+      u.fireCooldown = Math.max(u.fireCooldown, this.rng.range(0.7, 1.4));
+      if (this.restraintEvents.length < 64) this.restraintEvents.push({ ...u.pos });
+      return;
+    }
+
     // out of ammo for this weapon?
     if (u.ammo <= 0) {
       if (u.reserveAmmo > 0) {
@@ -905,6 +824,7 @@ export class CombatSim {
     this.addEffect("muzzle", u.pos, 0.12, {
       faction: u.faction,
       size: weapon.cls === "hmg" || weapon.cls === "mmg" ? 1.6 : 1,
+      facing: u.facing, // so the render draws a flash CONE along the gun line
     });
   }
 
@@ -968,10 +888,10 @@ export class CombatSim {
     this.projectiles = survivors;
   }
 
-  private detonate(p: Projectile, at: Vec2) {
+  private detonate(p: Projectile, at: Vec2, isIed = false) {
     const radius = p.blastRadius || 6;
     this.lastActivityS = this.timeS;
-    this.addEffect("blast", at, 0.6, { faction: p.faction, size: radius / 8 });
+    this.addEffect("blast", at, 0.6, { faction: p.faction, size: radius / 8, ied: isIed });
     for (const u of this.units) {
       if (!u.alive || u.evac) continue;
       const d = dist(u.pos, at);
@@ -1274,7 +1194,7 @@ export class CombatSim {
         suppressionRadius: ied.blastRadius * 2.4, suppression: 4, indirect: true, timeToImpact: 0,
         arcHeight: 0, alive: true, age: 0, tracer: false, hit: false,
       };
-      this.detonate(p, ied.pos);
+      this.detonate(p, ied.pos, true);
       // initiate the linked ambush: the cell springs from hold to engage at once
       if (ied.cellSquadId) {
         for (const e of this.units) {
@@ -1483,10 +1403,6 @@ export class CombatSim {
     return t === "concealed" ? 0.7 : t === "tactical" ? 0.3 : 0;
   }
 
-  private pathOptsFor(u: Unit, order: Order): PathOptions {
-    return { concealBias: order.concealBias ?? this.defaultConcealBias(u) };
-  }
-
   /** Pick the best currently-perceived enemy for `u` to engage. */
   acquireTarget(u: Unit): string | null {
     let best: string | null = null;
@@ -1499,6 +1415,7 @@ export class CombatSim {
       if (r > weapon.maxRange) continue;
       const los = this.los(u, e);
       if (!this.canPerceive(u, los)) continue; // thermal can engage what it sees through foliage
+      if (!this.civClear(u, e.pos, e)) continue; // ROE: don't take a target with civilians in the kill zone
       // Prefer close, exposed, and dangerous targets (MG/RPG gunners first).
       let threat = 1;
       const ew = this.weaponOf(e);
@@ -1604,6 +1521,49 @@ export class CombatSim {
       }
     }
     return best;
+  }
+
+  // ---------------------------------------------------------------- civilian ROE gate
+  /**
+   * The civilian-fire gate — the COIN spine. Returns FALSE (do NOT fire / reject this
+   * target) when taking the shot would put a conscious civilian inside a weapon- and
+   * ROE-scaled keep-out of either the aimpoint OR the gun→target line. This is the single
+   * chokepoint every friendly shot passes: consulted in `acquireTarget` (so a fouled
+   * target is never even selected) and again at burst-commit in `updateFiring`
+   * (belt-and-suspenders, since the civilian or the line may have moved since acquisition).
+   * Only US/ANA observe ROE; insurgents and civilians are never gated here.
+   */
+  civClear(shooter: Unit, aimPos: Vec2, target?: Unit | null): boolean {
+    if (shooter.faction !== "us" && shooter.faction !== "ana") return true;
+    const roe = shooter.roe ?? "tight";
+    const weapon = this.weaponOf(shooter);
+    const cls = weapon.cls;
+    const area = cls === "lmg" || cls === "mmg" || cls === "hmg" || cls === "agl" || shooter.rof === "suppress";
+    const blast = cls === "gl" || cls === "agl" || cls === "rocket" || cls === "missile" || cls === "mortar";
+    // Keep-out radius around the aimpoint. `tight`/`hold` keep a generous bubble; `free`
+    // shrinks to danger-close (a civ standing on the aimpoint) but is never zero.
+    let guard = shooter.civGuard ?? (roe === "free" ? 4 : roe === "hold" ? 28 : 22);
+    if (area) guard *= 1.6;
+    if (blast) guard = Math.max(guard, 18);
+    // Corridor half-width: how close to the gun→target line a civilian can be before the
+    // shot is fouled. A burst/blast sprays wide; an aimed rifle shot is a tight lane.
+    const corridor = area || blast ? guard * 0.7 : Math.max(2.5, guard * 0.35);
+    const reach = dist(shooter.pos, aimPos);
+    const dirx = aimPos.x - shooter.pos.x;
+    const diry = aimPos.y - shooter.pos.y;
+
+    for (const c of this.civilians) {
+      if (!c.alive || !c.conscious || c.evac) continue;
+      if (dist(c.pos, aimPos) <= guard) return false; // civilian at/around the impact point (any side)
+      // The line-of-fire corridor test only applies DOWNRANGE: a civilian BEHIND the muzzle
+      // is not in the beaten zone. (segDist clamps to the gun endpoint, so without this a civ
+      // standing behind the soldier would falsely foul his shot and freeze his return fire.)
+      const fwd = (c.pos.x - shooter.pos.x) * dirx + (c.pos.y - shooter.pos.y) * diry;
+      if (fwd <= 0) continue; // behind the muzzle
+      if (dist(shooter.pos, c.pos) > reach + guard) continue; // beyond the target
+      if (segDist(c.pos, shooter.pos, aimPos) <= corridor) return false;
+    }
+    return true;
   }
 
   // ---------------------------------------------------------------- outcome

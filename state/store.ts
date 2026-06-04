@@ -1,27 +1,26 @@
 "use client";
 import { create } from "zustand";
-import { World, createWorld, loadWorld, applyWorldEventChoice, MissionType } from "@/lib/sim/world";
-import { MoveTechnique } from "@/lib/sim/entities";
+import { World, createWorld, loadWorld, applyWorldEventChoice, MissionType, SquadSOP, defaultSOP } from "@/lib/sim/world";
 
 export type Screen = "menu" | "deploy" | "tourend";
 
-export type OrderTool = "select" | "move" | "assault" | "hold" | "suppress" | "smoke" | "frag" | "withdraw";
-
 export const SPEEDS = [1, 2, 4, 8, 16];
+
+const DEFAULT_SOP: SquadSOP = { movement: "patrol", contact: "hold", roe: "tight" };
 
 interface GameStore {
   screen: Screen;
   world: World | null;
 
-  // selection / orders
-  selection: string[];
-  orderTool: OrderTool;
-  posture: MoveTechnique;
+  // squad command — you command fixed squads, never individual soldiers
+  activeSquadId: string | null;
+  attachOfficers: boolean; // include the HQ officer/enabler element with the next patrol
 
   // patrol planning
   planning: boolean;
   planRoute: { cx: number; cy: number }[];
   planMission: MissionType;
+  planSOP: SquadSOP; // the standing SOP the next patrol steps off with
 
   // time control
   paused: boolean;
@@ -59,21 +58,22 @@ interface GameStore {
   // ---- the real-time frame (called by WorldView's RAF) ----
   frame: (realDt: number) => void;
 
-  // ---- selection / orders ----
-  selectUnits: (ids: string[], additive?: boolean) => void;
-  setOrderTool: (t: OrderTool) => void;
-  setPosture: (p: MoveTechnique) => void;
-  orderAtWorld: (x: number, y: number) => void;
-  orderTarget: (enemyId: string) => void;
+  // ---- squad selection (you pick which fixed squad to command, never a man) ----
+  selectSquad: (squadId: string | null) => void;
+  toggleOfficers: () => void;
   squadIds: (squadId: string) => string[];
+  patrolIds: () => string[]; // ready members of the active squad (+ officers if attached)
 
   // ---- patrol planning ----
   setPlanning: (on: boolean) => void;
   setMission: (m: MissionType) => void;
+  setPlanSOP: (patch: Partial<SquadSOP>) => void;
   addWaypoint: (cx: number, cy: number) => void;
   popWaypoint: () => void;
   clearRoute: () => void;
   stepOff: () => void;
+  reroute: () => void; // re-route the active squad's task to the drawn waypoints
+  setSquadSOP: (taskId: number, sop: SquadSOP) => boolean; // edit a deployed squad's SOP (locked in contact)
 
   // ---- village / COIN ----
   selectVillage: (id: string | null) => void;
@@ -91,6 +91,8 @@ interface GameStore {
   // ---- fire support / medevac ----
   setFireSupport: (weaponId: string | null, label?: string, rounds?: number) => void;
   fireAtWorld: (x: number, y: number) => void;
+  approveFires: () => void; // approve the squad AI's pending call-for-fire
+  denyFires: () => void;
   medevacSelected: () => void;
 
   // ---- events ----
@@ -125,12 +127,12 @@ function clearSaveOnDisk() {
 export const useGame = create<GameStore>((set, get) => ({
   screen: "menu",
   world: null,
-  selection: [],
-  orderTool: "select",
-  posture: "patrol",
+  activeSquadId: null,
+  attachOfficers: false,
   planning: false,
   planRoute: [],
   planMission: "presence",
+  planSOP: DEFAULT_SOP,
   paused: true,
   speed: 4,
   warp: false,
@@ -152,12 +154,12 @@ export const useGame = create<GameStore>((set, get) => ({
     set({
       world,
       screen: "deploy",
-      selection: [],
-      orderTool: "select",
-      posture: "patrol",
+      activeSquadId: "sq1",
+      attachOfficers: false,
       planning: false,
       planRoute: [],
       planMission: "presence",
+      planSOP: DEFAULT_SOP,
       paused: true,
       speed: 4,
       warp: false,
@@ -181,10 +183,11 @@ export const useGame = create<GameStore>((set, get) => ({
       set({
         world,
         screen: "deploy",
-        selection: [],
-        orderTool: "select",
+        activeSquadId: "sq1",
+        attachOfficers: false,
         planning: false,
         planRoute: [],
+        planSOP: DEFAULT_SOP,
         paused: true,
         speed: 4,
         warp: false,
@@ -290,11 +293,10 @@ export const useGame = create<GameStore>((set, get) => ({
     }
   },
 
-  // ------------------------------------------------------------------ selection
-  selectUnits: (ids, additive) =>
-    set((st) => ({ selection: additive ? [...new Set([...st.selection, ...ids])] : ids })),
-  setOrderTool: (t) => set({ orderTool: t, fireSupport: null }),
-  setPosture: (p) => set({ posture: p }),
+  // ------------------------------------------------------------------ squad selection
+  // Selecting a different squad drops any half-drawn route so it can't be applied to the wrong squad.
+  selectSquad: (squadId) => set({ activeSquadId: squadId, selectedVillage: null, planRoute: [], planning: false }),
+  toggleOfficers: () => set((st) => ({ attachOfficers: !st.attachOfficers })),
   squadIds: (squadId) => {
     const w = get().world;
     if (!w) return [];
@@ -305,74 +307,84 @@ export const useGame = create<GameStore>((set, get) => ({
       return m && m.alive;
     });
   },
-
-  orderAtWorld: (x, y) => {
-    const { world, selection, orderTool, posture } = get();
-    if (!world || selection.length === 0) return;
-    const point = { x, y };
-    const sim = world.sim;
-    switch (orderTool) {
-      case "move":
-        sim.issueOrder(selection, { type: "move", point, technique: posture, pathfind: true });
-        break;
-      case "assault":
-        sim.issueOrder(selection, { type: "assault", point, technique: "traveling", pathfind: true });
-        break;
-      case "hold":
-        sim.issueOrder(selection, { type: "hold", point });
-        break;
-      case "suppress":
-        sim.issueOrder(selection, { type: "suppress", point });
-        break;
-      case "withdraw":
-        sim.issueOrder(selection, { type: "withdraw", point, technique: "rush", pathfind: true });
-        break;
-      case "smoke":
-        for (const id of selection) {
-          const u = sim.unit(id);
-          if (u) sim.throwSmoke(u, point);
-        }
-        break;
-      case "frag":
-        sim.issueOrder(selection, { type: "frag", point });
-        break;
-      default:
-        sim.issueOrder(selection, { type: "move", point, technique: posture, pathfind: true });
+  patrolIds: () => {
+    const { world, activeSquadId, attachOfficers } = get();
+    if (!world || !activeSquadId) return [];
+    // a soldier already out on a task is not available to be sent again
+    const busy = new Set(world.state.tasks.flatMap((t) => (t.phase !== "complete" ? t.memberIds : [])));
+    const ready = (id: string) => {
+      const m = world.platoon.members.find((x) => x.id === id);
+      return !!m && m.alive && (m.status === "ready" || m.status === "rest") && !busy.has(id);
+    };
+    const ids = (world.platoon.squads.find((s) => s.id === activeSquadId)?.memberIds ?? []).filter(ready);
+    if (attachOfficers && activeSquadId !== "hq") {
+      const off = world.platoon.squads.find((s) => s.id === "hq")?.memberIds.filter(ready) ?? [];
+      return [...new Set([...ids, ...off])];
     }
-    set({ tick: get().tick + 1 });
-  },
-
-  orderTarget: (enemyId) => {
-    const { world, selection } = get();
-    if (!world || selection.length === 0) return;
-    world.sim.issueOrder(selection, { type: "engage", targetId: enemyId });
-    set({ tick: get().tick + 1 });
+    return ids;
   },
 
   // ------------------------------------------------------------------ planning
   setPlanning: (on) => set({ planning: on, selectedVillage: on ? null : get().selectedVillage }),
-  setMission: (m) => set({ planMission: m }),
+  setMission: (m) => set((st) => ({ planMission: m, planSOP: { ...defaultSOP(m), roe: st.planSOP.roe } })),
+  setPlanSOP: (patch) => set((st) => ({ planSOP: { ...st.planSOP, ...patch } })),
   addWaypoint: (cx, cy) => set((st) => ({ planRoute: [...st.planRoute, { cx, cy }] })),
   popWaypoint: () => set((st) => ({ planRoute: st.planRoute.slice(0, -1) })),
   clearRoute: () => set({ planRoute: [] }),
 
   stepOff: () => {
-    const { world, selection, planRoute, planMission, posture } = get();
-    if (!world || selection.length === 0 || planRoute.length === 0) return;
-    const task = world.formPatrol(selection, planRoute, planMission, posture);
+    const { world, planRoute, planMission, planSOP } = get();
+    if (!world || planRoute.length === 0) return;
+    const ids = get().patrolIds();
+    if (ids.length === 0) return;
+    // formPatrol derives the movement technique from the SOP; the 4th arg is a fallback only.
+    const task = world.formPatrol(ids, planRoute, planMission, "patrol", planSOP);
     if (task) {
       set({ planRoute: [], planning: false, banner: `${task.label} ordered`, tick: get().tick + 1 });
       get().saveCampaign();
     }
   },
 
+  reroute: () => {
+    const { world, activeSquadId, planRoute } = get();
+    if (!world || !activeSquadId || planRoute.length === 0) return;
+    // match against the squad's FULL roster (not alive-only) so an all-casualty squad whose
+    // attached officers keep the task alive still finds and re-routes its task.
+    const sq = world.platoon.squads.find((s) => s.id === activeSquadId);
+    if (!sq) return;
+    const task = world.state.tasks.find((t) => sq.memberIds.some((id) => t.memberIds.includes(id)));
+    if (task && world.reroute(task.id, planRoute)) {
+      set({ planRoute: [], planning: false, banner: `${task.label} re-routed`, tick: get().tick + 1 });
+      get().saveCampaign();
+    }
+  },
+
+  setSquadSOP: (taskId, sop) => {
+    const { world } = get();
+    if (!world) return false;
+    const ok = world.setSOP(taskId, sop);
+    if (ok) set({ tick: get().tick + 1 });
+    return ok;
+  },
+
   // ------------------------------------------------------------------ village / COIN
   selectVillage: (id) => set({ selectedVillage: id, planning: false }),
   conductKLE: (villageId) => {
-    const { world, selection, posture } = get();
+    const { world } = get();
     if (!world) return;
-    const ids = selection.length ? selection : world.platoon.squads.find((s) => s.id === "hq")?.memberIds ?? [];
-    const t = world.conductKLE(ids, villageId, posture);
+    // never pull a squad off an in-progress task: only free, ready members go to the shura.
+    const busy = new Set(world.state.tasks.flatMap((t) => (t.phase !== "complete" ? t.memberIds : [])));
+    const readyFree = (id: string) => {
+      const m = world.platoon.members.find((x) => x.id === id);
+      return !!m && m.alive && (m.status === "ready" || m.status === "rest") && !busy.has(id);
+    };
+    const sel = get().patrolIds(); // busy-aware; empty if the active squad is already deployed
+    const ids = sel.length ? sel : world.platoon.squads.find((s) => s.id === "hq")?.memberIds.filter(readyFree) ?? [];
+    if (ids.length === 0) {
+      set({ banner: "No element free for a key-leader engagement." });
+      return;
+    }
+    const t = world.conductKLE(ids, villageId, "patrol");
     if (t) set({ banner: t.label, tick: get().tick + 1 });
     get().saveCampaign();
   },
@@ -408,7 +420,18 @@ export const useGame = create<GameStore>((set, get) => ({
 
   // ------------------------------------------------------------------ fire support
   setFireSupport: (weaponId, label, rounds) =>
-    set({ fireSupport: weaponId ? { weaponId, label: label ?? weaponId, rounds: rounds ?? 4 } : null, orderTool: "select" }),
+    set({ fireSupport: weaponId ? { weaponId, label: label ?? weaponId, rounds: rounds ?? 4 } : null }),
+  approveFires: () => {
+    const { world } = get();
+    if (!world) return;
+    if (world.approveFireRequest()) set({ banner: "Cleared hot — rounds inbound.", tick: get().tick + 1 });
+  },
+  denyFires: () => {
+    const { world } = get();
+    if (!world) return;
+    world.denyFireRequest();
+    set({ tick: get().tick + 1 });
+  },
   fireAtWorld: (x, y) => {
     const { world, fireSupport } = get();
     if (!world || !fireSupport) return;
@@ -420,14 +443,19 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     set({ fireSupport: null, tick: get().tick + 1 });
   },
+  // Command-level 9-line: under hands-off combat the AI surfaces a CASUALTY callout and
+  // the player calls the bird for whoever is down in the field (no individual selection).
   medevacSelected: () => {
-    const { world, selection } = get();
+    const { world } = get();
     if (!world) return;
-    for (const id of selection) {
-      const u = world.sim.unit(id);
-      if (u && (!u.conscious || u.wounds.length > 0)) world.medevac(id);
+    let any = false;
+    for (const u of world.sim.units) {
+      if ((u.faction === "us" || u.faction === "ana") && u.alive && !u.evac && (!u.conscious || u.bleedRate > 0.3)) {
+        world.medevac(u.id);
+        any = true;
+      }
     }
-    set({ tick: get().tick + 1 });
+    if (any) set({ banner: "MEDEVAC requested", tick: get().tick + 1 });
   },
 
   // ------------------------------------------------------------------ events
