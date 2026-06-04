@@ -32,6 +32,32 @@ export function runDirector(w: World, dt: number) {
   else if (r < 0.7) spawnInfiltration(w);
   else if (r < 0.88 || !night) spawnHarass(w);
   else spawnComplexAttack(w);
+
+  // A hot valley also drops indirect from defilade — the tube teams that made the
+  // real fight. Overlays the other activity (mortars + small arms = the complex
+  // attack), gated on heat/strength so it isn't constant.
+  if (w.state.enemyHeat > 0.55 && w.state.enemyStrengthAbs > 8 && w.rng.chance(0.13)) spawnIndirectHarass(w);
+}
+
+/**
+ * An 82mm tube (or DShK in the plunging-fire role) harasses the COP or a pinned
+ * patrol from a reverse slope you can't see. Inaccurate (large CEP), a handful of
+ * rounds, telegraphed by ICOM so an alert player takes cover and the gun crews get
+ * their heads down. Activates the engine's enemy-indirect pipeline (previously
+ * fully built but never called).
+ */
+function spawnIndirectHarass(w: World) {
+  const patrol = w.activePatrolCentroid();
+  // walk fire onto a patrol that's actually fixed/in contact; otherwise the base.
+  const onPatrol = patrol && w.inContact();
+  const target = onPatrol ? patrol! : w.copWorld();
+  const rounds = w.rng.int(2, 2 + Math.round(w.state.enemyHeat * 2));
+  const eta = w.rng.range(22, 46); // spotting, lay, fire
+  w.sim.enemyFireMission("mortar82", target, rounds, eta);
+  if (w.rng.chance(0.7))
+    w.addIntel({ source: "SIGINT", text: `ICOM: "...ready the tube... walk it onto ${onPatrol ? "the patrol" : "the base"}..."`, reliability: 0.55 });
+  w.log("ICOM chatter about a tube — possible incoming indirect.", "radio");
+  w.interrupt("possible enemy indirect");
 }
 
 /** Lay an ambush astride a patrolling element (or near a hostile village). */

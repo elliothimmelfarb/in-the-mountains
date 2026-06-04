@@ -236,7 +236,36 @@ function windProbe() {
   }
 }
 
+/** Probe 5 (enemy indirect, #4): proves the formerly-dead enemyFireMission pipeline
+ *  now fires — a hot valley harasses the COP with mortars from defilade. */
+function indirectProbe() {
+  const SEEDS = 8, MIN = 45;
+  let totalFM = 0, totalRounds = 0, runsWithIndirect = 0, usKIA = 0, civCas = 0;
+  for (let s = 0; s < SEEDS; s++) {
+    const world = createWorld(`probe-ind-${s}`, 90);
+    const { state, sim } = world;
+    state.enemyHeat = 0.8;
+    state.nextActivityAt = 0;
+    const seen = new Set<number>();
+    let any = false;
+    for (let t = 0; t < MIN * 600 && !state.ended; t++) {
+      world.tick(0.1);
+      for (const fm of sim.fireMissions) {
+        if (fm.faction === "insurgent" && !seen.has(fm.id)) { seen.add(fm.id); totalFM++; totalRounds += fm.rounds; any = true; }
+      }
+      for (const u of sim.units) if (Number.isNaN(u.pos.x)) { console.error("NaN!", s); process.exit(1); }
+    }
+    if (any) runsWithIndirect++;
+    usKIA += world.platoon.members.filter((m) => !m.alive).length;
+    civCas += sim.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
+  }
+  console.log("\n=== ENEMY INDIRECT (#4): hot valley (heat 0.8), 8 seeds x 45 min, COP-focused ===");
+  console.log(`  enemy fire missions launched: ${totalFM} (${totalRounds} rounds) · ${runsWithIndirect}/${SEEDS} runs saw indirect`);
+  console.log(`  collateral over the runs: US KIA ${(usKIA / SEEDS).toFixed(2)}/run · civ cas ${(civCas / SEEDS).toFixed(2)}/run · (baseline pre-#4: 0 enemy FM — pipeline was dead)`);
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
 if (which === "all" || which === "wind") windProbe();
+if (which === "all" || which === "indirect") indirectProbe();

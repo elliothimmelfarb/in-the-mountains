@@ -1123,7 +1123,9 @@ export class CombatSim {
     return fm;
   }
 
-  /** Enemy indirect (mortars/RPG barrage) — used by AI. */
+  /** Enemy indirect (mortars/RPG barrage) — used by AI. Insurgent gunnery off a
+   *  reverse slope is inaccurate: a large CEP, so it harasses and suppresses and
+   *  only occasionally catches someone — not precision fire onto packed men. */
   enemyFireMission(weaponId: string, target: Vec2, rounds: number, etaS: number) {
     const weapon = getWeapon(weaponId);
     this.fireMissions.push({
@@ -1139,7 +1141,7 @@ export class CombatSim {
       status: "requested",
       label: weapon.short,
       dangerClose: false,
-      spread: 18,
+      spread: 38, // large CEP — unregistered, hand-laid tube
     });
   }
 

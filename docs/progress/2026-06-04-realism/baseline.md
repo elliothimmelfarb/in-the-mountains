@@ -159,3 +159,17 @@ Engagement A/B (10 seeds, same RNG): lowest patrol composure in contact 0.404 �
 spiraled (a 1 s squad-wide fire-freeze per kill → KIA 0.20→0.40); softening the
 flinch to 0.6 s kept the morale dip but removed the spiral (KIA back to baseline,
 WIA ~0.9). Succession is rare-by-design (only a fully-decapitated squad). tsc clean.
+
+### #4 Enemy indirect harassment — `director.spawnIndirectHarass` → `enemyFireMission`
+Activates the engine's enemy-indirect pipeline, which was fully built but had **zero
+callers**. A hot valley (heat>0.5, strength>8) now occasionally drops 82mm from
+defilade onto the COP or a pinned patrol, telegraphed by ICOM so an alert player
+takes cover. The signature valley threat — you can't storm a HESCO COP, so the enemy
+shells it.
+
+Probe (heat 0.8, 8 seeds × 45 min, COP): before #4 — **0 fire missions, 0.00 KIA**
+(the fortress shrugs off ground assaults); after #4 — **6 FM / 19 rounds, 5/8 runs**
+saw indirect. Iterated: first cut had a too-tight 18 m CEP that precision-killed
+clustered men (2.00 KIA/run); widened the enemy CEP to 38 m (unregistered hand-laid
+tube) + trimmed rounds → **1.00 KIA/run** — a real threat, not a precision strike.
+tsc clean.
