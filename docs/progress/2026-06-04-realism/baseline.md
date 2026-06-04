@@ -242,3 +242,22 @@ Rescue probe (downed man, extremity arterial bleed, NO medic): buddy 8 m away �
 **LIVED hp 37**; buddy 18 m away → **LIVED hp 5** (the farther the buddy, the more
 blood lost before he arrives — a real close call). Previously, with no medic adjacent,
 that man bled out. tsc clean; smoke OK; no strands.
+
+### Adversarial review (wave 1, #1–#4) — bugs found & fixed
+A multi-agent adversarial review of #1–#4 read the real diffs and ran its own
+experiments. Fixes applied (all verified):
+- **BLOCKER — wind NaN on old saves:** new required `Weather.windDir` had no save
+  migration → `Math.cos(undefined)=NaN` poisoned every projectile aimpoint (the
+  `!== 0` guard passes for NaN) → direct fire silently broke. Fixed: `windDir ?? 0`
+  in `windVector`, `loadWorld` backfill, `Number.isFinite` guard in `spawnProjectile`,
+  save bumped to **v3**. Probe: strip windDir → windVector finite, 3000 ticks **0 NaN**.
+- **MAJOR — thermal blinded in forest:** perception gated on naked-eye `los.visible`
+  *before* thermal recombined, so thermal died in dense canopy (the case it's for).
+  Fixed the gate to be thermal-aware. Probe: **DENSE canopy → naked eye 0%, thermal 41%**.
+- **MAJOR — `promoteSuccessor`/`casualtyShock` could promote/shock an evac'd man** →
+  added `!o.evac` guards (no more medevac'd squad leaders).
+- Indirect wind drift k 0.6→0.18 (GL is hold-off-corrected); wind magnitude clamped
+  to the rolled speed; smoke drift ×0.55; thermal now partly sees through HC smoke.
+- **Enemy cells now share a `squadId`** → the previously-dead enemy `promoteSuccessor`
+  works: a fallen commander's cell promotes a successor and feels its losses (the
+  enemy side of #3). tsc clean; no strands; enemy indirect still fires.

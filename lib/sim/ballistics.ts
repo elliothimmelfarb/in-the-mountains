@@ -165,9 +165,11 @@ export function spawnProjectile(
   // Wind pushes the round downwind over its time of flight: negligible up close,
   // a metre-plus at the valley's long ranges, and harder on lofted indirect. A lag
   // coefficient — the bullet never takes the full wind.
-  if (wind.x !== 0 || wind.y !== 0) {
+  if (Number.isFinite(wind.x) && Number.isFinite(wind.y) && (wind.x !== 0 || wind.y !== 0)) {
     const tof = indirect ? timeToImpact : len(sub(aimpoint, shooter.pos)) / Math.max(1, speed);
-    const k = indirect ? 0.6 : 0.45;
+    // Direct fire takes the full wind over its flight; an arcing GL round is largely
+    // corrected by the gunner's hold-off, so only a small residual deflection remains.
+    const k = indirect ? 0.18 : 0.45;
     aimpoint.x += wind.x * k * tof;
     aimpoint.y += wind.y * k * tof;
   }

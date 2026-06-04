@@ -133,6 +133,9 @@ export function createWorld(seed: string, totalDays = 90): World {
 /** Restore a saved deployment. */
 export function loadWorld(data: { rngState: number; state: WorldState; units: Unit[] }): World {
   const state = data.state;
+  // Migration: pre-windDir saves (v<3) lack weather.windDir — default it so the wind
+  // vector never produces NaN (which would silently corrupt combat).
+  if (state.weather && state.weather.windDir === undefined) state.weather.windDir = 0;
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);

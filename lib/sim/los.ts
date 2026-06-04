@@ -166,18 +166,23 @@ export function detectionChance(params: {
   thermalRangeM?: number;
 }): number {
   const { los } = params;
-  if (!los.visible) return 0;
-  const thermal = !!params.observerThermal && los.rangeM <= (params.thermalRangeM ?? 1200);
+  // A terrain mass blocks even thermal — a crest is a crest. But thermal reads body
+  // heat THROUGH vegetation, so it must NOT be bound by the naked-eye visibility gate
+  // (los.visible folds in foliage); we recompute a sensor-appropriate exposure and
+  // gate on that below, so the thermal-through-canopy feature actually fires.
+  if (los.terrainBlocked) return 0;
+  const thermal = !!params.observerThermal && los.rangeM <= (params.thermalRangeM ?? 1400);
 
   // Effective exposure. A thermal sight reads body heat through foliage, so it
-  // recovers most of the vegetation concealment (but NOT terrain defilade — a
-  // crest still hides you — and NOT smoke/dust, which masks IR). Naked eye and
-  // NVG use the geometric+veg+smoke exposure as-is.
+  // recovers most of the vegetation concealment (but NOT terrain defilade — a crest
+  // still hides you — and only partially through ordinary HC smoke, which LWIR mostly
+  // sees through). Naked eye and NVG use the geometric+veg+smoke exposure as-is.
   let exposure = los.exposure;
   if (thermal && los.terrainExposure != null) {
-    const thermalConceal = clamp01((los.smokeConceal ?? 0) + 0.3 * (los.vegConceal ?? 0));
+    const thermalConceal = clamp01(0.5 * (los.smokeConceal ?? 0) + 0.3 * (los.vegConceal ?? 0));
     exposure = clamp01(los.terrainExposure * (1 - thermalConceal));
   }
+  if (exposure <= 0.04) return 0; // nothing the relevant sensor can pick up
 
   // Base falls off with range relative to optic range.
   const rangeFactor = clamp01(1 - los.rangeM / Math.max(50, params.observerOpticRangeM));

@@ -150,6 +150,10 @@ function spawnFighter(w: World, pos: Vec2, i: number, total: number): Unit {
     clampMap(w.terrain, pos),
     Math.min(1, w.state.enemyHeat + 0.1)
   );
+  // Fighters spawned together are a cell (shared squadId): they feel each other's
+  // losses (casualty shock) and a fallen commander's cell promotes a new leader —
+  // the enemy-side of #3, previously inert because insurgents had no squadId.
+  e.squadId = `acm-${w.state.clock | 0}`;
   w.sim.addUnit(e);
   return e;
 }

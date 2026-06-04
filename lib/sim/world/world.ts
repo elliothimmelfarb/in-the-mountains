@@ -75,7 +75,7 @@ export class World {
 
   serialize(): { v: number; rngState: number; state: WorldState; units: Unit[] } {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null }));
-    return { v: 2, rngState: this.rng.getState(), state: this.state, units };
+    return { v: 3, rngState: this.rng.getState(), state: this.state, units };
   }
 
   // ---------------------------------------------------------------- time of day
@@ -122,8 +122,18 @@ export class World {
     const spd = this.state.weather.wind;
     const day = this.solarLight(); // 0..1
     const along = lerp(0.9, -0.9, day); // night +Y (down-valley), day −Y (up-valley)
-    const dir = this.state.weather.windDir;
-    return { x: Math.cos(dir) * 0.5 * spd, y: (Math.sin(dir) * 0.5 + along) * spd };
+    const dir = this.state.weather.windDir ?? 0; // backfill for pre-windDir saves (no NaN)
+    // Superpose the prevailing (synoptic) wind and the diurnal valley flow, then clamp
+    // the total to the reported wind speed so the effective wind never exceeds it.
+    let x = Math.cos(dir) * 0.5 * spd;
+    let y = (Math.sin(dir) * 0.5 + along) * spd;
+    const mag = Math.hypot(x, y);
+    if (mag > spd && mag > 1e-6) {
+      const k = spd / mag;
+      x *= k;
+      y *= k;
+    }
+    return { x, y };
   }
 
   // ---------------------------------------------------------------- logging
