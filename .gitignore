@@ -43,3 +43,6 @@ next-env.d.ts
 # test artifacts
 .playwright-mcp/
 *.local.png
+
+# generated asset-gallery manifest (regen: node scripts/gallery.mjs)
+public/_dev/assets.json

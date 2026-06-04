@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-hydro: water turbine/dynamo - paddle wheel with flow + lightning. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- turbine hub -->
+    <circle cx="11" cy="13" r="5.4"/>
+    <circle cx="11" cy="13" r="1.4"/>
+    <!-- paddle spokes -->
+    <path d="M11 7.6 L11 18.4 M5.6 13 L16.4 13 M7.2 9.2 L14.8 16.8 M14.8 9.2 L7.2 16.8"/>
+    <!-- water flow over the top -->
+    <path d="M3 6.4 C6 5.2 9 7 11 6"/>
+  </g>
+  <!-- lightning bolt output (amber active accent) -->
+  <path d="M18 5 L15.4 9.6 L17.6 9.6 L15.2 14 L20 8 L17.6 8 Z" fill="#e0a72b"/>
+</svg>

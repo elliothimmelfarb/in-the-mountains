@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- ACM FIGHTER (AK-47), top-down, facing +x. ROTATING: symmetric contact shadow +
+       rotation-tolerant top light. anchor [0.5,0.5], footprint 1.4 m.
+       Earth-tone shalwar kameez, ROUND turban head (no helmet), red headband accent,
+       lean (no helmet/heavy kit). AK carried diagonally low-ready; curved banana mag. -->
+  <defs>
+    <radialGradient id="acmFighter-head" cx="0.4" cy="0.34" r="0.85">
+      <stop offset="0" stop-color="#b6a274"/>
+      <stop offset="0.6" stop-color="#8c7a52"/>
+      <stop offset="1" stop-color="#5e5036"/>
+    </radialGradient>
+    <linearGradient id="acmFighter-body" x1="0.25" y1="0.05" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#a89066"/>
+      <stop offset="1" stop-color="#6f5d3c"/>
+    </linearGradient>
+    <filter id="acmFighter-soft" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="24" cy="25" rx="10.4" ry="9.4" fill="#181308" opacity="0.30" filter="url(#acmFighter-soft)"/>
+
+  <!-- torso / man-dress: leaner than US, WIDEST across y -->
+  <path d="M18.5 17.5
+           q-3 0.5 -3 6.5 q0 6 3 6.5
+           q5.6 0.8 10 -1.1 q2.3 -1 2.3 -5.4 q0 -4.4 -2.3 -5.4 q-4.4 -1.9 -10 -1.1z"
+        fill="url(#acmFighter-body)" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.6"/>
+  <!-- man-dress drape folds -->
+  <g stroke="#5c4d31" stroke-width="0.45" stroke-opacity="0.5" fill="none">
+    <path d="M20 20 q3 4 0 8"/><path d="M23.5 19.4 q2.6 4.6 0 9.2"/>
+  </g>
+  <!-- shoulder caps -->
+  <ellipse cx="20" cy="19.2" rx="3" ry="2.2" fill="#8a7752" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.4"/>
+  <ellipse cx="20" cy="28.8" rx="3" ry="2.2" fill="#8a7752" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.4"/>
+
+  <!-- simple chest rig hint: red accent + two pouches -->
+  <path d="M21.2 21 q4 1.4 5.4 3" fill="none" stroke="#c0392b" stroke-width="1.3" stroke-opacity="0.9"/>
+  <rect x="25" y="22.2" width="2.4" height="2.1" rx="0.4" fill="#5a4c30" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.5"/>
+  <rect x="25" y="25.4" width="2.4" height="2.1" rx="0.4" fill="#6a5a3a" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.5"/>
+
+  <!-- arms cradling the AK diagonally -->
+  <path d="M21.8 20.6 q6.2 1.3 11 6.4" fill="none" stroke="#7d6a44" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M22.4 28 q5.8 -0.6 9.6 2.4" fill="none" stroke="#7d6a44" stroke-width="2.7" stroke-linecap="round"/>
+
+  <!-- weapon: AK-47, diagonal (buttstock low-rear, muzzle high-front), curved mag -->
+  <g stroke-linecap="round">
+    <line x1="19.8" y1="30.6" x2="37.8" y2="20.6" stroke="#1d1b15" stroke-width="2.4"/>
+    <line x1="19.8" y1="30.6" x2="37.8" y2="20.6" stroke="#4a3a26" stroke-width="0.9"/>
+    <!-- curved banana magazine -->
+    <path d="M26.8 28.6 q-1.4 2.6 -0.4 5" fill="none" stroke="#2a2218" stroke-width="2.1"/>
+    <!-- muzzle / front sight -->
+    <circle cx="37.9" cy="20.5" r="0.9" fill="#141310"/>
+  </g>
+
+  <!-- head: ROUND turban (no helmet), focal & forward, NW top-light -->
+  <circle cx="25.6" cy="24" r="5.6" fill="url(#acmFighter-head)" stroke="#1c160e" stroke-width="0.9"/>
+  <!-- turban wrap lines -->
+  <g stroke="#5e5036" stroke-width="0.6" stroke-opacity="0.6" fill="none">
+    <path d="M20.6 22.4 a5.6 5.6 0 0 1 9.4 -0.6"/>
+    <path d="M20.4 25.6 a5.6 5.6 0 0 0 9.8 0.8"/>
+  </g>
+  <!-- NW rim light -->
+  <path d="M21.6 20.8 a5.6 5.6 0 0 1 4.4 -1.8" fill="none" stroke="#efe3b6" stroke-width="0.9" stroke-opacity="0.6" stroke-linecap="round"/>
+  <!-- red headband accent (front) -->
+  <path d="M29.8 22.4 q1.8 1.6 0 3.2" fill="none" stroke="#c0392b" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

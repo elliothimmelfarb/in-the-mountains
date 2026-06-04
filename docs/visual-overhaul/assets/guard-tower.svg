@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 56">
+  <!-- Guard tower: elevated watchtower seen TOP-DOWN with a slight tilt. Hipped corrugated-tin roof
+       (4 slopes from a center peak), sandbagged cab below with slit + .50 cal, four legs at corners.
+       TALLEST structure: strong NW light + LONG SE cast shadow. -->
+  <defs>
+    <linearGradient id="guardTower-roofNW" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9a8f63"/><stop offset="1" stop-color="#857a5c"/>
+    </linearGradient>
+    <linearGradient id="guardTower-roofNE" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a8058"/><stop offset="1" stop-color="#756b4c"/>
+    </linearGradient>
+    <linearGradient id="guardTower-roofSW" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#807653"/><stop offset="1" stop-color="#6c6347"/>
+    </linearGradient>
+    <linearGradient id="guardTower-roofSE" x1="1" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#5e573c"/><stop offset="1" stop-color="#6c6347"/>
+    </linearGradient>
+    <linearGradient id="guardTower-wallN" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b3a06f"/><stop offset="1" stop-color="#9a8a5c"/>
+    </linearGradient>
+    <linearGradient id="guardTower-wallE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a7a50"/><stop offset="1" stop-color="#6e6140"/>
+    </linearGradient>
+    <filter id="guardTower-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+  <!-- LONG SE cast shadow -->
+  <path d="M24 40 l12 0 l14 11 l-30 0 z" fill="#1c160e" opacity="0.30" filter="url(#guardTower-soft)"/>
+  <ellipse cx="30" cy="46" rx="13" ry="4.5" fill="#1c160e" opacity="0.24" filter="url(#guardTower-soft)"/>
+  <!-- four timber legs splaying out to the ground -->
+  <g stroke-linecap="round">
+    <line x1="18" y1="32" x2="14" y2="44" stroke="#7a5a38" stroke-width="2.3"/>
+    <line x1="38" y1="32" x2="43" y2="44" stroke="#6e5232" stroke-width="2.3"/>
+    <line x1="22" y1="34" x2="19" y2="45" stroke="#8a6a40" stroke-width="2.4"/>
+    <line x1="34" y1="34" x2="40" y2="45.5" stroke="#604a2e" stroke-width="2.4"/>
+    <line x1="15" y1="40" x2="42" y2="40" stroke="#6e5232" stroke-width="1.1" stroke-opacity="0.85"/>
+  </g>
+  <g stroke="#6e5232" stroke-width="0.7" stroke-opacity="0.85">
+    <line x1="15.5" y1="34" x2="13" y2="44"/><line x1="18.5" y1="34" x2="16.5" y2="44"/>
+    <line x1="16" y1="37" x2="18.2" y2="37"/><line x1="15.3" y1="40" x2="17.7" y2="40"/><line x1="14.6" y1="43" x2="17.2" y2="43"/>
+  </g>
+  <!-- sandbagged cab -->
+  <polygon points="28,27 39,32 39,35 28,30" fill="url(#guardTower-wallE)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <polygon points="28,27 17,32 17,35 28,30" fill="url(#guardTower-wallN)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <g fill="#bcab78" stroke="#7a6a44" stroke-width="0.3">
+    <ellipse cx="20" cy="31.3" rx="2.2" ry="1.2"/><ellipse cx="24" cy="29.6" rx="2.2" ry="1.2"/>
+    <ellipse cx="28" cy="28.1" rx="2.2" ry="1.2"/>
+  </g>
+  <polygon points="19,33 26.5,29.3 26.5,30.8 19,34.3" fill="#241f15"/>
+  <!-- hipped corrugated-tin roof seen from above -->
+  <polygon points="28,9 13,21 28,18" fill="url(#guardTower-roofNW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+  <polygon points="28,9 43,21 28,18" fill="url(#guardTower-roofNE)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+  <polygon points="13,21 28,27 28,18" fill="url(#guardTower-roofSW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+  <polygon points="43,21 28,27 28,18" fill="url(#guardTower-roofSE)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+  <g stroke="#6c6347" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="24" y1="11.5" x2="17" y2="19.5"/><line x1="20" y1="14.5" x2="14.5" y2="20.5"/><line x1="19" y1="20" x2="24" y2="24.5"/>
+  </g>
+  <g stroke="#4e472f" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="32" y1="11.5" x2="39" y2="19.5"/><line x1="36" y1="14.5" x2="41.5" y2="20.5"/><line x1="37" y1="20" x2="32" y2="24.5"/>
+  </g>
+  <g stroke="#5a5238" stroke-width="0.5" stroke-opacity="0.6">
+    <line x1="28" y1="18" x2="13" y2="21"/><line x1="28" y1="18" x2="43" y2="21"/><line x1="28" y1="18" x2="28" y2="27"/>
+  </g>
+  <line x1="28" y1="9" x2="13" y2="21" stroke="#efe3b6" stroke-width="0.8" stroke-opacity="0.6"/>
+  <line x1="28" y1="9" x2="28" y2="18" stroke="#cdbb86" stroke-width="0.55" stroke-opacity="0.5"/>
+  <circle cx="28" cy="18" r="0.9" fill="#cdbb86"/>
+  <line x1="35" y1="18" x2="37.5" y2="21" stroke="#8a5a36" stroke-width="0.7" stroke-opacity="0.5"/>
+  <!-- .50 cal barrel poking out under the NW eave -->
+  <g stroke-linecap="round">
+    <line x1="22" y1="31" x2="9" y2="25" stroke="#2c2c26" stroke-width="1.8"/>
+    <line x1="22" y1="30.7" x2="9.6" y2="25.2" stroke="#6e6e5c" stroke-width="0.5" stroke-opacity="0.5"/>
+    <circle cx="9" cy="25" r="1" fill="#3a3a32"/>
+  </g>
+</svg>

@@ -1,11 +1,37 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { useGame, OrderTool, SPEEDS } from "@/state/store";
 import WorldView from "@/components/world/WorldView";
 import { getWeapon } from "@/lib/sim/weapons";
 import { Unit, MoveTechnique, MOVE_TECHNIQUES, TECHNIQUE_LABEL } from "@/lib/sim/entities";
 import { MISSION_LABEL, MissionType } from "@/lib/sim/world";
 import { Supplies, CERP_PROJECTS } from "@/lib/sim/campaign";
+import { Icon } from "@/components/Icon";
+
+// map a CERP project label → its authored icon id
+function cerpIcon(p: string): string {
+  if (p.startsWith("road")) return "ico-cerp-road";
+  if (p.startsWith("micro")) return "ico-cerp-hydro";
+  if (p.startsWith("retaining")) return "ico-cerp-wall";
+  if (p.startsWith("mosque")) return "ico-cerp-mosque";
+  return "ico-cerp-" + p; // well / school / clinic / culvert / footbridge
+}
+const ROLE_ICON: Record<string, string> = {
+  platoon_leader: "pl", platoon_sergeant: "pl", squad_leader: "sl", team_leader: "sl",
+  rifleman: "rfl", grenadier: "grn", saw_gunner: "saw", auto_rifleman: "saw", machinegunner: "mg",
+  marksman: "dm", sniper: "snp", medic: "doc", rto: "rto", jtac: "fo", engineer: "eng",
+};
+function roleIcon(role: string): string {
+  return "ico-role-" + (ROLE_ICON[role] ?? "rfl");
+}
+function weatherIcon(label: string): string {
+  const l = label.toLowerCase();
+  if (l.includes("rain") || l.includes("storm")) return "ico-rain";
+  if (l.includes("snow")) return "ico-snow";
+  if (l.includes("dust") || l.includes("haze")) return "ico-dust";
+  if (l.includes("cloud") || l.includes("overcast")) return "ico-cloud";
+  return "ico-clear";
+}
 
 const ORDER_TOOLS: { id: OrderTool; label: string; key: string; danger?: boolean }[] = [
   { id: "select", label: "Select", key: "Q" },
@@ -19,11 +45,11 @@ const ORDER_TOOLS: { id: OrderTool; label: string; key: string; danger?: boolean
 ];
 const MISSIONS: MissionType[] = ["presence", "recon", "ambush", "census", "cordon", "overwatch"];
 
-function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%" }: { label: string; value: number; color?: string; max?: number; suffix?: string }) {
+function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%" }: { label: ReactNode; value: number; color?: string; max?: number; suffix?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
     <div className="flex items-center gap-2 text-[11px] font-mono">
-      <div className="w-[80px] text-inkdim shrink-0">{label}</div>
+      <div className="w-[80px] text-inkdim shrink-0 inline-flex items-center gap-1">{label}</div>
       <div className="flex-1 h-2.5 bg-bg border border-line relative overflow-hidden">
         <div className="h-full" style={{ width: pct + "%", background: color }} />
       </div>
@@ -118,7 +144,8 @@ function CommandBar() {
 
   return (
     <div className="panel border-x-0 border-t-0 flex items-stretch gap-0 h-12 shrink-0">
-      <div className="flex items-center px-3 gap-3 border-r border-line">
+      <div className="flex items-center px-3 gap-2.5 border-r border-line">
+        <Icon name="crest-us" size={28} />
         <span className="text-amber font-black text-lg tracking-tight">ITM</span>
         <div className="font-mono text-[11px] leading-tight">
           <div className="text-ink">{world.state.fob.name}</div>
@@ -136,7 +163,7 @@ function CommandBar() {
         </div>
         <div>
           <div className="text-inkdim">WX</div>
-          <div className="text-ink leading-none text-sm">{wx.label}</div>
+          <div className="text-ink leading-none text-sm inline-flex items-center gap-1"><Icon name={weatherIcon(wx.label)} size={14} className="text-tan" />{wx.label}</div>
         </div>
         <div className={wx.airAvailable ? "text-good" : "text-rust"}>
           <div className="text-inkdim">AIR</div>
@@ -321,7 +348,8 @@ function OrderBar() {
           <div className="stencil text-[9px] text-amber mb-1">Orders {selection.length === 0 && <span className="text-inkdim normal-case">— select soldiers</span>}{selection.length > 0 && <span className="text-inkdim normal-case"> ({selection.length})</span>}</div>
           <div className="flex flex-wrap gap-1 max-w-[460px]">
             {ORDER_TOOLS.map((t) => (
-              <button key={t.id} className={`tac-btn ${orderTool === t.id ? "active" : ""} ${t.danger ? "tac-btn-danger" : ""}`} onClick={() => setOrderTool(t.id)}>
+              <button key={t.id} className={`tac-btn inline-flex items-center gap-1.5 ${orderTool === t.id ? "active" : ""} ${t.danger ? "tac-btn-danger" : ""}`} onClick={() => setOrderTool(t.id)}>
+                <Icon name={`ico-${t.id}`} size={13} />
                 {t.label} <span className="text-inkdim text-[9px]">[{t.key}]</span>
               </button>
             ))}
@@ -334,7 +362,7 @@ function OrderBar() {
             <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "holdfire" })}>Hold Fire</button>
             <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "weaponsfree" })}>Wpns Free</button>
             <button className="tac-btn text-[10px]" onClick={() => sim.issueOrder(selection, { type: "halt" })}>Halt</button>
-            <button className="tac-btn tac-btn-danger text-[10px]" onClick={medevacSelected}>✚ MEDEVAC</button>
+            <button className="tac-btn tac-btn-danger inline-flex items-center gap-1 text-[10px]" onClick={medevacSelected}><Icon name="ico-medevac" size={13} /> MEDEVAC</button>
           </div>
         </div>
         <div className="border-l border-line pl-3">
@@ -343,14 +371,14 @@ function OrderBar() {
             {sim.mortars.map((mt) => {
               const wp = getWeapon(mt.weaponId);
               return (
-                <button key={mt.weaponId} disabled={mt.rounds <= 0} className={`tac-btn text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
-                  ◎ {wp.name} <span className="text-inkdim">({mt.rounds})</span>
+                <button key={mt.weaponId} disabled={mt.rounds <= 0} className={`tac-btn inline-flex items-center gap-1.5 text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
+                  <Icon name="ico-mortar" size={13} /> {wp.name} <span className="text-inkdim">({mt.rounds})</span>
                 </button>
               );
             })}
             <div className="flex gap-1">
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn text-[10px] flex-1 ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}>✈ Gun</button>
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn text-[10px] flex-1 ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}>✈ Hellfire</button>
+              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
+              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
             </div>
           </div>
         </div>
@@ -452,7 +480,7 @@ function ElementPanel() {
         <div className="stencil text-[10px] text-amber mb-1.5">Patrol Planner</div>
         <div className="flex flex-wrap gap-1 mb-1.5">
           {MISSIONS.map((mt) => (
-            <button key={mt} className={`tac-btn text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}>{MISSION_LABEL[mt]}</button>
+            <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
           ))}
         </div>
         {!hasMedic && selection.length > 0 && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — wounded will bleed.</div>}
@@ -487,6 +515,7 @@ function ElementPanel() {
                         <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
                         <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
                         {tasked && <span className="text-amber text-[9px]">●</span>}
+                        <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
                         <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
                       </button>
                       <button title="Service record" onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber px-1 shrink-0">ⓘ</button>
@@ -540,8 +569,8 @@ function VillagePanel({ villageId }: { villageId: string }) {
       <div className="stencil text-[10px] text-amber mb-1">CERP Projects <span className="text-inkdim normal-case">(${world.state.cerp.toLocaleString()} · $5k ea)</span></div>
       <div className="flex flex-wrap gap-1">
         {CERP_PROJECTS.map((p) => (
-          <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj} className={`tac-btn text-[10px] px-2 py-1 ${v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
-            {v.projects.includes(p) ? "✓ " : "+ "}{p}
+          <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
+            <Icon name={cerpIcon(p)} size={12} />{v.projects.includes(p) ? "✓ " : ""}{p}
           </button>
         ))}
       </div>
@@ -550,15 +579,15 @@ function VillagePanel({ villageId }: { villageId: string }) {
   );
 }
 
-const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: number }[] = [
-  { key: "ammo_556", label: "5.56mm", max: 24000, warn: 6000 },
-  { key: "ammo_762", label: "7.62mm", max: 9000, warn: 2000 },
-  { key: "mortar_60", label: "60mm", max: 120, warn: 20 },
-  { key: "mortar_81", label: "81mm", max: 80, warn: 15 },
-  { key: "construction", label: "build mat.", max: 80, warn: 12 },
-  { key: "medical", label: "med kits", max: 44, warn: 8 },
-  { key: "water", label: "water", max: 600, warn: 100 },
-  { key: "food", label: "food", max: 560, warn: 100 },
+const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: number; icon: string }[] = [
+  { key: "ammo_556", label: "5.56mm", max: 24000, warn: 6000, icon: "ico-ammo" },
+  { key: "ammo_762", label: "7.62mm", max: 9000, warn: 2000, icon: "ico-ammo" },
+  { key: "mortar_60", label: "60mm", max: 120, warn: 20, icon: "ico-mortar" },
+  { key: "mortar_81", label: "81mm", max: 80, warn: 15, icon: "ico-mortar" },
+  { key: "construction", label: "build mat.", max: 80, warn: 12, icon: "ico-construction" },
+  { key: "medical", label: "med kits", max: 44, warn: 8, icon: "ico-medical" },
+  { key: "water", label: "water", max: 600, warn: 100, icon: "ico-water" },
+  { key: "food", label: "food", max: 560, warn: 100, icon: "ico-food" },
 ];
 
 function LogisticsPanel() {
@@ -581,7 +610,7 @@ function LogisticsPanel() {
         {SUPPLY_ROWS.map((row) => {
           const val = s[row.key];
           const low = val < row.warn;
-          return <Bar key={row.key} label={row.label} value={val} max={row.max} suffix="" color={low ? "#c0392b" : "#6b7a3a"} />;
+          return <Bar key={row.key} label={<><Icon name={row.icon} size={11} className="text-inkdim" />{row.label}</>} value={val} max={row.max} suffix="" color={low ? "#c0392b" : "#6b7a3a"} />;
         })}
       </div>
       <div className="text-[10px] text-inkdim mt-2 font-mono">CERP funds: <span className="text-amber">${world.state.cerp.toLocaleString()}</span></div>

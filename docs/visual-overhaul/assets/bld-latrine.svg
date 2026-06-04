@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 44">
+  <!-- LATRINE: a tidy row of three plywood porta-john stalls. Humble, low.
+       VOLUME: each stall a clear extruded box — lit NW wall band, shaded SE end,
+       tilted roof, NW rim, grounding SE cast shadow.
+       STATIC: NW light + SE cast shadow. anchor [0.5,0.82]. footprint 4 m. -->
+  <defs>
+    <linearGradient id="bldLatrine-roof" x1="0" y1="0" x2="0.18" y2="1">
+      <stop offset="0" stop-color="#bcb08c"/>
+      <stop offset="1" stop-color="#9c906f"/>
+    </linearGradient>
+    <linearGradient id="bldLatrine-nw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a08a64"/>
+      <stop offset="1" stop-color="#806b48"/>
+    </linearGradient>
+    <linearGradient id="bldLatrine-se" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6a5838"/>
+      <stop offset="1" stop-color="#52442c"/>
+    </linearGradient>
+    <filter id="bldLatrine-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW under the whole row, offset down-right -->
+  <path d="M7 30 h32 l5 6 h-32z" fill="#1c160e" opacity="0.34" filter="url(#bldLatrine-soft)"/>
+
+  <!-- shared SE end cap (rightmost stall's shaded end, clearly visible) -->
+  <polygon points="38,10.5 38,30 42,28 42,8.5" fill="url(#bldLatrine-se)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+
+  <!-- ===== three stalls, abutting, NW WALL BANDS in a row (tall ~38% of height) ===== -->
+  <!-- stall A -->
+  <rect x="8" y="13" width="10" height="17" fill="url(#bldLatrine-nw)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+  <rect x="9.6" y="16.2" width="5.4" height="12.4" rx="0.3" fill="#52442c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <line x1="9.9" y1="16.5" x2="9.9" y2="28.2" stroke="#a48c5e" stroke-width="0.4" stroke-opacity="0.6"/>
+  <rect x="11.7" y="21" width="1" height="2.8" fill="#41513f"/>
+  <circle cx="14.2" cy="23" r="0.5" fill="#caa45a"/>
+  <!-- stall B -->
+  <rect x="18" y="12.4" width="10" height="17" fill="url(#bldLatrine-nw)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+  <rect x="19.6" y="15.6" width="5.4" height="12.4" rx="0.3" fill="#52442c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <line x1="19.9" y1="15.9" x2="19.9" y2="27.6" stroke="#a48c5e" stroke-width="0.4" stroke-opacity="0.6"/>
+  <rect x="21.7" y="20.4" width="1" height="2.8" fill="#41513f"/>
+  <circle cx="24.2" cy="22.4" r="0.5" fill="#caa45a"/>
+  <!-- stall C -->
+  <rect x="28" y="11.8" width="10" height="17" fill="url(#bldLatrine-nw)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+  <rect x="29.6" y="15" width="5.4" height="12.4" rx="0.3" fill="#52442c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.55"/>
+  <line x1="29.9" y1="15.3" x2="29.9" y2="27" stroke="#a48c5e" stroke-width="0.4" stroke-opacity="0.6"/>
+  <rect x="31.7" y="19.8" width="1" height="2.8" fill="#41513f"/>
+  <circle cx="34.2" cy="21.8" r="0.5" fill="#caa45a"/>
+
+  <!-- vertical seams between stalls (read as separate units) -->
+  <g stroke="#46361f" stroke-width="0.6" stroke-opacity="0.6">
+    <line x1="18" y1="13" x2="18" y2="29.4"/><line x1="28" y1="12.4" x2="28" y2="28.8"/>
+  </g>
+  <!-- bottom keyline grounding the row -->
+  <line x1="8" y1="30" x2="38" y2="28.8" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+
+  <!-- continuous lit TOP across the row (tilted) -->
+  <polygon points="8,13 38,11.8 42,8.5 12,9.7" fill="url(#bldLatrine-roof)" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.45"/>
+  <!-- roof seams above each stall divider -->
+  <g stroke="#7a6e48" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="18" y1="12.95" x2="22" y2="9.65"/><line x1="28" y1="12.35" x2="32" y2="9.35"/>
+  </g>
+  <!-- STRONG NW RIM LIGHT along top-back edge -->
+  <polyline points="8.3,13 12,9.7 41.8,8.5" fill="none" stroke="#efe3b6" stroke-width="0.8" stroke-opacity="0.62"/>
+</svg>

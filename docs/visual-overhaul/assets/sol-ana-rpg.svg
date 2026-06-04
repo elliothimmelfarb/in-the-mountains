@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- ANA RPG GUNNER (RPG-7), top-down, facing +x (east). ROTATING. anchor [0.5,0.5], footprint 1.4 m.
+       Signature read = LONG TUBE over the shoulder with a BULBOUS WARHEAD at the front end.
+       The tube runs diagonally (rear-low to front-high) so it never reads as a pan handle.
+       Woodland-mottle helmet, TEAL armband. Spare rocket in a back tube. -->
+  <defs>
+    <radialGradient id="solAnaRpg-helm" cx="0.38" cy="0.32" r="0.85">
+      <stop offset="0" stop-color="#8c8b5a"/>
+      <stop offset="0.6" stop-color="#5a5b3a"/>
+      <stop offset="1" stop-color="#3e402a"/>
+    </radialGradient>
+    <linearGradient id="solAnaRpg-body" x1="0.25" y1="0.05" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#75793f"/>
+      <stop offset="1" stop-color="#43472a"/>
+    </linearGradient>
+    <linearGradient id="solAnaRpg-tube" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#5d5440"/>
+      <stop offset="1" stop-color="#352f22"/>
+    </linearGradient>
+    <filter id="solAnaRpg-soft" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="24" cy="25.2" rx="11" ry="9.8" fill="#181308" opacity="0.31" filter="url(#solAnaRpg-soft)"/>
+
+  <!-- spare rocket tube slung on the back -->
+  <line x1="14.5" y1="29.5" x2="20" y2="18.5" stroke="#3a3526" stroke-width="2.0" stroke-linecap="round"/>
+  <circle cx="14.4" cy="29.8" r="1.5" fill="#4a4330"/>
+
+  <!-- shoulders / torso -->
+  <path d="M18 16.8
+           q-3 0.4 -3 7.2 q0 6.8 3 7.2
+           q5.8 0.7 10.6 -1.3 q2.5 -1.1 2.5 -5.9 q0 -4.8 -2.5 -5.9 q-4.8 -2 -10.6 -1.3z"
+        fill="url(#solAnaRpg-body)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+
+  <!-- chest rig -->
+  <path d="M21.5 20.4 q3.2 3.6 0 7.2" fill="none" stroke="#3f4128" stroke-width="1.6" stroke-opacity="0.85"/>
+
+  <!-- shoulder caps -->
+  <ellipse cx="19.6" cy="18.7" rx="3.2" ry="2.4" fill="#62643f" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.45"/>
+  <ellipse cx="19.6" cy="29.3" rx="3.2" ry="2.4" fill="#62643f" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.45"/>
+
+  <!-- arms gripping the launcher (front hand on the grip, rear hand under tube) -->
+  <path d="M21.8 19.8 q7.2 1.6 11.5 6.4" fill="none" stroke="#54562f" stroke-width="3.0" stroke-linecap="round"/>
+  <path d="M22 28.4 q5.6 -1 9.6 1.4" fill="none" stroke="#54562f" stroke-width="2.9" stroke-linecap="round"/>
+
+  <!-- RPG-7 launcher: long tube diagonal, BULBOUS WARHEAD at the FRONT (muzzle) end -->
+  <g>
+    <!-- main tube -->
+    <line x1="18.5" y1="31.2" x2="35" y2="22.4" stroke="url(#solAnaRpg-tube)" stroke-width="3.0" stroke-linecap="round"/>
+    <!-- mid flare (gas vent ring) -->
+    <ellipse cx="27" cy="26.6" rx="1.7" ry="2.5" fill="#2c281c" transform="rotate(-28 27 26.6)"/>
+    <!-- bulbous PG-7 warhead at the front (clearly fatter than the tube) -->
+    <ellipse cx="37.4" cy="22.4" rx="3.6" ry="2.7" fill="#5b5236" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.75" transform="rotate(-28 37.4 22.4)"/>
+    <!-- warhead nose cone tip pointing forward -->
+    <path d="M40 20.5 l2.8 -0.9 -1.2 2.6 z" fill="#46402c" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.65"/>
+    <!-- warhead NW highlight -->
+    <path d="M35.4 21.2 a3.4 2.6 0 0 1 2.8 -0.9" fill="none" stroke="#cfd2a4" stroke-width="0.55" stroke-opacity="0.5" stroke-linecap="round"/>
+    <!-- NW rim on tube -->
+    <line x1="19" y1="30.4" x2="33.4" y2="22.8" stroke="#cfd2a4" stroke-width="0.5" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- faction accent: TEAL armband + trim -->
+  <g transform="rotate(-20 18 19)">
+    <rect x="15.6" y="17.4" width="5.0" height="3.0" rx="0.6" fill="#6fae9f" stroke="#1f3a33" stroke-width="0.4"/>
+    <line x1="15.8" y1="18.9" x2="20.4" y2="18.9" stroke="#bfe2d9" stroke-width="0.5" stroke-opacity="0.8"/>
+  </g>
+
+  <!-- helmet — woodland mottle, NW light -->
+  <circle cx="25.4" cy="24" r="5.6" fill="url(#solAnaRpg-helm)" stroke="#1c160e" stroke-width="0.95"/>
+  <path d="M23.4 21 q1.6 -0.5 2.4 0.9 q-1.1 1.2 -2.6 0.6 z" fill="#3f4126" fill-opacity="0.7"/>
+  <path d="M26.6 25.2 q1.5 0.2 1.4 1.6 q-1.4 0.5 -2.1 -0.6 z" fill="#3f4126" fill-opacity="0.7"/>
+  <path d="M23 25.6 q1.1 0.3 0.9 1.4 q-1.2 0.3 -1.6 -0.7 z" fill="#6a6c42" fill-opacity="0.6"/>
+  <!-- TEAL helmet scrim band — rotation-invariant faction accent -->
+  <circle cx="25.4" cy="24" r="4.0" fill="none" stroke="#6fae9f" stroke-width="1.3" stroke-opacity="0.95"/>
+  <path d="M21.4 20.7 a5.6 5.6 0 0 1 4.5 -1.8" fill="none" stroke="#d2d4a6" stroke-width="1.0" stroke-opacity="0.7" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 40">
+  <!-- flag-waypoint: numbered waypoint marker. Amber disc on a short pole with a
+       clear center circle (renderer stamps the number). PHYSICAL PIN: base shadow,
+       anchor [0.5,0.92]. -->
+  <defs>
+    <radialGradient id="flagWp-disc" cx="0.38" cy="0.34" r="0.85">
+      <stop offset="0" stop-color="#f0c155"/>
+      <stop offset="1" stop-color="#cf931e"/>
+    </radialGradient>
+    <filter id="flagWp-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.75"/>
+    </filter>
+  </defs>
+
+  <!-- SE ground shadow -->
+  <ellipse cx="14.7" cy="36.6" rx="5.2" ry="1.8" fill="#1c160e" opacity="0.36" filter="url(#flagWp-soft)"/>
+
+  <!-- short pole / stake -->
+  <rect x="13.2" y="18" width="1.6" height="18" rx="0.8" fill="#8a8270" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6"/>
+  <ellipse cx="14" cy="35.6" rx="2.3" ry="0.85" fill="#7a705c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+
+  <!-- amber disc with clear center for the number -->
+  <circle cx="14" cy="11.5" r="9.4" fill="url(#flagWp-disc)" stroke="#1c160e" stroke-width="1.1" stroke-opacity="0.7"/>
+  <!-- inner ring frames the number well -->
+  <circle cx="14" cy="11.5" r="6.6" fill="none" stroke="#7a5410" stroke-width="0.9" stroke-opacity="0.55"/>
+  <!-- clear center field for the number (kept open / light) -->
+  <circle cx="14" cy="11.5" r="5.4" fill="#f6e6b6"/>
+  <!-- NW rim highlight on the disc (kept subtle, no hard notch) -->
+  <path d="M8.0 7.2 A9.4 9.4 0 0 1 13.4 2.2" fill="none" stroke="#fbf0c4" stroke-width="0.9" stroke-opacity="0.55" stroke-linecap="round"/>
+</svg>

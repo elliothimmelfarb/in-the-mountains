@@ -116,7 +116,7 @@ export function bakeTerrain(terrain: Terrain): Baked {
 
   // Target a fixed ~2200 px sheet regardless of cell count so the high-fidelity
   // 5 m grid bakes quickly and stays sharp when zoomed.
-  const pxPerCell = Math.max(2, Math.min(8, Math.round(2200 / terrain.size)));
+  const pxPerCell = Math.max(2, Math.min(8, Math.round(3000 / terrain.size)));
   const W = terrain.size * pxPerCell;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -163,7 +163,11 @@ export function bakeTerrain(terrain: Terrain): Baked {
       shade = clamp01(shade * 0.94 + 0.02);
 
       const alt = clamp01((e - terrain.minElev) / range);
-      const land = terrain.landAt(wx, wy);
+      // dither the landcover SAMPLE position by a little fbm so class boundaries become
+      // organic interlocking edges instead of hard 5 m nearest-neighbour stair-steps.
+      const dox = (fbm2(wx * 0.34, wy * 0.34) - 0.5) * cs * 1.6 + (fbm2(wx * 1.1, wy * 1.1) - 0.5) * cs * 0.5;
+      const doy = (fbm2(wx * 0.34 + 21.7, wy * 0.34 + 8.3) - 0.5) * cs * 1.6 + (fbm2(wx * 1.1 + 5, wy * 1.1 + 9) - 0.5) * cs * 0.5;
+      const land = terrain.landAt(wx + dox, wy + doy);
       let [r, g, b] = landColor(land);
 
       // ---- per-landcover procedural texture (world-space, so it pans with the map) ----
@@ -222,6 +226,18 @@ export function bakeTerrain(terrain: Terrain): Baked {
           tex = 0.86 + fbm2(nxw * 1.4, nyw * 1.4) * 0.3;
           break;
         }
+        case Land.Hesco: {
+          // gabion basket grid: a regular cellular pattern reads as HESCO bastion
+          const gx = 0.5 + 0.5 * Math.sin(wx * 1.15);
+          const gy = 0.5 + 0.5 * Math.sin(wy * 1.15);
+          const cell = Math.min(gx, gy); // dark seams where the wire baskets meet
+          tex = 0.82 + cell * 0.5 + vnoise(wx * 0.9, wy * 0.9) * 0.12;
+          break;
+        }
+        case Land.Gravel: {
+          tex = 0.86 + vnoise(wx * 1.4, wy * 1.4) * 0.3; // graded gravel grain
+          break;
+        }
         default:
           tex = 0.94 + fbm2(nxw, nyw) * 0.12;
       }
@@ -238,14 +254,18 @@ export function bakeTerrain(terrain: Terrain): Baked {
         tex = tex * (1 - snow * 0.7) + 1.0 * snow * 0.7;
       }
 
-      // ---- saturation lift (push colour away from grey so the valley reads vivid,
-      //      not muddy military-grey) — except snow, which stays neutral white ----
-      if (snow < 0.5) {
+      // ---- saturation lift: a gentle push away from grey so the valley reads alive but
+      //      stays DUSTY & warm (dust country, not a lawn). Snow & water excluded. ----
+      if (snow < 0.5 && land !== Land.River) {
         const grey = (r + g + b) / 3;
-        const sat = 1.22;
+        // cropland is the one irrigated note that may stay a touch more vivid
+        const sat = land === Land.Cropland || land === Land.Terrace ? 1.16 : 1.08;
         r = grey + (r - grey) * sat;
         g = grey + (g - grey) * sat;
         b = grey + (b - grey) * sat;
+        // warm the floor a hair toward ochre so greens read olive, not lime
+        r += 4;
+        g += 1;
       }
 
       // ---- compose: texture × relief (high contrast), then atmospheric grading ----
@@ -322,6 +342,34 @@ function drawContours(ctx: CanvasRenderingContext2D, terrain: Terrain, pxPerCell
   void cs;
 }
 
+/** A small tiling fbm-noise tile (grayscale ~128) used as a high-zoom ground-detail
+ *  overlay. Baked once: it adds crisp high-frequency "tooth" that masks the upscaling
+ *  blur of the relief bitmap when you zoom in close. */
+let noiseTile: HTMLCanvasElement | null = null;
+function bakeNoiseTile(): HTMLCanvasElement {
+  if (noiseTile) return noiseTile;
+  const N = 256;
+  const c = document.createElement("canvas");
+  c.width = N;
+  c.height = N;
+  const ctx = c.getContext("2d")!;
+  const img = ctx.createImageData(N, N);
+  const d = img.data;
+  for (let y = 0; y < N; y++) {
+    for (let x = 0; x < N; x++) {
+      // tileable-ish fbm: sample at a few octaves; wrap with a low base freq
+      const n = fbm2(x * 0.16, y * 0.16) * 0.6 + vnoise(x * 0.9, y * 0.9) * 0.4;
+      const v = 128 + (n - 0.5) * 150; // contrasty grain around mid-grey
+      const o = (y * N + x) * 4;
+      d[o] = d[o + 1] = d[o + 2] = v < 0 ? 0 : v > 255 ? 255 : v;
+      d[o + 3] = 255;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  noiseTile = c;
+  return c;
+}
+
 /** Draw the baked terrain into a live canvas under the given camera. */
 export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
   const baked = bakeTerrain(terrain);
@@ -330,6 +378,24 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(baked.canvas, ox, oy, baked.canvas.width * destScale, baked.canvas.height * destScale);
+
+  // high-zoom ground-detail overlay: world-anchored noise grain that hides the upscale
+  // blur of the relief bitmap. Fades in as we zoom past the bitmap's native resolution.
+  const detailA = clamp01((cam.ppm - 0.9) / 1.5) * 0.46;
+  if (detailA > 0.01) {
+    const tile = bakeNoiseTile();
+    const pat = ctx.createPattern(tile, "repeat");
+    if (pat && (pat as CanvasPattern).setTransform) {
+      const sc = 0.5 * cam.ppm; // ~0.5 m per noise pixel → ~few-px grain at tactical zoom
+      (pat as CanvasPattern).setTransform(new DOMMatrix([sc, 0, 0, sc, ox, oy]));
+      ctx.save();
+      ctx.globalAlpha = detailA;
+      ctx.globalCompositeOperation = "overlay";
+      ctx.fillStyle = pat;
+      ctx.fillRect(0, 0, cam.vw, cam.vh);
+      ctx.restore();
+    }
+  }
 
   // night / low-light wash
   if (night > 0) {
@@ -343,8 +409,9 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
 /** A faint UTM-style grid with labels, drawn over terrain. */
 export function drawGrid(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, spacingM = 200) {
   ctx.save();
-  ctx.strokeStyle = "rgba(216,214,196,0.12)";
-  ctx.fillStyle = "rgba(216,214,196,0.4)";
+  // faint cartographic reference that sits UNDER the terrain detail, not a wireframe over it
+  ctx.strokeStyle = "rgba(216,214,196,0.06)";
+  ctx.fillStyle = "rgba(216,214,196,0.28)";
   ctx.lineWidth = 1;
   ctx.font = "10px var(--font-mono, monospace)";
   const maxW = terrain.worldSize;

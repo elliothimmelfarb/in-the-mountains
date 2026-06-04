@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-clinic: building with medical cross sign. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- building body -->
+    <path d="M5 9.6 L5 20 L19 20 L19 9.6"/>
+    <!-- flat roof parapet -->
+    <path d="M4 9.6 L20 9.6"/>
+    <!-- door -->
+    <path d="M10.4 20 L10.4 15.4 L13.6 15.4 L13.6 20"/>
+  </g>
+  <!-- red medical cross sign on the facade -->
+  <path d="M10.9 5.4 h2.2 v2 h2 v2.2 h-2 v2 h-2.2 v-2 h-2 v-2.2 h2 z" fill="#c0392b" stroke="#c0392b" stroke-width="0.4" stroke-linejoin="round"/>
+</svg>

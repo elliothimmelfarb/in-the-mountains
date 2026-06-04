@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
+  <!-- contact-marker: TIC / troops-in-contact. Red starburst/explosion glyph with
+       crossed-rifles, alarming. anchor [0.5,0.5], screen-fixed. -->
+  <defs>
+    <radialGradient id="contact-burst" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#e1503c"/>
+      <stop offset="0.7" stop-color="#c0392b"/>
+      <stop offset="1" stop-color="#8a2d22"/>
+    </radialGradient>
+  </defs>
+
+  <!-- faint outer alarm ring -->
+  <circle cx="18" cy="18" r="15" fill="none" stroke="#c0392b" stroke-width="1.1" stroke-opacity="0.3"/>
+
+  <!-- dark keyline halo behind the starburst -->
+  <path d="M18 1.5
+           L21.2 9.6 L29.5 6.5 L26.4 14.8 L34.5 18 L26.4 21.2
+           L29.5 29.5 L21.2 26.4 L18 34.5 L14.8 26.4 L6.5 29.5
+           L9.6 21.2 L1.5 18 L9.6 14.8 L6.5 6.5 L14.8 9.6 Z"
+        fill="#0c0d0a" opacity="0.5" transform="translate(0.6 0.6) scale(1.04)" transform-origin="18 18"/>
+
+  <!-- the red starburst -->
+  <path d="M18 2.5
+           L20.9 9.8 L28.4 7 L25.6 14.5 L33 18 L25.6 21.5
+           L28.4 29 L20.9 26.2 L18 33.5 L15.1 26.2 L7.6 29
+           L10.4 21.5 L3 18 L10.4 14.5 L7.6 7 L15.1 9.8 Z"
+        fill="url(#contact-burst)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6" stroke-linejoin="round"/>
+  <!-- NW rim on upper-left spikes -->
+  <path d="M18 2.5 L20.9 9.8 M7.6 7 L15.1 9.8 M3 18 L10.4 14.5"
+        fill="none" stroke="#f0a89c" stroke-width="0.7" stroke-opacity="0.6" stroke-linecap="round"/>
+
+  <!-- crossed rifles symbol in the hot center -->
+  <g stroke="#f3ecd6" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.95">
+    <line x1="12.8" y1="23.2" x2="23.2" y2="12.8"/>
+    <line x1="12.8" y1="12.8" x2="23.2" y2="23.2"/>
+  </g>
+  <!-- rifle muzzle/stock nubs to hint 'rifles' not just an X -->
+  <g fill="#f3ecd6" opacity="0.95">
+    <circle cx="23.4" cy="12.6" r="1.0"/><circle cx="12.6" cy="23.4" r="1.0"/>
+  </g>
+</svg>

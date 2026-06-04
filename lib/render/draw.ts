@@ -1,9 +1,10 @@
 import { Camera, worldToScreen } from "./topo";
-import { Unit } from "../sim/entities";
+import { Unit, Faction, Role } from "../sim/entities";
 import { Terrain } from "../sim/terrain";
 import { Projectile } from "../sim/ballistics";
 import { Effect } from "../sim/combat";
 import { SmokeScreen } from "../sim/los";
+import { drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "./sprites";
 
 const FAC_COLOR: Record<string, string> = {
   us: "#5b9bd8",
@@ -11,6 +12,46 @@ const FAC_COLOR: Record<string, string> = {
   insurgent: "#d0473a",
   civilian: "#e3c44a",
 };
+
+// ---- figure-sprite LOD: symbol below FIG_FADE0, sprite above FIG_FADE1, crossfade between ----
+const FIG_FADE0 = 0.5;
+const FIG_FADE1 = 0.9;
+function figurePx(ppm: number): number {
+  return Math.max(15, Math.min(40, ppm * 7));
+}
+
+const US_ROLE_SPRITE: Record<string, string> = {
+  platoon_leader: "squadleader", platoon_sergeant: "squadleader", squad_leader: "squadleader", team_leader: "squadleader",
+  rifleman: "rifleman", grenadier: "grenadier", saw_gunner: "saw", auto_rifleman: "saw",
+  machinegunner: "machinegunner", marksman: "marksman", sniper: "sniper", medic: "medic",
+  rto: "rto", jtac: "jtac", engineer: "engineer", interpreter: "interpreter",
+};
+const ANA_ROLE_SPRITE: Record<string, string> = {
+  platoon_leader: "leader", platoon_sergeant: "leader", squad_leader: "leader", team_leader: "leader",
+  machinegunner: "mg", saw_gunner: "mg", auto_rifleman: "mg", rpg_gunner: "rpg",
+};
+const ACM_ROLE_SPRITE: Record<string, string> = {
+  fighter: "fighter", ied_team: "ied", rpg_gunner: "rpg", mg_gunner: "mg",
+  marksman_acm: "marksman", spotter: "spotter", commander: "commander",
+};
+const CIV_ROLE_SPRITE: Record<string, string> = {
+  farmer: "farmer", herder: "herder", elder: "elder", child: "child", villager: "villager",
+};
+
+/** Resolve a unit (faction+role) to a figure sprite id, with sensible fallbacks. */
+function unitSpriteId(faction: Faction, role: Role, suspect: boolean): string | null {
+  if (suspect && faction === "insurgent") return "acm-suspected";
+  if (role === "interpreter") return "sol-interpreter";
+  if (faction === "us") return "sol-us-" + (US_ROLE_SPRITE[role] ?? "rifleman");
+  if (faction === "ana") return "sol-ana-" + (ANA_ROLE_SPRITE[role] ?? "rifleman");
+  if (faction === "insurgent") return "acm-" + (ACM_ROLE_SPRITE[role] ?? "fighter");
+  if (faction === "civilian") {
+    // a little variety: some generic villagers render as the covered-civilian sprite
+    if ((CIV_ROLE_SPRITE[role] ?? "villager") === "villager") return "civ-villager";
+    return "civ-" + CIV_ROLE_SPRITE[role];
+  }
+  return null;
+}
 
 function roleGlyph(role: string): string {
   switch (role) {
@@ -56,6 +97,11 @@ export function drawUnit(
   const dead = !u.alive;
   const down = u.alive && !u.conscious;
 
+  // LOD: NATO symbol at low zoom, detailed figure sprite at high zoom (crossfaded).
+  const spriteId = unitSpriteId(u.faction, u.role, !!opts.revealedSuspect);
+  const sprA = spriteId && hasSprite(spriteId) ? lodAlpha(cam.ppm, FIG_FADE0, FIG_FADE1) : 0;
+  const symA = 1 - sprA;
+
   ctx.save();
   ctx.translate(sx, sy);
 
@@ -81,54 +127,74 @@ export function drawUnit(
     return;
   }
 
-  // facing wedge (where they're oriented)
-  if (u.faction !== "civilian") {
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.beginPath();
-    ctx.moveTo(0, 0);
-    const fa = u.facing;
-    ctx.arc(0, 0, r * 2.4, fa - 0.38, fa + 0.38);
-    ctx.closePath();
-    ctx.fill();
+  // --- NATO symbol (fades OUT as we zoom in toward the figure sprite) ---
+  if (symA > 0.02) {
+    ctx.save();
+    ctx.globalAlpha *= symA;
+    // facing wedge (where they're oriented)
+    if (u.faction !== "civilian") {
+      ctx.fillStyle = "rgba(255,255,255,0.12)";
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      const fa = u.facing;
+      ctx.arc(0, 0, r * 2.4, fa - 0.38, fa + 0.38);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // body symbol
+    ctx.lineWidth = 1.4;
+    if (u.faction === "us" || u.faction === "ana") {
+      // friendly: filled rounded rectangle (rectangle = friendly per mil symbology)
+      ctx.fillStyle = down ? "#34506b" : color;
+      ctx.strokeStyle = "#0c0d0a";
+      roundRect(ctx, -r, -r * 0.8, r * 2, r * 1.6, 2);
+      ctx.fill();
+      ctx.stroke();
+    } else if (u.faction === "insurgent") {
+      // hostile: diamond
+      ctx.fillStyle = opts.revealedSuspect ? "rgba(208,71,58,0.4)" : color;
+      ctx.strokeStyle = "#0c0d0a";
+      ctx.beginPath();
+      ctx.moveTo(0, -r);
+      ctx.lineTo(r, 0);
+      ctx.lineTo(0, r);
+      ctx.lineTo(-r, 0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      // civilian: small ring
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // role glyph
+    const glyph = roleGlyph(u.role);
+    if (glyph && (u.faction === "us" || u.faction === "ana") && cam.ppm > 4) {
+      ctx.fillStyle = "#0c0d0a";
+      ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(glyph, 0, 0.5);
+    }
+    ctx.restore();
   }
 
-  // body symbol
-  ctx.lineWidth = 1.4;
-  if (u.faction === "us" || u.faction === "ana") {
-    // friendly: filled rounded rectangle (rectangle = friendly per mil symbology)
-    ctx.fillStyle = down ? "#34506b" : color;
-    ctx.strokeStyle = "#0c0d0a";
-    roundRect(ctx, -r, -r * 0.8, r * 2, r * 1.6, 2);
-    ctx.fill();
-    ctx.stroke();
-  } else if (u.faction === "insurgent") {
-    // hostile: diamond
-    ctx.fillStyle = opts.revealedSuspect ? "rgba(208,71,58,0.4)" : color;
-    ctx.strokeStyle = "#0c0d0a";
+  // --- detailed figure sprite (fades IN as we zoom in), rotated to facing ---
+  if (sprA > 0.02 && spriteId) {
+    // faction base ring under the figure: keeps US/ANA/ACM/civ legible at any size,
+    // since the painted shoulder patch drops below a pixel once the sprite is small.
+    const fr = figurePx(cam.ppm) * 0.46;
+    ctx.save();
+    ctx.globalAlpha *= sprA * 0.5;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.6;
     ctx.beginPath();
-    ctx.moveTo(0, -r);
-    ctx.lineTo(r, 0);
-    ctx.lineTo(0, r);
-    ctx.lineTo(-r, 0);
-    ctx.closePath();
-    ctx.fill();
+    ctx.ellipse(0, 0, fr, fr * 0.92, 0, 0, Math.PI * 2);
     ctx.stroke();
-  } else {
-    // civilian: small ring
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // role glyph
-  const glyph = roleGlyph(u.role);
-  if (glyph && (u.faction === "us" || u.faction === "ana") && cam.ppm > 4) {
-    ctx.fillStyle = "#0c0d0a";
-    ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.fillText(glyph, 0, 0.5);
+    ctx.restore();
+    drawScreenSprite(ctx, spriteId, 0, 0, figurePx(cam.ppm), { rot: u.facing, alpha: sprA });
   }
 
   // suppression / down indicator
@@ -159,14 +225,22 @@ export function drawUnit(
 
   ctx.restore();
 
-  // label
-  if (opts.showLabel && (u.faction === "us" || u.faction === "ana") && cam.ppm > 5) {
+  // label — only the SELECTED unit and squad/team leaders get a nameplate, so dense
+  // garrison clusters don't smear into illegible mush. A dark plate keeps it readable.
+  const isLeader = u.role === "squad_leader" || u.role === "team_leader" || u.role === "platoon_leader" || u.role === "platoon_sergeant";
+  if (opts.showLabel && (u.faction === "us" || u.faction === "ana") && cam.ppm > 2.5 && (opts.selected || isLeader)) {
     ctx.save();
-    ctx.fillStyle = "rgba(216,214,196,0.85)";
+    const name = u.name.split(" ").pop() ?? "";
     ctx.font = "9px var(--font-mono, monospace)";
     ctx.textAlign = "center";
-    const name = u.name.split(" ").pop() ?? "";
-    ctx.fillText(name, sx, sy + r + 12);
+    ctx.textBaseline = "middle";
+    const tw = ctx.measureText(name).width;
+    const ly = sy + figurePx(cam.ppm) * 0.5 + 8;
+    ctx.fillStyle = "rgba(12,13,10,0.7)";
+    roundRect(ctx, sx - tw / 2 - 3, ly - 6, tw + 6, 12, 2);
+    ctx.fill();
+    ctx.fillStyle = opts.selected ? "#f0e4c0" : "rgba(216,214,196,0.85)";
+    ctx.fillText(name, sx, ly);
     ctx.restore();
   }
 }
@@ -192,97 +266,135 @@ const COP_LABEL: Record<string, string> = {
   tower: "TWR",
 };
 
+const BLD_SPRITE: Record<string, string> = {
+  toc: "bld-toc", barracks: "bld-barracks", dfac: "bld-dfac", armory: "bld-armory",
+  aid: "bld-aid", motorpool: "bld-motorpool", latrine: "bld-latrine", tower: "guard-tower",
+};
+
 /**
- * Draw the combat outpost's built structure over the baked terrain: labelled
- * building footprints, the helicopter LZ, the entry-control point, and the
- * crew-served fighting positions/towers on the wall.
+ * Draw the combat outpost over the baked terrain: building sprites, the helicopter
+ * LZ pad, the ECP gate, crew-served fighting positions/towers, the flag, and a couple
+ * of vehicles in the motor pool. Sprites fade in at operational zoom; a wireframe
+ * fallback covers the case where an asset hasn't loaded.
  */
 export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Terrain) {
   const cop = terrain.cop;
   if (!cop) return;
   const cs = terrain.cellSize;
+  const bldA = lodAlpha(cam.ppm, 0.32, 0.7);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // building footprints + labels
+  // helicopter LZ pad (under everything else)
+  {
+    const c = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
+    const drew = bldA > 0.02 && hasSprite("lz-pad") && drawWorldSprite(ctx, cam, "lz-pad", c.x, c.y, { widthM: 26, alpha: bldA });
+    if (!drew) {
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const r = 2.4 * cs * cam.ppm;
+      ctx.strokeStyle = "rgba(232,229,212,0.55)";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      if (cam.ppm > 0.8) {
+        ctx.fillStyle = "rgba(232,229,212,0.7)";
+        ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
+        ctx.fillText("H", sx, sy + 0.5);
+      }
+    }
+  }
+
+  // ECP gate — oriented along the gate direction
+  {
+    const c = terrain.cellCenter(cop.gate.cx, cop.gate.cy);
+    const ang = Math.atan2(cop.gateDir.y, cop.gateDir.x);
+    const drew = bldA > 0.02 && hasSprite("ecp-gate") && drawWorldSprite(ctx, cam, "ecp-gate", c.x, c.y, { widthM: 9, alpha: bldA, rot: ang });
+    if (!drew) {
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const r = 1.4 * cs * cam.ppm;
+      ctx.strokeStyle = "rgba(224,167,43,0.7)";
+      ctx.setLineDash([3, 3]);
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // buildings
   for (const b of cop.buildings) {
     const c = terrain.cellCenter(b.cx, b.cy);
     const [sx, sy] = worldToScreen(cam, c.x, c.y);
-    const w = (b.hw * 2 + 1) * cs * cam.ppm;
+    const wM = (b.hw * 2 + 1) * cs;
+    const w = wM * cam.ppm;
     const h = (b.hh * 2 + 1) * cs * cam.ppm;
-    if (sx < -w || sy < -h || sx > cam.vw + w || sy > cam.vh + h) continue;
-    ctx.strokeStyle = "rgba(18,20,16,0.6)";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(sx - w / 2, sy - h / 2, w, h);
-    if (cam.ppm > 1.0) {
-      ctx.fillStyle = "rgba(232,229,212,0.82)";
-      ctx.font = `${Math.min(11, Math.max(7, Math.round(cam.ppm * 2)))}px var(--font-mono, monospace)`;
-      ctx.fillText(COP_LABEL[b.kind] ?? b.kind, sx, sy);
+    if (sx < -w * 2 || sy < -h * 3 || sx > cam.vw + w * 2 || sy > cam.vh + h * 2) continue;
+    const id = BLD_SPRITE[b.kind] ?? "bld-bhut";
+    const hM = (b.hh * 2 + 1) * cs;
+    // stretch each building to its REAL footprint (width × depth) so the COP has size
+    // variety instead of every roof reading as the same elongated barracks shape.
+    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: wM * 1.12, heightM: hM * 1.32, alpha: bldA });
+    if (!drew) {
+      ctx.strokeStyle = "rgba(18,20,16,0.6)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - w / 2, sy - h / 2, w, h);
+    }
+    // faint identifying label only in a mid-zoom band (fades out when detail is obvious)
+    if (cam.ppm > 0.95 && cam.ppm < 3.2 && COP_LABEL[b.kind]) {
+      ctx.fillStyle = "rgba(232,229,212,0.5)";
+      ctx.font = "8px var(--font-mono, monospace)";
+      ctx.fillText(COP_LABEL[b.kind], sx, sy + h / 2 + 6);
     }
   }
 
-  // helicopter LZ — circle with an H
-  {
-    const c = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
-    const [sx, sy] = worldToScreen(cam, c.x, c.y);
-    const r = 2.4 * cs * cam.ppm;
-    ctx.strokeStyle = "rgba(232,229,212,0.55)";
-    ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    ctx.arc(sx, sy, r, 0, Math.PI * 2);
-    ctx.stroke();
-    if (cam.ppm > 0.8) {
-      ctx.fillStyle = "rgba(232,229,212,0.7)";
-      ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
-      ctx.fillText("H", sx, sy + 0.5);
+  // vehicles parked in a row on the motor-pool hardstand
+  const motor = cop.buildings.find((b) => b.kind === "motorpool");
+  if (motor && bldA > 0.4) {
+    const mc = terrain.cellCenter(motor.cx, motor.cy);
+    const wM = (motor.hw * 2 + 1) * cs;
+    const types: [string, number][] = [["veh-mrap", 6], ["veh-hmmwv", 5], ["veh-mrap", 6], ["veh-pickup", 5]];
+    const nv = Math.max(2, Math.min(4, Math.floor(wM / 7)));
+    const yard = mc.y + (motor.hh + 1) * cs * 0.6;
+    for (let i = 0; i < nv; i++) {
+      const fx = nv > 1 ? (i / (nv - 1) - 0.5) * (wM - 6) : 0;
+      const [id, sz] = types[i];
+      // parked nose-toward-the-wall (north), slight heading scatter so it isn't a decal row
+      drawWorldSprite(ctx, cam, id, mc.x + fx, yard + (i % 2 ? 1.5 : -0.5), { widthM: sz, alpha: bldA, rot: -1.57 + (i % 2 ? 0.08 : -0.06) });
     }
   }
 
-  // fighting positions / towers on the wall (sector chevrons pointing out)
+  // fighting positions / towers on the wall (static, consistent light)
   for (const fp of cop.fightingPositions) {
     const c = terrain.cellCenter(fp.cx, fp.cy);
-    const [sx, sy] = worldToScreen(cam, c.x, c.y);
-    const s = Math.max(3, 1.1 * cs * cam.ppm * 0.6);
-    ctx.save();
-    ctx.translate(sx, sy);
-    ctx.rotate(fp.facing);
-    ctx.fillStyle = fp.tower ? "rgba(224,167,43,0.85)" : "rgba(120,150,200,0.8)";
-    ctx.strokeStyle = "rgba(12,13,10,0.8)";
-    ctx.lineWidth = 1;
-    if (fp.tower) {
+    const id = fp.tower ? "guard-tower" : "fighting-position";
+    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: fp.tower ? 4.5 : 3.4, alpha: bldA });
+    if (!drew) {
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const s = Math.max(3, 1.1 * cs * cam.ppm * 0.6);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(fp.facing);
+      ctx.fillStyle = fp.tower ? "rgba(224,167,43,0.85)" : "rgba(120,150,200,0.8)";
+      ctx.strokeStyle = "rgba(12,13,10,0.8)";
+      ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.rect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
+      if (fp.tower) ctx.rect(-s * 0.7, -s * 0.7, s * 1.4, s * 1.4);
+      else { ctx.moveTo(s, 0); ctx.lineTo(-s * 0.7, s * 0.7); ctx.lineTo(-s * 0.7, -s * 0.7); ctx.closePath(); }
       ctx.fill();
       ctx.stroke();
-    } else {
-      ctx.beginPath();
-      ctx.moveTo(s, 0);
-      ctx.lineTo(-s * 0.7, s * 0.7);
-      ctx.lineTo(-s * 0.7, -s * 0.7);
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      ctx.restore();
     }
-    ctx.restore();
   }
 
-  // entry-control point marker
+  // the COP flag at the center (fades in as the pin marker fades out)
   {
-    const c = terrain.cellCenter(cop.gate.cx, cop.gate.cy);
-    const [sx, sy] = worldToScreen(cam, c.x, c.y);
-    const r = 1.4 * cs * cam.ppm;
-    ctx.strokeStyle = "rgba(224,167,43,0.7)";
-    ctx.setLineDash([3, 3]);
-    ctx.lineWidth = 1.4;
-    ctx.beginPath();
-    ctx.arc(sx, sy, r, -Math.PI / 2, Math.PI / 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    if (cam.ppm > 1.0) {
-      ctx.fillStyle = "rgba(224,167,43,0.85)";
-      ctx.font = "8px var(--font-mono, monospace)";
-      ctx.fillText("ECP", sx, sy - r - 6);
+    const flagA = lodAlpha(cam.ppm, 1.1, 2.1);
+    if (flagA > 0.02 && hasSprite("cop-flag")) {
+      const c = terrain.cellCenter(cop.center.cx, cop.center.cy);
+      drawWorldSprite(ctx, cam, "cop-flag", c.x, c.y, { widthM: 4, alpha: flagA });
     }
   }
 

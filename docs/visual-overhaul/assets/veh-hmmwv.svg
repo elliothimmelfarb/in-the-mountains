@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 40">
+  <!-- Up-armored HMMWV, top-down, facing +x (east). ROTATING sprite: symmetric centered
+       contact shadow + centered roof turret. Smaller/lower than MRAP.
+       footprint 5 m (length). anchor center [0.5,0.5]. -->
+  <defs>
+    <linearGradient id="vehHmmwv-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bfad79"/>
+      <stop offset="0.5" stop-color="#b09e6c"/>
+      <stop offset="1" stop-color="#968758"/>
+    </linearGradient>
+    <linearGradient id="vehHmmwv-hood" x1="0" y1="0" x2="1" y2="0.5">
+      <stop offset="0" stop-color="#c4b27d"/>
+      <stop offset="1" stop-color="#a8975f"/>
+    </linearGradient>
+    <radialGradient id="vehHmmwv-turret" cx="0.38" cy="0.32" r="0.75">
+      <stop offset="0" stop-color="#a99966"/>
+      <stop offset="1" stop-color="#766841"/>
+    </radialGradient>
+    <radialGradient id="vehHmmwv-shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#1c160e" stop-opacity="0.44"/>
+      <stop offset="0.65" stop-color="#1c160e" stop-opacity="0.28"/>
+      <stop offset="1" stop-color="#1c160e" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="30" cy="20" rx="24" ry="12.5" fill="url(#vehHmmwv-shadow)"/>
+
+  <!-- four wheels at corners, wide stance -->
+  <g fill="#2a251a" stroke="#161109" stroke-width="0.6">
+    <rect x="13" y="6"  width="8" height="5.5" rx="2"/>
+    <rect x="13" y="28.5" width="8" height="5.5" rx="2"/>
+    <rect x="36" y="6"  width="8" height="5.5" rx="2"/>
+    <rect x="36" y="28.5" width="8" height="5.5" rx="2"/>
+  </g>
+  <g stroke="#3c352440" stroke-width="0.5">
+    <line x1="13" y1="8.7" x2="21" y2="8.7"/><line x1="13" y1="31.2" x2="21" y2="31.2"/>
+    <line x1="36" y1="8.7" x2="44" y2="8.7"/><line x1="36" y1="31.2" x2="44" y2="31.2"/>
+  </g>
+
+  <!-- main armored body, wide & low -->
+  <path d="M11 12 L44 12 L44 28 L11 28 Z" fill="url(#vehHmmwv-body)" stroke="#1c160e" stroke-width="1" stroke-opacity="0.62"/>
+
+  <!-- short sloped hood (front, east) -->
+  <path d="M44 13 L52 20 L44 27 Z" fill="url(#vehHmmwv-hood)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <g stroke="#6c6347" stroke-width="0.5" stroke-opacity="0.55">
+    <line x1="44.5" y1="16" x2="50" y2="20"/>
+    <line x1="44.5" y1="24" x2="50" y2="20"/>
+  </g>
+  <!-- grille / brush guard tip -->
+  <path d="M51 18.5 L53.5 20 L51 21.5" fill="none" stroke="#2f2a1d" stroke-width="0.9" stroke-opacity="0.7"/>
+
+  <!-- armored cab roof (front) with windshield slit + mirror nubs -->
+  <rect x="33" y="14" width="10" height="12" rx="1.3" fill="#a99964" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.45"/>
+  <rect x="41.5" y="16" width="1.6" height="8" rx="0.5" fill="#6c6347" opacity="0.75"/>
+  <g fill="#2f2a1d"><rect x="42.5" y="12.6" width="2.2" height="1.2" rx="0.4"/><rect x="42.5" y="26.2" width="2.2" height="1.2" rx="0.4"/></g>
+
+  <!-- rear roof section, hatch seams -->
+  <rect x="13" y="14" width="18" height="12" rx="1.2" fill="#b1a06b" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.4"/>
+  <g stroke="#7e7048" stroke-width="0.5" stroke-opacity="0.55">
+    <line x1="19" y1="14" x2="19" y2="26"/>
+    <line x1="25" y1="14" x2="25" y2="26"/>
+  </g>
+
+  <!-- ROOF GUNNER TURRET, centered -->
+  <circle cx="29" cy="20" r="4.6" fill="url(#vehHmmwv-turret)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.6"/>
+  <circle cx="29" cy="20" r="2.7" fill="#897b51" stroke="#6c6347" stroke-width="0.5"/>
+  <!-- gunner shield arc (forward) -->
+  <path d="M31.4 16.4 a3.8 3.8 0 0 1 0 7.2" fill="none" stroke="#766841" stroke-width="1.2" stroke-opacity="0.75"/>
+  <!-- gun barrel forward (+x) -->
+  <rect x="33" y="19.1" width="10" height="1.8" rx="0.8" fill="#2f2a1d" stroke="#161109" stroke-width="0.3"/>
+  <circle cx="29" cy="20" r="0.8" fill="#6c6347"/>
+
+  <!-- antenna whips, rear -->
+  <g stroke="#2a251a" stroke-width="0.7" stroke-opacity="0.85">
+    <line x1="14" y1="15" x2="9" y2="7"/>
+    <line x1="15" y1="25" x2="10" y2="33"/>
+  </g>
+  <g fill="#2a251a"><circle cx="9" cy="7" r="0.6"/><circle cx="10" cy="33" r="0.6"/></g>
+
+  <!-- NW rim light on lit upper edge -->
+  <path d="M11 12 L44 12" fill="none" stroke="#fbf4dc" stroke-width="0.7" stroke-opacity="0.5"/>
+  <path d="M44 13 L52 20" fill="none" stroke="#fbf4dc" stroke-width="0.55" stroke-opacity="0.4"/>
+  <line x1="33.4" y1="14.4" x2="42.5" y2="14.4" stroke="#fbf4dc" stroke-width="0.5" stroke-opacity="0.4"/>
+</svg>

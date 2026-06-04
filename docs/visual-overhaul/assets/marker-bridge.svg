@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Bridge glyph: a span (parallel deck lines) crossing a gap between two banks. FLAT milspec ink/tan.
+       footprint:null (screen-fixed), anchor [0.5,0.5], rotating:false. -->
+  <defs>
+    <filter id="markerBridge-halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+  </defs>
+  <!-- dark keyline halo behind -->
+  <g filter="url(#markerBridge-halo)" stroke="#0c0d0a" stroke-opacity="0.5" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <line x1="2.5" y1="9" x2="21.5" y2="9"/>
+    <line x1="2.5" y1="14.5" x2="21.5" y2="14.5"/>
+    <path d="M6.5 9 L6.5 14.5 M17.5 9 L17.5 14.5"/>
+    <path d="M2.5 17.5 L6.5 17.5 M17.5 17.5 L21.5 17.5"/>
+  </g>
+  <!-- the gap: water beneath -->
+  <line x1="7.5" y1="18.4" x2="16.5" y2="18.4" stroke="#40687a" stroke-width="1.4" stroke-linecap="round" stroke-dasharray="2.6 2.2"/>
+  <!-- bank edges (tan) -->
+  <g stroke="#c2a878" stroke-width="1.8" stroke-linecap="round" fill="none">
+    <path d="M2.5 17.6 L6.5 17.6"/>
+    <path d="M17.5 17.6 L21.5 17.6"/>
+  </g>
+  <!-- bridge deck: two parallel span lines + abutment piers -->
+  <g stroke="#d8d6c4" stroke-width="1.8" stroke-linecap="round" fill="none">
+    <line x1="2.5" y1="9" x2="21.5" y2="9"/>
+    <line x1="2.5" y1="14.5" x2="21.5" y2="14.5"/>
+  </g>
+  <g stroke="#c2a878" stroke-width="1.6" stroke-linecap="round" fill="none">
+    <line x1="6.7" y1="9" x2="6.7" y2="17.6"/>
+    <line x1="17.3" y1="9" x2="17.3" y2="17.6"/>
+  </g>
+</svg>

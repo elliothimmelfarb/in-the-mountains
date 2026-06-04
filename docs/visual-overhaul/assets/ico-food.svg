@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- FOOD: MRE ration pouch with sealed top seam and label band -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6.5 7.5 h11 v11.8 a1.2 1.2 0 0 1 -1.2 1.2 h-8.6 a1.2 1.2 0 0 1 -1.2 -1.2 z"/>
+    <path d="M5.6 5 h12.8 v2.5 h-12.8 z"/>
+    <path d="M6.5 13.4 h11"/>
+  </g>
+  <path d="M8.7 16.4 h6.6" stroke="#e0a72b" stroke-width="1.7" stroke-linecap="round"/>
+</svg>

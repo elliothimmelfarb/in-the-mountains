@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 36">
+  <!-- Sandbag blast wall: a straight run of stacked sandbags, ~4 offset courses, running along +x.
+       Rounded bags, NW-lit crowns top-left, shaded bellies lower-right; brick-style offset courses. -->
+  <defs>
+    <linearGradient id="sandbagWall-bagL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bcab78"/><stop offset="1" stop-color="#998a5c"/>
+    </linearGradient>
+    <linearGradient id="sandbagWall-bagD" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a89868"/><stop offset="1" stop-color="#85774c"/>
+    </linearGradient>
+    <filter id="sandbagWall-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.9"/>
+    </filter>
+  </defs>
+  <path d="M6 28 h48 l4 4 h-48 z" fill="#1c160e" opacity="0.32" filter="url(#sandbagWall-soft)"/>
+  <g stroke="#6f6038" stroke-width="0.5" stroke-opacity="0.7">
+    <g fill="url(#sandbagWall-bagD)">
+      <rect x="6"  y="22" width="9" height="6" rx="3"/>
+      <rect x="15" y="22" width="9" height="6" rx="3"/>
+      <rect x="24" y="22" width="9" height="6" rx="3"/>
+      <rect x="33" y="22" width="9" height="6" rx="3"/>
+      <rect x="42" y="22" width="9" height="6" rx="3"/>
+      <rect x="51" y="22" width="9" height="6" rx="3"/>
+    </g>
+  </g>
+  <g stroke="#6f6038" stroke-width="0.5" stroke-opacity="0.7">
+    <g fill="url(#sandbagWall-bagD)">
+      <rect x="9.5"  y="17.5" width="9" height="6" rx="3"/>
+      <rect x="18.5" y="17.5" width="9" height="6" rx="3"/>
+      <rect x="27.5" y="17.5" width="9" height="6" rx="3"/>
+      <rect x="36.5" y="17.5" width="9" height="6" rx="3"/>
+      <rect x="45.5" y="17.5" width="9" height="6" rx="3"/>
+    </g>
+  </g>
+  <g stroke="#6f6038" stroke-width="0.5" stroke-opacity="0.7">
+    <g fill="url(#sandbagWall-bagL)">
+      <rect x="7"  y="13" width="9" height="6" rx="3"/>
+      <rect x="16" y="13" width="9" height="6" rx="3"/>
+      <rect x="25" y="13" width="9" height="6" rx="3"/>
+      <rect x="34" y="13" width="9" height="6" rx="3"/>
+      <rect x="43" y="13" width="9" height="6" rx="3"/>
+      <rect x="52" y="13" width="9" height="6" rx="3"/>
+    </g>
+  </g>
+  <g stroke="#6f6038" stroke-width="0.5" stroke-opacity="0.7">
+    <g fill="url(#sandbagWall-bagL)">
+      <rect x="10.5" y="9"  width="9" height="6" rx="3"/>
+      <rect x="19.5" y="9"  width="9" height="6" rx="3"/>
+      <rect x="28.5" y="9"  width="9" height="6" rx="3"/>
+      <rect x="37.5" y="9"  width="9" height="6" rx="3"/>
+      <rect x="46.5" y="9"  width="9" height="6" rx="3"/>
+    </g>
+  </g>
+  <g stroke="#cdbb86" stroke-width="0.5" stroke-opacity="0.55" fill="none">
+    <path d="M12 10.5 q3 -1.2 6 0"/><path d="M21 10.5 q3 -1.2 6 0"/><path d="M30 10.5 q3 -1.2 6 0"/>
+    <path d="M39 10.5 q3 -1.2 6 0"/><path d="M48 10.5 q3 -1.2 6 0"/>
+  </g>
+  <g stroke="#7a6a44" stroke-width="0.4" stroke-opacity="0.4" fill="none">
+    <path d="M8.5 23.5 q3 -1 6 0"/><path d="M17.5 23.5 q3 -1 6 0"/><path d="M26.5 23.5 q3 -1 6 0"/>
+    <path d="M35.5 23.5 q3 -1 6 0"/><path d="M44.5 23.5 q3 -1 6 0"/><path d="M53.5 23.5 q3 -1 6 0"/>
+  </g>
+</svg>

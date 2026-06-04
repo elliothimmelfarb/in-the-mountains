@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36">
+  <!-- medevac-marker: 9-line / MEDEVAC. Red cross in a white roundel with a faint
+       pulse ring. Urgent flat map glyph. anchor [0.5,0.5], screen-fixed. -->
+  <defs>
+    <radialGradient id="medevac-roundel" cx="0.4" cy="0.36" r="0.8">
+      <stop offset="0" stop-color="#f6efd9"/>
+      <stop offset="1" stop-color="#d9d0b6"/>
+    </radialGradient>
+  </defs>
+
+  <!-- faint outer pulse ring (urgency) -->
+  <circle cx="18" cy="18" r="16" fill="none" stroke="#c0392b" stroke-width="1.2" stroke-opacity="0.35"/>
+  <circle cx="18" cy="18" r="13" fill="none" stroke="#c0392b" stroke-width="1.4" stroke-opacity="0.55"/>
+
+  <!-- dark keyline halo so it reads over busy terrain -->
+  <circle cx="18" cy="18" r="10.6" fill="#0c0d0a" opacity="0.5"/>
+
+  <!-- white roundel -->
+  <circle cx="18" cy="18" r="9.6" fill="url(#medevac-roundel)" stroke="#0c0d0a" stroke-width="1.1" stroke-opacity="0.65"/>
+
+  <!-- red medical cross -->
+  <path d="M15.2 11.4 h5.6 v3.4 h3.4 v5.6 h-3.4 v3.4 h-5.6 v-3.4 h-3.4 v-5.6 h3.4 z"
+        fill="#c0392b" stroke="#8a2d22" stroke-width="0.6" stroke-opacity="0.7" stroke-linejoin="round"/>
+  <!-- soft inner highlight on the cross (NW) -->
+  <path d="M15.6 11.8 h4.8 M11.8 15.6 v4.8" fill="none" stroke="#e36b5e" stroke-width="0.7" stroke-opacity="0.55" stroke-linecap="round"/>
+</svg>

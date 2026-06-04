@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Fighting position: a U-shaped sandbag horseshoe open toward the threat (N/up), a crew-served
+       M240 over the parapet firing N, ammo cans beside. Top-down: we look down into the dug pit. -->
+  <defs>
+    <radialGradient id="fightingPos-pit" cx="0.5" cy="0.42" r="0.7">
+      <stop offset="0" stop-color="#5a4f34"/><stop offset="1" stop-color="#3e3622"/>
+    </radialGradient>
+    <linearGradient id="fightingPos-bagL" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#bcab78"/><stop offset="1" stop-color="#9a8b5c"/>
+    </linearGradient>
+    <linearGradient id="fightingPos-bagD" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a39468"/><stop offset="1" stop-color="#7f714a"/>
+    </linearGradient>
+    <filter id="fightingPos-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.0"/>
+    </filter>
+  </defs>
+  <ellipse cx="34" cy="46" rx="26" ry="11" fill="#1c160e" opacity="0.30" filter="url(#fightingPos-soft)"/>
+  <path d="M19 26 a13 11 0 0 1 26 0 v12 a8 8 0 0 1 -8 8 h-10 a8 8 0 0 1 -8 -8 z" fill="url(#fightingPos-pit)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.5"/>
+  <g stroke="#6f6038" stroke-width="0.5" stroke-opacity="0.7">
+    <g fill="url(#fightingPos-bagL)">
+      <rect x="11" y="22" width="8" height="5.5" rx="2.7"/>
+      <rect x="11" y="27" width="8" height="5.5" rx="2.7"/>
+      <rect x="12" y="32" width="8" height="5.5" rx="2.7"/>
+      <rect x="14" y="37" width="8" height="5.5" rx="2.7"/>
+    </g>
+    <g fill="url(#fightingPos-bagD)">
+      <rect x="18" y="40" width="8" height="5.5" rx="2.7"/>
+      <rect x="25" y="42" width="8" height="5.5" rx="2.7"/>
+      <rect x="32" y="42.5" width="8" height="5.5" rx="2.7"/>
+      <rect x="39" y="40" width="8" height="5.5" rx="2.7"/>
+    </g>
+    <g fill="url(#fightingPos-bagD)">
+      <rect x="45" y="22" width="8" height="5.5" rx="2.7"/>
+      <rect x="45" y="27" width="8" height="5.5" rx="2.7"/>
+      <rect x="44" y="32" width="8" height="5.5" rx="2.7"/>
+      <rect x="43" y="37" width="8" height="5.5" rx="2.7"/>
+    </g>
+    <g fill="url(#fightingPos-bagL)">
+      <rect x="10" y="18" width="8" height="5.5" rx="2.7"/>
+      <rect x="46" y="18" width="8" height="5.5" rx="2.7"/>
+    </g>
+  </g>
+  <g stroke="#efe3b6" stroke-width="0.5" stroke-opacity="0.5" fill="none">
+    <path d="M12 23 q4 -1 7 0"/><path d="M12 28 q4 -1 7 0"/><path d="M14 38 q4 -1 7 0"/><path d="M14 19 q4 -1 7 0"/>
+  </g>
+  <g stroke="#7a6a44" stroke-width="0.4" stroke-opacity="0.45" fill="none">
+    <path d="M46 23 q4 -1 7 0"/><path d="M26 43 q4 -1 7 0"/><path d="M33 43.5 q4 -1 7 0"/>
+  </g>
+  <!-- crew-served M240 over the parapet, firing N -->
+  <g>
+    <ellipse cx="32" cy="36" rx="6" ry="2.4" fill="#1c160e" opacity="0.28" filter="url(#fightingPos-soft)"/>
+    <rect x="29" y="30" width="6" height="7" rx="1" fill="#3a3a32" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.7"/>
+    <line x1="29.4" y1="30.4" x2="29.4" y2="36.4" stroke="#8a8a78" stroke-width="0.6" stroke-opacity="0.6"/>
+    <rect x="31" y="14" width="2" height="17" rx="1" fill="#2c2c26" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.6"/>
+    <line x1="31.3" y1="15" x2="31.3" y2="30" stroke="#7e7e6c" stroke-width="0.5" stroke-opacity="0.5"/>
+    <rect x="30.4" y="13" width="3.2" height="2" rx="0.6" fill="#3a3a32"/>
+    <line x1="32" y1="33" x2="27" y2="38" stroke="#2c2c26" stroke-width="0.8"/>
+    <line x1="32" y1="33" x2="37" y2="38" stroke="#2c2c26" stroke-width="0.8"/>
+  </g>
+  <!-- ammo cans beside (SE corner) -->
+  <g stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.6">
+    <rect x="49" y="40" width="9" height="6" rx="0.8" fill="#6b6f4a"/>
+    <rect x="49" y="40" width="9" height="2" fill="#7c8054"/>
+    <line x1="52" y1="40" x2="55" y2="40" stroke="#4a4e30" stroke-width="1.2"/>
+    <rect x="51" y="46" width="9" height="6" rx="0.8" fill="#5e6342"/>
+    <rect x="51" y="46" width="9" height="2" fill="#6f734c"/>
+  </g>
+</svg>

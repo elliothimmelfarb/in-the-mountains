@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- ACM SPOTTER, top-down, facing +x. ROTATING. anchor [0.5,0.5], footprint 1.4 m.
+       Man-dress fighter raising BINOCULARS to the head (observer read), an ICOM radio
+       with whip antenna on the back/hip, and a slung AK (no long weapon up). Red accent. -->
+  <defs>
+    <radialGradient id="acmSpotter-head" cx="0.4" cy="0.34" r="0.85">
+      <stop offset="0" stop-color="#9a7e58"/>
+      <stop offset="0.6" stop-color="#6e5a3c"/>
+      <stop offset="1" stop-color="#4c3d28"/>
+    </radialGradient>
+    <linearGradient id="acmSpotter-body" x1="0.25" y1="0.05" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#94855f"/>
+      <stop offset="1" stop-color="#67593f"/>
+    </linearGradient>
+    <filter id="acmSpotter-soft" x="-45%" y="-45%" width="190%" height="190%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- symmetric contact shadow -->
+  <ellipse cx="24" cy="25.2" rx="11" ry="9.5" fill="#181308" opacity="0.30" filter="url(#acmSpotter-soft)"/>
+
+  <!-- slung AK low across the back-left (short, secondary, points back so it never pan-handles) -->
+  <g stroke-linecap="round">
+    <line x1="12.5" y1="20.5" x2="25" y2="28.5" stroke="#171510" stroke-width="1.8"/>
+    <line x1="12.5" y1="20.5" x2="25" y2="28.5" stroke="#34322a" stroke-width="0.7"/>
+    <line x1="18.5" y1="26.6" x2="20.2" y2="23.0" stroke="#1b1912" stroke-width="1.8"/> <!-- curved mag hint -->
+  </g>
+
+  <!-- torso/shoulders: widest across y -->
+  <path d="M18.5 17.6 q-3.1 0.4 -3.1 6.4 q0 6 3.1 6.4
+           q5.6 0.6 10.2 -1.3 q2.5 -1 2.5 -5.1 q0 -4.1 -2.5 -5.1 q-4.6 -1.9 -10.2 -1.3z"
+        fill="url(#acmSpotter-body)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <!-- shoulder caps -->
+  <ellipse cx="19.6" cy="19.3" rx="3.0" ry="2.3" fill="#79694b" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.4"/>
+  <ellipse cx="19.6" cy="28.7" rx="3.0" ry="2.3" fill="#79694b" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.4"/>
+
+  <!-- ICOM radio on the hip with whip antenna trailing back -->
+  <rect x="16" y="22.4" width="3.2" height="3.2" rx="0.6" fill="#2a2c22" stroke="#13110d" stroke-width="0.5"/>
+  <path d="M16.4 23 q-3.4 -1.2 -5.4 -3.2" fill="none" stroke="#1c160e" stroke-width="0.7"/>
+
+  <!-- both arms raised forward, elbows out, holding binoculars up to the eyes -->
+  <path d="M22 20.4 q4.6 0.4 7.4 2.6" fill="none" stroke="#76674a" stroke-width="2.8" stroke-linecap="round"/>
+  <path d="M22 27.6 q4.6 -0.4 7.4 -2.6" fill="none" stroke="#76674a" stroke-width="2.8" stroke-linecap="round"/>
+
+  <!-- head: turban/pakol, focal, slightly forward, NW top light, NO helmet (drawn before
+       the binoculars so the optics clearly sit ON the front of the head/eyes) -->
+  <circle cx="25.4" cy="24" r="4.9" fill="url(#acmSpotter-head)" stroke="#1c160e" stroke-width="0.9"/>
+  <path d="M21.8 21.0 a4.9 4.9 0 0 1 3.6 -1.5" fill="none" stroke="#c8b68e" stroke-width="0.95" stroke-opacity="0.65" stroke-linecap="round"/>
+  <circle cx="25.4" cy="24" r="4.9" fill="none" stroke="#5a4a30" stroke-width="1.0" stroke-opacity="0.5"/>
+
+  <!-- faction accent: bold red headband wrapped across the front of the head -->
+  <path d="M24.6 19.4 q2.0 4.6 0 9.2" fill="none" stroke="#c0392b" stroke-width="1.7" stroke-linecap="round"/>
+  <path d="M24.6 19.4 q2.0 4.6 0 9.2" fill="none" stroke="#8a2d22" stroke-width="0.6" stroke-opacity="0.7"/>
+
+  <!-- binoculars: bold twin barrels held up to the eyes at the front of the head -->
+  <g stroke="#13110d" stroke-width="0.6">
+    <rect x="28.4" y="20.6" width="4.6" height="2.7" rx="0.8" fill="#26281e"/>
+    <rect x="28.4" y="24.7" width="4.6" height="2.7" rx="0.8" fill="#26281e"/>
+    <rect x="27.4" y="22.6" width="1.6" height="2.8" rx="0.4" fill="#1d1f17"/> <!-- hinge bridge -->
+    <line x1="33.0" y1="21.9" x2="34.8" y2="21.9" stroke-width="1.3"/> <!-- objective ring -->
+    <line x1="33.0" y1="26.1" x2="34.8" y2="26.1" stroke-width="1.3"/>
+  </g>
+  <!-- objective lens glints -->
+  <circle cx="34.7" cy="21.9" r="0.7" fill="#bcd0d8" opacity="0.8"/>
+  <circle cx="34.7" cy="26.1" r="0.7" fill="#bcd0d8" opacity="0.8"/>
+</svg>

@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 60 50">
+  <!-- bld-bhut: plywood B-hut billet. STATIC, NW light + SE cast shadow.
+       Rebuilt for bolder volume read from above with a ~13deg tilt: a corrugated GABLE
+       roof (NW slope lit, SE slope shade, ridge along +x) lifted on clearly visible walls
+       - a lit NW plywood wall sliver + a tall SE shadow wall band - plus a strong SE ground
+       cast shadow. Identity: plywood seams, door, window, AC window-unit. anchor [0.5,0.80], footprint 7 m. -->
+  <defs>
+    <linearGradient id="bldBhut-roofNW" x1="0" y1="1" x2="0.1" y2="0">
+      <stop offset="0" stop-color="#9a8f6e"/>
+      <stop offset="1" stop-color="#b2a685"/>
+    </linearGradient>
+    <linearGradient id="bldBhut-roofSE" x1="0" y1="0" x2="0.06" y2="1">
+      <stop offset="0" stop-color="#6c6347"/>
+      <stop offset="1" stop-color="#564e37"/>
+    </linearGradient>
+    <linearGradient id="bldBhut-wallNW" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#a98c5e"/>
+      <stop offset="1" stop-color="#8c7046"/>
+    </linearGradient>
+    <linearGradient id="bldBhut-wallSE" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5c4a2e"/>
+      <stop offset="1" stop-color="#473922"/>
+    </linearGradient>
+    <filter id="bldBhut-soft" x="-30%" y="-35%" width="160%" height="170%">
+      <feGaussianBlur stdDeviation="1.15"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW on the ground -->
+  <path d="M11 35 h36 l7 8 h-36z" fill="#1c160e" opacity="0.35" filter="url(#bldBhut-soft)"/>
+
+  <!-- ===== EXTRUDED WALLS ===== -->
+  <!-- SE long wall (front, deep shade), tall and clearly visible -->
+  <polygon points="13,30 47,30 47,37 13,37" fill="url(#bldBhut-wallSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.6"/>
+  <!-- NW gable-end sliver (left, lit plywood) - widened so the lit face reads -->
+  <polygon points="7.5,19.5 13,23 13,37 7.5,33.5" fill="url(#bldBhut-wallNW)" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.45"/>
+  <!-- NW rim light down the lit wall's leading edge -->
+  <line x1="7.5" y1="19.5" x2="7.5" y2="33.5" stroke="#efe3b6" stroke-width="0.6" stroke-opacity="0.4"/>
+  <!-- plywood seams on the SE shadow wall -->
+  <g stroke="#352a18" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="20" y1="30.3" x2="20" y2="36.7"/><line x1="27" y1="30.3" x2="27" y2="36.7"/>
+    <line x1="40" y1="30.3" x2="40" y2="36.7"/>
+  </g>
+  <!-- baseboard skid -->
+  <line x1="13" y1="37" x2="47" y2="37" stroke="#3a2e1a" stroke-width="0.7" stroke-opacity="0.6"/>
+  <!-- door on the SE wall -->
+  <rect x="29" y="31.4" width="5" height="5.6" rx="0.3" fill="#3a3120" stroke="#241d12" stroke-width="0.45"/>
+  <line x1="29.4" y1="31.8" x2="29.4" y2="36.7" stroke="#9a8458" stroke-width="0.5" stroke-opacity="0.6"/>
+  <circle cx="33.2" cy="34.1" r="0.5" fill="#caa45a"/>
+  <!-- small window -->
+  <rect x="20" y="31.6" width="4.4" height="3.4" rx="0.3" fill="#384e3c" stroke="#241d12" stroke-width="0.4"/>
+  <line x1="22.2" y1="31.9" x2="22.2" y2="34.7" stroke="#2c2a1d" stroke-width="0.4"/>
+  <!-- AC window-unit hung off the SE wall near the door -->
+  <g>
+    <polygon points="40.5,32 44.5,32 44.5,36 40.5,36" fill="#8c8674" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.55"/>
+    <polygon points="40.5,32 44.5,32 45.4,31.2 41.4,31.2" fill="#a5a08c" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.4"/>
+    <g stroke="#5e5847" stroke-width="0.35" stroke-opacity="0.7">
+      <line x1="41.2" y1="32.4" x2="41.2" y2="35.6"/><line x1="42.2" y1="32.4" x2="42.2" y2="35.6"/>
+      <line x1="43.2" y1="32.4" x2="43.2" y2="35.6"/></g>
+  </g>
+
+  <!-- ===== GABLE ROOF (ridge runs E-W along +x) ===== -->
+  <!-- SE (front, lower) slope, shaded -->
+  <polygon points="13,24 47,24 47,30 13,30" fill="url(#bldBhut-roofSE)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- NW (back, upper) slope, lit -->
+  <polygon points="7.5,19.5 43,20 47,24 13,24" fill="url(#bldBhut-roofNW)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.5"/>
+  <!-- corrugation ribs down each slope -->
+  <g stroke="#857a5c" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="14" y1="20" x2="14.8" y2="24"/><line x1="20" y1="20" x2="20.8" y2="24"/>
+    <line x1="26" y1="20" x2="26.8" y2="24"/><line x1="32" y1="20" x2="32.8" y2="24"/>
+    <line x1="38" y1="20" x2="38.8" y2="24"/>
+  </g>
+  <g stroke="#433c2a" stroke-width="0.4" stroke-opacity="0.55">
+    <line x1="14.8" y1="24" x2="15" y2="30"/><line x1="20.8" y1="24" x2="21" y2="30"/>
+    <line x1="26.8" y1="24" x2="27" y2="30"/><line x1="32.8" y1="24" x2="33" y2="30"/>
+    <line x1="38.8" y1="24" x2="39" y2="30"/>
+  </g>
+  <!-- ridge line + rust streak -->
+  <line x1="7.5" y1="19.5" x2="43" y2="20" stroke="#332d20" stroke-width="0.8" stroke-opacity="0.6"/>
+  <line x1="30" y1="20.4" x2="30.6" y2="23.6" stroke="#8a5a36" stroke-width="0.6" stroke-opacity="0.45"/>
+  <!-- STRONG NW rim light on the lit ridge -->
+  <line x1="7.5" y1="19.1" x2="43" y2="19.6" stroke="#efe3b6" stroke-width="1.0" stroke-opacity="0.62"/>
+  <!-- SE eave edge stays dark -->
+  <line x1="13" y1="30" x2="47" y2="30" stroke="#2c2618" stroke-width="0.6" stroke-opacity="0.5"/>
+</svg>

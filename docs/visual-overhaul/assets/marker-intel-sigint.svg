@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- SIGINT report glyph: antenna/tower emitting concentric signal arcs. FLAT milspec ink, amber.
+       footprint:null (screen-fixed), anchor [0.5,0.5], rotating:false. -->
+  <defs>
+    <filter id="markerIntelSigint-halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+  </defs>
+  <!-- dark keyline halo behind, for legibility over busy terrain -->
+  <g filter="url(#markerIntelSigint-halo)" stroke="#0c0d0a" stroke-opacity="0.5" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.6 20 L10.7 12 M15.4 20 L13.3 12"/>
+    <line x1="8.2" y1="20" x2="15.8" y2="20"/>
+    <line x1="9.7" y1="16" x2="14.3" y2="16"/>
+    <line x1="12" y1="12" x2="12" y2="5"/>
+    <path d="M9.3 6.6 A4 4 0 0 1 14.7 6.6"/>
+    <path d="M7.4 4.7 A6.7 6.7 0 0 1 16.6 4.7"/>
+  </g>
+  <!-- amber ink: tower lattice -->
+  <g stroke="#e0a72b" stroke-width="1.7" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8.6 20 L10.7 12 M15.4 20 L13.3 12"/>
+    <line x1="8.7" y1="20" x2="15.3" y2="20"/>
+    <line x1="9.7" y1="16" x2="14.3" y2="16"/>
+    <!-- mast -->
+    <line x1="12" y1="12" x2="12" y2="5.1"/>
+  </g>
+  <!-- concentric signal arcs -->
+  <g stroke="#e0a72b" stroke-width="1.5" fill="none" stroke-linecap="round">
+    <path d="M9.5 6.7 A3.7 3.7 0 0 1 14.5 6.7"/>
+    <path d="M7.6 4.9 A6.2 6.2 0 0 1 16.4 4.9"/>
+  </g>
+  <!-- emitter dot at mast top -->
+  <circle cx="12" cy="5.1" r="1.05" fill="#e0a72b"/>
+</svg>

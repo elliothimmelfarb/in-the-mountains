@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 64">
+  <defs>
+    <linearGradient id="windsock-pole" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#cdbf9e"/>
+      <stop offset="0.55" stop-color="#a89a78"/>
+      <stop offset="1" stop-color="#7e7253"/>
+    </linearGradient>
+    <filter id="windsock-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+  </defs>
+  <path d="M22.6 56 L38 53.5 L38.6 55 L23.6 57.4z" fill="#1c160e" opacity="0.30" filter="url(#windsock-soft)"/>
+  <ellipse cx="24" cy="56.4" rx="5" ry="1.8" fill="#1c160e" opacity="0.30" filter="url(#windsock-soft)"/>
+  <rect x="22.6" y="13" width="2.2" height="43" fill="url(#windsock-pole)" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+  <circle cx="23.7" cy="12.5" r="1.8" fill="none" stroke="#6c695f" stroke-width="1.0"/>
+  <path d="M25 7 C34 5.6 42 8 46 13 C42 16 34 17.4 25 16 Z" fill="#1c160e" opacity="0.13" filter="url(#windsock-soft)" transform="translate(0.8,1.4)"/>
+  <path d="M25 7 C29 6.5 31.5 6.7 33 7.2 L33 15.4 C31.5 15.7 29 15.8 25 15.2 Z" fill="#c96a2a"/>
+  <path d="M33 7.2 C35.5 7.7 37.5 8.3 38.8 9 L38.8 13.6 C37.5 14.3 35.5 14.9 33 15.4 Z" fill="#dccfb2"/>
+  <path d="M38.8 9 C40.8 9.9 42.4 10.9 43.4 11.6 L43.4 12.6 C42.4 13 40.8 13 38.8 13.6 Z" fill="#bf6328"/>
+  <path d="M43.4 11.6 C44.6 12.2 45.6 12.7 46 13.2 C45.6 13.5 44.6 13.3 43.4 12.6 Z" fill="#cfc4a8"/>
+  <ellipse cx="25" cy="11.2" rx="1.1" ry="4.3" fill="none" stroke="#7e6a48" stroke-width="0.9"/>
+  <path d="M25 7 C33 6 41 8 46 13" stroke="#efe7cf" stroke-width="0.7" stroke-opacity="0.6" fill="none"/>
+</svg>

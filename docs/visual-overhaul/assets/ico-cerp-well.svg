@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cerp-well: well-head with roof, rope, bucket/drop. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- roof gable over the well -->
+    <path d="M5 8.4 L12 3.6 L19 8.4"/>
+    <!-- roof support posts -->
+    <path d="M6.2 8.4 L7.4 14.5"/>
+    <path d="M17.8 8.4 L16.6 14.5"/>
+    <!-- well wall (stone curb) -->
+    <path d="M6.6 14.5 L17.4 14.5 L18.6 20.4 L5.4 20.4 Z"/>
+    <!-- rope to bucket -->
+    <path d="M12 6 L12 11.4"/>
+  </g>
+  <!-- water drop (amber active accent) -->
+  <path d="M12 9.6 C13.2 11 13.2 11.9 12 12.1 C10.8 11.9 10.8 11 12 9.6 Z" fill="#e0a72b"/>
+</svg>

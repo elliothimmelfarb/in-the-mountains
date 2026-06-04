@@ -1,0 +1,120 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 80">
+  <!-- MOTORPOOL: gravel hardstand + a real raised shade canopy (roofed maintenance bay) over two
+       vehicle bays, plus an open goalpost bay and a fuel/jerry-can rack. The CANOPY now reads as a
+       3D roofed structure: tall legible posts lifting a tilted roof, a lit NW roof face + a clearly
+       visible SE shade fascia band, NW rim, and a bold dark shadow cast on the pad beneath it.
+       STATIC: NW light + SE cast shadow. anchor [0.5,0.78]. footprint 12 m. -->
+  <defs>
+    <linearGradient id="bldMp-pad" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#8e836e"/>
+      <stop offset="1" stop-color="#7a7060"/>
+    </linearGradient>
+    <linearGradient id="bldMp-canopy" x1="0" y1="0" x2="0.12" y2="1">
+      <stop offset="0" stop-color="#7c8049"/>
+      <stop offset="1" stop-color="#5e6240"/>
+    </linearGradient>
+    <linearGradient id="bldMp-fascia" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#494d33"/>
+      <stop offset="1" stop-color="#383b29"/>
+    </linearGradient>
+    <linearGradient id="bldMp-drum" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8a5a36"/>
+      <stop offset="1" stop-color="#6e4628"/>
+    </linearGradient>
+    <filter id="bldMp-soft" x="-25%" y="-25%" width="150%" height="150%">
+      <feGaussianBlur stdDeviation="1.2"/>
+    </filter>
+    <filter id="bldMp-softpad" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="1.8"/>
+    </filter>
+  </defs>
+
+  <!-- pad cast shadow (faint, grounds the whole hardstand) -->
+  <polygon points="12,60 84,56 92,64 16,68" fill="#1c160e" opacity="0.24" filter="url(#bldMp-softpad)"/>
+
+  <!-- gravel hardstand pad -->
+  <polygon points="8,28 86,24 90,58 12,62" fill="url(#bldMp-pad)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.5"/>
+  <!-- gravel speckle -->
+  <g fill="#5e5648" opacity="0.4">
+    <circle cx="22" cy="40" r="0.8"/><circle cx="34" cy="48" r="0.7"/><circle cx="48" cy="38" r="0.8"/>
+    <circle cx="60" cy="50" r="0.7"/><circle cx="72" cy="40" r="0.8"/><circle cx="28" cy="54" r="0.6"/>
+    <circle cx="54" cy="56" r="0.7"/><circle cx="78" cy="52" r="0.6"/><circle cx="40" cy="32" r="0.7"/>
+    <circle cx="66" cy="30" r="0.6"/>
+  </g>
+  <g fill="#a39a86" opacity="0.35">
+    <circle cx="26" cy="44" r="0.6"/><circle cx="44" cy="52" r="0.6"/><circle cx="58" cy="36" r="0.5"/>
+    <circle cx="70" cy="46" r="0.6"/><circle cx="36" cy="38" r="0.5"/><circle cx="64" cy="54" r="0.5"/>
+  </g>
+
+  <!-- parking bay stall lines (painted, faded) -->
+  <g stroke="#c2b48c" stroke-width="0.9" stroke-opacity="0.45">
+    <line x1="38" y1="29" x2="40" y2="60"/>
+    <line x1="60" y1="27.5" x2="62" y2="59"/>
+  </g>
+
+  <!-- ===== open (un-roofed) bay on the right: empty steel goalpost frame ===== -->
+  <ellipse cx="76" cy="46" rx="13" ry="3" fill="#1c160e" opacity="0.18" filter="url(#bldMp-soft)"/>
+  <line x1="64" y1="46" x2="64" y2="28" stroke="#4a4330" stroke-width="2"/>
+  <line x1="86" y1="42" x2="86" y2="24" stroke="#4a4330" stroke-width="2"/>
+  <line x1="64.7" y1="46" x2="64.7" y2="28" stroke="#8c8260" stroke-width="0.5" stroke-opacity="0.6"/>
+  <polygon points="64,28 86,24 86,26.6 64,30.6" fill="#5a5238" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.5"/>
+  <line x1="64" y1="28" x2="86" y2="24" stroke="#8c8260" stroke-width="0.5" stroke-opacity="0.6"/>
+  <line x1="64" y1="30.6" x2="86" y2="42" stroke="#4a4330" stroke-width="0.8" stroke-opacity="0.6"/>
+
+  <!-- ===== BOLD shadow the canopy casts on the pad (SE offset, dark) ===== -->
+  <polygon points="22,40 64,36 74,52 32,56" fill="#1c160e" opacity="0.34" filter="url(#bldMp-soft)"/>
+
+  <!-- ===== RAISED SHADE CANOPY over the left two bays ===== -->
+  <!-- back (SE) support posts: rise from the pad up to the roof's BACK edge (mostly occluded), shade -->
+  <line x1="58" y1="54" x2="58" y2="19" stroke="#3e3826" stroke-width="2.2"/>
+  <line x1="18" y1="58" x2="18" y2="28" stroke="#3e3826" stroke-width="2.2"/>
+  <!-- front (NW) support posts: rise from the pad up to the roof's FRONT fascia lip, lit -->
+  <line x1="22" y1="56" x2="22" y2="40" stroke="#6c6347" stroke-width="2.6"/>
+  <line x1="58" y1="50" x2="58" y2="36" stroke="#6c6347" stroke-width="2.6"/>
+  <line x1="22.9" y1="56" x2="22.9" y2="40.5" stroke="#9a8c64" stroke-width="0.6" stroke-opacity="0.65"/>
+  <line x1="58.9" y1="50" x2="58.9" y2="36.5" stroke="#9a8c64" stroke-width="0.6" stroke-opacity="0.65"/>
+
+  <!-- SE shade FASCIA band (the down-facing front lip of the roof, clearly visible) -->
+  <polygon points="14,30 58,26 66,36 22,40" fill="url(#bldMp-fascia)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+
+  <!-- canopy ROOF (OD tarp), NW lit, tilted -->
+  <polygon points="14,30 58,26 64,17 20,21" fill="url(#bldMp-canopy)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+  <!-- frame ribs across the roof -->
+  <g stroke="#4c5035" stroke-width="0.5" stroke-opacity="0.6">
+    <line x1="26" y1="20.5" x2="22" y2="29.4"/>
+    <line x1="37" y1="19.5" x2="33" y2="28.4"/>
+    <line x1="48" y1="18.5" x2="44" y2="27.4"/>
+    <line x1="58" y1="17.6" x2="55" y2="26.4"/>
+  </g>
+  <!-- sag seam down the middle of the roof -->
+  <path d="M17 25.5 q22 0 44 -4.5" stroke="#4c5035" stroke-width="0.5" stroke-opacity="0.5" fill="none"/>
+  <!-- STRONG NW RIM LIGHT along top-back roof edge -->
+  <polyline points="20,21 64,17" fill="none" stroke="#cfd0a4" stroke-width="0.9" stroke-opacity="0.62"/>
+
+  <!-- ===== fuel drum + jerry-can rack (NE corner of pad) ===== -->
+  <ellipse cx="78" cy="52" rx="9" ry="3" fill="#1c160e" opacity="0.3" filter="url(#bldMp-soft)"/>
+  <!-- two fuel drums -->
+  <g>
+    <ellipse cx="74" cy="48" rx="3.4" ry="2.2" fill="#5a3a22"/>
+    <rect x="70.6" y="42" width="6.8" height="6" fill="url(#bldMp-drum)" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.5"/>
+    <ellipse cx="74" cy="42" rx="3.4" ry="2.2" fill="#9a6440" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.4"/>
+    <ellipse cx="74" cy="42" rx="2.1" ry="1.3" fill="#6e4628"/>
+    <line x1="70.6" y1="44.4" x2="77.4" y2="44.4" stroke="#5a3a22" stroke-width="0.5"/>
+    <line x1="70.6" y1="45.8" x2="77.4" y2="45.8" stroke="#5a3a22" stroke-width="0.5"/>
+  </g>
+  <g>
+    <ellipse cx="82" cy="46" rx="3.4" ry="2.2" fill="#5a3a22"/>
+    <rect x="78.6" y="40" width="6.8" height="6" fill="url(#bldMp-drum)" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.5"/>
+    <ellipse cx="82" cy="40" rx="3.4" ry="2.2" fill="#9a6440" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.4"/>
+    <ellipse cx="82" cy="40" rx="2.1" ry="1.3" fill="#6e4628"/>
+    <line x1="78.6" y1="42.4" x2="85.4" y2="42.4" stroke="#5a3a22" stroke-width="0.5"/>
+    <line x1="78.6" y1="43.8" x2="85.4" y2="43.8" stroke="#5a3a22" stroke-width="0.5"/>
+  </g>
+  <!-- jerry-can rack (two OD cans) -->
+  <g>
+    <rect x="64" y="50" width="4" height="5.4" rx="0.4" fill="#6b6f4a" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+    <rect x="64.4" y="50.3" width="0.7" height="5" fill="#878c5e"/>
+    <rect x="68.4" y="51" width="4" height="5.4" rx="0.4" fill="#5e6240" stroke="#1c160e" stroke-width="0.4" stroke-opacity="0.5"/>
+    <rect x="68.8" y="51.3" width="0.7" height="5" fill="#7a7e52"/>
+  </g>
+</svg>

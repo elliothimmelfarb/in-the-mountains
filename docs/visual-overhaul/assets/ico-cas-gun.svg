@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- ico-cas-gun: top-down jet on a gun run, US blue nose, amber tracer burst. -->
+  <g fill="none" stroke="#d8d6c4" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <!-- fuselage: nose lower-right, tail upper-left -->
+    <path d="M4.4 4.4 L11.6 11.6"/>
+    <!-- swept delta wings (one stroke each, swept back toward tail) -->
+    <path d="M9.4 6.6 L4.6 8.4 L7 9.4"/>
+    <path d="M6.6 9.4 L8.4 4.6 L9.4 7"/>
+    <!-- tail fins -->
+    <path d="M4.4 4.4 L3 6 M4.4 4.4 L6 3"/>
+  </g>
+  <!-- nose cone, US blue active accent -->
+  <path d="M11 11 L12.8 12.8" fill="none" stroke="#4a86c6" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- gun tracer burst, amber: three diverging tracers fanning down-right from the nose -->
+  <g stroke="#e0a72b" stroke-width="1.6" stroke-linecap="round">
+    <path d="M14.4 14.4 L20.6 18.2"/>
+    <path d="M14.4 14.4 L19.4 19.4"/>
+    <path d="M14.4 14.4 L18.2 20.6"/>
+  </g>
+</svg>

@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- BUSH-SCRUB, holly-oak clump, top-down. STATIC: low spiky olive-tan irregular bush,
+       NW crescent + SE cast shadow. -->
+  <defs>
+    <radialGradient id="bushScrub-canopy" cx="0.40" cy="0.36" r="0.74">
+      <stop offset="0" stop-color="#9a9060"/>
+      <stop offset="0.5" stop-color="#847a4e"/>
+      <stop offset="1" stop-color="#6a6240"/>
+    </radialGradient>
+    <filter id="bushScrub-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow -->
+  <ellipse cx="26" cy="30" rx="11" ry="7.5" fill="#1c160e" opacity="0.30" filter="url(#bushScrub-soft)"/>
+
+  <!-- irregular spiky clump -->
+  <path d="M24 11 l3 4 l5 -2 l-2 5 l5 2 l-5 2 l2 5 l-5 -2 l-2 5 l-3 -4 l-5 2 l2 -5 l-5 -2 l5 -2 l-2 -5 l5 2 z"
+        fill="url(#bushScrub-canopy)" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.55"/>
+
+  <!-- NW lit spiky fringe -->
+  <g fill="#aaa068" opacity="0.85">
+    <path d="M24 12 l2 3 l-3.5 0.5 z"/>
+    <path d="M16 16 l4 -1 l-1 3.5 z"/>
+    <path d="M13.5 22 l4 0.5 l-3 2.5 z"/>
+    <path d="M18 26 l3 -1 l-0.5 3 z"/>
+  </g>
+  <!-- spiky leaf strokes (holly-oak texture) -->
+  <g stroke="#5e5638" stroke-width="0.5" stroke-opacity="0.6" stroke-linecap="round">
+    <line x1="24" y1="22" x2="24" y2="15"/><line x1="24" y1="22" x2="29" y2="19"/>
+    <line x1="24" y1="22" x2="29" y2="25"/><line x1="24" y1="22" x2="24" y2="28"/>
+    <line x1="24" y1="22" x2="19" y2="25"/><line x1="24" y1="22" x2="18" y2="20"/>
+  </g>
+  <!-- dark center -->
+  <circle cx="24" cy="22" r="2" fill="#5a5236"/>
+  <!-- SE shadow lobe -->
+  <path d="M30 24 l3 1 l-2 4 l-3 -2 z" fill="#5e5638" opacity="0.5"/>
+</svg>

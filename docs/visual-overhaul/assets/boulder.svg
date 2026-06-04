@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- BOULDER, single granite, top-down 2.5D. STATIC: grey top lit NW, dark SE side,
+       cast shadow, a few facet lines. -->
+  <defs>
+    <linearGradient id="boulder-top" x1="0.2" y1="0.1" x2="0.8" y2="0.9">
+      <stop offset="0" stop-color="#b8b0a0"/>
+      <stop offset="0.55" stop-color="#a49c8e"/>
+      <stop offset="1" stop-color="#8c8476"/>
+    </linearGradient>
+    <linearGradient id="boulder-side" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7a7064"/>
+      <stop offset="1" stop-color="#5e564c"/>
+    </linearGradient>
+    <filter id="boulder-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.9"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow -->
+  <ellipse cx="27" cy="32" rx="12" ry="7.5" fill="#1c160e" opacity="0.32" filter="url(#boulder-soft)"/>
+
+  <!-- SE side sliver (shaded wall giving height) -->
+  <path d="M14 24 q-1 5 4 7 q7 3 14 -1 q4 -2 4 -6 l-1 4 q-2 4 -7 5 q-7 2 -12 -2 q-3 -2 -3 -7z"
+        fill="url(#boulder-side)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.5"/>
+
+  <!-- top face (lit) -->
+  <path d="M16 18 q4 -6 11 -5 q8 1 9 8 q1 5 -4 7 q-7 4 -14 1 q-5 -2 -4 -7 q0 -2 2 -4z"
+        fill="url(#boulder-top)" stroke="#1c160e" stroke-width="0.85" stroke-opacity="0.55"/>
+
+  <!-- facet lines -->
+  <g stroke="#6e6658" stroke-width="0.6" stroke-opacity="0.6" fill="none">
+    <path d="M20 14 l5 7 l-3 7"/>
+    <path d="M27 13 l-2 8 l8 1"/>
+  </g>
+  <!-- NW lit facet highlights -->
+  <g stroke="#cfc8b8" stroke-width="0.8" stroke-opacity="0.6" fill="none" stroke-linecap="round">
+    <path d="M17 19 q4 -4 8 -4"/>
+    <path d="M25 21 l-4 -6"/>
+  </g>
+  <!-- a couple of lichen/grain flecks -->
+  <g fill="#8a8274" opacity="0.5">
+    <circle cx="29" cy="20" r="1"/><circle cx="22" cy="24" r="0.9"/>
+  </g>
+</svg>

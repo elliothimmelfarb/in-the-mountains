@@ -89,13 +89,18 @@ lib/sim/            Pure simulation engine (no React)
     projects.ts     CERP project logistics + resupply
     events.ts       Decision events
     helpers.ts      Shared free functions
-lib/render/         Canvas rendering (topo bake, markers, units, effects)
+lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD system
+  sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
+  draw.ts           Units (symbol→figure LOD), COP structures, effects
+  decoration.ts     Stable-hash vegetation/rock scatter by landcover
 state/store.ts      Zustand store bridging React <-> the World (the real-time frame loop)
 components/
   world/WorldView.tsx     The single live map (terrain + units + orders + planning)
+  Icon.tsx                Authored UI icons throughout the chrome
   screens/                MenuScreen · DeployScreen · TourEndScreen
   TutorialCoach.tsx       In-game guided tutorial
 app/                Next.js App Router entry
+docs/visual-overhaul/   Map art bible (ART_BIBLE.md), 160 SVG assets, asset-bible.html
 public/manual/      HTML field manual + tutorial
 docs/               Design doc + wiki
 scripts/            Headless smoke & balance harnesses (run with `npx tsx`)

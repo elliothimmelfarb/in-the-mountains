@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+  <!-- CEDAR variant B (dark conifer) top-down. STATIC: NW-lit crescent + SE cast shadow.
+       Same family as tree-cedar but a NARROWER, slightly taller, SE-leaning silhouette
+       with fewer/longer spire lobes, for forest variety. anchor [0.5,0.62], footprint 7 m. -->
+  <defs>
+    <radialGradient id="treeCedarB-canopy" cx="0.38" cy="0.34" r="0.74">
+      <stop offset="0" stop-color="#587a48"/>
+      <stop offset="0.45" stop-color="#385633"/>
+      <stop offset="1" stop-color="#243d1d"/>
+    </radialGradient>
+    <radialGradient id="treeCedarB-lit" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#84ab58"/>
+      <stop offset="0.6" stop-color="#84ab58" stop-opacity="0.5"/>
+      <stop offset="1" stop-color="#84ab58" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="treeCedarB-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+    <filter id="treeCedarB-softlit" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.7"/>
+    </filter>
+  </defs>
+
+  <!-- SE cast shadow: stronger + dark core, pushed a touch further SE (leaning tree) -->
+  <ellipse cx="28.5" cy="31" rx="14" ry="10.5" fill="#160f08" opacity="0.42" filter="url(#treeCedarB-soft)"/>
+  <ellipse cx="28" cy="30" rx="8" ry="5.5" fill="#120c06" opacity="0.34" filter="url(#treeCedarB-soft)"/>
+
+  <!-- narrower, taller, SE-leaning star canopy: fewer + longer spire lobes -->
+  <path d="M22 3
+           L25 11 L33 9 L29.5 16 L37 19 L30 22 L35.5 29 L28 28.5 L30 36 L25 31
+           L24.5 39 L21.5 31.5 L15.5 35 L17.5 28 L10.5 27.5 L17 22.5 L11 18 L18 16.5 L14.5 9 L20 11.5 Z"
+        fill="url(#treeCedarB-canopy)" stroke="#15100a" stroke-width="1.0" stroke-opacity="0.7"/>
+
+  <!-- broad soft NW lit wash (contained inside canopy) -->
+  <ellipse cx="18.5" cy="16" rx="8.5" ry="8.5" fill="url(#treeCedarB-lit)" opacity="0.5" filter="url(#treeCedarB-softlit)"/>
+
+  <!-- NW lit crescent: bright spire lobes upper-left -->
+  <g fill="#84ad5c" opacity="0.95">
+    <path d="M22 4.5 L24.5 11 L19.5 11.5 Z"/>
+    <path d="M18 16.5 L22 14 L19.5 19 Z"/>
+    <path d="M11.5 18.5 L17.5 17.5 L14 22.5 Z"/>
+    <path d="M15 23 L19 20.5 L17.5 26 Z"/>
+    <path d="M14.5 9.5 L19 13.5 L14 14.5 Z"/>
+  </g>
+  <!-- brightest NW rim flecks -->
+  <g fill="#c4dd96" opacity="0.85">
+    <path d="M21 7.5 l1.6 -2.2 l1 2.6 z"/>
+    <path d="M15.2 17.6 l2.2 -1.6 l0.4 2.2 z"/>
+    <path d="M12.5 19.5 l2 -1.2 l0.2 1.8 z"/>
+  </g>
+
+  <!-- inner needle texture: short radial strokes (toward the leaning apex) -->
+  <g stroke="#223719" stroke-width="0.55" stroke-opacity="0.6" stroke-linecap="round">
+    <line x1="23" y1="20" x2="22.5" y2="13"/><line x1="23" y1="20" x2="29" y2="17"/>
+    <line x1="23" y1="20" x2="30" y2="22"/><line x1="23" y1="20" x2="28" y2="27"/>
+    <line x1="23" y1="20" x2="24" y2="30"/><line x1="23" y1="20" x2="17" y2="27"/>
+    <line x1="23" y1="20" x2="15" y2="22"/><line x1="23" y1="20" x2="17" y2="17"/>
+  </g>
+
+  <!-- darker SE underside lobes -->
+  <g fill="#1d3116" opacity="0.55">
+    <path d="M30 36 L25 31 L28 28.5 Z"/>
+    <path d="M35.5 29 L28 28.5 L30 22 Z"/>
+  </g>
+
+  <!-- leaning apex center -->
+  <circle cx="23" cy="20" r="2.3" fill="#1d3116"/>
+  <circle cx="22.1" cy="19.1" r="1.0" fill="#587a48" opacity="0.85"/>
+</svg>

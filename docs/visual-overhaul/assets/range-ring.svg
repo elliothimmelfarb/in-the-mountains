@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- range-ring: faint tactical range ring. dashed amber circle + cardinal ticks + center cross, semi-transparent. FLAT. anchor [0.5,0.5]. -->
+
+  <!-- faint inner fill wash to read as an overlay area -->
+  <circle cx="50" cy="50" r="44" fill="#e0a72b" fill-opacity="0.05"/>
+
+  <!-- main dashed range circle -->
+  <circle cx="50" cy="50" r="44" fill="none" stroke="#e0a72b" stroke-width="1.4"
+          stroke-opacity="0.7" stroke-dasharray="5 4" stroke-linecap="round"/>
+  <!-- a fainter inner concentric ring -->
+  <circle cx="50" cy="50" r="29" fill="none" stroke="#e0a72b" stroke-width="0.8"
+          stroke-opacity="0.35" stroke-dasharray="3 5"/>
+
+  <!-- cardinal tick marks crossing the ring (chevrons for stronger read) -->
+  <g stroke="#e0a72b" stroke-width="2" stroke-opacity="0.95" stroke-linecap="round">
+    <line x1="50" y1="38" x2="50" y2="48"/>
+    <line x1="62" y1="50" x2="52" y2="50"/>
+    <line x1="50" y1="62" x2="50" y2="52"/>
+    <line x1="38" y1="50" x2="48" y2="50"/>
+  </g>
+
+  <!-- center cross + dot -->
+  <g stroke="#e0a72b" stroke-width="1.2" stroke-opacity="0.9" stroke-linecap="round">
+    <line x1="44" y1="50" x2="56" y2="50"/>
+    <line x1="50" y1="44" x2="50" y2="56"/>
+  </g>
+  <circle cx="50" cy="50" r="2.2" fill="none" stroke="#e0a72b" stroke-width="1.1" stroke-opacity="0.9"/>
+  <circle cx="50" cy="50" r="0.8" fill="#e0a72b"/>
+</svg>

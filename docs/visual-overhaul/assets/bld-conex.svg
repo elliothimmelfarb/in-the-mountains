@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 56 48">
+  <!-- CONEX shipping container. VOLUME: clearly extruded box — lit NW wall band, shaded SE end,
+       tilted top, NW rim, grounding SE cast shadow. Ribbed sides, double doors on the SE end.
+       STATIC: NW light + SE cast shadow. anchor [0.5,0.80]. footprint 6 m (width). -->
+  <defs>
+    <linearGradient id="bldConex-top" x1="0" y1="0" x2="0.25" y2="1">
+      <stop offset="0" stop-color="#808b73"/>
+      <stop offset="1" stop-color="#5e6a52"/>
+    </linearGradient>
+    <linearGradient id="bldConex-nw" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#76826b"/>
+      <stop offset="1" stop-color="#566249"/>
+    </linearGradient>
+    <linearGradient id="bldConex-se" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#454f3b"/>
+      <stop offset="1" stop-color="#333d2d"/>
+    </linearGradient>
+    <filter id="bldConex-soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="1.1"/>
+    </filter>
+  </defs>
+
+  <!-- SOFT SE CAST SHADOW on the ground -->
+  <ellipse cx="31" cy="40" rx="22" ry="6.5" fill="#1c160e" opacity="0.35" filter="url(#bldConex-soft)"/>
+
+  <!-- ===== EXTRUDED BOX ===== -->
+  <!-- SE end (door end, in shade) -->
+  <polygon points="42,14 42,33 48,30 48,11" fill="url(#bldConex-se)" stroke="#1c160e" stroke-width="0.8" stroke-opacity="0.55"/>
+
+  <!-- NW long WALL BAND (lit, tall & visible) -->
+  <polygon points="10,16 42,14 42,33 10,35" fill="url(#bldConex-nw)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.5"/>
+  <!-- corrugation ribs on the long wall (shade grooves) -->
+  <g stroke="#3a4533" stroke-width="0.5" stroke-opacity="0.6">
+    <line x1="13" y1="15.8" x2="13" y2="34.8"/><line x1="17" y1="15.5" x2="17" y2="34.5"/>
+    <line x1="21" y1="15.3" x2="21" y2="34.3"/><line x1="25" y1="15" x2="25" y2="34"/>
+    <line x1="29" y1="14.8" x2="29" y2="33.8"/><line x1="33" y1="14.5" x2="33" y2="33.5"/>
+    <line x1="37" y1="14.3" x2="37" y2="33.3"/><line x1="41" y1="14" x2="41" y2="33"/>
+  </g>
+  <!-- highlight catch between ribs (NW lit) -->
+  <g stroke="#8a9680" stroke-width="0.45" stroke-opacity="0.45">
+    <line x1="15" y1="15.6" x2="15" y2="34.6"/><line x1="23" y1="15.1" x2="23" y2="34.1"/>
+    <line x1="31" y1="14.7" x2="31" y2="33.7"/><line x1="39" y1="14.2" x2="39" y2="33.2"/>
+  </g>
+  <!-- bottom rail keyline (grounds the box) -->
+  <line x1="10" y1="35" x2="42" y2="33" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>
+
+  <!-- TOP face (NW lit, tilted) -->
+  <polygon points="10,16 42,14 48,11 16,13" fill="url(#bldConex-top)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.45"/>
+  <!-- top corrugation seams -->
+  <g stroke="#414c38" stroke-width="0.4" stroke-opacity="0.5">
+    <line x1="15" y1="15.6" x2="21" y2="12.7"/><line x1="22" y1="15.1" x2="28" y2="12.2"/>
+    <line x1="29" y1="14.7" x2="35" y2="11.8"/><line x1="36" y1="14.3" x2="42" y2="11.4"/>
+  </g>
+  <!-- corner castings (top NW + SE) -->
+  <rect x="9" y="15.2" width="2.4" height="2.2" rx="0.3" fill="#414c38" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.5"/>
+  <rect x="40.8" y="13.2" width="2.4" height="2.2" rx="0.3" fill="#4c5742" stroke="#1c160e" stroke-width="0.3" stroke-opacity="0.5"/>
+
+  <!-- STRONG NW RIM LIGHT along top-back/left roof edge -->
+  <polyline points="11,15.9 16,13 47.8,11.1" fill="none" stroke="#efe3b6" stroke-width="1.0" stroke-opacity="0.6"/>
+  <!-- SE top edge stays dark -->
+  <line x1="10" y1="16" x2="42" y2="14" stroke="#2a3325" stroke-width="0.5" stroke-opacity="0.45"/>
+
+  <!-- double doors on the SE end -->
+  <polygon points="42.4,14.6 47.6,12 47.6,31 42.4,33.4" fill="#3a4534" stroke="#1c160e" stroke-width="0.5" stroke-opacity="0.55"/>
+  <line x1="45" y1="13.3" x2="45" y2="32.2" stroke="#2c3528" stroke-width="0.6"/>
+  <!-- door locking bars -->
+  <g stroke="#5a6450" stroke-width="0.55" stroke-opacity="0.7">
+    <line x1="43.4" y1="14" x2="43.4" y2="32.9"/><line x1="46.6" y1="12.4" x2="46.6" y2="31.4"/>
+  </g>
+  <!-- handle latches -->
+  <circle cx="43.4" cy="23" r="0.8" fill="#6c7660"/>
+  <circle cx="46.6" cy="21.6" r="0.8" fill="#6c7660"/>
+
+  <!-- rust streak weathering on long wall -->
+  <path d="M27 16 q0.6 5 0.2 10" stroke="#8a6a3c" stroke-width="0.7" stroke-opacity="0.4" fill="none"/>
+  <path d="M36 14.8 q0.4 4 0 7.5" stroke="#8a6a3c" stroke-width="0.6" stroke-opacity="0.35" fill="none"/>
+</svg>

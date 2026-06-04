@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 80">
+  <!-- UH-60 BLACK HAWK, top-down, parked nose-UP (north). STATIC: full NW light + SE cast
+       shadow. anchor [0.5,0.5] (centered, big body), footprint 16 m (length).
+       Reads: blocky olive fuselage, cockpit glass at nose, translucent main rotor disc over
+       hub, swept tail boom to small tail rotor, stub-wing/landing gear, SE drop shadow. -->
+  <defs>
+    <linearGradient id="heloUh60-body" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#6f7350"/>
+      <stop offset="0.5" stop-color="#5a5e40"/>
+      <stop offset="1" stop-color="#43472f"/>
+    </linearGradient>
+    <linearGradient id="heloUh60-boom" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#64684a"/>
+      <stop offset="1" stop-color="#41452e"/>
+    </linearGradient>
+    <linearGradient id="heloUh60-glass" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#8fa3ac"/>
+      <stop offset="0.55" stop-color="#566a72"/>
+      <stop offset="1" stop-color="#39474d"/>
+    </linearGradient>
+    <radialGradient id="heloUh60-disc" cx="0.42" cy="0.38" r="0.72">
+      <stop offset="0" stop-color="#d9d4bf" stop-opacity="0.05"/>
+      <stop offset="0.62" stop-color="#cfcab3" stop-opacity="0.16"/>
+      <stop offset="0.9" stop-color="#bdb89e" stop-opacity="0.34"/>
+      <stop offset="1" stop-color="#a8a386" stop-opacity="0.10"/>
+    </radialGradient>
+    <radialGradient id="heloUh60-hub" cx="0.4" cy="0.35" r="0.8">
+      <stop offset="0" stop-color="#7d7c6e"/>
+      <stop offset="0.6" stop-color="#45443a"/>
+      <stop offset="1" stop-color="#26251e"/>
+    </radialGradient>
+    <filter id="heloUh60-soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="1.5"/>
+    </filter>
+  </defs>
+
+  <!-- ===== SE cast shadow (whole airframe, offset down-right) ===== -->
+  <g fill="#1c160e" opacity="0.30" filter="url(#heloUh60-soft)">
+    <path d="M21 13.5 q4.8 0 5.8 4 l2.4 19 q0.4 6 -1.2 11 l-1.2 19.5 q-0.4 2 -3.8 2 q-3.4 0 -3.8 -2 l-1.2 -19.5 q-1.6 -5 -1.2 -11 l2.4 -19 q1 -4 3.8 -4z"/>
+    <ellipse cx="24" cy="72" rx="4" ry="2.2"/>
+  </g>
+
+  <!-- ===== TAIL BOOM (drawn first, behind fuselage) - long, tapering ===== -->
+  <path d="M21.6 49 l1.4 20.5 q0.15 1.7 1.5 1.7 q1.35 0 1.5 -1.7 l1.4 -20.5
+           q-2.9 -1 -5.8 0z"
+        fill="url(#heloUh60-boom)" stroke="#1c160e" stroke-width="0.75" stroke-opacity="0.6"/>
+  <!-- boom panel seams -->
+  <g stroke="#33371f" stroke-width="0.4" stroke-opacity="0.45">
+    <path d="M22.1 56 q1.9 0.6 3.8 0" fill="none"/>
+    <path d="M22.5 63 q1.5 0.5 3 0" fill="none"/>
+  </g>
+  <!-- boom NW rim -->
+  <line x1="22.0" y1="51" x2="23.4" y2="68.5" stroke="#cfcaa6" stroke-width="0.55" stroke-opacity="0.5"/>
+
+  <!-- tail stabilizer (stabilator) -->
+  <path d="M18.6 65 q5.7 -2.1 11.4 0 l-0.2 2.5 q-5.5 -1.9 -11 0z"
+        fill="#54583c" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.55"/>
+  <line x1="19.4" y1="65.6" x2="29.4" y2="65.6" stroke="#9a9a78" stroke-width="0.4" stroke-opacity="0.4"/>
+
+  <!-- tail pylon / vertical fin (canted, swept up) -->
+  <path d="M22.8 67.5 q2.2 0.1 2.4 4.8 l-0.5 2.0 -3.0 0 -0.5 -2.0 q0.2 -4.7 1.6 -4.8z"
+        fill="#4a4e34" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <line x1="22.5" y1="68.5" x2="22.2" y2="73.5" stroke="#9a9a78" stroke-width="0.4" stroke-opacity="0.4"/>
+
+  <!-- tail rotor (canted, on left side of pylon) + small sweep disc -->
+  <ellipse cx="21.4" cy="71.4" rx="3.6" ry="0.95" fill="#cfcab3" opacity="0.20"/>
+  <line x1="17.9" y1="71.4" x2="24.9" y2="71.4" stroke="#2a2920" stroke-width="0.95" stroke-linecap="round" stroke-opacity="0.7"/>
+  <circle cx="21.4" cy="71.4" r="0.95" fill="#3a392f" stroke="#1c160e" stroke-width="0.4"/>
+
+  <!-- ===== MAIN FUSELAGE ===== -->
+  <path d="M24 12.5
+           q5.4 0.3 6.4 5 l1.2 9 q0.7 5.6 0.2 11
+           l-1.4 14 q-0.6 5 -2.2 7 l-4.2 0 -4.2 0
+           q-1.6 -2 -2.2 -7 l-1.4 -14 q-0.5 -5.4 0.2 -11 l1.2 -9
+           q1 -4.7 6.4 -5z"
+        fill="url(#heloUh60-body)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.65"/>
+
+  <!-- NW lit sliver along port (left) flank -->
+  <path d="M18.6 22 q-0.2 8 0.6 20 l1.3 12.5"
+        fill="none" stroke="#9a9a78" stroke-width="1.1" stroke-opacity="0.55" stroke-linecap="round"/>
+  <path d="M19 19 q1.6 -4.4 5 -5"
+        fill="none" stroke="#bcbb96" stroke-width="0.9" stroke-opacity="0.6" stroke-linecap="round"/>
+  <!-- SE shaded flank (right), cooler/darker -->
+  <path d="M30.2 22 q0.2 8 -0.5 20 l-1.3 12.5"
+        fill="none" stroke="#33371f" stroke-width="1.6" stroke-opacity="0.55" stroke-linecap="round"/>
+
+  <!-- panel/seam lines across fuselage -->
+  <g stroke="#33371f" stroke-width="0.45" stroke-opacity="0.5">
+    <path d="M19.4 31 q4.6 1.2 9.2 0" fill="none"/>
+    <path d="M19 39 q5 1.4 10 0" fill="none"/>
+    <path d="M19.6 47 q4.4 1 8.8 0" fill="none"/>
+  </g>
+
+  <!-- ===== COCKPIT GLASS (nose) ===== -->
+  <path d="M24 13 q4.2 0.3 5 3.6 q0.7 3 -0.4 5.6 q-4.6 1.4 -9.2 0 q-1.1 -2.6 -0.4 -5.6 q0.8 -3.3 5 -3.6z"
+        fill="url(#heloUh60-glass)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.6"/>
+  <!-- windshield divider + frames -->
+  <line x1="24" y1="13.4" x2="24" y2="22" stroke="#262a26" stroke-width="0.7"/>
+  <path d="M20 18.4 q4 1.1 8 0" fill="none" stroke="#262a26" stroke-width="0.5" stroke-opacity="0.8"/>
+  <!-- glass NW glint -->
+  <path d="M20.6 16 q2.4 -1.8 5.2 -1.4" fill="none" stroke="#dfe6e6" stroke-width="0.8" stroke-opacity="0.7" stroke-linecap="round"/>
+
+  <!-- ===== STUB WINGS / ESSS pylons + landing gear ===== -->
+  <!-- left main gear sponson -->
+  <path d="M17.8 34 q-2.8 0.4 -3 2.2 q0.2 1.8 3 2.2 l1.6 -0.6 0 -3.2z"
+        fill="#4d5135" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <circle cx="15.8" cy="36.2" r="1.5" fill="#26251c" stroke="#1c160e" stroke-width="0.4"/>
+  <!-- right main gear sponson (shaded) -->
+  <path d="M30.2 34 q2.8 0.4 3 2.2 q-0.2 1.8 -3 2.2 l-1.6 -0.6 0 -3.2z"
+        fill="#3c402a" stroke="#1c160e" stroke-width="0.6" stroke-opacity="0.6"/>
+  <circle cx="32.2" cy="36.2" r="1.5" fill="#211f17" stroke="#1c160e" stroke-width="0.4"/>
+
+  <!-- ===== MAIN ROTOR ===== -->
+  <!-- translucent rotor disc -->
+  <circle cx="24" cy="34" r="19.5" fill="url(#heloUh60-disc)"/>
+  <!-- faint disc rim -->
+  <circle cx="24" cy="34" r="19.5" fill="none" stroke="#d9d4bf" stroke-width="0.4" stroke-opacity="0.22"/>
+  <!-- inner blade-sweep rings (motion hint, fully inside disc) -->
+  <g stroke="#9a9578" stroke-width="0.5" stroke-opacity="0.13" fill="none">
+    <circle cx="24" cy="34" r="13"/>
+    <circle cx="24" cy="34" r="7.5"/>
+  </g>
+  <!-- four real blades, parked: kept INSIDE the disc, clean 4-blade star (NW pair caught
+       in light, SE pair darker) -->
+  <g stroke-linecap="round">
+    <line x1="24" y1="34" x2="40.5" y2="29.6" stroke="#3a392d" stroke-width="1.4" stroke-opacity="0.5"/>
+    <line x1="24" y1="34" x2="28.4" y2="50.5" stroke="#2a2920" stroke-width="1.4" stroke-opacity="0.5"/>
+    <line x1="24" y1="34" x2="7.5" y2="38.4" stroke="#46453a" stroke-width="1.4" stroke-opacity="0.5"/>
+    <line x1="24" y1="34" x2="19.6" y2="17.5" stroke="#525143" stroke-width="1.4" stroke-opacity="0.5"/>
+  </g>
+  <!-- blade-tip caps -->
+  <g fill="#26251c" opacity="0.5">
+    <circle cx="40.5" cy="29.6" r="0.8"/><circle cx="28.4" cy="50.5" r="0.8"/>
+    <circle cx="7.5" cy="38.4" r="0.8"/><circle cx="19.6" cy="17.5" r="0.8"/>
+  </g>
+  <!-- rotor hub -->
+  <circle cx="24" cy="34" r="3.6" fill="url(#heloUh60-hub)" stroke="#1c160e" stroke-width="0.8"/>
+  <circle cx="24" cy="34" r="1.4" fill="#1d1c15"/>
+  <!-- NW glint on hub -->
+  <circle cx="22.8" cy="32.8" r="1.0" fill="#cfcaa6" opacity="0.55"/>
+</svg>

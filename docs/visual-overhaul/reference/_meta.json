@@ -1,0 +1,4 @@
+{
+  "sol-us-rifleman": { "anchor": [0.5, 0.5], "footprint": 1.4, "rotating": true, "family": "us-soldiers" },
+  "hesco-straight": { "anchor": [0.5, 0.62], "footprint": 1.5, "rotating": false, "family": "cop-defenses" }
+}

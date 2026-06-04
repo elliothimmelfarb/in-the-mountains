@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Track-junction glyph: forking tracks meeting at a node dot. FLAT milspec ink.
+       footprint:null (screen-fixed), anchor [0.5,0.5], rotating:false. -->
+  <defs>
+    <filter id="markerJunction-halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+  </defs>
+  <!-- dark keyline halo behind -->
+  <g filter="url(#markerJunction-halo)" stroke="#0c0d0a" stroke-opacity="0.5" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 12 L12 21 M12 12 L4 4 M12 12 L20 5.5"/>
+    <circle cx="12" cy="12" r="2.2" fill="#0c0d0a" fill-opacity="0.5"/>
+  </g>
+  <!-- ink tracks forking from the node -->
+  <g stroke="#d8d6c4" stroke-width="1.8" fill="none" stroke-linecap="round">
+    <path d="M12 12 L12 21"/>
+    <path d="M12 12 L4 4"/>
+    <path d="M12 12 L20 5.5"/>
+  </g>
+  <!-- junction node -->
+  <circle cx="12" cy="12" r="2.4" fill="#e0a72b" stroke="#d8d6c4" stroke-width="0.7"/>
+</svg>

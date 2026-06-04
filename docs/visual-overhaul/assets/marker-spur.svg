@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Ridge-spur glyph: finger-ridge arrow (contour V's pointing downhill = ridge tip). FLAT milspec ink.
+       footprint:null (screen-fixed), anchor [0.5,0.5], rotating:false. -->
+  <defs>
+    <filter id="markerSpur-halo" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.55"/>
+    </filter>
+  </defs>
+  <!-- dark keyline halo behind -->
+  <g filter="url(#markerSpur-halo)" stroke="#0c0d0a" stroke-opacity="0.5" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5 L12 13 L20 5"/>
+    <path d="M5.5 10 L12 16 L18.5 10"/>
+    <path d="M7 15 L12 19 L17 15"/>
+    <line x1="12" y1="13" x2="12" y2="21"/>
+  </g>
+  <!-- ink: nested contour chevrons (the finger ridge), pointing down/out -->
+  <g fill="none" stroke="#d8d6c4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 5 L12 13 L20 5" stroke-width="1.8"/>
+    <path d="M5.5 10 L12 16 L18.5 10" stroke-width="1.7" stroke-opacity="0.85"/>
+    <path d="M7 15 L12 19 L17 15" stroke-width="1.6" stroke-opacity="0.7"/>
+  </g>
+  <!-- ridge crest line down the spur -->
+  <line x1="12" y1="13" x2="12" y2="20.5" stroke="#e0a72b" stroke-width="1.4" stroke-linecap="round"/>
+</svg>

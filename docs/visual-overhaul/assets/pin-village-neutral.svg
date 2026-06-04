@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 40">
+  <!-- pin-village-neutral: settlement marker. Flat-roofed qalat house base + a
+       SWALLOWTAIL banner on a pole (NOT a triangular pennant => not the objective flag;
+       NOT amber => not the waypoint). Banner TAN/PARCHMENT #c2a878 (neutral attitude).
+       PHYSICAL PIN: SE drop shadow, anchor [0.5,0.92]. -->
+  <defs>
+    <linearGradient id="pinVilNeu-banner" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d0b88c"/>
+      <stop offset="1" stop-color="#ad9468"/>
+    </linearGradient>
+    <linearGradient id="pinVilNeu-roof" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#b6a67c"/>
+      <stop offset="1" stop-color="#8a7850"/>
+    </linearGradient>
+    <linearGradient id="pinVilNeu-wall" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ad8d62"/>
+      <stop offset="1" stop-color="#90744e"/>
+    </linearGradient>
+    <filter id="pinVilNeu-soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="0.8"/>
+    </filter>
+  </defs>
+
+  <!-- SE ground shadow -->
+  <ellipse cx="15" cy="37.3" rx="7.4" ry="2.1" fill="#1c160e" opacity="0.34" filter="url(#pinVilNeu-soft)"/>
+
+  <!-- qalat house base: flat-roofed mud building (reads as a village dwelling) -->
+  <g>
+    <rect x="8.4" y="28.6" width="13" height="8.4" rx="0.7" fill="#7d6244" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.62"/>
+    <rect x="7.6" y="28" width="13" height="8.4" rx="0.7" fill="url(#pinVilNeu-wall)" stroke="#1c160e" stroke-width="0.95" stroke-opacity="0.7"/>
+    <rect x="7.6" y="28" width="13" height="2.3" rx="0.7" fill="url(#pinVilNeu-roof)" stroke="#1c160e" stroke-width="0.55" stroke-opacity="0.45"/>
+    <line x1="8.1" y1="28.4" x2="8.1" y2="35.8" stroke="#efe3b6" stroke-width="0.7" stroke-opacity="0.5"/>
+    <line x1="8.1" y1="28.4" x2="19.9" y2="28.4" stroke="#efe3b6" stroke-width="0.7" stroke-opacity="0.55"/>
+    <rect x="12.4" y="31" width="3.4" height="5.4" rx="0.3" fill="#4f4029"/>
+    <rect x="16.6" y="31.4" width="2.2" height="2.2" rx="0.3" fill="#4f4029"/>
+  </g>
+
+  <!-- pole rising from the house -->
+  <rect x="13.4" y="8" width="1.5" height="20.5" rx="0.7" fill="#7a5a38" stroke="#1c160e" stroke-width="0.45" stroke-opacity="0.55"/>
+  <circle cx="14.15" cy="8" r="1.15" fill="#9a8460" stroke="#1c160e" stroke-width="0.55" stroke-opacity="0.65"/>
+
+  <!-- swallowtail / guidon banner flying right -->
+  <path d="M14.9 8.3 L26.8 8.3 L23.0 12.0 L26.8 15.7 L14.9 15.7 Z"
+        fill="url(#pinVilNeu-banner)" stroke="#1c160e" stroke-width="1.0" stroke-opacity="0.72" stroke-linejoin="round"/>
+  <!-- inner keyline to hold the banner crisp on light terrain -->
+  <path d="M16.0 9.4 L25.0 9.4 M16.0 14.6 L25.0 14.6"
+        fill="none" stroke="#8a744c" stroke-width="0.55" stroke-opacity="0.55"/>
+  <!-- NW highlight fold along the hoist -->
+  <path d="M15.4 9.0 L15.4 15.0" fill="none" stroke="#e8d6b0" stroke-width="0.8" stroke-opacity="0.7"/>
+  <!-- SE shade on lower band to model the light falloff -->
+  <path d="M14.9 12.0 L24.6 12.0 L26.8 15.7 L14.9 15.7 Z" fill="#1c160e" opacity="0.1"/>
+</svg>

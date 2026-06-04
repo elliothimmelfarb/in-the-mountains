@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <!-- map-edge-frame: map-sheet corner ornament. fine double-rule + registration ticks, low-opacity ink. FLAT. anchor [0.5,0.5]. -->
+  <!-- Authored as a TOP-LEFT corner; the renderer mirrors it to the other three corners. -->
+
+  <!-- outer rule -->
+  <path d="M7 58 V7 H58" fill="none" stroke="#d8d6c4" stroke-width="1.4" stroke-opacity="0.5"/>
+  <!-- inner rule (double-rule) -->
+  <path d="M12 53 V12 H53" fill="none" stroke="#d8d6c4" stroke-width="0.8" stroke-opacity="0.38"/>
+
+  <!-- corner survey/registration cross + roundel -->
+  <g stroke="#e0a72b" stroke-opacity="0.85" stroke-linecap="round">
+    <line x1="9.5" y1="9.5" x2="20" y2="9.5" stroke-width="1.4"/>
+    <line x1="9.5" y1="9.5" x2="9.5" y2="20" stroke-width="1.4"/>
+  </g>
+  <circle cx="9.5" cy="9.5" r="3" fill="none" stroke="#e0a72b" stroke-width="1.1" stroke-opacity="0.75"/>
+  <circle cx="9.5" cy="9.5" r="1" fill="#e0a72b" fill-opacity="0.9"/>
+
+  <!-- registration ticks along the two edges (graduated) -->
+  <g stroke="#d8d6c4" stroke-opacity="0.5" stroke-linecap="round">
+    <!-- top edge -->
+    <line x1="26" y1="7" x2="26" y2="13" stroke-width="1"/>
+    <line x1="34" y1="7" x2="34" y2="11" stroke-width="0.8"/>
+    <line x1="42" y1="7" x2="42" y2="11" stroke-width="0.8"/>
+    <line x1="50" y1="7" x2="50" y2="13" stroke-width="1"/>
+    <!-- left edge -->
+    <line x1="7" y1="26" x2="13" y2="26" stroke-width="1"/>
+    <line x1="7" y1="34" x2="11" y2="34" stroke-width="0.8"/>
+    <line x1="7" y1="42" x2="11" y2="42" stroke-width="0.8"/>
+    <line x1="7" y1="50" x2="13" y2="50" stroke-width="1"/>
+  </g>
+
+  <!-- inner-corner grid label notch -->
+  <g stroke="#d8d6c4" stroke-width="0.8" stroke-opacity="0.4" stroke-linecap="round">
+    <line x1="17" y1="17" x2="25" y2="17"/>
+    <line x1="17" y1="17" x2="17" y2="25"/>
+  </g>
+</svg>
