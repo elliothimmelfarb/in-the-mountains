@@ -165,6 +165,11 @@ export interface Unit {
   daysInCountry: number;
   kills: number;
   woundedCount: number;
+  /** Which faction's fire caused this unit's casualty — for civcas attribution (COIN). */
+  casualtyByFaction?: Faction;
+  /** Set once this civilian casualty has been counted in COIN backlash (serialized,
+   *  so a save/load never double-counts it). */
+  casualtyCounted?: boolean;
 }
 
 export interface CivRoutineNode {
