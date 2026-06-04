@@ -170,6 +170,7 @@ function medicTreat(sim: CombatSim, u: Unit, dt: number): boolean {
   if (patient.bleedRate <= 0.001) {
     for (const w of patient.wounds) w.treated = true;
     patient.bleedRate = 0;
+    patient.bleedTQable = 0;
     if (!patient.conscious && patient.hp > 10 && sim.rng.chance(0.02)) patient.conscious = true;
     patient.composure = clamp01(patient.composure + 0.2 * dt);
     if (u.brainState === "treating") {

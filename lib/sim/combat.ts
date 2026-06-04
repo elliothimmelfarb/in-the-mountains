@@ -444,11 +444,21 @@ export class CombatSim {
     // acute buddy-down shock fades over a few seconds
     if (u.shaken && u.shaken > 0) u.shaken = Math.max(0, u.shaken - dt);
 
-    // bleeding, with buddy-aid clotting (tourniquets / IFAK) slowing it over time
+    // Bleeding & TCCC. A tourniquet/pressure stops the extremity arterial bleed —
+    // a conscious man does it himself, an unconscious one needs a buddy within reach
+    // (every soldier is a combat lifesaver, not just the medic). Internal/junctional
+    // bleeding only clots slowly on its own; a medic or MEDEVAC is what saves those.
     if (u.alive && u.bleedRate > 0) {
       u.hp -= u.bleedRate * dt;
-      // self/buddy aid gradually stems the bleeding even before the medic arrives
-      u.bleedRate = Math.max(0, u.bleedRate - dt * 0.07);
+      let tq = u.bleedTQable ?? 0;
+      if (tq > 0 && (u.conscious || this.consciousBuddyNear(u, 5))) {
+        const stop = Math.min(tq, dt * (u.conscious ? 0.2 : 0.13));
+        tq -= stop;
+        u.bleedTQable = tq;
+        u.bleedRate = Math.max(0, u.bleedRate - stop);
+      }
+      const internal = Math.max(0, u.bleedRate - tq);
+      if (internal > 0) u.bleedRate = Math.max(tq, u.bleedRate - Math.min(internal, dt * 0.02));
       if (u.hp <= 0) {
         u.hp = 0;
         u.alive = false;
@@ -461,6 +471,18 @@ export class CombatSim {
 
     // fatigue recovers when stationary
     if (!u.moving && u.fatigue > 0) u.fatigue = Math.max(0, u.fatigue - dt * 0.01);
+  }
+
+  /** Is a conscious, not-badly-bleeding friendly within `r` m to apply buddy aid (a
+   *  tourniquet) to a casualty who can't help himself? Casualties are few, so the
+   *  scan is bounded. */
+  private consciousBuddyNear(u: Unit, r: number): boolean {
+    for (const o of this.units) {
+      if (o === u || !o.alive || !o.conscious || o.faction !== u.faction) continue;
+      if (o.bleedRate > 0.5) continue; // a fellow casualty can't work a tourniquet
+      if (dist(o.pos, u.pos) <= r) return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- perception
