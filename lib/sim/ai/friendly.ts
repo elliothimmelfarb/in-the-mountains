@@ -3,6 +3,9 @@ import { Unit } from "../entities";
 import { dist } from "../vec";
 import { clamp01 } from "../rng";
 
+/** Automatic weapons — the squad's base of fire in a deliberate assault. */
+const AUTO_ROLES = new Set(["saw_gunner", "auto_rifleman", "machinegunner"]);
+
 /**
  * Friendly (US/ANA) autonomy. The player gives intent — move here, hold this,
  * assault that — and soldiers fill in the gaps the way trained infantry do:
@@ -31,6 +34,31 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   const underFire = u.suppression > 0.35;
   const pinned = u.composure < 0.22 || u.suppression > 0.8;
   const contact = u.visibleEnemyIds.length > 0 || underFire;
+
+  // Casualty care is every soldier's job, not just the medic's. If a buddy is down
+  // nearby and I'm the closest man who can reach him, I peel off to drag him to cover
+  // and put a tourniquet on (the bleed model then stops his arterial bleed — #7). The
+  // pinned and the assaulting stay in the fight; one buddy responds per casualty.
+  if (u.role !== "medic" && !pinned && u.brainState !== "assaulting" && u.brainState !== "moving_assault") {
+    const cas = sim.nearestDownedNeedingHelp(u, 24);
+    if (cas && sim.nearestAbleBuddy(cas) === u) {
+      u.faceLock = null;
+      const d = dist(u.pos, cas.pos);
+      if (d > 2.2) {
+        sim.moveTo(u, cas.pos);
+        u.stance = underFire ? "prone" : "crouch";
+        u.brainState = "aiding";
+        return;
+      }
+      u.moving = false;
+      u.stance = "crouch";
+      u.brainState = "aiding";
+      // pull him out of the open; once in cover, just stay on him (buddy-aid applies)
+      if (sim.terrain.coverAt(cas.pos.x, cas.pos.y) < 0.3) sim.dragToCover(u, cas, dt);
+      return;
+    }
+    if (u.brainState === "aiding") u.brainState = "holding"; // casualty handled / gone
+  }
 
   // In contact, break the march formation: orient on the threat and move freely.
   if (contact) {
@@ -86,7 +114,23 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
     }
     case "assaulting":
     case "moving_assault": {
-      // push toward objective, firing on the move
+      // Fire and maneuver, not a banzai walk: the automatic weapons set a BASE OF
+      // FIRE and hose the objective from cover while the riflemen and leaders BOUND
+      // onto it under that suppression. The gunners hold; everyone else closes.
+      const baseOfFire = AUTO_ROLES.has(u.role);
+      if (baseOfFire && contact) {
+        u.rof = "suppress"; // pour it onto the objective so the assault can move
+        if (sim.terrain.coverAt(u.pos.x, u.pos.y) < 0.25 && u.path.length === 0) {
+          const cover = sim.findCover(u.pos, u.threatDir, 16);
+          if (cover && dist(cover, u.pos) > 2) sim.moveTo(u, cover);
+        } else {
+          u.path = [];
+          u.moving = false;
+          u.stance = sim.terrain.coverAt(u.pos.x, u.pos.y) > 0.3 ? "crouch" : "prone";
+        }
+        break;
+      }
+      // assault element: bound onto the objective, firing on the move
       if (u.orderTarget && u.path.length === 0 && dist(u.pos, u.orderTarget) > 3) {
         sim.moveTo(u, u.orderTarget);
       }

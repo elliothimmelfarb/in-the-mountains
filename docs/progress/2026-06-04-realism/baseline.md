@@ -229,3 +229,16 @@ gunner **56 kg**. Over the same ground the 240 gunner fatigues **+20%** (0.53 vs
 — the gun team sets the tempo. Matched-seed A/B: load adds KIA 1.00→1.40, WIA
 3.70→4.70 (a tired squad arrives at the fight shooting worse) — the "every man a mule"
 realism, flagged for the final global calibration. tsc clean; smoke OK; no strands.
+
+### #9 Fire-and-maneuver: base-of-fire + bounding + casualty drag — `ai/friendly.ts`, `combat.ts`
+Two doctrine gaps closed. (a) **Casualty drag (completes #7):** every soldier, not
+just the medic, now breaks to a downed buddy — the nearest able man peels off, drags
+him to cover, and the tourniquet model saves him. (b) **Base of fire on assault:** in
+a deliberate assault the automatic weapons (SAW/240) hold cover and suppress the
+objective while the riflemen and leaders bound onto it — not everyone walking in.
+RNG-neutral.
+
+Rescue probe (downed man, extremity arterial bleed, NO medic): buddy 8 m away →
+**LIVED hp 37**; buddy 18 m away → **LIVED hp 5** (the farther the buddy, the more
+blood lost before he arrives — a real close call). Previously, with no medic adjacent,
+that man bled out. tsc clean; smoke OK; no strands.

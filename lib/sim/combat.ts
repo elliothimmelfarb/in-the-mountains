@@ -1431,6 +1431,52 @@ export class CombatSim {
     return best;
   }
 
+  /** Nearest friendly casualty within `r` that still needs hands on him — out cold,
+   *  or bleeding and not yet stabilized. (Buddy-aid target.) */
+  nearestDownedNeedingHelp(u: Unit, r: number): Unit | null {
+    let best: Unit | null = null;
+    let bd = r;
+    for (const o of this.units) {
+      if (o === u || !o.alive || o.faction !== u.faction) continue;
+      if (o.wounds.length === 0) continue;
+      if (o.conscious && o.bleedRate <= 0.3) continue; // walking-wounded, fighting on
+      const d = dist(u.pos, o.pos);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+
+  /** The nearest conscious, not-badly-hurt, non-medic friendly able to render aid to
+   *  `cas` — so exactly ONE buddy peels off per casualty, not the whole squad. */
+  nearestAbleBuddy(cas: Unit): Unit | null {
+    let best: Unit | null = null;
+    let bd = Infinity;
+    for (const o of this.units) {
+      if (o === cas || !o.alive || !o.conscious || o.faction !== cas.faction) continue;
+      if (o.role === "medic" || o.bleedRate > 0.5) continue; // medic has own logic; a casualty can't drag
+      const d = dist(o.pos, cas.pos);
+      if (d < bd) { bd = d; best = o; }
+    }
+    return best;
+  }
+
+  /** Drag a downed casualty toward the nearest cover; the buddy stays on him, pulling. */
+  dragToCover(buddy: Unit, cas: Unit, dt: number) {
+    const cover = this.findCover(cas.pos, buddy.threatDir, 25);
+    if (!cover) return;
+    const dir = norm(sub(cover, cas.pos));
+    if (len(dir) < 0.1) return;
+    const step = 0.7 * dt; // a slow drag, low and under fire
+    const cs = this.terrain.cellSize;
+    const next = add(cas.pos, scale(dir, step));
+    if (this.terrain.passableCell(Math.floor(next.x / cs), Math.floor(next.y / cs))) {
+      cas.pos = next;
+      buddy.pos = add(next, scale(dir, -1)); // the buddy just behind, hauling
+      buddy.moving = true;
+      buddy.speed = 0.7;
+    }
+  }
+
   /** Find a nearby cell offering cover from a threat direction. */
   findCover(from: Vec2, threatDir: Vec2 | null, maxSearch = 40): Vec2 | null {
     let best: Vec2 | null = null;
