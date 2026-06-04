@@ -441,8 +441,10 @@ export class CombatSim {
       const w = this.windVec();
       for (const s of this.smoke) {
         s.density -= dt * 0.012;
-        s.x += w.x * dt;
-        s.y += w.y * dt;
+        // drift downwind, but a screen settles low and snags on terrain, so it lags
+        // the free-air wind — it stays roughly useful for the bound it was popped for.
+        s.x += w.x * dt * 0.55;
+        s.y += w.y * dt * 0.55;
         s.radius += dt * 0.25; // a screen also spreads as it ages
       }
     }
@@ -522,7 +524,9 @@ export class CombatSim {
       const d = dist(u.pos, e.pos);
       if (d > Math.min(opticRange, this.weather.visibilityM) * 1.2) continue;
       const los = this.los(u, e);
-      if (!los.visible) continue;
+      // A thermal observer can see heat through foliage, so it isn't gated by the
+      // naked-eye visibility (which folds in vegetation); detectionChance re-decides.
+      if (!los.visible && !thermal) continue;
       const stealthMove = e.moving && isStealthTechnique(this.techniqueOf(e));
       const p = detectionChance({
         los,
@@ -1040,7 +1044,7 @@ export class CombatSim {
     if (victim.faction === "civilian") return;
     const base = killed ? 0.18 : 0.1;
     for (const o of this.units) {
-      if (o === victim || !o.alive || !o.conscious || o.faction !== victim.faction) continue;
+      if (o === victim || !o.alive || !o.conscious || o.evac || o.faction !== victim.faction) continue;
       const d = dist(o.pos, victim.pos);
       const sameSquad = !!victim.squadId && o.squadId === victim.squadId;
       if (d > 20 && !sameSquad) continue;
@@ -1059,7 +1063,7 @@ export class CombatSim {
   private promoteSuccessor(victim: Unit) {
     if (!victim.squadId) return;
     const mates = this.units.filter(
-      (o) => o.alive && o.conscious && o.faction === victim.faction && o.squadId === victim.squadId && o !== victim
+      (o) => o.alive && o.conscious && !o.evac && o.faction === victim.faction && o.squadId === victim.squadId && o !== victim
     );
     if (mates.length === 0 || mates.some((o) => o.isLeader)) return; // still led
     let best = mates[0];

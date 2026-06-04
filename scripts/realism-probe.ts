@@ -186,16 +186,18 @@ function perceptionProbe() {
     { label: "dusk, open,   400m", light: 0.35, terrEx: 1.0, veg: 0.0, range: 400 },
     { label: "night,open,   300m", light: 0.05, terrEx: 1.0, veg: 0.0, range: 300 },
     { label: "night,forest, 250m", light: 0.05, terrEx: 1.0, veg: 0.7, range: 250 },
+    { label: "DENSE canopy, 200m", light: 0.5, terrEx: 1.0, veg: 0.97, range: 200 }, // naked eye blinded
   ];
   console.log("\n=== PERCEPTION: per-moment detect p / expected seconds-to-detect, by sensor ===");
   console.log("target: stationary, not firing, standing; observer optic 800 m, alert 0.7\n");
   const head = "  scene                  " + sensors.map((s) => s.name.padStart(11)).join("  ");
   console.log(head);
   for (const sc of scenes) {
-    const conceal = 1 - Math.exp(-(-Math.log(1 - sc.veg))); // = sc.veg, kept explicit
     const exposure = sc.terrEx * (1 - sc.veg);
     const los = {
-      visible: true, exposure, terrainBlocked: false, concealment: conceal, rangeM: sc.range,
+      // visible reflects the REAL naked-eye gate (exposure>0.04) so the dense-canopy
+      // case actually blinds the naked eye and exercises the thermal-through-veg path.
+      visible: exposure > 0.04, exposure, terrainBlocked: false, concealment: sc.veg, rangeM: sc.range,
       terrainExposure: sc.terrEx, vegConceal: sc.veg, smokeConceal: 0,
     };
     const cells = sensors.map((sn) => {
@@ -390,9 +392,31 @@ function rescueProbe() {
   }
 }
 
+/** Probe (review fix): a pre-windDir save must not NaN-poison combat on load. */
+function saveloadProbe() {
+  const { loadWorld } = require("../lib/sim/world") as typeof import("../lib/sim/world");
+  console.log("\n=== SAVE/LOAD (review blocker fix): pre-windDir save stays NaN-clean ===");
+  const w = createWorld("probe-save", 90);
+  w.state.enemyHeat = 0.85; w.state.nextActivityAt = 0;
+  for (let t = 0; t < 3000; t++) w.tick(0.1); // run into a firefight, then save
+  const data = w.serialize();
+  delete (data.state.weather as { windDir?: number }).windDir; // simulate an OLD save (field absent)
+  const w2 = loadWorld({ rngState: data.rngState, state: data.state, units: data.units });
+  const wv = w2.windVector();
+  let nanUnits = 0, nanProj = 0;
+  for (let t = 0; t < 3000; t++) {
+    w2.tick(0.1);
+    for (const u of w2.sim.units) if (!Number.isFinite(u.pos.x) || !Number.isFinite(u.pos.y)) nanUnits++;
+    for (const p of w2.sim.projectiles) if (!Number.isFinite(p.pos.x) || !Number.isFinite(p.aimpoint.x)) nanProj++;
+  }
+  console.log(`  windVector after stripping windDir: (${wv.x.toFixed(2)}, ${wv.y.toFixed(2)}) finite=${Number.isFinite(wv.x) && Number.isFinite(wv.y)}`);
+  console.log(`  3000 ticks post-load: NaN unit samples ${nanUnits}, NaN projectile samples ${nanProj}  ${nanUnits + nanProj === 0 ? "✓ CLEAN" : "✗ CORRUPTED"}`);
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
+if (which === "all" || which === "saveload") saveloadProbe();
 if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();
