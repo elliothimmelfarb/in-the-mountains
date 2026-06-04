@@ -98,7 +98,12 @@ export function drawUnit(
   const down = u.alive && !u.conscious;
 
   // LOD: NATO symbol at low zoom, detailed figure sprite at high zoom (crossfaded).
-  const spriteId = unitSpriteId(u.faction, u.role, !!opts.revealedSuspect);
+  // A down (unconscious-but-alive) US soldier renders as a prone casualty body so the
+  // "man down" reads as a real silhouette, not an upright man with a cross over him.
+  const spriteId =
+    down && u.faction === "us" && hasSprite("sol-us-casualty")
+      ? "sol-us-casualty"
+      : unitSpriteId(u.faction, u.role, !!opts.revealedSuspect);
   const sprA = spriteId && hasSprite(spriteId) ? lodAlpha(cam.ppm, FIG_FADE0, FIG_FADE1) : 0;
   const symA = 1 - sprA;
 
@@ -403,7 +408,46 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
 
 export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, projectiles: Projectile[]) {
   for (const p of projectiles) {
-    if (p.indirect) continue;
+    if (p.indirect) {
+      // A lobbed round (thrown frag) arcing toward its airburst — read "something is
+      // in the air, take cover." Progress is EXACT: age + timeToImpact equals the
+      // launch time-of-flight (both update each tick), so the round never jumps.
+      const prog = p.age / Math.max(1e-3, p.age + p.timeToImpact);
+      if (prog <= 0.02 || prog >= 0.98) continue;
+      const gx = p.origin.x + (p.aimpoint.x - p.origin.x) * prog;
+      const gy = p.origin.y + (p.aimpoint.y - p.origin.y) * prog;
+      const [gsx, gsy] = worldToScreen(cam, gx, gy);
+      if (gsx < -20 || gsy < -40 || gsx > cam.vw + 20 || gsy > cam.vh + 20) continue;
+      const lift = p.arcHeight * 4 * prog * (1 - prog) * cam.ppm * 0.5; // parabola → px
+      const friendly = p.faction === "us" || p.faction === "ana";
+      const col = friendly ? "230,210,150" : "210,120,70";
+      // ground shadow grounds the lob to a real spot on the map
+      ctx.fillStyle = "rgba(28,22,14,0.26)";
+      ctx.beginPath();
+      ctx.ellipse(gsx, gsy, 2.2, 1.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // faint smoke wisp trailing the round, then the lifted round itself
+      const pprev = Math.max(0, prog - 0.09);
+      const wx = p.origin.x + (p.aimpoint.x - p.origin.x) * pprev;
+      const wy = p.origin.y + (p.aimpoint.y - p.origin.y) * pprev;
+      const [wsx, wsy] = worldToScreen(cam, wx, wy);
+      const wlift = p.arcHeight * 4 * pprev * (1 - pprev) * cam.ppm * 0.5;
+      ctx.strokeStyle = "rgba(182,178,170,0.22)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(wsx, wsy - wlift);
+      ctx.lineTo(gsx, gsy - lift);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(${col},0.95)`;
+      ctx.beginPath();
+      ctx.arc(gsx, gsy - lift, 1.9, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    // direct fire — below strategic zoom these collapse into the combat haze (combat-fx),
+    // so skip the per-round draw there (declutter + far fewer draws in a big fight).
+    const directFade = lodAlpha(cam.ppm, 0.45, 1.0);
+    if (directFade <= 0.03) continue;
     const [sx, sy] = worldToScreen(cam, p.pos.x, p.pos.y);
     const dirx = p.vel.x;
     const diry = p.vel.y;
@@ -411,16 +455,27 @@ export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, proj
     const tlen = p.tracer ? 18 : 9;
     const bx = sx - (dirx / m) * tlen;
     const by = sy - (diry / m) * tlen;
-    const grad = ctx.createLinearGradient(bx, by, sx, sy);
     const col = p.faction === "us" || p.faction === "ana" ? "255,220,120" : "255,90,40";
-    grad.addColorStop(0, `rgba(${col},0)`);
-    grad.addColorStop(1, `rgba(${col},${p.tracer ? 0.95 : 0.5})`);
-    ctx.strokeStyle = grad;
+    // two solid segments (dim tail + bright head) instead of a per-frame createLinearGradient
+    // — the gradient allocation was the main 116fps risk at high round counts.
+    const headA = (p.tracer ? 0.95 : 0.5) * directFade;
     ctx.lineWidth = p.tracer ? 1.8 : 1;
+    ctx.strokeStyle = `rgba(${col},${headA * 0.28})`;
     ctx.beginPath();
     ctx.moveTo(bx, by);
     ctx.lineTo(sx, sy);
     ctx.stroke();
+    ctx.strokeStyle = `rgba(${col},${headA})`;
+    ctx.beginPath();
+    ctx.moveTo(bx + (sx - bx) * 0.5, by + (sy - by) * 0.5);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+    if (p.tracer) {
+      ctx.fillStyle = `rgba(255,240,200,${headA})`;
+      ctx.beginPath();
+      ctx.arc(sx, sy, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
 
@@ -430,18 +485,61 @@ export function drawEffects(ctx: CanvasRenderingContext2D, cam: Camera, effects:
     const k = e.t / e.ttl; // 0..1 age
     switch (e.kind) {
       case "muzzle": {
-        if (k > 0.5) break;
-        const s = (e.size ?? 1) * (3 + cam.ppm * 0.6);
-        ctx.fillStyle = `rgba(255,228,150,${0.9 * (1 - k * 2)})`;
-        star(ctx, sx, sy, s, 4);
+        // a punchy flash. TTL is tiny (0.12s) so a burst strobes and reads as rate of
+        // fire; a SAW/MG (size 1.6) flashes bigger. If the shooter's facing is known we
+        // draw a forward flash CONE along the gun line (so you see WHICH WAY he's firing);
+        // otherwise a symmetric flare-star.
+        if (k > 0.6 || cam.ppm < 0.45) break; // ppm<0.45 → aggregated into the combat haze
+        const f = 1 - k / 0.6;
+        const s = (e.size ?? 1) * (3.6 + cam.ppm * 0.7);
+        if (e.facing != null) {
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(e.facing);
+          const L = s * 2.1;
+          const grad = ctx.createLinearGradient(0, 0, L, 0);
+          grad.addColorStop(0, `rgba(255,240,205,${0.95 * f})`);
+          grad.addColorStop(0.5, `rgba(255,206,110,${0.7 * f})`);
+          grad.addColorStop(1, "rgba(255,150,60,0)");
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(-s * 0.3, 0);
+          ctx.lineTo(0, -s * 0.42);
+          ctx.lineTo(L, 0);
+          ctx.lineTo(0, s * 0.42);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = `rgba(255,244,214,${0.95 * f})`;
+          ctx.beginPath();
+          ctx.arc(0, 0, s * 0.34, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        } else {
+          ctx.fillStyle = `rgba(255,238,200,${0.95 * f})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, s * 0.42, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = `rgba(255,204,108,${0.8 * f})`;
+          star(ctx, sx, sy, s, 4);
+        }
         break;
       }
       case "impact": {
-        const s = (2 + cam.ppm * 0.5) * (0.6 + k);
-        ctx.fillStyle = `rgba(150,140,120,${0.5 * (1 - k)})`;
+        // a warm-tan dust kick + a few spall flecks (deterministic from id, so they
+        // don't crawl frame to frame) — reads as "a round struck the dirt here."
+        if (cam.ppm < 0.45) break; // aggregated into the combat haze at strategic zoom
+        const f = 1 - k;
+        const s = (2.2 + cam.ppm * 0.6) * (0.6 + k * 0.9);
+        ctx.fillStyle = `rgba(156,141,99,${0.5 * f})`;
         ctx.beginPath();
         ctx.arc(sx, sy, s, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = `rgba(120,108,84,${0.5 * f})`;
+        for (let i = 0; i < 3; i++) {
+          const a = e.id * 2.4 + i * 2.1;
+          const d = s * (0.9 + i * 0.55) * (0.5 + k);
+          ctx.fillRect(sx + Math.cos(a) * d - 0.6, sy + Math.sin(a) * d - 0.6, 1.3, 1.3);
+        }
         break;
       }
       case "ricochet": {
@@ -452,31 +550,80 @@ export function drawEffects(ctx: CanvasRenderingContext2D, cam: Camera, effects:
         ctx.stroke();
         break;
       }
-      case "blast":
-      case "frag_air": {
-        const R = (e.size ?? 1) * cam.ppm * 8 * (0.2 + k);
-        ctx.fillStyle = `rgba(255,180,80,${0.6 * (1 - k)})`;
+      case "blast": {
+        // GROUND HE (mortar/IED/RPG). Layered per the bible: white-hot flash → a warm,
+        // DIRTY fireball pulled into the dust palette (not the old too-hot orange) → a
+        // tan dust dome rolling out past it → a dark frag/smoke rim. Scaled to the round's
+        // TRUE beaten radius (size encodes radius/8, so size*8 = metres).
+        const R = (e.size ?? 1) * 8 * cam.ppm;
+        const f = 1 - k;
+        if (k < 0.22) {
+          const cf = 1 - k / 0.22;
+          ctx.fillStyle = `rgba(255,242,214,${0.95 * cf})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, Math.max(3, R * 0.5 * (0.5 + k)), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.fillStyle = `rgba(201,112,54,${0.55 * f})`; // dirty fireball
         ctx.beginPath();
-        ctx.arc(sx, sy, Math.max(4, R), 0, Math.PI * 2);
+        ctx.arc(sx, sy, Math.max(4, R * (0.35 + k * 0.7)), 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = `rgba(60,50,40,${0.5 * (1 - k)})`;
+        const dome = Math.max(6, R * (0.7 + k * 1.1));
+        ctx.fillStyle = `rgba(156,141,99,${0.4 * f})`; // tan dust dome
+        ctx.beginPath();
+        ctx.arc(sx, sy, dome, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(34,26,18,${0.5 * f})`; // smoke rim
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(sx, sy, Math.max(4, R * 1.2), 0, Math.PI * 2);
+        ctx.arc(sx, sy, dome * 1.04, 0, Math.PI * 2);
+        ctx.stroke();
+        break;
+      }
+      case "frag_air": {
+        // AIRBURST (thrown frag / GL). Tighter, brighter, cleaner than ground HE: a quick
+        // flash and a fast thin frag ring with only light dust.
+        const f = 1 - k;
+        const s = (e.size ?? 1) * cam.ppm * 8;
+        if (k < 0.3) {
+          const cf = 1 - k / 0.3;
+          ctx.fillStyle = `rgba(255,236,180,${0.9 * cf})`;
+          ctx.beginPath();
+          ctx.arc(sx, sy, Math.max(3, s * 0.4), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const ring = Math.max(4, s * (0.3 + k * 1.0));
+        ctx.fillStyle = `rgba(156,141,99,${0.22 * f})`;
+        ctx.beginPath();
+        ctx.arc(sx, sy, ring * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = `rgba(255,214,150,${0.7 * f})`;
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.arc(sx, sy, ring, 0, Math.PI * 2);
         ctx.stroke();
         break;
       }
       case "blood": {
-        ctx.fillStyle = `rgba(120,30,24,${0.6 * (1 - k)})`;
+        // a small dark-red spatter — a soft center + a few flecks, all capped & deterministic
+        if (cam.ppm < 0.45) break; // aggregated into the combat haze at strategic zoom
+        const f = 1 - k;
+        ctx.fillStyle = `rgba(124,28,22,${0.6 * f})`;
         ctx.beginPath();
-        ctx.arc(sx, sy, 3 + cam.ppm * 0.4, 0, Math.PI * 2);
+        ctx.arc(sx, sy, 2.5 + cam.ppm * 0.35, 0, Math.PI * 2);
         ctx.fill();
+        ctx.fillStyle = `rgba(110,24,18,${0.5 * f})`;
+        for (let i = 0; i < 3; i++) {
+          const a = e.id * 1.7 + i * 2.3;
+          const d = (3 + cam.ppm) * (0.4 + k);
+          ctx.fillRect(sx + Math.cos(a) * d - 0.55, sy + Math.sin(a) * d - 0.55, 1.1, 1.1);
+        }
         break;
       }
       case "smoke_pop": {
-        ctx.fillStyle = `rgba(180,180,180,${0.5 * (1 - k)})`;
+        ctx.fillStyle = `rgba(176,172,162,${0.5 * (1 - k)})`;
         ctx.beginPath();
-        ctx.arc(sx, sy, 6 + k * 18, 0, Math.PI * 2);
+        ctx.arc(sx, sy, 6 + k * 20, 0, Math.PI * 2);
         ctx.fill();
         break;
       }

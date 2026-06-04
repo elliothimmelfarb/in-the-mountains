@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- BLEEDING / arterial ("TQ now"): blood-drop silhouette with a knockout medical
+       cross. Flat UI glyph, NO shadow, crisp ink. blood #9c2c20. screen-fixed. -->
+  <!-- teardrop: pointed top, round belly. Reads as "blood", not a plain wounded cross. -->
+  <path d="M12 2.6
+           C12 2.6 5 11.3 5 15.5
+           a7 7 0 0 0 14 0
+           C19 11.3 12 2.6 12 2.6 z"
+        fill="#9c2c20" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.6"/>
+  <!-- knockout medical cross, floated in the belly so it reads even at 16px -->
+  <path d="M12 11.8 v5.2 M9.4 14.4 h5.2"
+        stroke="#1c160e" stroke-width="2.3" stroke-linecap="round"/>
+</svg>

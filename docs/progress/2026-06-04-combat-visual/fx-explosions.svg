@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 534" font-family="ui-monospace,Menlo,monospace">
+<rect width="920" height="534" fill="#14160f"/>
+<text x="22" y="36" font-size="20" font-weight="800" fill="#e8e5d4" letter-spacing="1">DETONATION SEQUENCE &amp; STRIKES</text>
+<rect x="22" y="46" width="876" height="1.5" fill="#2c3022"/>
+<rect x="22" y="80" width="210" height="210" rx="6" fill="#847a4e" stroke="#2c3022"/>
+<circle cx="127" cy="173" r="12.88" fill="#fff2d6" fill-opacity="0.6909090909090909"/>
+<circle cx="127" cy="173" r="18.031999999999996" fill="#c97036" fill-opacity="0.517"/>
+<circle cx="127" cy="173" r="35.236000000000004" fill="#9c8d63" fill-opacity="0.376"/>
+<circle cx="127" cy="173" r="36.64544000000001" fill="none" stroke="#221a12" stroke-opacity="0.47" stroke-width="2"/>
+<rect x="22" y="256" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="127" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">GROUND HE</text>
+<text x="127" y="285" text-anchor="middle" font-size="10" fill="#9a9a82">k=0.06</text>
+<rect x="244" y="80" width="210" height="210" rx="6" fill="#847a4e" stroke="#2c3022"/>
+<circle cx="349" cy="173" r="23.184" fill="#c97036" fill-opacity="0.42900000000000005"/>
+<circle cx="349" cy="173" r="43.332" fill="#9c8d63" fill-opacity="0.31200000000000006"/>
+<circle cx="349" cy="173" r="45.06528" fill="none" stroke="#221a12" stroke-opacity="0.39" stroke-width="2"/>
+<rect x="244" y="256" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="349" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">GROUND HE</text>
+<text x="349" y="285" text-anchor="middle" font-size="10" fill="#9a9a82">k=0.22</text>
+<rect x="466" y="80" width="210" height="210" rx="6" fill="#847a4e" stroke="#2c3022"/>
+<circle cx="571" cy="173" r="30.590000000000003" fill="#c97036" fill-opacity="0.30250000000000005"/>
+<circle cx="571" cy="173" r="54.970000000000006" fill="#9c8d63" fill-opacity="0.22000000000000003"/>
+<circle cx="571" cy="173" r="57.16880000000001" fill="none" stroke="#221a12" stroke-opacity="0.275" stroke-width="2"/>
+<rect x="466" y="256" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="571" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">GROUND HE</text>
+<text x="571" y="285" text-anchor="middle" font-size="10" fill="#9a9a82">k=0.45</text>
+<rect x="688" y="80" width="210" height="210" rx="6" fill="#847a4e" stroke="#2c3022"/>
+<circle cx="793" cy="173" r="40.24999999999999" fill="#c97036" fill-opacity="0.1375"/>
+<circle cx="793" cy="173" r="70.14999999999999" fill="#9c8d63" fill-opacity="0.1"/>
+<circle cx="793" cy="173" r="72.95599999999999" fill="none" stroke="#221a12" stroke-opacity="0.125" stroke-width="2"/>
+<rect x="688" y="256" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="793" y="272" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">GROUND HE</text>
+<text x="793" y="285" text-anchor="middle" font-size="10" fill="#9a9a82">k=0.75</text>
+<rect x="22" y="302" width="210" height="210" rx="6" fill="#8a984e" stroke="#2c3022"/>
+<circle cx="127" cy="395" r="16.8" fill="#9c8d63" fill-opacity="0.132"/>
+<circle cx="127" cy="395" r="21" fill="none" stroke="#ffd696" stroke-opacity="0.42" stroke-width="1.6"/>
+<rect x="22" y="478" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="127" y="494" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">AIRBURST</text>
+<text x="127" y="507" text-anchor="middle" font-size="10" fill="#9a9a82">thrown frag / GL</text>
+<rect x="244" y="302" width="210" height="210" rx="6" fill="#9c927e" stroke="#2c3022"/>
+<circle cx="349" cy="395" r="9" fill="#9c8d63" fill-opacity="0.3"/>
+<rect x="345.04165309777113" y="387.9296363251908" width="1.6" height="1.6" fill="#786c54" fill-opacity="0.3"/>
+<rect x="360.1300599752749" y="394.992214468291" width="1.6" height="1.6" fill="#786c54" fill-opacity="0.3"/>
+<rect x="339.5267859843668" y="407.9538213442841" width="1.6" height="1.6" fill="#786c54" fill-opacity="0.3"/>
+<rect x="244" y="478" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="349" y="494" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">BULLET IMPACT</text>
+<text x="349" y="507" text-anchor="middle" font-size="10" fill="#9a9a82">tan dust + spall</text>
+<rect x="466" y="302" width="210" height="210" rx="6" fill="#324c30" stroke="#2c3022"/>
+<circle cx="571" cy="395" r="4.62" fill="#ffeec8" fill-opacity="0.8075"/>
+<path d="M582 395L574.1112698372208 398.1112698372208L571 406L567.8887301627792 398.1112698372208L560 395L567.8887301627792 391.8887301627792L571 384L574.1112698372208 391.8887301627792Z" fill="#ffcc6c" fill-opacity="0.68"/>
+<rect x="466" y="478" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="571" y="494" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">MUZZLE FLASH</text>
+<text x="571" y="507" text-anchor="middle" font-size="10" fill="#9a9a82">punchy, strobes</text>
+<rect x="688" y="302" width="210" height="210" rx="6" fill="#8e925c" stroke="#2c3022"/>
+<circle cx="797.7164217768462" cy="391.2911773265778" r="0.8" fill="#6e1812" fill-opacity="0.6"/>
+<circle cx="792.6232496624555" cy="400.9881599162982" r="0.8" fill="#6e1812" fill-opacity="0.6"/>
+<circle cx="788.7856176549838" cy="390.72928794578525" r="0.8" fill="#6e1812" fill-opacity="0.6"/>
+<circle cx="793" cy="395" r="4" fill="#7c1c16" fill-opacity="0.6"/>
+<rect x="688" y="478" width="210" height="34" fill="#1c160e" opacity="0.55"/>
+<text x="793" y="494" text-anchor="middle" font-size="12" font-weight="700" fill="#e8e5d4">BLOOD</text>
+<text x="793" y="507" text-anchor="middle" font-size="10" fill="#9a9a82">spatter, capped</text>
+</svg>

@@ -1438,5 +1438,41 @@
     "footprint": 6,
     "rotating": false,
     "family": "vegetation"
+  },
+  "sol-us-casualty": {
+    "anchor": [
+      0.5,
+      0.55
+    ],
+    "footprint": 1.6,
+    "rotating": true,
+    "family": "us-soldiers"
+  },
+  "fx-dust-puff": {
+    "anchor": [
+      0.5,
+      0.55
+    ],
+    "footprint": 1.5,
+    "rotating": false,
+    "family": "fx-particles"
+  },
+  "fx-blast-scorch": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": 6,
+    "rotating": false,
+    "family": "fx-decals"
+  },
+  "ico-status-bleeding": {
+    "anchor": [
+      0.5,
+      0.5
+    ],
+    "footprint": null,
+    "rotating": false,
+    "family": "ui-iconography"
   }
 }
