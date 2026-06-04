@@ -331,6 +331,43 @@ function medicalProbe() {
   }
 }
 
+/** Probe 8 (load, #8): combat load (kg) by role, and the speed/fatigue cost of being
+ *  a mule — a heavy gunner over the same ground as a rifleman. */
+function loadProbe() {
+  const { CombatSim, combatLoadKg } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+  const { getWeapon } = require("../lib/sim/weapons") as typeof import("../lib/sim/weapons");
+  const w = createWorld("probe-load", 90);
+  console.log("\n=== LOAD (#8): combat load by role (kg) ===");
+  const sample = [
+    ["rifleman (M4)", w.platoon.members.find((m) => m.role === "rifleman")],
+    ["SAW gunner (M249)", w.platoon.members.find((m) => m.role === "saw_gunner")],
+    ["240 gunner (M240)", w.platoon.members.find((m) => m.role === "machinegunner")],
+    ["grenadier (M4+203)", w.platoon.members.find((m) => m.role === "grenadier")],
+  ] as const;
+  for (const [label, m] of sample) {
+    if (!m) continue;
+    console.log(`  ${label.padEnd(20)} ${combatLoadKg(m, getWeapon(m.weaponId)).toFixed(1)} kg`);
+  }
+
+  // Movement cost: rifleman vs 240 gunner over IDENTICAL ground & fitness (load is the
+  // only variable). Walk 'traveling' for 150 s from the same flat start.
+  console.log("\n  movement over the same ground (fitness fixed 0.75, traveling, 150 s):");
+  const g = flatGround(w.terrain);
+  const target = { x: Math.min(w.terrain.worldSize - 20, g.x + 320), y: g.y };
+  for (const role of ["rifleman", "machinegunner"] as const) {
+    const w2 = createWorld("probe-load", 90);
+    const sim = new CombatSim({ terrain: w2.terrain, rng: w2.rng, units: [], light: 1, weather: { visibilityM: 4000, wind: 0, label: "Clear" }, persistent: true });
+    const u = w2.platoon.members.find((m) => m.role === role)!;
+    u.fitnessMax = 0.75; u.fatigue = 0; u.pos = { x: g.x, y: g.y }; u.technique = "traveling"; u.brainState = "moving"; u.stance = "stand";
+    sim.addUnit(u);
+    sim.moveTo(u, target);
+    u.brainState = "moving"; u.rof = "hold";
+    for (let t = 0; t < 1500; t++) { sim.tick(0.1); if (u.path.length === 0) sim.moveTo(u, target); }
+    const dist = Math.hypot(u.pos.x - g.x, u.pos.y - g.y);
+    console.log(`    ${role.padEnd(14)} load ${combatLoadKg(u, getWeapon(u.weaponId)).toFixed(0)}kg → covered ${dist.toFixed(0)} m, fatigue ${u.fatigue.toFixed(2)}`);
+  }
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
@@ -338,3 +375,4 @@ if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();
 if (which === "all" || which === "medical") medicalProbe();
+if (which === "all" || which === "load") loadProbe();
