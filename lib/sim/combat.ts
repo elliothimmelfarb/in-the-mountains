@@ -135,6 +135,11 @@ function isStealthTechnique(t: MoveTechnique): boolean {
   return t === "concealed" || t === "crawl";
 }
 
+/** Roles that carry a thermal sight (CLU/LRAS3/thermal weapon sight) — the US
+ *  overmatch in the valley: marksmen and snipers on thermal scopes, the JTAC on
+ *  the LLDR, and the weapons-squad MG gunners behind tripod thermals/LRAS3. */
+const THERMAL_ROLES = new Set(["marksman", "sniper", "jtac", "machinegunner"]);
+
 const STANCE_SPEED: Record<Unit["stance"], number> = {
   stand: 1,
   crouch: 0.58,
@@ -465,6 +470,7 @@ export class CombatSim {
     }
     const opticRange = this.weaponOf(u).opticRange * (0.6 + 0.4 * u.experience);
     const nvg = (u.faction === "us" || u.faction === "ana"); // US have NODs at night
+    const thermal = u.faction === "us" && THERMAL_ROLES.has(u.role); // CLU/LRAS3/thermal sights
     const visible: string[] = [];
     for (const e of this.units) {
       if (!this.isHostile(u, e) || e.evac) continue;
@@ -484,6 +490,8 @@ export class CombatSim {
         alertness: clamp01(0.5 + u.experience * 0.4 + (u.suppression > 0 ? -0.2 : 0)),
         targetStealthMoving: stealthMove,
         targetStealth: e.stealth,
+        observerThermal: thermal,
+        thermalRangeM: 1400,
       });
       // accumulate detection over the throttle window
       if (this.rng.chance(p)) {

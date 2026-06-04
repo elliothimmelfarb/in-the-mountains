@@ -19,6 +19,13 @@ export interface LOSResult {
   /** Accumulated vegetation/smoke concealment along the path (0..1). */
   concealment: number;
   rangeM: number;
+  /** Geometric exposure BEFORE veg/smoke (terrain defilade only) — lets thermal
+   *  recombine, since it sees through foliage. Optional: synthesized LOS may omit. */
+  terrainExposure?: number;
+  /** Vegetation-only concealment (thermal penetrates most of this). */
+  vegConceal?: number;
+  /** Smoke-only concealment (thermal does NOT penetrate this). */
+  smokeConceal?: number;
 }
 
 export interface LOSOptions {
@@ -114,6 +121,8 @@ export function lineOfSight(
     terrainExposure = clamp01((angTop - maxHorizon) / Math.max(1e-4, angTop - angBase));
   }
 
+  const vegConceal = clamp01(1 - Math.exp(-veg));
+  const smokeConceal = clamp01(1 - Math.exp(-smokeAcc));
   const concealment = clamp01(1 - Math.exp(-(veg + smokeAcc)));
   const exposure = clamp01(terrainExposure * (1 - concealment));
   return {
@@ -122,6 +131,9 @@ export function lineOfSight(
     terrainBlocked,
     concealment,
     rangeM: D,
+    terrainExposure,
+    vegConceal,
+    smokeConceal,
   };
 }
 
@@ -148,16 +160,34 @@ export function detectionChance(params: {
   targetStealthMoving?: boolean;
   /** Target's stealth skill 0..1 — fieldcraft that defeats the observer's eye. */
   targetStealth?: number;
+  /** Observer has a thermal sight (CLU/LRAS3/thermal weapon sight). */
+  observerThermal?: boolean;
+  /** Effective thermal acquisition range (m). */
+  thermalRangeM?: number;
 }): number {
   const { los } = params;
   if (!los.visible) return 0;
+  const thermal = !!params.observerThermal && los.rangeM <= (params.thermalRangeM ?? 1200);
+
+  // Effective exposure. A thermal sight reads body heat through foliage, so it
+  // recovers most of the vegetation concealment (but NOT terrain defilade — a
+  // crest still hides you — and NOT smoke/dust, which masks IR). Naked eye and
+  // NVG use the geometric+veg+smoke exposure as-is.
+  let exposure = los.exposure;
+  if (thermal && los.terrainExposure != null) {
+    const thermalConceal = clamp01((los.smokeConceal ?? 0) + 0.3 * (los.vegConceal ?? 0));
+    exposure = clamp01(los.terrainExposure * (1 - thermalConceal));
+  }
+
   // Base falls off with range relative to optic range.
   const rangeFactor = clamp01(1 - los.rangeM / Math.max(50, params.observerOpticRangeM));
-  let p = 0.9 * rangeFactor * (0.3 + 0.7 * los.exposure);
+  let p = 0.9 * rangeFactor * (0.3 + 0.7 * exposure);
 
-  // Light: NVGs recover most of the night penalty but not all.
+  // Light: NVGs recover most of the night penalty; a thermal sight is
+  // light-independent (it sees heat), so it acquires by day or in the dark alike.
   let lightF = params.light;
   if (params.observerNVG) lightF = Math.max(lightF, 0.62 - los.rangeM / 4000);
+  if (thermal) lightF = Math.max(lightF, 0.85);
   p *= 0.25 + 0.75 * clamp01(lightF);
 
   if (params.targetStealthMoving) {

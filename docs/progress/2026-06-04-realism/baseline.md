@@ -119,3 +119,23 @@ directionless scalar read by no code.
 Wind probe — mean lateral drift, 6 m/s crosswind (M4): 100m **0.31m**, 300m **0.92m**,
 500m **1.54m**, 800m **2.45m** — negligible close, a real long-range factor (matches
 5.56 wind tables). tsc clean.
+
+### #2 Thermal optics — `los.detectionChance(observerThermal)`, `combat.THERMAL_ROLES`
+A thermal sight is now a distinct sensor channel: light-independent (sees heat in
+the dark) and sees through vegetation (heat through leaves) but NOT terrain
+defilade or smoke. `LOSResult` now exposes the geometric vs veg vs smoke split so
+thermal can recombine. Carried by marksmen, snipers, the JTAC, and weapons-squad
+MG gunners (LRAS3) — the few, as in life. Previously NVG was a lone faction
+boolean and thermal didn't exist.
+
+Perception probe — per-moment detect p (naked / NVG / **thermal**):
+
+| scene | naked | NVG | thermal |
+|---|---|---|---|
+| day, open, 400m | 39% | 39% | 39% (no edge in open daylight — right) |
+| day, forest, 300m | 25% | 25% | **42%** (through foliage) |
+| night, open, 300m | 14% | 32% | **43%** (beats NVG) |
+| night, forest, 250m | 8% | 18% | **41%** (the overmatch) |
+
+A fighter in the trees at night reads ~8% / ~6 s to the naked eye but ~41% / ~1.2 s
+on thermal. tsc clean; smoke OK.

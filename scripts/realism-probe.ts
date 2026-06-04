@@ -170,19 +170,26 @@ function perceptionProbe() {
     { name: "NVG", nvg: true, thermal: false },
     { name: "thermal", nvg: false, thermal: true },
   ];
+  // Faithful LOS shape: terrainExposure (geometric) and vegConceal (foliage) are
+  // what the real lineOfSight emits, and what thermal needs to see through leaves.
   const scenes = [
-    { label: "day,  open,   400m", light: 1.0, exposure: 1.0, conceal: 0.0, range: 400 },
-    { label: "day,  forest, 300m", light: 1.0, exposure: 0.55, conceal: 0.7, range: 300 },
-    { label: "dusk, open,   400m", light: 0.35, exposure: 1.0, conceal: 0.0, range: 400 },
-    { label: "night,open,   300m", light: 0.05, exposure: 1.0, conceal: 0.0, range: 300 },
-    { label: "night,forest, 250m", light: 0.05, exposure: 0.6, conceal: 0.7, range: 250 },
+    { label: "day,  open,   400m", light: 1.0, terrEx: 1.0, veg: 0.0, range: 400 },
+    { label: "day,  forest, 300m", light: 1.0, terrEx: 1.0, veg: 0.7, range: 300 },
+    { label: "dusk, open,   400m", light: 0.35, terrEx: 1.0, veg: 0.0, range: 400 },
+    { label: "night,open,   300m", light: 0.05, terrEx: 1.0, veg: 0.0, range: 300 },
+    { label: "night,forest, 250m", light: 0.05, terrEx: 1.0, veg: 0.7, range: 250 },
   ];
   console.log("\n=== PERCEPTION: per-moment detect p / expected seconds-to-detect, by sensor ===");
   console.log("target: stationary, not firing, standing; observer optic 800 m, alert 0.7\n");
   const head = "  scene                  " + sensors.map((s) => s.name.padStart(11)).join("  ");
   console.log(head);
   for (const sc of scenes) {
-    const los = { visible: true, exposure: sc.exposure, terrainBlocked: false, concealment: sc.conceal, rangeM: sc.range };
+    const conceal = 1 - Math.exp(-(-Math.log(1 - sc.veg))); // = sc.veg, kept explicit
+    const exposure = sc.terrEx * (1 - sc.veg);
+    const los = {
+      visible: true, exposure, terrainBlocked: false, concealment: conceal, rangeM: sc.range,
+      terrainExposure: sc.terrEx, vegConceal: sc.veg, smokeConceal: 0,
+    };
     const cells = sensors.map((sn) => {
       const p = detectionChance({
         los, light: sc.light, observerNVG: sn.nvg, targetMoving: false, targetFiring: false,
