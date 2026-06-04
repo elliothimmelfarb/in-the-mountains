@@ -64,7 +64,7 @@ export class World {
       rng,
       units,
       light: 1,
-      weather: { visibilityM: state.weather.visibilityM, wind: state.weather.wind, label: state.weather.label },
+      weather: { visibilityM: state.weather.visibilityM, wind: state.weather.wind, label: state.weather.label, windX: 0, windY: 0 },
       context: state.fob.name,
       mortars,
       casAvailable: state.weather.airAvailable,
@@ -112,6 +112,20 @@ export class World {
     this.sim.light = this.ambientLight();
   }
 
+  /**
+   * Effective wind vector (m/s, world frame): the prevailing synoptic wind plus the
+   * valley's diurnal flow — anabatic up-valley (toward the head, −Y) by day,
+   * katabatic down-valley (+Y) at night — so the daily wind pattern is learnable.
+   * Drives bullet drift and smoke drift; read by the CombatSim each tick.
+   */
+  windVector(): Vec2 {
+    const spd = this.state.weather.wind;
+    const day = this.solarLight(); // 0..1
+    const along = lerp(0.9, -0.9, day); // night +Y (down-valley), day −Y (up-valley)
+    const dir = this.state.weather.windDir;
+    return { x: Math.cos(dir) * 0.5 * spd, y: (Math.sin(dir) * 0.5 + along) * spd };
+  }
+
   // ---------------------------------------------------------------- logging
   log(msg: string, kind = "info") {
     this.state.log.push({ id: Ids.log++, day: this.day, timeLabel: this.clockLabel(), msg, kind });
@@ -138,10 +152,13 @@ export class World {
     this.state.clock += dt;
     this.refreshLight();
 
+    const wv = this.windVector();
     this.sim.weather = {
       visibilityM: this.state.weather.visibilityM,
       wind: this.state.weather.wind,
       label: this.state.weather.label,
+      windX: wv.x,
+      windY: wv.y,
     };
     this.sim.casAvailable = this.state.weather.airAvailable;
 

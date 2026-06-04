@@ -75,6 +75,58 @@ export function dispersionSigmaM(
   return Math.max(0.05, sigma);
 }
 
+/**
+ * Range-dependent terminal energy. A bullet's wounding power falls with range as
+ * its velocity bleeds off — and for 5.56 it falls off a cliff once it drops below
+ * the ~2500 fps that drives fragmentation/yaw (roughly 150–200 m from an M4's
+ * barrel), which is the literal reason the Korengal fight demanded 7.62, .50 and
+ * CAS at the 300–800 m ranges the valley imposed. Modeled as a per-kinetic-class
+ * lethality curve; non-kinetic rounds (frag/HEAT/blast) are unaffected (their
+ * falloff is spatial — see blastDamageAt).
+ */
+type KineticClass = "intermediate556" | "intermediate762" | "fullpower" | "heavy" | "pistol";
+
+const LETHALITY_CURVE: Record<KineticClass, [number, number][]> = {
+  // 5.56×45: sharp knee — fragmentation/yaw needs ~2500 fps, gone by ~150–200 m;
+  // past that it still pokes .22-cal holes, so the tail isn't zero.
+  intermediate556: [[0, 1], [100, 1], [200, 0.88], [300, 0.73], [400, 0.62], [500, 0.52], [700, 0.42], [1000, 0.36]],
+  // 7.62×39: heavier/slower, no fragmentation reliance, but low BC bleeds it at distance.
+  intermediate762: [[0, 1], [150, 1], [300, 0.84], [500, 0.68], [700, 0.57], [1000, 0.47]],
+  // 7.62×51 / 7.62×54R / .303: full-power rifle — holds energy well downrange.
+  fullpower: [[0, 1], [300, 0.95], [600, 0.86], [900, 0.77], [1200, 0.7]],
+  // 12.7mm: huge bullet, very high BC — effectively flat across small-arms ranges.
+  heavy: [[0, 1], [600, 0.98], [1000, 0.95], [1800, 0.9], [2600, 0.82]],
+  // 9×19: pistol — falls off a cliff past close range.
+  pistol: [[0, 1], [50, 0.95], [100, 0.82], [200, 0.58], [400, 0.32]],
+};
+
+function kineticClassOf(weapon: Weapon): KineticClass | null {
+  if (weapon.damageType !== "ball") return null; // frag/HEAT/blast aren't kinetic
+  const c = weapon.caliber;
+  if (c.includes("5.56")) return "intermediate556";
+  if (c.includes("7.62×39")) return "intermediate762";
+  if (c.includes("12.7")) return "heavy";
+  if (c.includes("9×19")) return "pistol";
+  return "fullpower"; // 7.62×51/54R, .303, and any other full-power ball
+}
+
+/** 0..1 multiplier on a ball round's wounding power at `rangeM` (piecewise-linear
+ *  over the kinetic-class curve). 1 for non-kinetic rounds. */
+export function retainedLethality(weapon: Weapon, rangeM: number): number {
+  const kc = kineticClassOf(weapon);
+  if (!kc) return 1;
+  const pts = LETHALITY_CURVE[kc];
+  if (rangeM <= pts[0][0]) return pts[0][1];
+  for (let i = 1; i < pts.length; i++) {
+    if (rangeM <= pts[i][0]) {
+      const [r0, m0] = pts[i - 1];
+      const [r1, m1] = pts[i];
+      return m0 + (m1 - m0) * ((rangeM - r0) / (r1 - r0));
+    }
+  }
+  return pts[pts.length - 1][1];
+}
+
 /** Effective silhouette radius (m) a round must land within to strike the target. */
 export function silhouetteRadius(target: Unit, exposure: number): number {
   const h = unitHeight(target);
@@ -94,21 +146,32 @@ export function spawnProjectile(
   targetPos: Vec2,
   targetId: string | null,
   rangeM: number,
-  rng: RNG
+  rng: RNG,
+  wind: Vec2 = { x: 0, y: 0 }
 ): Projectile {
   const sigma = dispersionSigmaM(weapon, shooter, rangeM);
   // 2D gaussian offset
   const ox = rng.gauss(0, sigma);
   const oy = rng.gauss(0, sigma);
-  const aimpoint: Vec2 = { x: targetPos.x + ox, y: targetPos.y + oy };
-
-  const dir = norm(sub(aimpoint, shooter.pos));
   const speed = weapon.muzzleVel;
-  const distToAim = len(sub(aimpoint, shooter.pos));
   const indirect = !!weapon.indirect && (weapon.cls === "mortar" || rangeM > 60);
   const timeToImpact = indirect
     ? clamp(rangeM / Math.max(60, weapon.muzzleVel) + rangeM / 600, 1.5, 38)
     : 0;
+
+  const aimpoint: Vec2 = { x: targetPos.x + ox, y: targetPos.y + oy };
+  // Wind pushes the round downwind over its time of flight: negligible up close,
+  // a metre-plus at the valley's long ranges, and harder on lofted indirect. A lag
+  // coefficient — the bullet never takes the full wind.
+  if (wind.x !== 0 || wind.y !== 0) {
+    const tof = indirect ? timeToImpact : len(sub(aimpoint, shooter.pos)) / Math.max(1, speed);
+    const k = indirect ? 0.6 : 0.45;
+    aimpoint.x += wind.x * k * tof;
+    aimpoint.y += wind.y * k * tof;
+  }
+
+  const dir = norm(sub(aimpoint, shooter.pos));
+  const distToAim = len(sub(aimpoint, shooter.pos));
 
   return {
     id: projId(),
@@ -123,7 +186,8 @@ export function spawnProjectile(
     targetId,
     traveled: 0,
     distToAim,
-    damage: weapon.damage,
+    // Terminal energy falls with range (5.56 sharply once it can't fragment).
+    damage: weapon.damage * retainedLethality(weapon, rangeM),
     damageType: weapon.damageType,
     penetration: weapon.penetration,
     blastRadius: weapon.blastRadius ?? 0,
