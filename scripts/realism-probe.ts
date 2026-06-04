@@ -264,8 +264,43 @@ function indirectProbe() {
   console.log(`  collateral over the runs: US KIA ${(usKIA / SEEDS).toFixed(2)}/run · civ cas ${(civCas / SEEDS).toFixed(2)}/run · (baseline pre-#4: 0 enemy FM — pipeline was dead)`);
 }
 
+/** Probe 6 (COIN, #5 regen + #6 civcas): proves the insurgency regenerates from the
+ *  population (you can't kill your way out, but pacifying works) and that civilian
+ *  casualties by our fires harden the valley. */
+function coinProbe() {
+  console.log("\n=== COIN (#5 insurgent regen · #6 civcas backlash) ===");
+  // (A) Regen lever: hostile vs pacified valley, director suppressed so enemyStrength
+  //     moves ONLY via regeneration (no kills) — isolates the mechanism.
+  for (const mode of ["hostile", "pacified"] as const) {
+    const w = createWorld(`probe-coin-${mode}`, 120);
+    w.state.nextActivityAt = Infinity; w.state.nextEventAt = Infinity; w.state.nextIntelAt = Infinity;
+    w.state.nextWeatherAt = Infinity;
+    for (const v of w.state.villages) {
+      if (mode === "hostile") { v.attitude = -30; v.sympathy = 60; }
+      else { v.attitude = 60; v.sympathy = 8; }
+    }
+    const start = w.state.enemyStrengthAbs;
+    const DAYS = 14, dt = 6;
+    for (let i = 0, n = Math.round((DAYS * 86400) / dt); i < n && !w.state.ended; i++) w.tick(dt);
+    const end = w.state.enemyStrengthAbs;
+    const tag = end > start + 1 ? "REGEN ↑" : end < start - 1 ? "DECAY ↓" : "flat";
+    console.log(`  ${mode.padEnd(9)} valley: enemyStrength ${start.toFixed(0)} → ${end.toFixed(1)} over ${DAYS}d, no combat  [${tag}]`);
+  }
+  // (B) CIVCAS backlash: US mortars onto a populated village.
+  const w = createWorld("probe-coin-civcas", 120);
+  w.state.nextActivityAt = Infinity;
+  const vil = w.state.villages[0];
+  const b = { att: vil.attitude, sym: vil.sympathy, str: w.state.enemyStrengthAbs, hi: w.state.metrics.higherConfidence };
+  w.requestFireMission("mortar81", w.terrain.cellCenter(vil.cx, vil.cy), 8);
+  for (let i = 0; i < 1400 && !w.state.ended; i++) w.tick(0.1);
+  const civCas = w.sim.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
+  console.log(`  CIVCAS test: 8 US mortar rounds on ${vil.name} → ${civCas} civ casualties`);
+  console.log(`    ${vil.name}: attitude ${b.att}→${vil.attitude} · sympathy ${b.sym}→${vil.sympathy} · enemyStrength ${b.str.toFixed(0)}→${w.state.enemyStrengthAbs.toFixed(1)} · higherConf ${b.hi}→${w.state.metrics.higherConfidence}`);
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
 if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
+if (which === "all" || which === "coin") coinProbe();

@@ -173,3 +173,25 @@ saw indirect. Iterated: first cut had a too-tight 18 m CEP that precision-killed
 clustered men (2.00 KIA/run); widened the enemy CEP to 38 m (unregistered hand-laid
 tube) + trimmed rounds → **1.00 KIA/run** — a real threat, not a precision strike.
 tsc clean.
+
+### #5 Insurgent regeneration — `world.tickInsurgency`
+`enemyStrengthAbs` was previously only ever decremented (you could grind the
+insurgency to zero). Now it regenerates from the population each day: high-sympathy/
+hostile villages recruit, a thin infiltration trickles via the draws (heat-scaled),
+and pacified villages turn men away. CERP/KLE/restraint bend sympathy & attitude →
+bend this. The central COIN truth: you can't kill your way out.
+
+Probe (director suppressed, no combat, 14 days): **hostile valley 66 → 80** (regen ↑),
+**pacified valley 59 → 44** (decay ↓). Pacification is the lever (cullEnemies still
+drains 1/kill — the equilibrium of the two is the campaign).
+
+### #6 Civilian-casualty backlash — `world.reconcileCivilians` + blast-time attribution
+`civCasualties` was tallied but **never read** by the world. Now a civilian
+wounded/killed is attributed to the firing faction (set at blast time) and
+reconciled: a CIVCAS by *our* fires hardens the nearest village (attitude↓,
+sympathy↑, cooperation↓), mobilizes fighters (couples to #5), costs higher
+confidence, fires an interrupt; the enemy killing locals is a small IO win for us.
+Save-safe (per-unit `casualtyCounted` flag, not a transient Set).
+
+Probe (8 US mortar rounds on a village → 2 civ cas): attitude **−23 → −35**, sympathy
+**47 → 57**, enemyStrength **43 → 44**, higherConf **60 → 58**. tsc clean.

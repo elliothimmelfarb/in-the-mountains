@@ -177,6 +177,8 @@ export class World {
     this.sim.tick(dt);
 
     this.reconcileCasualties();
+    this.reconcileCivilians();
+    this.tickInsurgency(dt);
     this.cullEnemies();
 
     if (this.inContact()) this.state.lastContactClock = this.state.clock;
@@ -310,6 +312,63 @@ export class World {
         this.interrupt(`${shortName(m)} WIA / MEDEVAC`);
       }
     }
+  }
+
+  /**
+   * Civilian casualties are the COIN catastrophe. A villager killed or wounded by
+   * OUR fires hardens the nearest village (attitude down, sympathy up), mobilizes a
+   * few fighters from the population (couples to tickInsurgency), and costs higher
+   * confidence — and may trigger a solatia/complaint. The enemy killing locals does
+   * the reverse, a small information-operations win for us. Reads the per-unit
+   * attribution set at blast time; processed once per civilian.
+   */
+  private reconcileCivilians() {
+    for (const u of this.sim.units) {
+      if (u.faction !== "civilian") continue;
+      const casualty = !u.alive || (u.wounds && u.wounds.length > 0);
+      if (!casualty || u.casualtyCounted) continue;
+      u.casualtyCounted = true;
+      const killed = !u.alive;
+      const by = u.casualtyByFaction;
+      const vil = this.nearestVillage(u.pos, 700);
+      if (by === "us" || by === "ana") {
+        if (vil) {
+          vil.attitude = clamp(vil.attitude - (killed ? 14 : 6), -100, 100);
+          vil.sympathy = clamp(vil.sympathy + (killed ? 11 : 5), 0, 100);
+          vil.cooperation = clamp(vil.cooperation - (killed ? 8 : 3), 0, 100);
+        }
+        this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + (killed ? 2 : 0.5), 0, 100); // mobilization
+        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - (killed ? 3 : 1), 0, 100);
+        this.log(`CIVCAS — a civilian was ${killed ? "killed" : "wounded"}${vil ? ` near ${vil.name}` : ""}, attributed to our fires. The valley will not forget.`, "casualty");
+        this.interrupt("CIVCAS incident");
+      } else if (by === "insurgent") {
+        if (vil) {
+          vil.attitude = clamp(vil.attitude + (killed ? 3 : 1), -100, 100);
+          vil.sympathy = clamp(vil.sympathy - (killed ? 2 : 1), 0, 100);
+        }
+        this.log(`A civilian was ${killed ? "killed" : "hurt"} by enemy fire${vil ? ` near ${vil.name}` : ""}.`, "casualty");
+      }
+    }
+  }
+
+  /**
+   * The insurgency regenerates from the population — you cannot kill your way to
+   * zero. Each day high-sympathy / hostile villages feed fighters, a thin
+   * infiltration trickles in from the ratlines (scaled by heat), and pacified
+   * (friendly) ground turns men away. CERP/KLE/restraint bend sympathy & attitude,
+   * which bends this — the actual COIN lever. (cullEnemies still drains a fighter
+   * per kill; the equilibrium of the two is the campaign.)
+   */
+  private tickInsurgency(dt: number) {
+    let recruit = 0;
+    let pacify = 0;
+    for (const v of this.state.villages) {
+      recruit += (v.sympathy / 100) * (v.attitude < 0 ? 1.0 : 0.55);
+      if (v.attitude > 35) pacify += 0.35;
+    }
+    const infiltration = 0.4 * this.state.enemyHeat; // outside fighters via the draws
+    const perDay = recruit + infiltration - pacify;
+    this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + (perDay * dt) / DAY, 0, 80);
   }
 
   private cullEnemies() {

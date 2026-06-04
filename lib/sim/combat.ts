@@ -904,6 +904,8 @@ export class CombatSim {
         const before = u.alive;
         const oc = applyDamage(u, dmg, p.damageType === "ball" ? "frag" : p.damageType, region, this.rng);
         this.addEffect("blood", u.pos, 0.5, { faction: u.faction });
+        // Attribute the casualty to the firing faction (for civcas/COIN backlash).
+        if (oc.effectiveDamage > 0 && p.faction !== "civilian") u.casualtyByFaction = p.faction;
         if (before && !u.alive) this.onDeath(u, "blast");
         else if (oc.effectiveDamage > 5) this.onWound(u);
       }
