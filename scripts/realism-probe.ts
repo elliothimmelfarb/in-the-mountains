@@ -368,6 +368,28 @@ function loadProbe() {
   }
 }
 
+/** Probe 9 (fire-and-maneuver, #9): does a BUDDY (no medic present) now break to a
+ *  downed man, drag him to cover and save him — the loop that completes #7? */
+function rescueProbe() {
+  const { CombatSim } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+  const weather = { visibilityM: 4000, wind: 0, label: "Clear" };
+  console.log("\n=== #9 casualty drag: a buddy reaches & saves a downed man (NO medic) ===");
+  for (const buddyDist of [8, 18]) {
+    const w = createWorld(`rescue-${buddyDist}`, 90);
+    const pool = w.platoon.members.filter((m) => m.role !== "medic");
+    const cas = pool[0], buddy = pool[1];
+    const sim = new CombatSim({ terrain: w.terrain, rng: w.rng, units: [cas, buddy], light: 1, weather, persistent: true });
+    const g = flatGround(w.terrain);
+    cas.pos = { x: g.x, y: g.y }; cas.alive = true; cas.hp = 50; cas.bleedRate = 1.3; cas.bleedTQable = 1.3; cas.conscious = false;
+    cas.wounds = [{ region: "leg", severity: 0.6, bleeding: 1.3, treated: false, timeM: 0 }]; cas.path = []; cas.brainState = "holding";
+    buddy.pos = { x: g.x + buddyDist, y: g.y }; buddy.alive = true; buddy.hp = 100; buddy.bleedRate = 0; buddy.conscious = true;
+    buddy.path = []; buddy.brainState = "holding"; buddy.rof = "hold"; buddy.threatDir = { x: 0, y: 1 };
+    for (let t = 0; t < 1800 && cas.alive; t++) sim.tick(0.1);
+    const apart = Math.hypot(buddy.pos.x - cas.pos.x, buddy.pos.y - cas.pos.y);
+    console.log(`  buddy ${String(buddyDist).padStart(2)}m away ⇒ casualty ${!cas.alive ? "DIED" : "LIVED hp " + cas.hp.toFixed(0)} · buddy closed to ${apart.toFixed(1)} m · final bleed ${cas.bleedRate.toFixed(2)}`);
+  }
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
@@ -376,3 +398,4 @@ if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();
 if (which === "all" || which === "medical") medicalProbe();
 if (which === "all" || which === "load") loadProbe();
+if (which === "all" || which === "rescue") rescueProbe();
