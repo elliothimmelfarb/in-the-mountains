@@ -335,29 +335,54 @@ export class World {
   private reconcileCivilians() {
     for (const u of this.sim.units) {
       if (u.faction !== "civilian") continue;
-      const casualty = !u.alive || (u.wounds && u.wounds.length > 0);
-      if (!casualty || u.casualtyCounted) continue;
-      u.casualtyCounted = true;
+      const wounded = !!u.wounds && u.wounds.length > 0;
       const killed = !u.alive;
-      const by = u.casualtyByFaction;
-      const vil = this.nearestVillage(u.pos, 700);
-      if (by === "us" || by === "ana") {
-        if (vil) {
-          vil.attitude = clamp(vil.attitude - (killed ? 14 : 6), -100, 100);
-          vil.sympathy = clamp(vil.sympathy + (killed ? 11 : 5), 0, 100);
-          vil.cooperation = clamp(vil.cooperation - (killed ? 8 : 3), 0, 100);
-        }
-        this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + (killed ? 2 : 0.5), 0, 100); // mobilization
-        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - (killed ? 3 : 1), 0, 100);
-        this.log(`CIVCAS — a civilian was ${killed ? "killed" : "wounded"}${vil ? ` near ${vil.name}` : ""}, attributed to our fires. The valley will not forget.`, "casualty");
-        this.interrupt("CIVCAS incident");
-      } else if (by === "insurgent") {
-        if (vil) {
-          vil.attitude = clamp(vil.attitude + (killed ? 3 : 1), -100, 100);
-          vil.sympathy = clamp(vil.sympathy - (killed ? 2 : 1), 0, 100);
-        }
-        this.log(`A civilian was ${killed ? "killed" : "hurt"} by enemy fire${vil ? ` near ${vil.name}` : ""}.`, "casualty");
+      if (!wounded && !killed) continue;
+      // Count the casualty once at its current tier; if a wounded civ later dies of
+      // wounds, escalate to the full kill backlash exactly once (the worst COIN event
+      // is no longer softened just because the man passed through a wounded state).
+      if (!u.casualtyCounted) {
+        u.casualtyCounted = true;
+        if (killed) u.casualtyKilledCounted = true;
+        this.applyCivcasBacklash(u, killed, false);
+      } else if (killed && !u.casualtyKilledCounted) {
+        u.casualtyKilledCounted = true;
+        this.applyCivcasBacklash(u, true, true); // the wound→kill delta
       }
+    }
+  }
+
+  /** Apply a CIVCAS to the strategic state: `killed` selects the magnitude, and
+   *  `delta` applies only the wound→kill escalation (a wounded civ that has died). */
+  private applyCivcasBacklash(u: Unit, killed: boolean, delta: boolean) {
+    const by = u.casualtyByFaction;
+    const vil = this.nearestVillage(u.pos, 700);
+    if (by === "us" || by === "ana") {
+      const att = delta ? 8 : killed ? 14 : 6;
+      const symp = delta ? 6 : killed ? 11 : 5;
+      const coop = delta ? 5 : killed ? 8 : 3;
+      const str = delta ? 1.5 : killed ? 2 : 0.5;
+      const conf = delta ? 2 : killed ? 3 : 1;
+      if (vil) {
+        vil.attitude = clamp(vil.attitude - att, -100, 100);
+        vil.sympathy = clamp(vil.sympathy + symp, 0, 100);
+        vil.cooperation = clamp(vil.cooperation - coop, 0, 100);
+      }
+      this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + str, 0, 80); // mobilization (cap matches tickInsurgency)
+      this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - conf, 0, 100);
+      this.log(
+        delta
+          ? `A wounded civilian${vil ? ` near ${vil.name}` : ""} has died of wounds attributed to our fires.`
+          : `CIVCAS — a civilian was ${killed ? "killed" : "wounded"}${vil ? ` near ${vil.name}` : ""}, attributed to our fires. The valley will not forget.`,
+        "casualty"
+      );
+      this.interrupt("CIVCAS incident");
+    } else if (by === "insurgent") {
+      if (vil) {
+        vil.attitude = clamp(vil.attitude + (delta ? 2 : killed ? 3 : 1), -100, 100);
+        vil.sympathy = clamp(vil.sympathy - (delta ? 1 : killed ? 2 : 1), 0, 100);
+      }
+      if (!delta) this.log(`A civilian was ${killed ? "killed" : "hurt"} by enemy fire${vil ? ` near ${vil.name}` : ""}.`, "casualty");
     }
   }
 

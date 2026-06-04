@@ -272,8 +272,29 @@ and the whole cell springs hold→engage at once — the signature valley opener
 is invisible (only an ICOM hint betrays it); the blast is attributed to the
 insurgents (so a civilian caught in it routes through #6).
 
-Controlled probe (squad walks onto a linked charge): **IED detonates at 53 s as the
-point man hits the kill zone**, cell **springs hold→engage**, point man wounded (a
-maimed lead man, not a wiped squad — US armor/cover + the L-cell then fights it out).
-Iterated twice: longer triggerman patience (so the charge initiates before the cell
-loses discipline) and trigger radius pulled inside the blast. tsc clean.
+Controlled probe (squad walks onto a linked charge): **IED detonates as the
+point man hits the kill zone**, cell **springs hold→engage**, ~3/9 casualties (a
+maimed lead man + the ensuing firefight, not a wiped squad — US armor/cover + the
+L-cell). Iterated twice: longer triggerman patience and trigger radius pulled inside
+the blast. tsc clean.
+
+### Adversarial review (wave 2, #5–#10 + fixes) — bugs found & fixed
+A second multi-agent review (which ran its own headless experiments) caught what the
+happy-path probes missed:
+- **BLOCKER — base-of-fire was dead code:** the assault logic switched on a brainState
+  (`"assaulting"`) that is never assigned (assault sets `"moving"`), so fire-and-maneuver
+  never ran and the casualty-drag guard against it was inverted. Rerouted through the
+  real assault path (`orderType === "assault"`). Deterministic probe: SAW `rof→suppress`
+  20/20, never bounds; rifleman bounds 20/20.
+- **MAJOR — civcas wound→kill undercount:** a civ wounded then killed by our fire only
+  ever counted as a *wound*. Now escalates to the full kill backlash once (probe: total
+  attitude −14). 
+- **MAJOR — medic broke the bleed invariant** (`bleedTQable > bleedRate` let a conscious
+  man self-cure an internal wound) → medic now clamps `bleedTQable ≤ bleedRate`.
+- **MAJOR — IEDs leaked into invisible phantom landmines** (never culled, not serialized)
+  → cull every tick (spent / dud-TTL 10 min / orphaned-cell), bounding the array.
+- **MAJOR — thermal saw but couldn't shoot:** `acquireTarget`/fire still gated on naked-eye
+  visibility → added `canPerceive` (thermal-aware) so a thermal-sight gunner engages what
+  it sees through foliage.
+- Plus evac guards and the strength-clamp unification. Final balance: no strands, no NaN,
+  smoke OK, thermal intact.
