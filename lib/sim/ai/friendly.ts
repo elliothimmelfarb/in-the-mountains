@@ -39,7 +39,7 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   // nearby and I'm the closest man who can reach him, I peel off to drag him to cover
   // and put a tourniquet on (the bleed model then stops his arterial bleed — #7). The
   // pinned and the assaulting stay in the fight; one buddy responds per casualty.
-  if (u.role !== "medic" && !pinned && u.brainState !== "assaulting" && u.brainState !== "moving_assault") {
+  if (u.role !== "medic" && !pinned && u.orderType !== "assault") {
     const cas = sim.nearestDownedNeedingHelp(u, 24);
     if (cas && sim.nearestAbleBuddy(cas) === u) {
       u.faceLock = null;
@@ -90,7 +90,30 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
 
   switch (u.brainState) {
     case "moving": {
-      // Traveling: the instant rounds are effective, get off the X — bound to the
+      // A deliberate ASSAULT is fire and maneuver, not a banzai walk (an assault
+      // order sets brainState "moving" + orderType "assault"): the automatic weapons
+      // set a BASE OF FIRE on the objective from cover while the riflemen and leaders
+      // BOUND onto it under that suppression.
+      if (u.orderType === "assault") {
+        if (AUTO_ROLES.has(u.role) && contact) {
+          u.rof = "suppress"; // hose the objective so the assault element can move
+          if (sim.terrain.coverAt(u.pos.x, u.pos.y) < 0.25 && u.path.length === 0) {
+            const cover = sim.findCover(u.pos, u.threatDir, 16);
+            if (cover && dist(cover, u.pos) > 2) sim.moveTo(u, cover);
+          } else {
+            u.path = [];
+            u.moving = false;
+            u.stance = sim.terrain.coverAt(u.pos.x, u.pos.y) > 0.3 ? "crouch" : "prone";
+          }
+          break; // the gunner holds the base of fire — he isn't closing on the objective
+        }
+        // assault element bounds onto the objective (gunner displaces forward on the lull)
+        if (!contact && u.rof === "suppress") u.rof = "free"; // stop hosing empty ground
+        if (u.orderTarget && u.path.length === 0 && dist(u.pos, u.orderTarget) > 3) sim.moveTo(u, u.orderTarget);
+        maybeReachedDest(u);
+        break;
+      }
+      // Plain move: the instant rounds are effective, get off the X — bound to the
       // nearest cover and return fire rather than walking through the kill zone.
       if ((underFire || u.visibleEnemyIds.length > 0) && u.path.length >= 0) {
         const cover = sim.findCover(u.pos, u.threatDir, 26);
@@ -114,26 +137,10 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
     }
     case "assaulting":
     case "moving_assault": {
-      // Fire and maneuver, not a banzai walk: the automatic weapons set a BASE OF
-      // FIRE and hose the objective from cover while the riflemen and leaders BOUND
-      // onto it under that suppression. The gunners hold; everyone else closes.
-      const baseOfFire = AUTO_ROLES.has(u.role);
-      if (baseOfFire && contact) {
-        u.rof = "suppress"; // pour it onto the objective so the assault can move
-        if (sim.terrain.coverAt(u.pos.x, u.pos.y) < 0.25 && u.path.length === 0) {
-          const cover = sim.findCover(u.pos, u.threatDir, 16);
-          if (cover && dist(cover, u.pos) > 2) sim.moveTo(u, cover);
-        } else {
-          u.path = [];
-          u.moving = false;
-          u.stance = sim.terrain.coverAt(u.pos.x, u.pos.y) > 0.3 ? "crouch" : "prone";
-        }
-        break;
-      }
-      // assault element: bound onto the objective, firing on the move
-      if (u.orderTarget && u.path.length === 0 && dist(u.pos, u.orderTarget) > 3) {
-        sim.moveTo(u, u.orderTarget);
-      }
+      // Legacy aliases — assault now flows through the "moving" case (orderType
+      // "assault"), which runs the base-of-fire / bounding split. Route there.
+      u.brainState = "moving";
+      if (u.orderTarget && u.path.length === 0 && dist(u.pos, u.orderTarget) > 3) sim.moveTo(u, u.orderTarget);
       maybeReachedDest(u);
       break;
     }
@@ -211,6 +218,9 @@ function medicTreat(sim: CombatSim, u: Unit, dt: number): boolean {
   u.stance = "crouch";
   const rate = (0.6 + u.medical * 1.6) * dt;
   patient.bleedRate = Math.max(0, patient.bleedRate - rate);
+  // keep the invariant bleedTQable <= bleedRate, so a partially-treated-then-abandoned
+  // mixed wound can't let a conscious casualty self-cure the internal (medic-only) part.
+  patient.bleedTQable = Math.min(patient.bleedTQable ?? 0, patient.bleedRate);
   if (patient.bleedRate <= 0.001) {
     for (const w of patient.wounds) w.treated = true;
     patient.bleedRate = 0;

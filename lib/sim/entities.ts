@@ -174,6 +174,9 @@ export interface Unit {
   /** Set once this civilian casualty has been counted in COIN backlash (serialized,
    *  so a save/load never double-counts it). */
   casualtyCounted?: boolean;
+  /** Set once the KILL tier has been counted — so a civ wounded then killed by our
+   *  fire escalates the backlash to the full kill magnitude exactly once. */
+  casualtyKilledCounted?: boolean;
 }
 
 export interface CivRoutineNode {

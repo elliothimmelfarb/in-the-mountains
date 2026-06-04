@@ -301,6 +301,20 @@ function coinProbe() {
   const civCas = w.sim.units.filter((u) => u.faction === "civilian" && (!u.alive || u.wounds.length > 0)).length;
   console.log(`  CIVCAS test: 8 US mortar rounds on ${vil.name} → ${civCas} civ casualties`);
   console.log(`    ${vil.name}: attitude ${b.att}→${vil.attitude} · sympathy ${b.sym}→${vil.sympathy} · enemyStrength ${b.str.toFixed(0)}→${w.state.enemyStrengthAbs.toFixed(1)} · higherConf ${b.hi}→${w.state.metrics.higherConfidence}`);
+
+  // (C) wound→kill escalation (review fix): a civ wounded then killed by our fire must
+  // escalate to the FULL kill backlash, not stay frozen at the wound tier.
+  const w3 = createWorld("coin-wk", 120);
+  w3.state.nextActivityAt = Infinity;
+  const civ = w3.sim.units.find((u) => u.faction === "civilian")!;
+  const vil2 = w3.nearestVillage(civ.pos, 700)!;
+  const a0 = vil2.attitude;
+  civ.wounds = [{ region: "leg", severity: 0.4, bleeding: 0, treated: false, timeM: 0 }]; civ.casualtyByFaction = "us"; civ.bleedRate = 0;
+  w3.tick(0.1); // reconcile counts the WOUND
+  const aWound = vil2.attitude;
+  civ.alive = false; // dies of wounds
+  w3.tick(0.1); // reconcile ESCALATES to kill
+  console.log(`  wound→kill: attitude ${a0} → ${aWound} (wound −${(a0 - aWound).toFixed(0)}) → ${vil2.attitude} (escalation −${(aWound - vil2.attitude).toFixed(0)}; total −${(a0 - vil2.attitude).toFixed(0)} should = full kill −14)`);
 }
 
 /** Probe 7 (medical, #7): IDENTICAL wound, fate as a function only of the AID
@@ -438,16 +452,61 @@ function iedProbe() {
     e.squadId = cellId; e.brainState = "ambush"; e.rof = "hold"; e.stance = "prone"; e.iedInit = true; sim.addUnit(e);
   }
   sim.plantIED(killPt, cellId);
-  let detonated = false, cellEngaged = false, detTick = -1;
+  let detonated = false, cellEngaged = false, detTick = -1, minDist = 999, cellEngagedTick = -1;
   for (let t = 0; t < 2500; t++) {
     sim.tick(0.1);
-    for (const u of squad) if (u.alive && u.conscious && u.path.length === 0 && u.brainState === "moving") sim.moveTo(u, killPt);
-    if (!detonated && sim.ieds.length === 0) { detonated = true; detTick = t; }
-    if (detonated && sim.units.some((e) => e.faction === "insurgent" && e.squadId === cellId && e.alive && e.brainState === "engage")) cellEngaged = true;
+    // walk the squad onto the charge; once it blows, let the combat AI react (don't
+    // force-march them into the kill zone, which would inflate casualties unrealistically)
+    for (const u of squad) if (u.alive && u.conscious && !detonated) { sim.moveTo(u, killPt); minDist = Math.min(minDist, Math.hypot(u.pos.x - killPt.x, u.pos.y - killPt.y)); }
+    if (!detonated && !sim.ieds.some((i) => i.armed)) { detonated = true; detTick = t; }
+    const eng = sim.units.some((e) => e.faction === "insurgent" && e.squadId === cellId && e.alive && e.brainState === "engage");
+    if (eng && cellEngagedTick < 0) cellEngagedTick = t;
+    if (detonated && eng) cellEngaged = true;
   }
   const usCas = squad.filter((u) => !u.alive || u.wounds.length > 0).length;
-  console.log(`  IED detonated: ${detonated}${detTick >= 0 ? ` (at ${(detTick / 10).toFixed(0)}s, as the point man hit the kill zone)` : ""}`);
+  console.log(`  point man closest approach to charge: ${minDist.toFixed(1)} m (trigger 8 m) · cell engaged at ${cellEngagedTick >= 0 ? (cellEngagedTick / 10).toFixed(0) + "s" : "never"}`);
+  console.log(`  IED detonated: ${detonated}${detTick >= 0 ? ` (at ${(detTick / 10).toFixed(0)}s)` : ""}`);
   console.log(`  ambush cell sprang hold→engage: ${cellEngaged} · US casualties in the kill zone: ${usCas}/${squad.length}`);
+}
+
+/** Probe (#9b base of fire, review fix): on an ASSAULT order the automatic weapon sets
+ *  a base of fire (rof→suppress, holds) while the rifleman bounds onto the objective.
+ *  Tested by driving friendlyBrain directly with forced contact, so the result is
+ *  deterministic and independent of terrain LOS. Previously DEAD code (the assault
+ *  brainState was never assigned). */
+function assaultProbe() {
+  const { CombatSim } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+  const { friendlyBrain } = require("../lib/sim/ai/friendly") as typeof import("../lib/sim/ai/friendly");
+  const { makeInsurgent } = require("../lib/sim/entities") as typeof import("../lib/sim/entities");
+  const w = createWorld("assault-probe", 90);
+  const sim = new CombatSim({ terrain: w.terrain, rng: w.rng, units: [], light: 1, weather: { visibilityM: 4000, wind: 0, label: "Clear" }, persistent: true });
+  const spot = w.copWorld();
+  const obj = { x: spot.x + 50, y: spot.y };
+  const enemy = makeInsurgent(w.rng.fork("e"), "fighter", obj, 0.6); enemy.alive = true; sim.addUnit(enemy);
+  const setup = (role: string) => {
+    const u = w.platoon.members.find((m) => m.role === role)!;
+    u.pos = { ...spot }; u.alive = true; u.hp = 100; u.conscious = true; u.composure = 0.8; u.suppression = 0; u.path = []; sim.addUnit(u);
+    u.orderType = "assault"; u.brainState = "moving"; u.orderTarget = { ...obj }; u.targetId = enemy.id;
+    return u;
+  };
+  const saw = setup("saw_gunner");
+  const rifle = setup("rifleman");
+  // drive the brain a few times with FORCED contact (set after any perception would run,
+  // since we call the brain directly — no sim.tick to overwrite visibleEnemyIds)
+  let sawSuppressTicks = 0, sawMoveOrders = 0, rifleMoveOrders = 0;
+  for (let t = 0; t < 20; t++) {
+    saw.visibleEnemyIds = [enemy.id]; rifle.visibleEnemyIds = [enemy.id];
+    saw.path = []; rifle.path = [];
+    friendlyBrain(sim, saw, 0.1);
+    friendlyBrain(sim, rifle, 0.1);
+    if (saw.rof === "suppress") sawSuppressTicks++;
+    if (saw.path.length > 0 && saw.pathGoal && Math.hypot(saw.pathGoal.x - obj.x, saw.pathGoal.y - obj.y) < 5) sawMoveOrders++;
+    if (rifle.path.length > 0 && rifle.pathGoal && Math.hypot(rifle.pathGoal.x - obj.x, rifle.pathGoal.y - obj.y) < 5) rifleMoveOrders++;
+  }
+  console.log("\n=== #9b BASE OF FIRE (assault, review fix): SAW suppresses & holds, rifleman bounds ===");
+  console.log(`  SAW gunner (auto): rof→suppress on ${sawSuppressTicks}/20 ticks, bound-onto-objective orders ${sawMoveOrders}/20 (holds = low)`);
+  console.log(`  rifleman: bound-onto-objective orders ${rifleMoveOrders}/20 (bounds = high)`);
+  console.log(`  ⇒ ${sawSuppressTicks >= 18 && sawMoveOrders === 0 && rifleMoveOrders >= 18 ? "FIRE & MANEUVER works (was dead code)" : "FAILED"}`);
 }
 
 if (which === "all" || which === "ballistics") ballisticsProbe();
@@ -455,6 +514,7 @@ if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
 if (which === "all" || which === "saveload") saveloadProbe();
 if (which === "all" || which === "ied") iedProbe();
+if (which === "all" || which === "assault") assaultProbe();
 if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();

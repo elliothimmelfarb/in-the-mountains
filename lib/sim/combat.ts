@@ -117,7 +117,13 @@ export interface IED {
   blastRadius: number;
   armed: boolean;
   cellSquadId?: string; // the ambush element this initiates
+  plantedAtS: number; // sim time it was laid (for the dud timeout)
 }
+
+/** An armed IED the patrol never walked onto goes "dud" after this long — and is
+ *  culled the moment its ambush cell is gone — so charges never leak nor become
+ *  invisible weeks-old phantom landmines. */
+const IED_TTL_S = 600;
 
 export type CombatOutcome = "ongoing" | "us_victory" | "us_withdraw" | "us_destroyed" | "stalemate";
 
@@ -517,7 +523,7 @@ export class CombatSim {
    *  scan is bounded. */
   private consciousBuddyNear(u: Unit, r: number): boolean {
     for (const o of this.units) {
-      if (o === u || !o.alive || !o.conscious || o.faction !== u.faction) continue;
+      if (o === u || !o.alive || !o.conscious || o.evac || o.faction !== u.faction) continue;
       if (o.bleedRate > 0.5) continue; // a fellow casualty can't work a tourniquet
       if (dist(o.pos, u.pos) <= r) return true;
     }
@@ -604,6 +610,18 @@ export class CombatSim {
       targetHeight: unitHeight(target),
       smoke: this.smoke,
     });
+  }
+
+  /** Whether `observer` can perceive (and thus acquire/engage) a target through this
+   *  LOS — the naked eye when `los.visible`, plus a thermal-equipped observer who
+   *  reads heat through foliage (but not terrain defilade). Keeps the detect → acquire
+   *  → fire pipeline consistent, so a thermal-sight gunner can shoot what it sees. */
+  canPerceive(observer: Unit, los: LOSResult): boolean {
+    if (los.visible) return true;
+    if (observer.faction !== "us" || !THERMAL_ROLES.has(observer.role)) return false;
+    if (los.terrainBlocked || los.terrainExposure == null) return false;
+    const tConc = clamp01(0.5 * (los.smokeConceal ?? 0) + 0.3 * (los.vegConceal ?? 0));
+    return clamp01(los.terrainExposure * (1 - tConc)) > 0.04;
   }
 
   // ---------------------------------------------------------------- movement
@@ -816,7 +834,7 @@ export class CombatSim {
     } else if (target && target.alive && !target.evac) {
       los = this.los(u, target);
       const r = los.rangeM;
-      if (!los.visible || r > weapon.maxRange) {
+      if (!this.canPerceive(u, los) || r > weapon.maxRange) {
         u.targetId = null;
         return;
       }
@@ -1229,6 +1247,7 @@ export class CombatSim {
       blastRadius: opts.blastRadius ?? 14,
       armed: true,
       cellSquadId,
+      plantedAtS: this.timeS,
     };
     this.ieds.push(ied);
     return ied;
@@ -1237,7 +1256,7 @@ export class CombatSim {
   /** Trigger any armed IED whose kill zone now holds a friendly: it detonates (a big
    *  command/victim blast) and initiates its linked ambush — the signature opener. */
   private stepIeds() {
-    let fired = false;
+    if (this.ieds.length === 0) return;
     for (const ied of this.ieds) {
       if (!ied.armed) continue;
       const inKill = this.units.some(
@@ -1245,7 +1264,6 @@ export class CombatSim {
       );
       if (!inKill) continue;
       ied.armed = false;
-      fired = true;
       this.addLog(`IED! Command-detonated blast — CONTACT!`, "contact");
       // a big buried charge, attributed to the insurgents (frag → civcas-attributable)
       const p: Projectile = {
@@ -1269,7 +1287,17 @@ export class CombatSim {
         }
       }
     }
-    if (fired) this.ieds = this.ieds.filter((i) => i.armed);
+    // Cull every tick: spent charges, duds the patrol never reached, and — crucially —
+    // any armed charge whose ambush cell is gone (wiped or exfil'd), so a forgotten IED
+    // never lingers as an invisible phantom landmine nor leaks onto the per-tick scan.
+    this.ieds = this.ieds.filter((ied) => {
+      if (!ied.armed) return false;
+      if (this.timeS - ied.plantedAtS > IED_TTL_S) return false;
+      if (ied.cellSquadId &&
+          !this.units.some((e) => e.faction === "insurgent" && e.squadId === ied.cellSquadId && e.alive && !e.evac))
+        return false;
+      return true;
+    });
   }
 
   private stepFireMissions(dt: number) {
@@ -1470,7 +1498,7 @@ export class CombatSim {
       const r = dist(u.pos, e.pos);
       if (r > weapon.maxRange) continue;
       const los = this.los(u, e);
-      if (!los.visible) continue;
+      if (!this.canPerceive(u, los)) continue; // thermal can engage what it sees through foliage
       // Prefer close, exposed, and dangerous targets (MG/RPG gunners first).
       let threat = 1;
       const ew = this.weaponOf(e);
