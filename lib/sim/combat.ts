@@ -441,6 +441,8 @@ export class CombatSim {
 
     // suppression decays
     if (u.suppression > 0) u.suppression = Math.max(0, u.suppression - dt * 0.28);
+    // acute buddy-down shock fades over a few seconds
+    if (u.shaken && u.shaken > 0) u.shaken = Math.max(0, u.shaken - dt);
 
     // bleeding, with buddy-aid clotting (tourniquets / IFAK) slowing it over time
     if (u.alive && u.bleedRate > 0) {
@@ -951,6 +953,7 @@ export class CombatSim {
   }
 
   private onWound(u: Unit) {
+    this.casualtyShock(u, false);
     if (u.faction === "us" || u.faction === "ana") {
       if (this.rng.chance(0.5))
         this.addLog(`${this.shortName(u)} is hit — "MAN DOWN!"`, "casualty");
@@ -960,14 +963,60 @@ export class CombatSim {
   }
 
   private onDeath(u: Unit, cause: string) {
+    this.casualtyShock(u, true);
     if (u.faction === "us" || u.faction === "ana") {
       this.addLog(`${this.rankName(u)} is KIA (${cause}).`, "kia");
+      if (u.isLeader) this.promoteSuccessor(u);
     } else if (u.faction === "civilian") {
       this.addLog(`A civilian has been killed.`, "kia");
     } else {
       this.addLog(`Enemy fighter down.`, "contact");
       this.revealed.delete(u.id);
+      if (u.isLeader) this.promoteSuccessor(u);
     }
+  }
+
+  /**
+   * Seeing a buddy hit beside you is a blow to the nerve, not just the radio log.
+   * A casualty drops the composure of nearby friendlies (worse for a kill, worse
+   * inside the same squad, worst when it's the leader who goes down), gives them a
+   * few seconds of the shakes, and makes them flinch off their guns. Recovery is
+   * quick when a leader is near (handled in updateMorale), so a single loss steadies
+   * but a string of them can break an element — exactly how real squads come apart.
+   */
+  private casualtyShock(victim: Unit, killed: boolean) {
+    if (victim.faction === "civilian") return;
+    const base = killed ? 0.18 : 0.1;
+    for (const o of this.units) {
+      if (o === victim || !o.alive || !o.conscious || o.faction !== victim.faction) continue;
+      const d = dist(o.pos, victim.pos);
+      const sameSquad = !!victim.squadId && o.squadId === victim.squadId;
+      if (d > 20 && !sameSquad) continue;
+      let amt = base * (d <= 20 ? 1 - d / 20 : 0) + (sameSquad ? base * 0.5 : 0);
+      if (victim.isLeader) amt *= 1.5; // losing the man in charge hits hardest
+      if (amt <= 0) continue;
+      o.composure = clamp01(o.composure - amt);
+      o.shaken = Math.max(o.shaken ?? 0, killed ? 3.5 : 2);
+      o.suppression = clamp01(o.suppression + amt * 0.3); // the instinct to get small
+      o.fireCooldown = Math.max(o.fireCooldown, killed ? 0.6 : 0.3); // a brief flinch off the gun
+    }
+  }
+
+  /** A squad whose leader is down promotes its steadiest survivor, so it isn't left
+   *  leaderless (which would strip the leadership composure bonus and squad C2). */
+  private promoteSuccessor(victim: Unit) {
+    if (!victim.squadId) return;
+    const mates = this.units.filter(
+      (o) => o.alive && o.conscious && o.faction === victim.faction && o.squadId === victim.squadId && o !== victim
+    );
+    if (mates.length === 0 || mates.some((o) => o.isLeader)) return; // still led
+    let best = mates[0];
+    const score = (u: Unit) => u.leadership + u.experience * 0.5;
+    for (const o of mates) if (score(o) > score(best)) best = o;
+    best.isLeader = true;
+    best.leadership = Math.max(best.leadership, 0.5);
+    if (best.faction === "us" || best.faction === "ana")
+      this.addLog(`${this.shortName(best)} takes charge — "On me!"`, "radio");
   }
 
   shortName(u: Unit): string {

@@ -98,6 +98,7 @@ function engagementProbe() {
   let peakSuppSum = 0, meanSuppSum = 0, suppSamples = 0;
   let usKIA = 0, usWIA = 0, enKIA = 0, civCas = 0, contacts = 0;
   let roundsUS = 0, roundsEnemy = 0, fmUsed = 0;
+  let minCompSum = 0, minCompCount = 0, successions = 0;
 
   for (let s = 0; s < SEEDS; s++) {
     const world = createWorld(`probe-eng-${s}`, 90);
@@ -111,7 +112,10 @@ function engagementProbe() {
     world.formPatrol(ids, [{ cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) }, { cx: v.cx, cy: v.cy }], "presence", "tactical");
     state.nextActivityAt = 0;
 
-    let firstDet = -1, sawContact = false;
+    // who is a leader at the start (to detect battlefield succession)
+    const wasLeader = new Set(ids.filter((id) => sim.unit(id)?.isLeader));
+
+    let firstDet = -1, sawContact = false, minComp = 1;
     const ammo0 = sim.ammoExpended;
     const ticks = MINUTES * 600;
     for (let t = 0; t < ticks && !state.ended; t++) {
@@ -124,16 +128,19 @@ function engagementProbe() {
           if (u && u.alive && u.visibleEnemyIds.length > 0) { firstDet = t; break; }
         }
       }
-      // suppression telemetry on the patrol, sampled every 2 s while in contact
+      // suppression + composure telemetry on the patrol, sampled every 2 s while in contact
       if (sawContact && t % 20 === 0) {
         let peak = 0, sum = 0, n = 0;
         for (const id of ids) {
           const u = sim.unit(id);
-          if (u && u.alive) { peak = Math.max(peak, u.suppression); sum += u.suppression; n++; }
+          if (u && u.alive) { peak = Math.max(peak, u.suppression); sum += u.suppression; n++; minComp = Math.min(minComp, u.composure); }
         }
         if (n) { peakSuppSum += peak; meanSuppSum += sum / n; suppSamples++; }
       }
     }
+    // any patrolman now leading who wasn't before = a battlefield promotion
+    for (const id of ids) { const u = sim.unit(id); if (u && u.alive && u.isLeader && !wasLeader.has(id)) successions++; }
+    if (sawContact) { minCompSum += minComp; minCompCount++; }
     if (sawContact) contacts++;
     if (firstDet >= 0) { firstDetTickSum += firstDet; firstDetCount++; }
     usKIA += world.platoon.members.filter((m) => !m.alive).length;
@@ -149,6 +156,7 @@ function engagementProbe() {
   console.log(`  Contacts: ${contacts}/${SEEDS}`);
   console.log(`  Time to first detection: ${firstDetCount ? (firstDetTickSum / firstDetCount / 600).toFixed(2) : "n/a"} game-min (over ${firstDetCount} contacts)`);
   console.log(`  Suppression on patrol while in contact: mean ${(meanSuppSum / Math.max(1, suppSamples)).toFixed(3)} · peak-of-element ${(peakSuppSum / Math.max(1, suppSamples)).toFixed(3)}`);
+  console.log(`  Lowest patrol composure during contact (avg of run-mins): ${(minCompSum / Math.max(1, minCompCount)).toFixed(3)} · NCO successions: ${successions}`);
   console.log(`  Casualties: US KIA ${(usKIA / SEEDS).toFixed(2)} · US WIA ${(usWIA / SEEDS).toFixed(2)} · enemy ${(enKIA / SEEDS).toFixed(2)} · civ ${(civCas / SEEDS).toFixed(2)}`);
   console.log(`  Rounds expended (both sides): ${(roundsUS / SEEDS).toFixed(0)}/contact-run · fire missions ${(fmUsed / SEEDS).toFixed(2)}`);
 }

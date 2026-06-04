@@ -113,6 +113,7 @@ export interface Unit {
   conscious: boolean;
   composure: number; // 0..1 morale-in-the-moment
   suppression: number; // 0..1, decays
+  shaken?: number; // seconds of acute shock after a buddy is hit nearby (shaky hands, flinch)
   fatigue: number; // 0..1, accrues with movement/altitude
   wounds: Wound[];
   bleedRate: number; // total hp/sec

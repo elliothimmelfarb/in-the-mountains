@@ -110,6 +110,12 @@ Valley fights are now bloodier both ways (the realism): a light 5.56 squad can't
 contact at range, so fights drag and the platoon takes attrition — raising the value
 of the 240/marksman/mortars/CAS. Platoon still very lethal (enemy 4.08). No strands.
 
+Stable 20-seed read (#1+wind): KIA 0.65 · WIA 1.15 · enemy 2.40 · 1/20 lingering
+(pre-existing rare stall — terminal-energy/wind don't touch pathfinding). This is the
+worst-case test: an all-5.56 squad, 40 min sustained max-heat contact, **no fire
+support called and no 7.62 on the patrol** — i.e. exactly the situation #1 makes
+costly and that the player's 240/mortars/CAS (unused by the harness) exist to answer.
+
 ### Bonus — Wind as a vector — `world.windVector()`, `spawnProjectile(wind)`, smoke drift
 Wind is now an effective vector: prevailing synoptic direction + a diurnal valley
 flow (anabatic up-valley by day, katabatic down-valley at night), driving bullet
@@ -139,3 +145,17 @@ Perception probe — per-moment detect p (naked / NVG / **thermal**):
 
 A fighter in the trees at night reads ~8% / ~6 s to the naked eye but ~41% / ~1.2 s
 on thermal. tsc clean; smoke OK.
+
+### #3 Buddy-down / leader-loss shock + NCO succession — `combat.casualtyShock`, `promoteSuccessor`
+A casualty is no longer just a log line. When a man is hit, nearby friendlies (and
+the whole same-squad) take a composure hit + a few seconds of the shakes (`shaken`
+→ ×1.4 dispersion) and a brief flinch off their guns — worse for a kill, worse
+inside the fire team, worst when it's the leader. A squad that loses every leader
+promotes its steadiest survivor (fixes the permanently-leaderless-squad bug). New
+`shaken` field; RNG-neutral, so cleanly A/B-able.
+
+Engagement A/B (10 seeds, same RNG): lowest patrol composure in contact 0.404 →
+**0.372** (shock fires), recoverable when a leader is near. Iterated: the first cut
+spiraled (a 1 s squad-wide fire-freeze per kill → KIA 0.20→0.40); softening the
+flinch to 0.6 s kept the morale dip but removed the spiral (KIA back to baseline,
+WIA ~0.9). Succession is rare-by-design (only a fully-decapitated squad). tsc clean.

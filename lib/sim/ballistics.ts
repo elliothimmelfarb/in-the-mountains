@@ -65,6 +65,8 @@ export function dispersionSigmaM(
   if (shooter.moving) moa *= 1.8;
   // Composure (fear shakes the hands)
   moa *= 1 + (1 - shooter.composure) * 0.8;
+  // Acute shock — a buddy just went down beside you; the hands shake for a few seconds.
+  if (shooter.shaken && shooter.shaken > 0) moa *= 1.4;
   // Aiming bonus (settled shot)
   moa *= 1 - shooter.aimProgress * 0.35;
   // Beyond effective range accuracy degrades faster
