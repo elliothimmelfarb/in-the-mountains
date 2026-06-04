@@ -76,3 +76,22 @@ as continuous as the site allows.
 ## Related
 
 - 002 (gate bearing vs villages), 003 (interior assembly), 005 (coarse pathfinding at the gate).
+
+## Resolution (2026-06-04)
+
+Fixed in `lib/sim/terrain.ts`:
+
+- **The 8 gate directions are now scored, not computed.** `buildCop` evaluates all 8 compass
+  headings on the raw ground and requires a passable, gentle apron out to `R+7` as a hard term
+  (`apron`), so the gate can never open onto a cliff. (It also folds in AO/road bearing — see 002.)
+- **A benched ECP apron** (`stampGateApron`, ≥7 cells wide, `R-3..R+8`, graded flat) guarantees the
+  gate and its immediate egress are walkable regardless of how the downhill road later falls — the
+  root cause was the access road *re-steepening the gate cell* after `buildCop` had validated it, which
+  showed up only on diagonal gates (a narrow diagonal tread reads steep at its edges under the
+  forward-difference slope). The downhill `descendTrack` now starts at the apron's **far end**.
+- **`gateOutside` is the far end of that flat apron** (a found passable cell ≈`R+5`), not a fixed `R+4`.
+- A **`perimeterBenchFrac`** term in `placeVillagesAndCOP` rewards benches whose wire can be fully
+  ringed, so the ring road is continuous.
+
+Verified — `npx tsx scripts/copaudit.ts 16`: **egress blocked 0/16** (was `ridge-11` BLOCK), **perimeter
+ring open 98%** avg (was 90%). `scripts/smoke.ts`: gate passable, wall sealed.

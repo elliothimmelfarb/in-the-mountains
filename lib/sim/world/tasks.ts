@@ -34,7 +34,9 @@ export function tickTasks(w: World, dt: number) {
         t.timer -= dt;
         const muster = w.musterWorld();
         for (const m of members) {
-          if (m.path.length === 0 && dist(m.pos, muster) > 12) w.sim.moveTo(m, jitter(w, muster, 6));
+          // Route to the muster yard around solid buildings (issue 003): a straight
+          // moveTo could loop forever against a now-solid b-hut; walkTo paths around it.
+          if (m.path.length === 0 && dist(m.pos, muster) > 12) w.sim.walkTo(m, jitter(w, muster, 6));
         }
         if (t.timer <= 0) {
           t.phase = "moving";

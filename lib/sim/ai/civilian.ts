@@ -55,7 +55,9 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     }
     if (len(dir) < 0.1) dir = { x: 0, y: 1 };
     const dest = add(u.pos, scale(dir, 60));
-    sim.moveTo(u, dest);
+    // Flee to passable ground off the wire, routing around it if the straight bolt
+    // is blocked — a panicked villager runs for home and dead ground, not into the HESCO.
+    sim.civMoveTo(u, dest);
     u.stance = "stand";
     return;
   }
@@ -64,7 +66,7 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   if (u.path.length === 0 && u.routine && u.routine.length > 0) {
     if (sim.rng.chance(0.01)) {
       const node = sim.rng.pick(u.routine);
-      sim.moveTo(u, node.target);
+      sim.civMoveTo(u, node.target);
     }
   }
 }

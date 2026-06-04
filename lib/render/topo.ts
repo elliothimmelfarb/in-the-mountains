@@ -17,60 +17,85 @@ export function screenToWorld(cam: Camera, sx: number, sy: number): [number, num
   return [(sx - cam.vw / 2) / cam.ppm + cam.cx, (sy - cam.vh / 2) / cam.ppm + cam.cy];
 }
 
-/** Base landcover color (RGB) before hillshade. Muted, map-like. */
+/** Base landcover color (RGB) before hillshade/texture. A richer, field-guide palette:
+ *  cool irrigated greens on the floor, dusty holly-scrub and ochre rock up the slopes,
+ *  deep cedar forest in the draws, tan HESCO and mud-brown qalats. */
 function landColor(l: Land): [number, number, number] {
   switch (l) {
     case Land.River:
-      return [60, 92, 104];
+      return [64, 104, 122];
     case Land.Marsh:
-      return [86, 104, 86];
+      return [92, 116, 84];
     case Land.DryWash:
-      return [124, 116, 96];
+      return [146, 134, 104];
     case Land.Cropland:
-      return [120, 124, 70];
+      return [138, 152, 78]; // bright irrigated green-gold
     case Land.Terrace:
-      return [112, 120, 72];
+      return [124, 142, 76];
     case Land.TerraceWall:
-      return [120, 104, 80];
+      return [132, 110, 80];
     case Land.Orchard:
-      return [78, 96, 54];
+      return [82, 110, 56]; // orchard canopy
     case Land.Meadow:
-      return [124, 130, 82];
+      return [142, 150, 92];
     case Land.Grass:
-      return [128, 126, 84];
+      return [144, 140, 90];
     case Land.Scrub:
-      return [120, 112, 72];
+      return [132, 122, 78]; // dusty holly-oak scrub
     case Land.Forest:
-      return [58, 78, 50];
+      return [50, 76, 48]; // deep cedar
     case Land.Scree:
-      return [138, 130, 116];
+      return [156, 146, 128];
     case Land.Boulders:
-      return [128, 122, 112];
+      return [140, 132, 120];
     case Land.Rock:
-      return [150, 144, 132];
+      return [164, 156, 142];
     case Land.Cliff:
-      return [108, 100, 92];
+      return [118, 108, 98];
     case Land.Compound:
-      return [150, 120, 86];
+      return [166, 134, 94];
     case Land.CompoundWall:
-      return [128, 98, 66];
+      return [140, 106, 70];
     case Land.Cemetery:
-      return [134, 128, 112];
+      return [146, 138, 120];
     case Land.Road:
-      return [110, 100, 84];
+      return [122, 110, 92];
     case Land.Trail:
-      return [128, 116, 92];
+      return [140, 126, 100];
     case Land.Footbridge:
-      return [120, 96, 70];
+      return [128, 102, 74];
     case Land.Hesco:
-      return [150, 134, 96]; // tan bastion baskets
+      return [168, 150, 104]; // tan bastion baskets
     case Land.Structure:
-      return [96, 90, 80]; // dark roofs / b-huts
+      return [104, 96, 84]; // dark roofs / b-huts
     case Land.Gravel:
-      return [120, 114, 104]; // graded gravel pad
+      return [134, 126, 114]; // graded gravel pad
     default:
-      return [120, 116, 90];
+      return [128, 124, 96];
   }
+}
+
+/** Fast hash-based value noise (no allocation) for per-pixel texture in the bake. */
+function hash2(x: number, y: number): number {
+  let h = (x | 0) * 374761393 + (y | 0) * 668265263;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+function vnoise(x: number, y: number): number {
+  const xi = Math.floor(x);
+  const yi = Math.floor(y);
+  const xf = x - xi;
+  const yf = y - yi;
+  const u = xf * xf * (3 - 2 * xf);
+  const v = yf * yf * (3 - 2 * yf);
+  const a = hash2(xi, yi);
+  const b = hash2(xi + 1, yi);
+  const c = hash2(xi, yi + 1);
+  const d = hash2(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+function fbm2(x: number, y: number): number {
+  return vnoise(x, y) * 0.6 + vnoise(x * 2.13, y * 2.13) * 0.27 + vnoise(x * 4.7, y * 4.7) * 0.13;
 }
 
 interface Baked {
@@ -100,45 +125,148 @@ export function bakeTerrain(terrain: Terrain): Baked {
   const img = ctx.createImageData(W, W);
   const data = img.data;
 
-  // light from the NW, classic shaded relief
-  const lx = -0.6;
-  const ly = -0.6;
-  const lz = 0.52;
-  const ll = Math.hypot(lx, ly, lz);
-  const lnx = lx / ll;
-  const lny = ly / ll;
-  const lnz = lz / ll;
+  // KEY light from the NW (classic shaded relief) + a soft SE FILL so shadowed slopes
+  // keep form instead of going dead-black — like a hazy mountain afternoon.
+  const norm3 = (x: number, y: number, z: number) => {
+    const l = Math.hypot(x, y, z) || 1;
+    return [x / l, y / l, z / l] as const;
+  };
+  const [kx, ky, kz] = norm3(-0.55, -0.62, 0.56);
+  const [fx, fy, fz] = norm3(0.6, 0.55, 0.35);
 
   const range = terrain.maxElev - terrain.minElev || 1;
   const cs = terrain.cellSize;
+  const snowLine = terrain.minElev + range * 0.68; // permanent snow on the high crests
 
   for (let py = 0; py < W; py++) {
     const wy = (py / pxPerCell) * cs;
     for (let px = 0; px < W; px++) {
       const wx = (px / pxPerCell) * cs;
       const e = terrain.elevAt(wx, wy);
-      // gradient for hillshade
+      // gradient → surface normal (central-ish difference, in meters)
       const eX = terrain.elevAt(wx + cs, wy);
       const eY = terrain.elevAt(wx, wy + cs);
       const dzx = (eX - e) / cs;
       const dzy = (eY - e) / cs;
-      // surface normal
+      const slope = Math.hypot(dzx, dzy);
       const nl = Math.hypot(dzx, dzy, 1);
       const nx = -dzx / nl;
       const ny = -dzy / nl;
       const nz = 1 / nl;
-      let shade = nx * lnx + ny * lny + nz * lnz;
-      shade = clamp01(shade * 1.05 + 0.12);
 
-      // altitude tint: higher = lighter/cooler
+      // two-light relief + a sky-ambient term that doubles as cheap ambient occlusion
+      // (flat ground catches sky → bright; steep faces see less sky → darker).
+      const key = Math.max(0, nx * kx + ny * ky + nz * kz);
+      const fill = Math.max(0, nx * fx + ny * fy + nz * fz) * 0.34;
+      const sky = 0.5 + 0.5 * nz; // 1 on flat, →0.5 on vertical
+      let shade = key * 1.05 + fill + sky * 0.24;
+      shade = clamp01(shade * 0.94 + 0.02);
+
       const alt = clamp01((e - terrain.minElev) / range);
-      const [r, g, b] = landColor(terrain.landAt(wx, wy));
-      const sh = 0.42 + 0.78 * shade;
-      const cool = 1 + alt * 0.12;
+      const land = terrain.landAt(wx, wy);
+      let [r, g, b] = landColor(land);
+
+      // ---- per-landcover procedural texture (world-space, so it pans with the map) ----
+      const nxw = wx * 0.08;
+      const nyw = wy * 0.08;
+      let tex = 1; // brightness multiplier
+      switch (land) {
+        case Land.Forest:
+        case Land.Orchard: {
+          // dappled canopy: clumps of light & shadow, a touch bluer in the deep shade
+          const m = fbm2(nxw * 0.7, nyw * 0.7);
+          tex = 0.78 + m * 0.5;
+          if (land === Land.Orchard) {
+            // planted rows
+            const rows = 0.5 + 0.5 * Math.sin(wx * 0.6 + wy * 0.18);
+            tex *= 0.88 + 0.18 * rows;
+          }
+          g += (m - 0.5) * 14;
+          break;
+        }
+        case Land.Cropland:
+        case Land.Terrace: {
+          // patchwork fields (low-freq tint) + furrows along the contour
+          const field = fbm2(nxw * 0.25, nyw * 0.25);
+          r += (field - 0.5) * 34;
+          g += (field - 0.5) * 26;
+          const along = dzx === 0 && dzy === 0 ? wx * 0.5 : (wx * -dzy + wy * dzx) * 1.1;
+          tex = 0.9 + 0.12 * (0.5 + 0.5 * Math.sin(along));
+          break;
+        }
+        case Land.Scrub:
+        case Land.Grass:
+        case Land.Meadow:
+        case Land.DryWash: {
+          tex = 0.86 + fbm2(nxw, nyw) * 0.34;
+          break;
+        }
+        case Land.Scree:
+        case Land.Boulders:
+        case Land.Rock:
+        case Land.Cliff: {
+          // grainy rock speckle
+          const s = vnoise(wx * 1.3, wy * 1.3);
+          tex = 0.8 + s * 0.46;
+          break;
+        }
+        case Land.River: {
+          // flowing water: brighter ripples crossing the channel, glints
+          const ripple = 0.5 + 0.5 * Math.sin(wy * 0.7 + fbm2(nxw, nyw) * 6);
+          tex = 0.82 + ripple * 0.4;
+          b += 14;
+          break;
+        }
+        case Land.Compound:
+        case Land.Cemetery: {
+          tex = 0.86 + fbm2(nxw * 1.4, nyw * 1.4) * 0.3;
+          break;
+        }
+        default:
+          tex = 0.94 + fbm2(nxw, nyw) * 0.12;
+      }
+
+      // ---- snow on the high crests (low-slope, high ground) ----
+      let snow = 0;
+      if (e > snowLine && land !== Land.River) {
+        snow = clamp01((e - snowLine) / (range * 0.24)) * clamp01(1 - slope * 0.8);
+      }
+      if (snow > 0) {
+        r = r * (1 - snow) + 236 * snow;
+        g = g * (1 - snow) + 240 * snow;
+        b = b * (1 - snow) + 250 * snow;
+        tex = tex * (1 - snow * 0.7) + 1.0 * snow * 0.7;
+      }
+
+      // ---- saturation lift (push colour away from grey so the valley reads vivid,
+      //      not muddy military-grey) — except snow, which stays neutral white ----
+      if (snow < 0.5) {
+        const grey = (r + g + b) / 3;
+        const sat = 1.22;
+        r = grey + (r - grey) * sat;
+        g = grey + (g - grey) * sat;
+        b = grey + (b - grey) * sat;
+      }
+
+      // ---- compose: texture × relief (high contrast), then atmospheric grading ----
+      const sh = (0.34 + 0.95 * shade) * tex;
+      // altitude grading: low ground warm, high ground cool & clear
+      const warm = 1 - alt * 0.08;
+      const cool = 1 + alt * 0.13;
+      let R = r * sh * warm;
+      let G = g * sh;
+      let B = b * sh * cool;
+      // light valley haze: just enough atmospheric depth in the deepest ground without
+      // graying out the mid-tones.
+      const haze = clamp01(0.1 - alt * 0.16) * (land === Land.River ? 0.3 : 1);
+      R = R * (1 - haze) + 164 * haze;
+      G = G * (1 - haze) + 170 * haze;
+      B = B * (1 - haze) + 166 * haze;
+
       const o = (py * W + px) * 4;
-      data[o] = Math.min(255, r * sh * (1 + alt * 0.18));
-      data[o + 1] = Math.min(255, g * sh * cool);
-      data[o + 2] = Math.min(255, b * sh * (1 + alt * 0.22));
+      data[o] = R < 0 ? 0 : R > 255 ? 255 : R;
+      data[o + 1] = G < 0 ? 0 : G > 255 ? 255 : G;
+      data[o + 2] = B < 0 ? 0 : B > 255 ? 255 : B;
       data[o + 3] = 255;
     }
   }

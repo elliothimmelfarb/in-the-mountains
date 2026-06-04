@@ -54,3 +54,19 @@ an issue rather than just done:
 ## Related
 
 - 003 (assembly deadlock — gets more acute, and the A* assembly fix becomes mandatory, if buildings go solid).
+
+## Resolution (2026-06-04)
+
+`Land.Structure` is now impassable (`passableCell` in `lib/sim/terrain.ts`). The blast radius was
+handled exactly as this issue anticipated:
+
+- **(b) garrison seats relocated to building edges/doorways** — `terrain.buildingSeat` (yard-side, see 003),
+  used by both `world/garrison.ts` and `world/create.ts` (billets).
+- **(c) the assembly-phase A* fix** — `sim.walkTo` for assembly *and* garrison movement, so soldiers
+  route around the now-solid b-huts instead of pinning on them (see 003).
+- **(a) interior lanes stay clear** — the muster→gate axis is open ground (buildings sit behind/beside
+  the centre), and the interior gravel lane is preserved.
+
+Verified — `copaudit.ts`: **structures solid 16/16** (`solid? = Y`), interior still **77–81% open**.
+`movement-diag.ts` blocked-ticks *dropped* vs. the passable-building baseline (the yard-side seats more
+than paid for the solidity). `balance.ts`: no strandings, combat intact.

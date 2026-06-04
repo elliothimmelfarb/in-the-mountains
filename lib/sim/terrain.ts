@@ -1,5 +1,5 @@
 import { RNG, ValueNoise, clamp, clamp01, smoothstep, lerp } from "./rng";
-import { Vec2, fromAngle, angle, angleDiff } from "./vec";
+import { Vec2, fromAngle, angle, angleDiff, norm, dot } from "./vec";
 
 /** Landcover classes. Drive cover (stops bullets), concealment (blocks sight),
  *  movement cost, and rendering tint. At 5 m fidelity the valley is resolved
@@ -259,6 +259,7 @@ export class Terrain {
     this.classifyLand(rng, draws);
     this.placeVillagesAndCOP(rng);
     this.carveRoadsAndTrails(rng);
+    this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale
     this.deriveCoverConcealment();
     this.nameFeatures(rng);
   }
@@ -464,6 +465,9 @@ export class Terrain {
     // rewards local prominence (commanding terrain) and a MODERATE rise above the
     // floor — high enough to overwatch, low and close enough that the outpost can
     // actually be resupplied by road — while penalizing steep ground and distance.
+    // The perimeter radius the COP will use (kept in sync with buildCop) so siting
+    // can evaluate the actual apron the wire and its ring-road will occupy.
+    const R0 = clamp(Math.round(85 / this.cellSize), 12, 20);
     let best: { cx: number; cy: number; score: number } | null = null;
     for (let tries = 0; tries < 1600; tries++) {
       const y = rng.int(size * 0.55, size * 0.85);
@@ -483,7 +487,19 @@ export class Terrain {
       // Logistics: commanding the valley means staying near the road, not a ridgeline.
       const distM = Math.abs(x - cx) * this.cellSize;
       const distScore = clamp01(1 - Math.max(0, distM - 90) / 320);
-      const score = prom * 1.6 + heightScore * 1.8 + distScore - this.slope[i] * 2;
+      // Overwatch the AO (issue 002): a real outpost is sited a tactical bound from the
+      // villages it patrols — close enough to put boots there and observe, not sitting
+      // in the bazaar. Reward a ~110–460 m standoff to the NEAREST village; penalize
+      // being right on top of one or too far to support it.
+      let nearVilM = Infinity;
+      for (const v of placed) nearVilM = Math.min(nearVilM, Math.hypot(v.cx - x, v.cy - y) * this.cellSize);
+      const aoScore =
+        nearVilM < 90 ? Math.max(0, nearVilM / 90 - 0.2) : nearVilM <= 460 ? 1 : clamp01(1 - (nearVilM - 460) / 520);
+      // Well-shaped bench (issue 001): most bearings around the wire have a passable,
+      // gentle apron, so the perimeter ring-road is continuous and a clean gate exists.
+      const bench = this.perimeterBenchFrac(x, y, R0);
+      const score =
+        prom * 1.5 + heightScore * 1.6 + distScore + aoScore * 1.4 + bench * 1.4 - this.slope[i] * 2;
       if (!best || score > best.score) best = { cx: x, cy: y, score };
     }
     this.copCell = best ? { cx: best.cx, cy: best.cy } : { cx: Math.round(size / 2), cy: Math.round(size * 0.7) };
@@ -503,13 +519,52 @@ export class Terrain {
     const R = clamp(Math.round(85 / this.cellSize), 12, 20); // ~85 m perimeter radius
     const baseE = this.elev[this.idx(c.cx, c.cy)];
 
-    // Gate faces the valley floor (toward the access trail / road).
+    // Gate direction: SCORE all 8 compass headings instead of blindly facing the
+    // road (issues 001 + 002). A gate MUST open onto passable, gentle ground — never
+    // a cliff face (001) — SHOULD look out over the villages the COP patrols (002),
+    // and otherwise tends toward the valley road for vehicle access/logistics. The
+    // apron is evaluated on the raw ground here (nothing is stamped yet).
     const roadX = this.centerXAt(c.cy);
-    let gd: Vec2 = { x: roadX - c.cx, y: 1 };
-    if (Math.abs(gd.x) < 1 && Math.abs(gd.y) < 1) gd = { x: 0, y: 1 };
-    // Snap to the nearest of 8 compass directions for a clean gate gap.
-    const ga = Math.round(angle(gd) / (Math.PI / 4)) * (Math.PI / 4);
-    const gateDir = fromAngle(ga);
+    const toRoad = norm({ x: roadX - c.cx, y: 1 }); // downhill toward the valley road
+    // Face the AO: the bearing to the NEAREST village dominates (that's the ground
+    // patrolled daily and the worst case for a "march all the way around" gate),
+    // softly blended with the wider village centroid so a cluster still pulls it.
+    const nv = this.nearestVillageCell(c.cx, c.cy);
+    const vc = this.villageCentroidNear(c.cx, c.cy);
+    const toNear = nv ? norm({ x: nv.cx - c.cx, y: nv.cy - c.cy }) : toRoad;
+    const toCentroid = vc ? norm({ x: vc.x - c.cx, y: vc.y - c.cy }) : toRoad;
+    const toAO = norm({ x: toNear.x * 0.7 + toCentroid.x * 0.3, y: toNear.y * 0.7 + toCentroid.y * 0.3 });
+    let ga = 0;
+    let gateDir: Vec2 = toRoad;
+    let bestGate = -Infinity;
+    for (let k = 0; k < 8; k++) {
+      const a = k * (Math.PI / 4);
+      const d = fromAngle(a);
+      // Apron: how much of a 3-wide corridor from the wall out to R+7 along d is
+      // passable, gentle ground. This is the hard requirement — a gate facing broken
+      // ground scores ~0 and can never win.
+      let openCells = 0;
+      let tot = 0;
+      for (let b = 1; b <= 7; b++)
+        for (let o = -1; o <= 1; o++) {
+          const px = Math.round(c.cx + d.x * (R + b) + -d.y * o);
+          const py = Math.round(c.cy + d.y * (R + b) + d.x * o);
+          if (!this.inBounds(px, py)) continue;
+          tot++;
+          const l = this.land[this.idx(px, py)] as Land;
+          if (l !== Land.River && l !== Land.Cliff && l !== Land.CompoundWall && this.slope[this.idx(px, py)] < 0.9)
+            openCells++;
+        }
+      const apron = tot > 0 ? openCells / tot : 0;
+      const aoAlign = (dot(d, toAO) + 1) / 2; // 0..1, 1 = straight at the AO
+      const roadAlign = (dot(d, toRoad) + 1) / 2;
+      const score = apron * (0.35 + 1.55 * aoAlign + 0.35 * roadAlign);
+      if (score > bestGate) {
+        bestGate = score;
+        ga = a;
+        gateDir = d;
+      }
+    }
     const perp = { x: -gateDir.y, y: gateDir.x };
 
     // 1) Bench the footprint flat and lay gravel/grass interior.
@@ -574,6 +629,18 @@ export class Terrain {
       }
     }
 
+    // 2.6) ECP apron — a flat, graded approach from the gate out past the ring road,
+    //   ≥3 cells wide, eased to the pad elevation. This is the serpentine vehicle
+    //   approach of a real entry-control point, and it does critical structural work:
+    //   the steep downhill access road is later graded starting from the FAR END of
+    //   this apron, so the gate and its immediate egress stay flat and walkable no
+    //   matter how the descent falls (the diagonal-gate egress-on-broken-ground bug —
+    //   issue 001 — came from the road steepening the gate cell after buildCop had
+    //   already validated it). A guaranteed-flat ≥3-cell apron also keeps the gate a
+    //   clean coarse portal at the 15 m pathfinding scale (issue 005).
+    const APRON_END = R + 8;
+    this.stampGateApron(c.cx, c.cy, gateDir, R - 3, APRON_END, baseE);
+
     // 3) Interior road from the gate to the center of the yard.
     const gateInside = { cx: Math.round(c.cx + gateDir.x * (R - 3)), cy: Math.round(c.cy + gateDir.y * (R - 3)) };
     const muster = { cx: Math.round(c.cx + gateDir.x * (R * 0.4)), cy: Math.round(c.cy + gateDir.y * (R * 0.4)) };
@@ -624,12 +691,29 @@ export class Terrain {
       fp++;
     }
 
+    // gateOutside is the FAR END of the flat ECP apron (issue 001): a benched cell
+    // at ~R+5, clear of the wall (so a 15 m coarse node sits cleanly on it — issue
+    // 005) and guaranteed walkable because the apron grades it flat and the downhill
+    // road only starts beyond it. Prefer the apron end; snap to passable as a guard.
+    let gateOutside = { cx: Math.round(c.cx + gateDir.x * (R + 5)), cy: Math.round(c.cy + gateDir.y * (R + 5)) };
+    if (!this.passableCell(gateOutside.cx, gateOutside.cy)) {
+      for (let b = 4; b <= 10; b++) {
+        const px = Math.round(c.cx + gateDir.x * (R + b));
+        const py = Math.round(c.cy + gateDir.y * (R + b));
+        if (this.inBounds(px, py) && this.passableCell(px, py)) {
+          gateOutside = { cx: px, cy: py };
+          break;
+        }
+      }
+    }
+    const goSnap = this.nearestPassable(gateOutside.cx, gateOutside.cy, 6);
+
     this.cop = {
       center: { cx: c.cx, cy: c.cy },
       radius: R,
       gate: gateCell,
       gateInside,
-      gateOutside: { cx: Math.round(c.cx + gateDir.x * (R + 4)), cy: Math.round(c.cy + gateDir.y * (R + 4)) },
+      gateOutside: goSnap,
       gateDir,
       muster,
       lz,
@@ -638,6 +722,114 @@ export class Terrain {
     };
 
     this.computeSlopeLocal(c.cx, c.cy, FR + 1);
+  }
+
+  /**
+   * Grade a flat ECP apron: a ≥3-cell-wide benched corridor along the gate axis
+   * from `from` to `to` (cells from center), eased to the pad elevation. Skips the
+   * wall, compounds and structures. This is what makes the gate egress robust — the
+   * downhill access road starts beyond `to`, so the gate and its immediate apron
+   * never get steepened by the descent.
+   */
+  private stampGateApron(cx: number, cy: number, dir: Vec2, from: number, to: number, baseE: number) {
+    const perp = { x: -dir.y, y: dir.x };
+    // Wide enough (~7 cells) that even a DIAGONAL apron keeps benched neighbors on
+    // either side: the slope is a forward difference, so a narrow diagonal ramp would
+    // otherwise read steep where its +x/+y neighbor falls off onto natural ground.
+    for (let r = from; r <= to; r += 0.5)
+      for (let o = -3; o <= 3; o += 0.5) {
+        const x = Math.round(cx + dir.x * r + perp.x * o);
+        const y = Math.round(cy + dir.y * r + perp.y * o);
+        if (!this.inBounds(x, y)) continue;
+        const i = this.idx(x, y);
+        const l = this.land[i] as Land;
+        if (l === Land.Hesco || l === Land.CompoundWall || l === Land.Compound || l === Land.Structure) continue;
+        this.elev[i] = lerp(this.elev[i], baseE, 0.82);
+        if (l !== Land.Gravel && l !== Land.River) this.land[i] = Land.Trail;
+      }
+  }
+
+  /**
+   * Generation-time insurance for issue 005. The gate is a single ~5-cell opening in
+   * a ≥3-cell-thick HESCO wall, while the pathfinder plans at 15 m (3-cell) COARSE
+   * nodes — so a thin gate in a thick wall can, under unlucky alignment or harsher
+   * wall/penalty tuning, SEAL at coarse resolution even though it is wide open at
+   * full resolution (the interior becomes coarse-disconnected from the exterior).
+   * This verifies the inside-gate coarse node actually connects to the outside-gate
+   * node by a small flood fill over coarse nodes, and if it doesn't, carves the gate
+   * corridor wider (overwriting the wall on the gate axis) until it does. With the
+   * benched ≥7-cell ECP apron this should never fire — but it's cheap insurance, and
+   * it would have caught the wall/penalty tuning regressions during the rebuild
+   * instantly instead of as a mysterious "patrol can't leave" bug.
+   */
+  private ensureGatePortal() {
+    const cop = this.cop;
+    if (!cop) return;
+    const f = 3; // MUST match path.ts COARSE (15 m nodes)
+    const cw = Math.ceil(this.size / f);
+    const win = cop.radius + 12; // only search the COP's immediate vicinity (cells)
+    const nodeOpen = (nx: number, ny: number): boolean => {
+      for (let yy = 0; yy < f; yy++)
+        for (let xx = 0; xx < f; xx++) {
+          const cx = nx * f + xx;
+          const cy = ny * f + yy;
+          if (cx < this.size && cy < this.size && this.passableCell(cx, cy)) return true;
+        }
+      return false;
+    };
+    const connected = (): boolean => {
+      const startI = Math.floor(cop.gateInside.cy / f) * cw + Math.floor(cop.gateInside.cx / f);
+      const goalX = Math.floor(cop.gateOutside.cx / f);
+      const goalY = Math.floor(cop.gateOutside.cy / f);
+      const seen = new Set<number>([startI]);
+      const stack = [startI];
+      while (stack.length) {
+        const i = stack.pop()!;
+        const x = i % cw;
+        const y = (i / cw) | 0;
+        if (x === goalX && y === goalY) return true;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= cw || ny >= cw) continue;
+            if (Math.abs(nx * f - cop.center.cx) > win || Math.abs(ny * f - cop.center.cy) > win) continue;
+            const ni = ny * cw + nx;
+            if (seen.has(ni) || !nodeOpen(nx, ny)) continue;
+            seen.add(ni);
+            stack.push(ni);
+          }
+      }
+      return false;
+    };
+    const baseE = this.elev[this.idx(cop.center.cx, cop.center.cy)];
+    let tries = 0;
+    while (!connected() && tries < 4) {
+      tries++;
+      // Widen the gate: carve a flat passable lane along the gate axis, OVERWRITING
+      // the wall (but never a village qalat), so the opening grows by a cell each pass.
+      const half = 1 + tries;
+      const gi = cop.gateInside;
+      const go = cop.gateOutside;
+      const steps = (Math.max(Math.abs(go.cx - gi.cx), Math.abs(go.cy - gi.cy)) + 1) * 2;
+      for (let s = 0; s <= steps; s++) {
+        const bx = lerp(gi.cx, go.cx, s / steps);
+        const by = lerp(gi.cy, go.cy, s / steps);
+        for (let h = -half; h <= half; h++)
+          for (let g = -half; g <= half; g++) {
+            const x = Math.round(bx + h);
+            const y = Math.round(by + g);
+            if (!this.inBounds(x, y)) continue;
+            const i = this.idx(x, y);
+            const l = this.land[i] as Land;
+            if (l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
+            this.land[i] = Land.Gravel;
+            this.elev[i] = lerp(this.elev[i], baseE, 0.85);
+          }
+      }
+      this.computeSlopeLocal(cop.center.cx, cop.center.cy, cop.radius + 10);
+    }
   }
 
   /** Stamp a filled rectangle of landcover (cells), flattening it to `baseE`. */
@@ -669,96 +861,27 @@ export class Terrain {
   private gradeAccessRoad(rng: RNG) {
     const cop = this.cop;
     const gi = cop.gateInside;
-    const go = cop.gateOutside;
     const size = this.size;
-    const cs = this.cellSize;
 
-    // 1) Through the ECP: a short graded tread from inside the gate to just
-    //    outside it (the footprint is already benched, so this stays gentle).
-    this.gradeCorridor(gi.cx, gi.cy, go.cx, go.cy, 1);
+    // The descent starts at the FAR END of the flat ECP apron, not at gateOutside.
+    // gateOutside (≈R+5) therefore stays in the middle of the benched apron with
+    // flat ground on every side — so the downhill road can never re-steepen the gate
+    // egress (the diagonal-gate egress-on-broken-ground bug). It just begins a few
+    // cells further out.
+    const ds = {
+      cx: clamp(Math.round(cop.center.cx + cop.gateDir.x * (cop.radius + 8)), 0, size - 1),
+      cy: clamp(Math.round(cop.center.cy + cop.gateDir.y * (cop.radius + 8)), 0, size - 1),
+    };
 
-    // 2) Descend to the valley road, routed in cell space one short step at a time.
-    const targetY = clamp(go.cy, 0, size - 1);
-    const targetX = clamp(Math.round(this.centerX[targetY]), 0, size - 1);
-    const floorE = this.floorElevAtRow(targetY);
-    const maxGrade = 0.32; // walkable road grade cap (~18°)
-    const stepCells = 1.5; // advance per iteration (~7.5 m)
-    const stepM = stepCells * cs;
-    const half = 1; // 3-cell (15 m) graded tread
-    const axisLen = Math.hypot(targetX - go.cx, targetY - go.cy) || 1;
-    const ax = (targetX - go.cx) / axisLen; // unit vector gate→valley (the down-axis)
-    const ay = (targetY - go.cy) / axisLen;
-    const swHalf = 14; // hairpin once the road drifts this many cells off-axis
-
-    let px = go.cx + 0.5;
-    let py = go.cy + 0.5;
-    let designE = this.elev[this.idx(go.cx, go.cy)];
-    let side = rng.chance(0.5) ? 1 : -1; // which way the first switchback leg traverses
-
-    for (let iter = 0; iter < 500; iter++) {
-      const toTX = targetX + 0.5 - px;
-      const toTY = targetY + 0.5 - py;
-      const dT = Math.hypot(toTX, toTY);
-      if (dT < stepCells * 1.3) break; // close enough — tie into the valley road below
-      const dirX = toTX / dT;
-      const dirY = toTY / dT;
-      const needGrade = (designE - floorE) / Math.max(1, dT * cs);
-
-      let hx: number;
-      let hy: number;
-      if (needGrade <= maxGrade) {
-        // Room to spare: head straight for the valley road, descending gently.
-        hx = dirX;
-        hy = dirY;
-      } else {
-        // Too steep to go straight: traverse across the fall line to add length.
-        const g = this.gradientCells(px, py); // points uphill
-        let fx = -g.x;
-        let fy = -g.y; // downhill (fall line)
-        const fl = Math.hypot(fx, fy);
-        if (fl < 1e-4) {
-          fx = dirX;
-          fy = dirY;
-        } else {
-          fx /= fl;
-          fy /= fl;
-        }
-        // Of the two contour directions perpendicular to the fall line, take the
-        // one on our current switchback side, then blend in a little downhill so
-        // the traverse always sheds height.
-        let cxr = -fy;
-        let cyr = fx;
-        if (Math.sign(cxr * -ay + cyr * ax) !== side) {
-          cxr = -cxr;
-          cyr = -cyr;
-        }
-        hx = cxr * 0.82 + fx * 0.18;
-        hy = cyr * 0.82 + fy * 0.18;
-        const hl = Math.hypot(hx, hy) || 1;
-        hx /= hl;
-        hy /= hl;
-      }
-
-      const nx = px + hx * stepCells;
-      const ny = py + hy * stepCells;
-      // Descend at the grade actually needed, never exceeding the road's cap.
-      designE = Math.max(floorE, designE - Math.min(maxGrade, Math.max(0, needGrade)) * stepM);
-      this.gradeTreadAt(nx, ny, designE, half);
-
-      // Hairpin: once the road has drifted too far off the gate→valley axis, flip
-      // the traverse side so the next leg cuts back the other way.
-      const offAxis = (nx - (go.cx + 0.5)) * -ay + (ny - (go.cy + 0.5)) * ax;
-      if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
-
-      px = nx;
-      py = ny;
-    }
-    // Tie the foot of the road cleanly into the valley-floor road.
-    this.gradeCorridor(Math.round(px), Math.round(py), targetX, targetY, 1);
+    // 1) Through the ECP and across the apron: a flat graded tread from inside the
+    //    gate out to the descent start (the apron is already benched, so it's gentle).
+    this.gradeCorridor(gi.cx, gi.cy, ds.cx, ds.cy, 1);
+    // 2) Switchback down to the valley road at a vehicle grade (road tread).
+    this.descendTrack(ds.cx, ds.cy, 1, 0.32, Land.Road, rng);
   }
 
-  /** Stamp a `half`-band graded road tread around a cell, easing it to `targetE`. */
-  private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number) {
+  /** Stamp a `half`-band graded tread around a cell, easing it to `targetE`. */
+  private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number, land: Land = Land.Road) {
     const bx = Math.round(cxf);
     const by = Math.round(cyf);
     for (let dy = -half; dy <= half; dy++)
@@ -769,8 +892,10 @@ export class Terrain {
         const i = this.idx(x, y);
         const l = this.land[i] as Land;
         if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
-        this.elev[i] = lerp(this.elev[i], targetE, 0.8);
-        if (l !== Land.Gravel && l !== Land.River) this.land[i] = Land.Road;
+        // A trail rides lightly on the surface; a road tread is benched harder flat.
+        this.elev[i] = lerp(this.elev[i], targetE, land === Land.Trail ? 0.62 : 0.8);
+        if (l !== Land.Gravel && l !== Land.River && l !== Land.Road) this.land[i] = land;
+        else if (l === Land.River) this.land[i] = Land.Footbridge;
       }
   }
 
@@ -790,7 +915,7 @@ export class Terrain {
    * each side is brought down to it. Used for the gate leg and to tie the access
    * road into the valley road; the long descent itself is routed by gradeAccessRoad.
    */
-  private gradeCorridor(x0: number, y0: number, x1: number, y1: number, half: number) {
+  private gradeCorridor(x0: number, y0: number, x1: number, y1: number, half: number, land: Land = Land.Road) {
     const e0 = this.elev[this.idx(clamp(x0, 0, this.size - 1), clamp(y0, 0, this.size - 1))];
     const e1 = this.elev[this.idx(clamp(x1, 0, this.size - 1), clamp(y1, 0, this.size - 1))];
     const steps = (Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1) * 2;
@@ -808,9 +933,89 @@ export class Terrain {
           const l = this.land[i] as Land;
           if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
           this.elev[i] = lerp(this.elev[i], targetE, 0.85);
-          if (l !== Land.Gravel && l !== Land.River) this.land[i] = Land.Road;
+          if (l === Land.River) this.land[i] = Land.Footbridge;
+          else if (l !== Land.Gravel && l !== Land.Road) this.land[i] = land;
         }
     }
+  }
+
+  /**
+   * Grade a terrain-following track DOWN to the valley-floor road from a start cell.
+   * It heads for the road where the grade allows and traverses/switchbacks across the
+   * fall line where the direct descent would be too steep, benching a `half`-wide
+   * tread to a grade-limited design line so the tread is always WALKABLE. The COP
+   * access road and every village foot trail both descend this way, which is how each
+   * village ends up connected to the valley road — and, through it, to the COP and to
+   * every other village. That is the fix for villages stranded behind a cliff band: a
+   * real graded trail threads down to the road instead of leaving a sheer drop. Returns
+   * the cell where it tied into the valley.
+   */
+  private descendTrack(startCx: number, startCy: number, half: number, maxGrade: number, land: Land, rng: RNG): { cx: number; cy: number } {
+    const size = this.size;
+    const cs = this.cellSize;
+    const sCx = clamp(startCx, 0, size - 1);
+    const sCy = clamp(startCy, 0, size - 1);
+    const targetY = sCy;
+    const targetX = clamp(Math.round(this.centerX[targetY]), 0, size - 1);
+    const floorE = this.floorElevAtRow(targetY);
+    const stepCells = 1.4;
+    const stepM = stepCells * cs;
+    const axisLen = Math.hypot(targetX - sCx, targetY - sCy) || 1;
+    const ax = (targetX - sCx) / axisLen;
+    const ay = (targetY - sCy) / axisLen;
+    const swHalf = 12;
+    let px = sCx + 0.5;
+    let py = sCy + 0.5;
+    let designE = this.elev[this.idx(sCx, sCy)];
+    let side = rng.chance(0.5) ? 1 : -1;
+    for (let iter = 0; iter < 700; iter++) {
+      const toTX = targetX + 0.5 - px;
+      const toTY = targetY + 0.5 - py;
+      const dT = Math.hypot(toTX, toTY);
+      if (dT < stepCells * 1.3) break;
+      const dirX = toTX / dT;
+      const dirY = toTY / dT;
+      const needGrade = (designE - floorE) / Math.max(1, dT * cs);
+      let hx: number;
+      let hy: number;
+      if (needGrade <= maxGrade) {
+        hx = dirX;
+        hy = dirY;
+      } else {
+        const g = this.gradientCells(px, py);
+        let fx = -g.x;
+        let fy = -g.y;
+        const fl = Math.hypot(fx, fy);
+        if (fl < 1e-4) {
+          fx = dirX;
+          fy = dirY;
+        } else {
+          fx /= fl;
+          fy /= fl;
+        }
+        let cxr = -fy;
+        let cyr = fx;
+        if (Math.sign(cxr * -ay + cyr * ax) !== side) {
+          cxr = -cxr;
+          cyr = -cyr;
+        }
+        hx = cxr * 0.82 + fx * 0.18;
+        hy = cyr * 0.82 + fy * 0.18;
+        const hl = Math.hypot(hx, hy) || 1;
+        hx /= hl;
+        hy /= hl;
+      }
+      const nx = px + hx * stepCells;
+      const ny = py + hy * stepCells;
+      designE = Math.max(floorE, designE - Math.min(maxGrade, Math.max(0, needGrade)) * stepM);
+      this.gradeTreadAt(nx, ny, designE, half, land);
+      const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
+      if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
+      px = nx;
+      py = ny;
+    }
+    this.gradeCorridor(Math.round(px), Math.round(py), targetX, targetY, half, land);
+    return { cx: Math.round(px), cy: Math.round(py) };
   }
 
   /** Stamp a straight lane of landcover between two cells, `half` cells wide. */
@@ -830,6 +1035,129 @@ export class Terrain {
           this.land[i] = land;
         }
     }
+  }
+
+  /**
+   * Fraction of bearings around a prospective COP whose perimeter band (R+1..R+5)
+   * has a passable, gentle natural cell — i.e. how much of the wire can be ringed
+   * by a benched patrol road. Evaluated on the RAW ground (the wall isn't built
+   * yet), so a knob cliffed on one side scores low and loses to a true bench.
+   */
+  private perimeterBenchFrac(cx: number, cy: number, R: number): number {
+    let open = 0;
+    const STEPS = 16;
+    for (let k = 0; k < STEPS; k++) {
+      const a = (k / STEPS) * Math.PI * 2;
+      let any = false;
+      for (let b = 1; b <= 5 && !any; b++) {
+        const x = Math.round(cx + Math.cos(a) * (R + b));
+        const y = Math.round(cy + Math.sin(a) * (R + b));
+        if (!this.inBounds(x, y)) continue;
+        const l = this.land[this.idx(x, y)] as Land;
+        if (l !== Land.River && l !== Land.Cliff && this.slope[this.idx(x, y)] < 0.95) any = true;
+      }
+      if (any) open++;
+    }
+    return open / STEPS;
+  }
+
+  /**
+   * The inverse-distance-weighted centroid of the villages, in cell space — the
+   * outpost's area of operations. The gate is biased to face this so a real ECP
+   * looks out over the ground it patrols, not away from it (issue 002).
+   */
+  /** The nearest village center (cells) to a point — the gate's primary AO. */
+  private nearestVillageCell(cx: number, cy: number): { cx: number; cy: number } | null {
+    let best: { cx: number; cy: number } | null = null;
+    let bd = Infinity;
+    for (const v of this.villages) {
+      const d = Math.hypot(v.cx - cx, v.cy - cy);
+      if (d < bd) {
+        bd = d;
+        best = { cx: v.cx, cy: v.cy };
+      }
+    }
+    return best;
+  }
+
+  private villageCentroidNear(cx: number, cy: number): Vec2 | null {
+    if (!this.villages.length) return null;
+    let wx = 0;
+    let wy = 0;
+    let wsum = 0;
+    for (const v of this.villages) {
+      const d = Math.hypot(v.cx - cx, v.cy - cy);
+      const w = 1 / Math.max(40, d); // nearer villages dominate the bearing
+      wx += v.cx * w;
+      wy += v.cy * w;
+      wsum += w;
+    }
+    return wsum > 0 ? { x: wx / wsum, y: wy / wsum } : null;
+  }
+
+  /**
+   * A point a civilian may legitimately stand on: passable ground that is never
+   * inside the COP wire or its apron. Routine waypoints, spawn points and flee
+   * destinations are passed through this so villagers near an outpost amble in
+   * their fields and lanes instead of pressing into the HESCO (the "villagers
+   * wander into the wire" bug). Cheap: a no-op for the common case far from the COP.
+   */
+  /** Snap a world point to the nearest passable cell center (e.g. a building seat
+   *  pushed to the doorway/yard now that structures are solid). */
+  passablePoint(wx: number, wy: number): Vec2 {
+    const cs = this.cellSize;
+    const c = this.nearestPassable(Math.floor(wx / cs), Math.floor(wy / cs));
+    return this.cellCenter(c.cx, c.cy);
+  }
+
+  /**
+   * A garrison seat at a building: a passable cell on its YARD side (toward the COP
+   * centre), so soldiers stand at the doorway facing the interior, never boxed
+   * between the building and the wall (which would strand them when a patrol forms —
+   * the issue-003 assembly deadlock, made acute once buildings are solid). The seat
+   * is found by stepping off the footprint toward the centre, then snapping passable.
+   */
+  buildingSeat(b: CopBuilding): Vec2 {
+    const ctr = this.cop ? this.cop.center : { cx: b.cx, cy: b.cy };
+    let dx = ctr.cx - b.cx;
+    let dy = ctr.cy - b.cy;
+    const dl = Math.hypot(dx, dy);
+    const off = Math.max(b.hw, b.hh) + 1.5;
+    if (dl < 0.5) {
+      // a building sitting on the centre (the TOC): seat it toward the gate instead.
+      const g = this.cop ? this.cop.gateDir : { x: 0, y: 1 };
+      dx = g.x;
+      dy = g.y;
+    } else {
+      dx /= dl;
+      dy /= dl;
+    }
+    return this.passablePoint((b.cx + dx * off + 0.5) * this.cellSize, (b.cy + dy * off + 0.5) * this.cellSize);
+  }
+
+  civSafePoint(wx: number, wy: number): Vec2 {
+    const cs = this.cellSize;
+    let cx = Math.floor(wx / cs);
+    let cy = Math.floor(wy / cs);
+    const cop = this.cop;
+    if (cop) {
+      const ex = cx - cop.center.cx;
+      const ey = cy - cop.center.cy;
+      const d = Math.hypot(ex, ey);
+      const keep = cop.radius + 6; // wire + benched apron/ring road
+      if (d < keep) {
+        // push the point radially outward, past the wire, keeping its bearing
+        const nd = keep + 2;
+        if (d > 0.5) {
+          cx = Math.round(cop.center.cx + (ex / d) * nd);
+          cy = Math.round(cop.center.cy + (ey / d) * nd);
+        } else {
+          cy = Math.round(cop.center.cy + nd); // dead-center: shove downhill
+        }
+      }
+    }
+    const p = this.nearestPassable(cx, cy);
+    return this.cellCenter(p.cx, p.cy);
   }
 
   private localProminence(cx: number, cy: number, r: number): number {
@@ -877,12 +1205,17 @@ export class Terrain {
           this.land[i] = Land.Road;
       }
     }
-    // Trails: connect each village down to the road and a spur up the hill.
+    // Trails: a GRADED, terrain-following foot trail descends from each village to the
+    // valley road (so it's actually walkable end-to-end — the village joins the road
+    // network and is reachable even when a cliff band lies between it and the COP), plus
+    // a cosmetic goat-trail spur up the hill (a covered approach).
     for (const vil of this.villages) {
-      const targetY = vil.cy;
-      const roadX = Math.round(this.centerX[targetY]);
-      this.stampTrail(vil.cx, vil.cy, roadX, targetY);
-      const upX = vil.cx + (vil.cx > roadX ? 1 : -1) * Math.round(size * 0.08);
+      const roadX = Math.round(this.centerX[vil.cy]);
+      const dirToRoad = Math.sign(roadX - vil.cx) || 1;
+      const startX = clamp(vil.cx + dirToRoad * (vil.size + 1), 0, size - 1);
+      this.descendTrack(startX, vil.cy, 1, 0.5, Land.Trail, rng);
+      this.stampTrail(vil.cx, vil.cy, startX, vil.cy); // tie the qalat to the trailhead
+      const upX = vil.cx - dirToRoad * Math.round(size * 0.08);
       const upY = vil.cy + rng.int(-8, 8);
       this.stampTrail(vil.cx, vil.cy, clamp(upX, 0, size - 1), clamp(upY, 0, size - 1));
     }
@@ -1030,6 +1363,7 @@ export class Terrain {
     if (l === Land.Cliff) return false;
     if (l === Land.CompoundWall) return false;
     if (l === Land.Hesco) return false; // the wire — only the gate is passable
+    if (l === Land.Structure) return false; // buildings are solid — route around, not through (issue 004)
     if (this.slope[this.idx(cx, cy)] > 1.25) return false;
     return true;
   }

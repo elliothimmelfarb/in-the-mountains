@@ -62,3 +62,21 @@ independent of the villages.
 ## Related
 
 - 001 (egress terrain), 003 (the longer the traverse, the more assembly/route edge cases bite).
+
+## Resolution (2026-06-04)
+
+Fixed in `lib/sim/terrain.ts`:
+
+- **Siting now references the villages.** `placeVillagesAndCOP`'s score gained an `aoScore` term that
+  rewards a ~110–460 m standoff from the **nearest** village (overwatch the AO, don't sit in the bazaar).
+- **The gate faces the AO.** The 8-direction gate scoring (see 001) aims the gate at
+  `0.7·(nearest-village bearing) + 0.3·(village-centroid bearing)`, with a secondary road pull and the
+  passable-apron hard requirement. The nearest village dominates because that's the worst case for a
+  "march all the way around" gate.
+- A first over-correction aimed dead-on at the centroid and made `korengal`/`bravo-2` *worse*; a
+  straight-line "village accessibility" term was tried and **reverted** (a ray over a cliff ignores the
+  draw that routes around it — it destabilised good placements). The shipped weighting is the nearest-
+  village blend above.
+
+Verified — `copaudit.ts 16`: **gate faces >90° from the nearest village 0/16** (was 8/10 sampled).
+Average gate→nearest-village angle dropped to ~30°.
