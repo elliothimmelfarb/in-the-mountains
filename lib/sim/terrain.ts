@@ -118,6 +118,24 @@ export const DEFAULT_TERRAIN: TerrainConfig = {
 };
 
 /**
+ * Coarse pathfinding factor: a coarse A* node spans COARSE_F × COARSE_F fine cells
+ * (15 m at 5 m resolution). Shared with path.ts (the coarse pass + its corridor stamping)
+ * so the two files can never drift apart on the value.
+ */
+export const COARSE_F = 3;
+/** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
+export const COARSE_DIR8: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
+
+/**
  * A procedurally generated Afghan mountain valley. North is -y (top of map),
  * the river runs down the valley floor, ridgelines rise steeply east and west,
  * cut by draws (re-entrants) and spurs. Villages sit on benches above the river;

@@ -1,5 +1,5 @@
 import { clamp, clamp01 } from "../rng";
-import { Vec2, dist, sub, add, scale, norm, len, fromAngle, angle } from "../vec";
+import { Vec2, dist, sub, add, scale, norm, len, dot, fromAngle, angle } from "../vec";
 import { findPath } from "../path";
 import { Unit } from "../entities";
 import type { World } from "./world";
@@ -60,14 +60,20 @@ export function planFormation(w: World, t: Task, members: Unit[]): FormationPlan
   if (open < 0.4) spacing *= 0.72; // close it down in restrictive terrain for control
   spacing = clamp(spacing, 3.5, 20);
 
+  // Formation choice. This valley is close, broken ground end to end — draws, benches,
+  // the wire, terraced fields — and on close ground a foot squad moves in FILE: a single
+  // snaking column on the leader's exact track, the only shape that fits a trail or a
+  // wash without shouldering the flank men into the terrain beside it. That is also the
+  // doctrinal default for restrictive terrain. (Open-ground wedges/echelons, where teams
+  // spread abreast, are intentionally not used here yet — holding a lateral interval over
+  // this ground reliably wedged the flankers into walls and stalled the element; a
+  // terrain-fitted wedge is a future enhancement. The squad still opens and closes along
+  // the column with the corridor, paces for the rear, and sets up all-round on the objective.)
   let formation: Formation;
-  if (open < 0.42 || tech === "concealed" || tech === "crawl")
-    formation = "file"; // restrictive ground or moving stealthy → file
-  else if ((tech === "traveling" || tech === "rush") && !expect)
-    formation = "column"; // admin road march, contact not expected
-  else if (expect)
-    formation = "dispersed"; // expecting contact in the open → teams abreast, all-round
-  else formation = "wedge"; // movement to contact in the open
+  if ((tech === "traveling" || tech === "rush") && !expect)
+    formation = "column"; // admin march, contact not expected — same single track, faster
+  else formation = "file";
+  void open; // openness no longer selects the formation, but still informs spacing above
 
   let concealBias = tech === "concealed" ? 0.72 : tech === "tactical" ? 0.38 : 0;
   if (seeking) concealBias = Math.max(concealBias, 0.42);
@@ -124,32 +130,31 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   const widthScale = clamp01((corridor - 6) / 14); // ~0 in a 6 m slot, full at ≥20 m
 
   const slots = squadSlots(w, sq, plan);
-  let lag = 0; // how far the most-behind man has fallen from his assigned slot
+  let lag = 0; // metres the most-behind man trails his slot, MEASURED ALONG THE WAKE
   for (const s of slots) {
     const u = sim.unit(s.id);
     if (!u || u === nav) continue;
-    const { tan } = trailPoint(t, nav.pos, headDir, s.back);
+    const { tan } = trailPoint(t, nav.pos, headDir, Math.max(0, s.back));
     const perp = { x: -tan.y, y: tan.x };
     const face =
       s.face === "rear" ? angle(scale(tan, -1)) : s.face === "left" ? angle(scale(perp, -1)) : s.face === "right" ? angle(perp) : angle(tan);
     setSecurity(u, t, face);
-    driveFollower(w, t, nav, u, headDir, s.back, s.lat * widthScale);
-    lag = Math.max(lag, dist(u.pos, u.pathGoal ?? u.pos));
+    const followLag = driveFollower(w, t, nav, u, headDir, s.back, s.lat * widthScale);
+    // A man genuinely wedged on terrain (re-pathing to rejoin) is excluded from the pace
+    // calc so one trapped soldier can't freeze the whole patrol — the squad keeps a slow
+    // creep on and he catches up via his own route. A man merely lagging DOES set the pace.
+    if (!(u.blockedTimer && u.blockedTimer > 6)) lag = Math.max(lag, followLag);
   }
 
-  // Smooth pace governor: the point man eases off the throttle when a man has fallen
-  // well behind his slot, so the teams close back up — but he never plants his feet
-  // (floor 0.3×). After ~18 s of waiting his patience runs out and he pushes on, so a
-  // man genuinely hung up is left to chase and rejoin rather than freezing the patrol.
-  // Lag is measured man-to-slot, NOT nav-to-tail: a file legitimately wrapped around
-  // the COP ring spans a long straight-line distance while everyone is perfectly in
-  // place, and the old nav-to-tail test mistook that for "strung out" and throttled
-  // the navigator to a crawl, so he never finished rounding the wall.
-  const slowZone = plan.spacing * 2.5;
-  let slow = clamp01((lag - slowZone) / (slowZone * 1.5));
-  t.holdTimer = slow > 0 ? (t.holdTimer ?? 0) + dt : 0;
-  slow *= clamp01(1 - ((t.holdTimer ?? 0) - 18) / 30);
-  nav.paceScale = 1 - 0.7 * slow;
+  // Pace governor (continuous — a squad NEVER abandons cohesion): the point man eases the
+  // throttle smoothly the further the rearmost man trails his slot, down to a slow creep
+  // (floor 0.2×), and opens back up the instant the element closes up. Lag is the man's
+  // shortfall ALONG THE WAKE — the arc he still has to walk to reach his slot — not a
+  // straight-line distance, so a file legitimately wrapped around the COP ring (long
+  // straight-line span, everyone perfectly in place) reads as zero lag, not "strung out".
+  const slowZone = plan.spacing * 1.6;
+  const slow = clamp01((lag - slowZone) / (slowZone * 2.2));
+  nav.paceScale = 1 - 0.8 * slow;
 
   return centroidOf(members);
 }
@@ -333,7 +338,11 @@ function addTeamSlots(
     } else {
       riflemen++;
       if (isLead && riflemen === 1) {
-        back = teamBack - interval * 0.9; // lead team's rifleman walks point, out front
+        // The navigator IS the front of the element (he picks the route); the lead scout
+        // falls in just off his shoulder, tracing the same wake. (Earlier this man was
+        // projected OUT IN FRONT off the leader's heading, which marched him into every
+        // wall the leader curved around — he ground terrain the whole patrol.)
+        back = teamBack + interval * 0.55;
         lat = 0;
         face = "fwd";
       } else {
@@ -407,92 +416,149 @@ function setSecurity(u: Unit, t: Task, face: number) {
   u.faceLock = face;
 }
 
-/**
- * Drive a follower to its formation slot by TRACING the navigator's recorded route,
- * not beelining at the slot. The slot is a point `back` metres behind the point man
- * along his breadcrumb, offset `lat` to the side; the follower's path is the run of
- * breadcrumb points from where it currently is, forward to that slot, each nudged to
- * the side by `lat` (and clamped onto passable ground). Because the breadcrumb is
- * literally ground the point man already walked, the follower is guaranteed a
- * walkable route around big obstacles (the COP ring, a draw) — local steering only
- * has to handle the small stuff. The lateral nudge opens the file into a fire-team
- * wedge in the open and collapses to single file where the corridor is tight (the
- * clamp pulls the offset back onto the trail). No per-follower A*.
- */
-function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, back: number, lat: number) {
-  const tr = t.trail;
-  // The exact slot point (used as the final waypoint and the pathGoal).
-  const sp = trailPoint(t, nav.pos, headDir, back);
-  const perp = { x: -sp.tan.y, y: sp.tan.x };
-  const slot = passTarget(w, add(sp.pt, scale(perp, lat)), sp.pt);
-  u.pathGoal = slot;
-  if (dist(u.pos, slot) <= 1.2) {
-    u.path = [];
-    return;
-  }
-  // Men on or ahead of the point man (back <= 0, e.g. the man on point) have no
-  // breadcrumb to trace — they extrapolate straight off his heading.
-  if (back <= 0 || !tr || tr.length < 3) {
-    u.orderTarget = slot;
-    u.path = [slot];
-    return;
-  }
-  // Nearest breadcrumb index to the follower (where it joins the route).
-  let nIdx = 0;
-  let nBest = Infinity;
-  for (let i = 0; i < tr.length; i++) {
-    const d = dist(u.pos, tr[i]);
-    if (d < nBest) {
-      nBest = d;
-      nIdx = i;
-    }
-  }
-  // Slot index: walk back from the head (newest) accumulating arc length until we
-  // reach `back` metres — that breadcrumb point is where the slot sits.
-  let arc = dist(nav.pos, tr[tr.length - 1]);
-  let sIdx = tr.length - 1;
-  for (let i = tr.length - 1; i > 0; i--) {
-    const seg = dist(tr[i], tr[i - 1]);
-    if (arc + seg >= back) {
-      sIdx = i;
-      break;
-    }
-    arc += seg;
-    sIdx = i - 1;
-  }
-  // Path = breadcrumb points from just ahead of the follower up to the slot, each
-  // offset to the side; then the exact slot point.
-  const path: Vec2[] = [];
-  for (let i = nIdx + 1; i <= sIdx; i++) {
-    const a = tr[Math.max(0, i - 1)];
-    const b = tr[Math.min(tr.length - 1, i + 1)];
-    const tang = norm(sub(b, a));
-    const pp = { x: -tang.y, y: tang.x };
-    path.push(passTarget(w, add(tr[i], scale(pp, lat)), tr[i]));
-  }
-  path.push(slot);
+const WAKE_STEP = 3; // metres between the wake waypoints handed to a follower
 
-  // Rejoin: if a wall stands between the follower and the start of its trace (it's
-  // still inside the wire while the squad has filed out, so every breadcrumb point is
-  // across the HESCO), tracing only grinds it against the wall. Hand it a real A* route
-  // to catch up, then resume tracing once it's back on the leader's wake. A man still
-  // inside the wire rejoins THROUGH THE GATE (always a clean egress) rather than toward
-  // his slot directly — routing straight at a slot on the far side of the outpost can't
-  // be solved by the coarse pathfinder and would leave him orbiting the inner wall.
-  if (!lineClear(w, u.pos, path[0])) {
+/**
+ * Drive one follower along the navigator's WAKE, and return how far it trails its slot
+ * (arc-length along the wake — the quantity the pace governor uses).
+ *
+ * A follower's job is to walk the exact ground the point man already walked: that ground
+ * is guaranteed traversable (it routes around the COP ring, the draws, the wash banks),
+ * so a man handed it can never wedge on terrain, and the squad stays a coherent file. We
+ * model him as a bead on the wake — project him onto it to find how far back he is, set
+ * his slot a fixed arc behind the leader, then hand him the RUN of wake points from just
+ * ahead of him forward to his slot. Because consecutive wake points are ~WAKE_STEP apart
+ * on ground the leader cleared, every segment is walkable; the man advances steadily and
+ * local steering only has to keep his spacing. This is what the old single-carrot pursuit
+ * got wrong — it let a follower's steering pick a wall-ward heading and wedge, stalling
+ * the patrol. The lateral wedge offset rides ON the wake (clamped to passable ground and
+ * to the sensed corridor), so the file opens to a wedge in the open and never shoulders a
+ * man into the wire at a choke.
+ */
+function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, back: number, lat: number): number {
+  const tr = t.trail;
+
+  // The man on point (back <= 0) walks OUT IN FRONT of the leader. There's no wake ahead
+  // of the navigator, but the navigator HAS a planned route — so the point man leads along
+  // THAT (guaranteed-walkable ground the element is about to cross), a few metres up the
+  // path, rather than a dead-reckoned point off the heading that would march him straight
+  // into the wall the navigator is curving around (the old behavior — one man grinding the
+  // terrain the whole patrol).
+  if (back <= 0) {
+    const aim = aheadOnPath(nav, -back);
+    u.pathGoal = aim;
+    u.orderTarget = aim;
+    u.path = dist(u.pos, aim) > 1.2 ? [aim] : [];
+    return 0;
+  }
+
+  const slotSP = trailPoint(t, nav.pos, headDir, back);
+  const slotPerp = { x: -slotSP.tan.y, y: slotSP.tan.x };
+  // Clamp the wedge offset to the room ACTUALLY available abreast of this man's slot, so
+  // the formation opens to a wedge only where the ground is open and collapses to file in
+  // a draw or along the wire — instead of shouldering the flank men into terrain (which
+  // stalled them and throttled the whole patrol). Most of this valley is tight, so this
+  // usually means file.
+  if (lat !== 0) {
+    const sign = Math.sign(lat);
+    let room = 0;
+    for (let s = 1; s <= Math.abs(lat) + 2; s++) {
+      if (!passableAt(w, { x: slotSP.pt.x + slotPerp.x * sign * s, y: slotSP.pt.y + slotPerp.y * sign * s })) break;
+      room = s;
+    }
+    lat = sign * Math.min(Math.abs(lat), Math.max(0, room - 1.2));
+  }
+  const slot = passTarget(w, add(slotSP.pt, scale(slotPerp, lat)), slotSP.pt);
+  u.pathGoal = slot;
+
+  const proj = projectBack(nav.pos, tr, u.pos); // {back, dist} of the man's projection on the wake
+  const lag = proj.back - back; // >0 = behind the slot (must advance); <=0 = at/ahead of it
+  const offWake = proj.dist > 12 || !tr || tr.length < 2;
+
+  // Rejoin with real pathfinding when he's off the wake — typically still inside the wire
+  // while the squad has filed out (every wake point is across the HESCO), or shoved aside
+  // in a fight. A man inside the wire rejoins THROUGH THE GATE (the only clean egress);
+  // otherwise he routes to his slot, then resumes following once back on the wake.
+  if (offWake || (u.blockedTimer && u.blockedTimer > 1.5)) {
     const wire = w.terrain.cop.radius * w.terrain.cellSize;
-    // "Inside the wire" means inside the wall ring (the wall occupies the band just
-    // below `wire`); a man on the perimeter track outside it rejoins toward his slot,
-    // not back through the gate.
     const rejoinTo = dist(u.pos, w.copWorld()) < wire - 14 ? w.gateOutsideWorld() : slot;
     if (u.path.length === 0 || !lineClear(w, u.pos, u.path[0])) {
       u.path = findPath(w.terrain, u.pos, rejoinTo, { roadBias: 0.3 });
     }
     u.orderTarget = u.path[0] ?? rejoinTo;
-    return;
+    return Math.max(0, lag);
   }
-  u.orderTarget = path[0];
+
+  if (lag <= 0.8) {
+    // At or ahead of the slot — hold and let the leader draw the file forward.
+    u.path = [];
+    return Math.max(0, lag);
+  }
+
+  // Hand him the run of wake points from just ahead of him forward to his slot, each
+  // nudged to the side by `lat` for the wedge (clamped onto passable ground). These are
+  // real, cleared positions ~WAKE_STEP apart, so every leg is walkable — no wedging.
+  const path: Vec2[] = [];
+  for (let a = proj.back - WAKE_STEP; a > back; a -= WAKE_STEP) {
+    const sp = trailPoint(t, nav.pos, headDir, a);
+    const pp = { x: -sp.tan.y, y: sp.tan.x };
+    path.push(lat !== 0 ? passTarget(w, add(sp.pt, scale(pp, lat)), sp.pt) : { ...sp.pt });
+  }
+  path.push(slot);
   u.path = path;
+  u.orderTarget = path[0];
+  return lag;
+}
+
+/** A point `d` metres ahead of the navigator along his PLANNED route (nav.path), so the
+ *  man on point leads over ground the element is actually about to walk. Falls back to a
+ *  short heading extrapolation only if the navigator has no path left. */
+function aheadOnPath(nav: Unit, d: number): Vec2 {
+  let remaining = d;
+  let cur = nav.pos;
+  for (const wp of nav.path) {
+    const seg = sub(wp, cur);
+    const segLen = len(seg);
+    if (segLen < 1e-6) continue;
+    if (remaining <= segLen) return { x: cur.x + (seg.x / segLen) * remaining, y: cur.y + (seg.y / segLen) * remaining };
+    remaining -= segLen;
+    cur = wp;
+  }
+  // ran past the end of the route — extrapolate the last heading we had
+  const head = nav.path.length ? norm(sub(nav.path[nav.path.length - 1], nav.pos)) : fromAngle(nav.facing);
+  return add(cur, scale(head, remaining));
+}
+
+/**
+ * Project a point onto the navigator's wake (the polyline navPos → trail[last] → … →
+ * trail[0], newest first) and return how far BEHIND the navigator that projection lies,
+ * in arc-length metres, plus the perpendicular distance to the wake. This is what lets a
+ * follower be treated as a bead sliding along the leader's actual route.
+ */
+function projectBack(navPos: Vec2, tr: Vec2[] | undefined, pos: Vec2): { back: number; dist: number } {
+  if (!tr || tr.length === 0) return { back: dist(navPos, pos), dist: dist(navPos, pos) };
+  let arc = 0;
+  let bestDist = Infinity;
+  let bestBack = 0;
+  let a = navPos;
+  for (let i = tr.length - 1; i >= 0; i--) {
+    const b = tr[i];
+    const seg = sub(b, a);
+    const segLen = len(seg);
+    if (segLen > 1e-6) {
+      // closest point on segment a→b to pos
+      const tt = clamp01((dot(sub(pos, a), seg)) / (segLen * segLen));
+      const cp = { x: a.x + seg.x * tt, y: a.y + seg.y * tt };
+      const d = dist(pos, cp);
+      if (d < bestDist) {
+        bestDist = d;
+        bestBack = arc + tt * segLen;
+      }
+      arc += segLen;
+    }
+    a = b;
+  }
+  return { back: bestBack, dist: bestDist };
 }
 
 /** Reconstruct the squad's echelon (SL, fire teams, attachments) from a roster. */
