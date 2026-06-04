@@ -161,3 +161,55 @@ Each family is authored as a set of named SVGs. IDs are canonical — the render
 See `docs/visual-overhaul/reference/sol-us-rifleman.svg` and `hesco-straight.svg` for worked examples
 that demonstrate the exact lighting, shadow filter, palette, keyline, and anchor conventions. Match
 that level of craft and restraint. When in doubt, do *less, but more deliberately*.
+
+---
+
+## 9. COMBAT FX — the combat visual language
+
+> A firefight should read like a **milspec map coming alive in dust** — never a fireworks show.
+> The whole combat layer speaks ONE small, consistent vocabulary so a player learns it once and
+> never needs a legend. Lives in `lib/render/combat-fx.ts` (the dynamic cues) and the upgraded
+> effect cases in `draw.ts`. Reference plates: `docs/progress/2026-06-04-combat-visual/fx-legend.png`
+> + `fx-explosions.png`.
+
+**The one rule that splits everything:**
+- **Physical things** (muzzle flash, the round arcing in, the detonation, dust, blood, the lobbed
+  grenade) are **world-scaled** and obey §1's NW-light rules.
+- **Informational marks** (the threat-bearing crescent, the indirect reticle, the pinned ring, the
+  bleed pool, the danger-close hazard ring) are **flat ink — NO drop shadow**, screen-weighted,
+  drawn *over* the unit. They're annotations, not objects.
+
+**The vocabulary (each cue = one fact, no second way to say the same thing):**
+
+| Cue | Reads as | Drive (sim field) | Color |
+|---|---|---|---|
+| **Dashed ground ring** (+ converging telegraph + ETA count) | indirect/CAS is landing HERE, in N seconds | `FireMission.target/spread/etaS/faction/status` | rust enemy · amber friendly |
+| **Amber / deep-shadow hazard bars** (+ halo on at-risk men) | our fires are danger-close over our own men | `FireMission.dangerClose` | amber `#e0a72b` + shadow `#1c160e` |
+| **Rust crescent** hugging a soldier's ring | fire is coming from THAT bearing | `Unit.threatDir` + `suppression` (smoothed) | rust `#b5532a` |
+| **Closed, slow-pulsing rust ring** | that man is PINNED (composure broken) | `suppression>0.55 && composure<0.4` | rust |
+| **Lobbed round + ground shadow** arcing to an airburst | a grenade is in the air | indirect `Projectile` (`age/(age+timeToImpact)` = exact progress) | warm tan |
+| **Layered blast**: flash → dirty fireball → tan dust dome → smoke rim | ground HE (mortar/IED/RPG) detonated, this big | `Effect.kind="blast"`, `size`=radius/8 | flash `#fff2d6` · fireball `#c97036` · dust `#9c8d63` |
+| **Tight bright ring**, little dust | airburst (thrown frag / GL) | `Effect.kind="frag_air"` | `#ffd696` |
+| **Tan dust puff + spall flecks** | a round struck the dirt | `Effect.kind="impact"` | dust `#9c8d63` |
+| **Dark-red pool** (grows, capped) + slow pulse | arterial bleed — evac NOW (deeper red = TQ-now) | `Unit.bleedRate/bleedTQable` | blood `#9c2c20` / `#7a1f18` |
+| **Teal tether** treater→casualty | buddy-aid (CLS) in progress | `brainState="treating"` + `targetId` | teal `#6fae9f` |
+
+**Restraint is the craft (hard rules):**
+- Pulses are a **slow breath (~0.6–0.8 Hz)**, never a heartbeat strobe; nothing flickers.
+- Blood pools, spall flecks, and bursts are **capped and debounced** — a long fight must never paint
+  lakes or machine-gun bursts. Spall/blood fleck angles are **deterministic from `Effect.id`** so they
+  don't crawl frame-to-frame.
+- The blast **fireball is pulled warm & DIRTY into the dust palette** (`#c97036`) — never the old hot
+  `rgba(255,180,80)` orange (the one off-palette color that used to ship).
+- LOD: the dynamic cues gate **off below ~0.6 ppm** (the strategic sheet stays clean) and only ever
+  appear on units actually in contact (`suppression>0.08`, `bleedRate>0.4`).
+- **Lane discipline:** combat FX are map-space flashes/rings/pools only — doctrine banners, base-of-fire
+  arcs, maneuver arrows, civGuard rings and net chatter belong to the squad-command layer, not here.
+
+**New asset families (for the static sprites that complement the procedural cues):**
+- **fx-particles** — rotation-tolerant physical puffs/glows (`fx-dust-puff`, `fx-glow-tracer`): soft
+  contact treatment, no directional shadow.
+- **fx-decals** — flat ground STAINS (`fx-blast-scorch`, `fx-bleed-pool`): never a lit object, so NO
+  shadow; the IED scorch variant is larger/dirtier than the mortar one.
+- Plus `sol-us-casualty` (a prone down-figure, rotating → symmetric contact shadow) and
+  `ico-status-bleeding` (flat UI glyph).
