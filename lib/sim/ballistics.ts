@@ -273,7 +273,11 @@ export function applyDamage(
   const effective = dmg * regionMult;
 
   target.hp -= effective;
-  const bleeding = clamp(effective * 0.028 * (region === "leg" || region === "arm" ? 0.7 : 1.2), 0, 4);
+  // Extremity wounds (leg/arm) bleed FAST — femoral/brachial arterial — but a
+  // tourniquet stops them cold, so any buddy can save the man. Torso/junctional and
+  // head wounds bleed internally: slower, but only a medic or surgery stops them.
+  const extremity = region === "leg" || region === "arm";
+  const bleeding = clamp(effective * (extremity ? 0.04 : 0.022), 0, 4);
   const wound: Wound = {
     region,
     severity: clamp01(effective / 90),
@@ -282,9 +286,8 @@ export function applyDamage(
     timeM: 0,
   };
   target.wounds.push(wound);
-  // total bleed-out rate is capped — buddy aid keeps a casualty alive long enough
-  // to matter; a medic or MEDEVAC is what actually saves them.
-  target.bleedRate = Math.min(4.5, target.bleedRate + bleeding);
+  target.bleedRate = Math.min(5, target.bleedRate + bleeding);
+  if (extremity) target.bleedTQable = Math.min(5, (target.bleedTQable ?? 0) + bleeding);
   target.woundedCount++;
 
   let killed = false;

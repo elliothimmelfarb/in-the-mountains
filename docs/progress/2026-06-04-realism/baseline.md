@@ -195,3 +195,25 @@ Save-safe (per-unit `casualtyCounted` flag, not a transient Set).
 
 Probe (8 US mortar rounds on a village → 2 civ cas): attitude **−23 → −35**, sympathy
 **47 → 57**, enemyStrength **43 → 44**, higherConf **60 → 58**. tsc clean.
+
+### #7 Buddy-aid (CLS) + arterial/internal bleed split — `entities.bleedTQable`, `combat.updateTimers`
+The bleed model previously had a single rate with uniform passive clotting, and only
+the medic could stop it. Now bleed is split: extremity (leg/arm) wounds bleed FAST
+(femoral/brachial arterial) but are **tourniquetable** — a conscious man self-aids,
+an unconscious one is saved by any conscious buddy within reach (every soldier a
+combat lifesaver, TCCC). Torso/junctional wounds bleed internally — slower, and only
+a medic or surgery stops them (the golden hour). Save-safe field; RNG-neutral.
+
+Controlled probe (identical wound, bare CombatSim, only aid varies):
+
+| scenario | fate |
+|---|---|
+| extremity · conscious (self-TQ) | LIVED hp 66 |
+| extremity · out cold, **no buddy** | **DIED** |
+| extremity · out cold, buddy near | LIVED hp 63 |
+| internal · buddy only (no medic) | LIVED hp 25 (barely) |
+| internal · **medic** | LIVED hp 55 |
+
+The lone death is the unattended unconscious extremity bleed — the #1 *preventable*
+battlefield death, now in the model. Completes with #9 (a buddy closes to treat).
+tsc clean; smoke OK.

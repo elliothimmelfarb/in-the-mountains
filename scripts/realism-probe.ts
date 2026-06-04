@@ -298,9 +298,43 @@ function coinProbe() {
   console.log(`    ${vil.name}: attitude ${b.att}→${vil.attitude} · sympathy ${b.sym}→${vil.sympathy} · enemyStrength ${b.str.toFixed(0)}→${w.state.enemyStrengthAbs.toFixed(1)} · higherConf ${b.hi}→${w.state.metrics.higherConfidence}`);
 }
 
+/** Probe 7 (medical, #7): IDENTICAL wound, fate as a function only of the AID
+ *  available — run on a bare CombatSim (no garrison to reposition the medic), with
+ *  the post-wound state set by hand so it's a clean controlled experiment. Proves a
+ *  buddy/self tourniquet saves an extremity (arterial) bleed, but only a medic saves
+ *  an internal (junctional) one. */
+function medicalProbe() {
+  const { CombatSim } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+  const weather = { visibilityM: 4000, wind: 0, label: "Clear" };
+  const scen = [
+    { name: "extremity · conscious (self-TQ)", hp: 70, bleed: 1.3, tq: 1.3, conscious: true, buddy: false, medic: false },
+    { name: "extremity · out cold, NO buddy", hp: 70, bleed: 1.3, tq: 1.3, conscious: false, buddy: false, medic: false },
+    { name: "extremity · out cold, buddy near", hp: 70, bleed: 1.3, tq: 1.3, conscious: false, buddy: true, medic: false },
+    { name: "internal · buddy only (no medic)", hp: 55, bleed: 1.1, tq: 0, conscious: false, buddy: true, medic: false },
+    { name: "internal · medic on scene", hp: 55, bleed: 1.1, tq: 0, conscious: false, buddy: false, medic: true },
+  ];
+  console.log("\n=== MEDICAL (#7): identical wound, fate by aid available (2 min on the deck) ===");
+  for (const s of scen) {
+    const w = createWorld(`med-${s.name}`, 90);
+    const pool = w.platoon.members.filter((m) => m.role !== "medic");
+    const cas = pool[0], buddy = pool[1];
+    const medic = w.platoon.members.find((m) => m.role === "medic")!;
+    const sim = new CombatSim({ terrain: w.terrain, rng: w.rng, units: [cas, buddy, medic], light: 1, weather, persistent: true });
+    const spot = { x: 1000, y: 1000 };
+    cas.pos = { ...spot }; cas.alive = true; cas.hp = s.hp; cas.bleedRate = s.bleed; cas.bleedTQable = s.tq; cas.conscious = s.conscious;
+    cas.wounds = [{ region: s.tq > 0 ? "leg" : "chest", severity: 0.5, bleeding: s.bleed, treated: false, timeM: 0 }];
+    cas.path = []; cas.brainState = "holding"; cas.rof = "hold";
+    buddy.pos = s.buddy ? { x: spot.x + 2, y: spot.y } : { x: 5, y: 5 }; buddy.bleedRate = 0; buddy.conscious = true; buddy.path = []; buddy.brainState = "holding"; buddy.rof = "hold";
+    medic.pos = s.medic ? { x: spot.x + 2, y: spot.y } : { x: 5, y: 5 }; medic.bleedRate = 0; medic.conscious = true; medic.path = []; medic.brainState = s.medic ? "treating" : "holding"; medic.targetId = s.medic ? cas.id : null; medic.rof = "hold";
+    for (let t = 0; t < 1200 && cas.alive; t++) sim.tick(0.1);
+    console.log(`  ${s.name.padEnd(34)} ⇒ ${!cas.alive ? "DIED" : "LIVED hp " + cas.hp.toFixed(0)} · final bleed ${cas.bleedRate.toFixed(2)}`);
+  }
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
 if (which === "all" || which === "wind") windProbe();
 if (which === "all" || which === "indirect") indirectProbe();
 if (which === "all" || which === "coin") coinProbe();
+if (which === "all" || which === "medical") medicalProbe();

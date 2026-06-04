@@ -117,6 +117,9 @@ export interface Unit {
   fatigue: number; // 0..1, accrues with movement/altitude
   wounds: Wound[];
   bleedRate: number; // total hp/sec
+  bleedTQable?: number; // portion of bleedRate from extremity arterial bleeds — a
+  // tourniquet/pressure (self or any buddy) stops it; the rest is internal/junctional
+  // and needs a medic or surgery (the golden hour).
 
   // --- weapons & load ---
   weaponId: string;
