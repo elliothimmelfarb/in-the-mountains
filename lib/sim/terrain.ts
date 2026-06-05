@@ -2035,6 +2035,61 @@ export class Terrain {
     return { cx, cy };
   }
 
+  /** Cached bitmap of cells genuinely reachable on foot from the gate, using the SAME
+   *  anti-corner-cut connectivity the mover/router honour (a diagonal step needs an orthogonal
+   *  neighbour open). This is the squad's true reachable set: everything it operates from starts
+   *  inside the wire, which is in this component. Computed once on first use (the terrain is static
+   *  after generation) and reused — it's the primitive that keeps objective-snapping honest. */
+  private _gateReachable?: Uint8Array;
+  reachableFromGate(): Uint8Array {
+    if (this._gateReachable) return this._gateReachable;
+    const size = this.size;
+    const seen = new Uint8Array(size * size);
+    const g = this.cop?.gateOutside ?? this.copCell;
+    const s = this.nearestPassable(g.cx, g.cy, 16);
+    if (!this.passableCell(s.cx, s.cy)) {
+      this._gateReachable = seen;
+      return seen;
+    }
+    seen[s.cy * size + s.cx] = 1;
+    const st = [s.cy * size + s.cx];
+    while (st.length) {
+      const i = st.pop()!;
+      const x = i % size, y = (i / size) | 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size || !this.passableCell(nx, ny)) continue;
+          if (dx !== 0 && dy !== 0 && !this.passableCell(x + dx, y) && !this.passableCell(x, y + dy)) continue; // no corner-cut
+          const j = ny * size + nx;
+          if (seen[j]) continue;
+          seen[j] = 1;
+          st.push(j);
+        }
+    }
+    this._gateReachable = seen;
+    return seen;
+  }
+
+  /** Nearest cell to (cx,cy) that the squad can ACTUALLY reach (passable AND in the gate's
+   *  connected component), spiralling out. This is what objective-snapping must use: plain
+   *  nearestPassable can land the goal across a wall/river/cliff in a different component (a
+   *  pocket on the far bank), stranding the squad halted opposite a point it can never reach. */
+  nearestReachable(cx: number, cy: number, maxR = 40): { cx: number; cy: number } {
+    const reach = this.reachableFromGate();
+    if (this.inBounds(cx, cy) && reach[this.idx(cx, cy)]) return { cx, cy };
+    for (let r = 1; r <= maxR; r++) {
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring only
+          const nx = cx + dx, ny = cy + dy;
+          if (this.inBounds(nx, ny) && reach[this.idx(nx, ny)]) return { cx: nx, cy: ny };
+        }
+    }
+    return this.nearestPassable(cx, cy); // nothing reachable nearby — fall back to nearest passable
+  }
+
   /** Is this cell passable on foot at all (cliffs/deep channels are not). */
   passableCell(cx: number, cy: number): boolean {
     if (!this.inBounds(cx, cy)) return false;

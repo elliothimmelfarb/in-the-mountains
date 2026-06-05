@@ -306,12 +306,16 @@ function reachableObjective(w: World, p: Vec2): Vec2 {
       if (w.terrain.inBounds(nx, ny) && !inCompound(nx, ny) && w.terrain.passableCell(nx, ny)) {
         cx = nx;
         cy = ny;
-        return w.terrain.cellCenter(cx, cy);
+        break;
       }
     }
   }
-  if (w.terrain.passableCell(cx, cy)) return p;
-  const c = w.terrain.nearestPassable(cx, cy);
+  // Snap onto ground the squad can ACTUALLY reach (passable AND in the gate's connected
+  // component) — not merely the nearest passable cell, which can sit across a wall, the river,
+  // or a cliff in a DIFFERENT component (measured 16.9% of snaps), halting the squad opposite a
+  // point it can never get to. nearestReachable keeps the objective on the squad's side of every
+  // barrier, so the mover always heads somewhere it can genuinely close on.
+  const c = w.terrain.nearestReachable(cx, cy);
   return w.terrain.cellCenter(c.cx, c.cy);
 }
 

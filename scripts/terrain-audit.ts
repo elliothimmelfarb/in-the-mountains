@@ -119,11 +119,10 @@ function snapObjective(t: any, cx: number, cy: number): { cx: number; cy: number
     const dy = Math.sign(t.cop.center.cy - cy);
     for (let s = 0; s < 24; s++) {
       const nx = cx + dx * s, ny = cy + dy * s;
-      if (t.inBounds(nx, ny) && !inCompound(nx, ny) && t.passableCell(nx, ny)) return { cx: nx, cy: ny };
+      if (t.inBounds(nx, ny) && !inCompound(nx, ny) && t.passableCell(nx, ny)) { cx = nx; cy = ny; break; }
     }
   }
-  if (t.passableCell(cx, cy)) return { cx, cy };
-  return t.nearestPassable(cx, cy);
+  return t.nearestReachable(cx, cy); // component-aware snap, as the game now does
 }
 function reachWithin(t: any, seen: Uint8Array, vx: number, vy: number): boolean {
   for (let dy = -REACH_CELLS; dy <= REACH_CELLS; dy++)
