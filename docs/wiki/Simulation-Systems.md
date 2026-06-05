@@ -75,7 +75,13 @@ stamped into the landcover so cover, sight and pathing all respect it. A `CopLay
 - interior **structures** — TOC, two barracks, aid station, armory, chow hall, latrines — and a
   **motor pool** and **helicopter LZ** of graded gravel near the gate;
 - **crew-served fighting positions and guard towers** sited around the wall, facing out;
-- the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form;
+- the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form.
+  A generation-time guard (`ensureGatePortal`) proves the squad can actually egress by probing the
+  FULL `muster → gateOutside` route with the **real `findPath`** (not a hand-rolled flood), and widens
+  the gate + diagonal interior lane until the planner transits it. This matters because `findPath`
+  forbids a diagonal step through a wall corner (anti corner-cutting), so a **diagonal** gate can be
+  every-cell-passable and ring-100%-open yet sealed for the planner — the old flood-based check missed
+  it and stranded the squad inside the wire (the "squad cannot leave COP" bug);
 - a **switchbacked access road** (`gradeAccessRoad`) that descends from the gate to the valley road.
   Rather than lerping a straight cut from the gate to the river — which gouged a long, dead-straight,
   25 m-wide trench across the hillside whenever the knob stood well above the floor — it routes one
