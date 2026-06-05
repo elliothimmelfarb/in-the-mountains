@@ -168,3 +168,28 @@ body {
   height: 1px;
   background: linear-gradient(90deg, transparent, var(--line), transparent);
 }
+
+/* dock resize handle — sits on a panel's bottom edge, amber on hover/active */
+.dock-handle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 5px;
+  cursor: row-resize;
+  z-index: 10;
+}
+.dock-handle > i {
+  display: block;
+  height: 1px;
+  margin-top: 2px;
+  background: var(--line);
+}
+.dock-handle:hover > i,
+.dock-handle[data-active="true"] > i {
+  background: var(--amber);
+}
+.dock-dragging,
+.dock-dragging * {
+  user-select: none !important;
+}

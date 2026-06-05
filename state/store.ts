@@ -36,6 +36,13 @@ interface GameStore {
   banner: string | null;
   jacketId: string | null;
 
+  // ---- panel layout (left + right dock columns; localStorage-backed) ----
+  layout: PanelLayout;
+  togglePanel: (id: string) => void;
+  setPanelHeight: (id: string, px: number) => void; // transient; persists on pointer-up
+  persistPanelLayout: () => void; // call on pointer-up / after toggle
+  markCombatSeen: (maxId: number) => void;
+
   // save
   savedExists: boolean;
   refreshSave: () => void;
@@ -108,6 +115,8 @@ let _acc = 0;
 let _lastSyncMs = 0;
 let _nowMs = 0;
 let _saveTimer = 0;
+// Rising-edge latch for "troops in contact": TIC is a ONE-WAY switch to 1× real time.
+let _wasInContact = false;
 
 function hasSaveOnDisk(): boolean {
   try {
@@ -121,6 +130,33 @@ function clearSaveOnDisk() {
     window.localStorage.removeItem(SAVE_KEY);
   } catch {
     /* ignore */
+  }
+}
+
+// ---- UI chrome layout (per-device preference, NOT part of the campaign save) ----
+const LAYOUT_KEY = "itm-ui-v1";
+export interface PanelLayout {
+  collapsed: Record<string, boolean>;
+  heights: Record<string, number>;
+  seenCombatId: number;
+}
+function loadLayout(): PanelLayout {
+  const base: PanelLayout = { collapsed: {}, heights: {}, seenCombatId: 0 };
+  try {
+    if (typeof window === "undefined") return base;
+    const r = window.localStorage.getItem(LAYOUT_KEY);
+    if (!r) return base;
+    const p = JSON.parse(r) as Partial<PanelLayout>;
+    return { collapsed: p.collapsed ?? {}, heights: p.heights ?? {}, seenCombatId: p.seenCombatId ?? 0 };
+  } catch {
+    return base;
+  }
+}
+function persistLayout(l: PanelLayout) {
+  try {
+    window.localStorage.setItem(LAYOUT_KEY, JSON.stringify(l));
+  } catch {
+    /* full / unavailable */
   }
 }
 
@@ -141,6 +177,7 @@ export const useGame = create<GameStore>((set, get) => ({
   selectedVillage: null,
   banner: null,
   jacketId: null,
+  layout: loadLayout(),
   savedExists: false,
   tutorial: false,
   tutorialStep: 0,
@@ -151,6 +188,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const s = seed && seed.length ? seed : `valley-${Math.floor(performance.now())}`;
     const world = createWorld(s, days);
     _acc = 0;
+    _wasInContact = false;
     set({
       world,
       screen: "deploy",
@@ -180,6 +218,7 @@ export const useGame = create<GameStore>((set, get) => ({
       const parsed = JSON.parse(raw) as { rngState: number; state: import("@/lib/sim/world").WorldState; units: never };
       const world = loadWorld(parsed as Parameters<typeof loadWorld>[0]);
       _acc = 0;
+      _wasInContact = false;
       set({
         world,
         screen: "deploy",
@@ -246,7 +285,21 @@ export const useGame = create<GameStore>((set, get) => ({
     const running = !st.paused && !w.pendingEvent;
     if (running) {
       const inContact = w.inContact();
-      if (st.warp && !inContact) {
+      // TIC is a ONE-WAY switch. The instant a squad goes into contact, drop the
+      // time compression to 1× real-time and leave it there. We do NOT restore the
+      // pre-contact speed afterward — that auto-restore is what made the clock lurch
+      // (16× → clamp 4× → pop back to 16× as contact flickered). After the drop the
+      // player owns the speed control again; we simply never bump it back up for them.
+      let speed = st.speed;
+      let warp = st.warp;
+      if (inContact && !_wasInContact && (speed !== 1 || warp)) {
+        speed = 1;
+        warp = false;
+        set({ speed: 1, warp: false });
+      }
+      _wasInContact = inContact;
+
+      if (warp && !inContact) {
         // skip-to-event warp: advance fast, stop on the first thing that matters
         let n = 0;
         let stop: string | null = null;
@@ -263,7 +316,10 @@ export const useGame = create<GameStore>((set, get) => ({
           set({ warp: false, banner: w.pendingEvent ? w.pendingEvent.title : stop });
         }
       } else {
-        const effSpeed = inContact ? Math.min(st.speed, 4) : st.speed;
+        // In combat the clock is already latched to 1× above; the Math.min is a
+        // belt-and-suspenders cap if the player manually nudges speed up mid-fight
+        // (combat sim stays stable up to 4×). Out of contact it runs at the set speed.
+        const effSpeed = inContact ? Math.min(speed, 4) : speed;
         _acc += realDt * effSpeed;
         let slices = 0;
         const cap = Math.max(8, Math.ceil(effSpeed / SIM_DT) + 4);
@@ -277,7 +333,9 @@ export const useGame = create<GameStore>((set, get) => ({
           const urgent = ints.find((r) => r.includes("CONTACT") || r.includes("ATTACK") || r.includes("KIA"));
           set({ banner: urgent ?? ints[0] });
         }
-        if (st.warp && inContact) set({ warp: false });
+        // Reaching this branch with warp still set means we're in contact (warp can't
+        // run during a firefight) — clear it so the warp toggle never sticks "on".
+        if (warp) set({ warp: false });
       }
     }
 
@@ -408,6 +466,19 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ tick: get().tick + 1 });
   },
   setJacket: (id) => set({ jacketId: id }),
+
+  // ------------------------------------------------------------------ panel layout
+  togglePanel: (id) => {
+    set((st) => ({ layout: { ...st.layout, collapsed: { ...st.layout.collapsed, [id]: !st.layout.collapsed[id] } } }));
+    persistLayout(get().layout);
+  },
+  setPanelHeight: (id, px) => set((st) => ({ layout: { ...st.layout, heights: { ...st.layout.heights, [id]: px } } })),
+  persistPanelLayout: () => persistLayout(get().layout),
+  markCombatSeen: (maxId) => {
+    if (maxId <= get().layout.seenCombatId) return;
+    set((st) => ({ layout: { ...st.layout, seenCombatId: maxId } }));
+    persistLayout(get().layout);
+  },
 
   // ------------------------------------------------------------------ time
   setSpeed: (s) => set({ paused: false, speed: s, warp: false }),

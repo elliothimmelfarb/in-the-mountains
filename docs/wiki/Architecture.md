@@ -114,10 +114,15 @@ There is one screen. `WorldView` owns a `requestAnimationFrame` loop that calls
 
 `lib/render/topo.ts` bakes a high-resolution shaded-relief image of the whole valley **once**
 (hillshade from the elevation gradient + landcover tint, with fbm-dithered class boundaries so edges
-are organic not 5 m stair-steps, + marching-squares contour lines), cached in a `WeakMap` keyed by
-`Terrain`. The COP's HESCO walls, structures and gravel pads are baked right into the relief; live
+are organic not 5 m stair-steps), cached in a `WeakMap` keyed by `Terrain`. The bake is sized at
+`~4500/size` px-per-cell (8 px/cell on the 512 grid → a 4096² sheet) so the relief stays crisp deep
+into zoom. The COP's HESCO walls, structures and gravel pads are baked right into the relief; live
 views `drawImage` that bitmap under a `Camera`, plus a world-anchored noise overlay at high zoom that
-hides the upscale blur. Night applies a low-light wash driven by `World.ambientLight()`.
+gives the ground crisp micro-texture. **Contour lines are NOT baked** — `drawContoursLive` redraws
+them every frame as sharp marching-squares **vectors** in screen space over only the visible cell
+window, with a zoom-adaptive interval (10–200 m) and grid-downsampling to bound cost, so a contour
+line is razor-sharp at any zoom instead of blurring with the upscaled bitmap (the "blurry contours on
+zoom" fix). Night applies a low-light wash driven by `World.ambientLight()`.
 
 ### Sprite / asset system (map visual overhaul)
 

@@ -30,6 +30,7 @@ const LAND_NAME: Record<number, string> = {
   [Land.CompoundWall]: "Compound wall",
   [Land.Cemetery]: "Cemetery",
   [Land.Road]: "Road",
+  [Land.Track]: "Track",
   [Land.Trail]: "Trail",
   [Land.Footbridge]: "Footbridge",
   [Land.Hesco]: "HESCO wall",
@@ -670,7 +671,7 @@ export default function WorldView() {
           const sx = e.clientX - rect.left;
           const sy = e.clientY - rect.top;
           const [wx, wy] = screenToWorld(camRef.current, sx, sy);
-          camRef.current.ppm = Math.max(0.18, Math.min(8, camRef.current.ppm * factor));
+          camRef.current.ppm = Math.max(0.3, Math.min(8, camRef.current.ppm * factor));
           const [nsx, nsy] = worldToScreen(camRef.current, wx, wy);
           camRef.current.cx += (nsx - sx) / camRef.current.ppm;
           camRef.current.cy += (nsy - sy) / camRef.current.ppm;

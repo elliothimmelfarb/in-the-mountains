@@ -13,6 +13,11 @@
  *             route (not the straight-line fallback)? (Y/N)
  *   open%     issue 003/004 — interior passable, non-structure fraction
  *   solid?    issue 004 — are interior Structure cells impassable? (Y once fixed)
+ *   vilGap    village/COP separation — meters between the COP wire (radius R) and the
+ *             NEAREST village footprint (radius v.size). NEGATIVE = the footprints
+ *             overlap: a village intersects the outpost (must be impossible).
+ *   vil∩      direct cross-check — count of village-CORE cells (Compound / CompoundWall
+ *             / Cemetery) sitting inside the COP wire + clearance band. Must be 0.
  *   wireHits  villager bug — over a short civilian-only sim, the number of
  *             civilian-ticks spent wall-blocked against the HESCO (blockedTimer>0
  *             while adjacent to a Hesco cell). Should be ~0.
@@ -47,6 +52,8 @@ console.log(
   "portal".padStart(7),
   "open%".padStart(6),
   "solid?".padStart(7),
+  "vilGap".padStart(7),
+  "vil∩".padStart(5),
   "wireHits".padStart(9)
 );
 
@@ -55,6 +62,8 @@ let ringSum = 0;
 let gateAwaySum = 0;
 let portalFail = 0;
 let wireSum = 0;
+let overlapSeeds = 0; // seeds where a village footprint overlaps the COP wire
+let coreHitSeeds = 0; // seeds with village-core cells inside the COP clearance band
 
 for (const seed of SEEDS) {
   let w: any;
@@ -86,6 +95,34 @@ for (const seed of SEEDS) {
   }
   const ringPct = Math.round((open / STEPS) * 100);
   ringSum += ringPct;
+
+  // --- village/COP footprint separation (the "village intersects the COP" bug) ---
+  // Geometric gap (meters) between the COP wire edge (radius R) and the nearest
+  // village footprint edge (radius v.size). Negative => overlap.
+  let minGapCells = Infinity;
+  for (const v of t.villages) {
+    const d = Math.hypot(v.cx - cop.center.cx, v.cy - cop.center.cy);
+    const gap = d - R - v.size;
+    if (gap < minGapCells) minGapCells = gap;
+  }
+  const vilGapM = t.villages.length ? Math.round(minGapCells * cs) : 0;
+  if (t.villages.length && minGapCells < 0) overlapSeeds++;
+  // Direct cross-check: any village-core cell (Compound/Wall/Cemetery) inside the
+  // wire + a clearance band is a real, rendered intersection — independent of the
+  // geometric gap (catches asymmetric footprints the radius model misses).
+  const CLEAR = 6;
+  let coreHits = 0;
+  const Rb = R + CLEAR;
+  for (let dy = -Rb; dy <= Rb; dy++)
+    for (let dx = -Rb; dx <= Rb; dx++) {
+      if (Math.hypot(dx, dy) > Rb) continue;
+      const x = cop.center.cx + dx;
+      const y = cop.center.cy + dy;
+      if (!t.inBounds(x, y)) continue;
+      const l = t.land[t.idx(x, y)] as Land;
+      if (l === Land.Compound || l === Land.CompoundWall || l === Land.Cemetery) coreHits++;
+    }
+  if (coreHits > 0) coreHitSeeds++;
 
   // --- 002: gate bearing vs nearest village ---
   const gateAng = Math.atan2(cop.gateDir.y, cop.gateDir.x);
@@ -170,6 +207,8 @@ for (const seed of SEEDS) {
     (realPortal ? "Y" : "N").padStart(7),
     String(openPct).padStart(6),
     solid.padStart(7),
+    String(vilGapM + "m").padStart(7),
+    String(coreHits).padStart(5),
     String(wireHits).padStart(9)
   );
 }
@@ -180,4 +219,6 @@ console.log("  egress blocked:   ", egressBlocked, "/", n, "(issue 001)");
 console.log("  avg perimeter ring open%:", Math.round(ringSum / n), "(issue 001)");
 console.log("  gate faces >90° from nearest village:", gateAwaySum, "/", n, "(issue 002)");
 console.log("  gate portal disconnected:", portalFail, "/", n, "(issue 005)");
+console.log("  village/COP footprint OVERLAP:", overlapSeeds, "/", n, "(item: village intersects COP — must be 0)");
+console.log("  seeds with village-core cells in COP clearance:", coreHitSeeds, "/", n, "(must be 0)");
 console.log("  total civilian wire-pin ticks:", wireSum, "(villager bug)");

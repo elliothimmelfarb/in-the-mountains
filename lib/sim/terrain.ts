@@ -1,5 +1,9 @@
 import { RNG, ValueNoise, clamp, clamp01, smoothstep, lerp } from "./rng";
 import { Vec2, fromAngle, angle, angleDiff, norm, dot } from "./vec";
+// NB: path.ts imports Land/COARSE_F from this file, but only INSIDE functions, so this
+// terrain → path → terrain cycle resolves at load time. findPath is used at generation time
+// (carveRoadsAndTrails) to route the village road network over the real terrain.
+import { findPath } from "./path";
 
 /** Landcover classes. Drive cover (stops bullets), concealment (blocks sight),
  *  movement cost, and rendering tint. At 5 m fidelity the valley is resolved
@@ -24,15 +28,16 @@ export enum Land {
   Compound = 15, // qalat interior (buildings / courtyard)
   CompoundWall = 16, // mud perimeter walls — heavy hard cover
   Cemetery = 17, // walled graveyard — cover + cultural sensitivity
-  Road = 18, // graded road / MSR
-  Trail = 19, // foot / goat trail
+  Road = 18, // graded road / MSR — the valley-floor main supply route
+  Trail = 19, // foot / goat trail — unimproved footpath up the draws
   Footbridge = 20, // crossing over the river / a wash
   Hesco = 21, // HESCO bastion / sandbag barrier — the COP's perimeter wall
   Structure = 22, // a built structure (b-hut, TOC, conex) — enterable, blocks sight
   Gravel = 23, // graded gravel pad — motor pool / LZ / interior yard
+  Track = 24, // graded secondary dirt track — village↔MSR & village↔village (Tier-2)
 }
 
-export const LAND_COUNT = 24;
+export const LAND_COUNT = 25;
 
 export interface Village {
   id: string;
@@ -486,7 +491,16 @@ export class Terrain {
     // The perimeter radius the COP will use (kept in sync with buildCop) so siting
     // can evaluate the actual apron the wire and its ring-road will occupy.
     const R0 = clamp(Math.round(85 / this.cellSize), 12, 20);
+    // HARD COP↔village footprint separation (item 1 / movement RC#3): the outpost
+    // footprint is the wire radius R0 plus a clearance band (ring road + apron); a
+    // village footprint is its compound radius v.size (+ cemetery a touch beyond). If
+    // those overlap, buildCop bulldozes the qalat and the gate opens into the village —
+    // a "village intersects the COP" generation, and a sealed-pocket cause of stranded
+    // patrols. Require this many CELLS of clear ground between the wire and any compound.
+    const SEP_MARGIN = 8; // cells (~40 m) — guarantees no village-core cell in the COP clearance
     let best: { cx: number; cy: number; score: number } | null = null;
+    // Largest-gap site seen even if every candidate is close — so siting never fails outright.
+    let fallback: { cx: number; cy: number; gap: number } | null = null;
     for (let tries = 0; tries < 1600; tries++) {
       const y = rng.int(size * 0.55, size * 0.85);
       const cx = this.centerX[y];
@@ -510,7 +524,16 @@ export class Terrain {
       // in the bazaar. Reward a ~110–460 m standoff to the NEAREST village; penalize
       // being right on top of one or too far to support it.
       let nearVilM = Infinity;
-      for (const v of placed) nearVilM = Math.min(nearVilM, Math.hypot(v.cx - x, v.cy - y) * this.cellSize);
+      let minGapCells = placed.length ? Infinity : 999;
+      for (const v of placed) {
+        const dCells = Math.hypot(v.cx - x, v.cy - y);
+        nearVilM = Math.min(nearVilM, dCells * this.cellSize);
+        minGapCells = Math.min(minGapCells, dCells - R0 - v.size); // wire-edge → compound-edge gap
+      }
+      // Track the roomiest site regardless, then HARD-reject any site whose footprint+
+      // clearance overlaps a village. A non-overlapping site always wins when one exists.
+      if (!fallback || minGapCells > fallback.gap) fallback = { cx: x, cy: y, gap: minGapCells };
+      if (minGapCells < SEP_MARGIN) continue;
       const aoScore =
         nearVilM < 90 ? Math.max(0, nearVilM / 90 - 0.2) : nearVilM <= 460 ? 1 : clamp01(1 - (nearVilM - 460) / 520);
       // Well-shaped bench (issue 001): most bearings around the wire have a passable,
@@ -520,7 +543,12 @@ export class Terrain {
         prom * 1.5 + heightScore * 1.6 + distScore + aoScore * 1.4 + bench * 1.4 - this.slope[i] * 2;
       if (!best || score > best.score) best = { cx: x, cy: y, score };
     }
-    this.copCell = best ? { cx: best.cx, cy: best.cy } : { cx: Math.round(size / 2), cy: Math.round(size * 0.7) };
+    // Prefer a well-scored, well-separated site; else the roomiest site found; else center.
+    this.copCell = best
+      ? { cx: best.cx, cy: best.cy }
+      : fallback
+        ? { cx: fallback.cx, cy: fallback.cy }
+        : { cx: Math.round(size / 2), cy: Math.round(size * 0.7) };
     this.buildCop(rng);
   }
 
@@ -902,18 +930,26 @@ export class Terrain {
   private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number, land: Land = Land.Road) {
     const bx = Math.round(cxf);
     const by = Math.round(cyf);
-    for (let dy = -half; dy <= half; dy++)
-      for (let dx = -half; dx <= half; dx++) {
+    // Bench the tread to grade, and FEATHER one ring beyond it (eased partway to grade) so the
+    // cut blends into the hillside like a real road cut-and-fill — instead of leaving the sharp
+    // groove that made the old village descents read as ugly "troughs". Only the tread (≤half)
+    // takes the road/track landcover; the feather ring stays natural ground, just smoothed.
+    const reach = half + 1;
+    const treadW = land === Land.Trail ? 0.6 : land === Land.Track ? 0.72 : 0.82;
+    for (let dy = -reach; dy <= reach; dy++)
+      for (let dx = -reach; dx <= reach; dx++) {
         const x = bx + dx;
         const y = by + dy;
         if (!this.inBounds(x, y)) continue;
         const i = this.idx(x, y);
         const l = this.land[i] as Land;
         if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall || l === Land.Structure) continue;
-        // A trail rides lightly on the surface; a road tread is benched harder flat.
-        this.elev[i] = lerp(this.elev[i], targetE, land === Land.Trail ? 0.62 : 0.8);
-        if (l !== Land.Gravel && l !== Land.River && l !== Land.Road) this.land[i] = land;
-        else if (l === Land.River) this.land[i] = Land.Footbridge;
+        const d = Math.max(Math.abs(dx), Math.abs(dy));
+        this.elev[i] = lerp(this.elev[i], targetE, d <= half ? treadW : 0.34);
+        if (d <= half) {
+          if (l !== Land.Gravel && l !== Land.River && l !== Land.Road) this.land[i] = land;
+          else if (l === Land.River) this.land[i] = Land.Footbridge;
+        }
       }
   }
 
@@ -1223,19 +1259,37 @@ export class Terrain {
           this.land[i] = Land.Road;
       }
     }
-    // Trails: a GRADED, terrain-following foot trail descends from each village to the
-    // valley road (so it's actually walkable end-to-end — the village joins the road
-    // network and is reachable even when a cliff band lies between it and the COP), plus
-    // a cosmetic goat-trail spur up the hill (a covered approach).
+    // ---- Village ROAD NETWORK (item 8 — replaces the old "trail trench to the water") ----
+    // Each qalat is tied to the valley MSR by a graded SECONDARY TRACK, and the villages are
+    // tied to ONE ANOTHER by a minimum-spanning tree of tracks — so the whole AO is one
+    // connected network (villagers travel it; patrols on Fast prefer it). Tracks are ROUTED
+    // OVER THE REAL TERRAIN with findPath (so they follow walkable ground — washes at the ford,
+    // benches, gentle spurs — instead of bulldozing a straight line) and laid with layPath,
+    // which conforms LIGHTLY to local ground and never gouges a trench. Only where a village is
+    // genuinely cliff-isolated does it fall back to a switchbacked graded descent (descendTrack
+    // as a Track), and a faint Tier-3 goat TRAIL climbs the draw above each village.
+    const trailheads: { v: Village; hx: number; hy: number; dir: number }[] = [];
     for (const vil of this.villages) {
       const roadX = Math.round(this.centerX[vil.cy]);
-      const dirToRoad = Math.sign(roadX - vil.cx) || 1;
-      const startX = clamp(vil.cx + dirToRoad * (vil.size + 1), 0, size - 1);
-      this.descendTrack(startX, vil.cy, 1, 0.5, Land.Trail, rng);
-      this.stampTrail(vil.cx, vil.cy, startX, vil.cy); // tie the qalat to the trailhead
-      const upX = vil.cx - dirToRoad * Math.round(size * 0.08);
-      const upY = vil.cy + rng.int(-8, 8);
-      this.stampTrail(vil.cx, vil.cy, clamp(upX, 0, size - 1), clamp(upY, 0, size - 1));
+      const dir = Math.sign(roadX - vil.cx) || 1;
+      const hx = clamp(vil.cx + dir * (vil.size + 1), 0, size - 1);
+      trailheads.push({ v: vil, hx, hy: vil.cy, dir });
+    }
+    // 1) Each village → the MSR (graded secondary Track).
+    for (const th of trailheads) {
+      this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(th.hx, th.hy)], Land.Track, 1, 0.15);
+      const tie = this.nearestRoadCell(th.hx, th.hy);
+      this.layTrack(this.cellCenter(th.hx, th.hy), this.cellCenter(tie.cx, tie.cy), rng);
+      // Tier-3 goat trail up the draw above the village (surface-laid, no benching).
+      const upX = clamp(th.v.cx - th.dir * Math.round(size * 0.08), 0, size - 1);
+      const upY = clamp(th.v.cy + rng.int(-8, 8), 0, size - 1);
+      this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)], Land.Trail, 0, 0);
+    }
+    // 2) Village ↔ village MST (graded secondary Track) — direct inter-village links.
+    for (const [a, b] of this.villageMST()) {
+      const va = this.villages[a];
+      const vb = this.villages[b];
+      this.layTrack(this.cellCenter(va.cx, va.cy), this.cellCenter(vb.cx, vb.cy), rng);
     }
     // COP access road: a narrow, switchbacked track that descends the knob to the
     // valley road, following the terrain instead of bulldozing a straight ramp.
@@ -1273,6 +1327,142 @@ export class Terrain {
         continue;
       this.land[i] = Land.Trail;
     }
+  }
+
+  /**
+   * Lay a tiered path (Track / Trail) along a polyline of WORLD waypoints WITHOUT gouging a
+   * trench. It stamps the landcover and, at most, eases the tread a little toward the LOCAL
+   * natural ground (`conform` ≤ ~0.2, never a far-below grade line) — so a track conforms to
+   * the hillside like a real graded road instead of cutting a deep groove (the old village
+   * "trail trench"). River cells become a Footbridge; the wire, qalats, structures and the MSR
+   * are never overwritten.
+   */
+  private layPath(pts: Vec2[], land: Land, half: number, conform: number) {
+    if (pts.length < 2) return;
+    const cs = this.cellSize;
+    let prev = pts[0];
+    for (let k = 1; k < pts.length; k++) {
+      const cur = pts[k];
+      const ax = prev.x / cs, ay = prev.y / cs, bx = cur.x / cs, by = cur.y / cs;
+      const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) * 2));
+      for (let s = 0; s <= steps; s++) {
+        const t = s / steps;
+        const bxr = Math.round(ax + (bx - ax) * t);
+        const byr = Math.round(ay + (by - ay) * t);
+        for (let dy = -half; dy <= half; dy++)
+          for (let dx = -half; dx <= half; dx++) {
+            const x = bxr + dx;
+            const y = byr + dy;
+            if (!this.inBounds(x, y)) continue;
+            const i = this.idx(x, y);
+            const l = this.land[i] as Land;
+            if (l === Land.Hesco || l === Land.Structure || l === Land.Compound || l === Land.CompoundWall || l === Land.Road || l === Land.Gravel) continue;
+            if (l === Land.River) {
+              this.land[i] = Land.Footbridge;
+              continue;
+            }
+            this.land[i] = land;
+            if (conform > 0) this.elev[i] = lerp(this.elev[i], this.localGroundElev(x, y), conform);
+          }
+      }
+      prev = cur;
+    }
+  }
+
+  /** Mean elevation of the natural (non-path) neighbours of a cell — the local ground level a
+   *  light-tread path conforms to, so it never benches below the surrounding hillside. */
+  private localGroundElev(x: number, y: number): number {
+    let sum = 0;
+    let cnt = 0;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
+        const nx = clamp(x + dx, 0, this.size - 1);
+        const ny = clamp(y + dy, 0, this.size - 1);
+        const l = this.land[this.idx(nx, ny)] as Land;
+        if (l === Land.Road || l === Land.Track || l === Land.Trail || l === Land.Footbridge) continue;
+        sum += this.elev[this.idx(nx, ny)];
+        cnt++;
+      }
+    return cnt ? sum / cnt : this.elev[this.idx(x, y)];
+  }
+
+  /**
+   * Lay a graded secondary TRACK between two world points, routed over the REAL terrain by
+   * findPath (so it follows walkable ground), then stamped light-tread (no trench). If the
+   * destination is genuinely unreachable on the raw terrain (a cliff band between them), fall
+   * back to a switchbacked graded descent toward the valley — which is where the MSR runs, so
+   * the otherwise-isolated village still joins the road network.
+   */
+  private layTrack(fromW: Vec2, toW: Vec2, rng: RNG) {
+    const cs = this.cellSize;
+    const route = findPath(this, fromW, toW, { roadBias: 0.6 });
+    const last = route[route.length - 1];
+    const reached = !!last && Math.hypot(last.x - toW.x, last.y - toW.y) < cs * 3;
+    if (reached && route.length >= 1) {
+      this.layPath([fromW, ...route], Land.Track, 1, 0.18);
+      return;
+    }
+    const fc = {
+      cx: clamp(Math.round(fromW.x / cs), 0, this.size - 1),
+      cy: clamp(Math.round(fromW.y / cs), 0, this.size - 1),
+    };
+    const tie = this.descendTrack(fc.cx, fc.cy, 1, 0.42, Land.Track, rng);
+    // tie the graded descent explicitly into the MSR so the village is actually ON the network
+    const road = this.nearestRoadCell(tie.cx, tie.cy);
+    this.layPath([this.cellCenter(tie.cx, tie.cy), this.cellCenter(road.cx, road.cy)], Land.Track, 1, 0.15);
+  }
+
+  /** Nearest valley-floor MSR (Road) cell to a point — scan toward the centerline, then spiral. */
+  private nearestRoadCell(cx: number, cy: number): { cx: number; cy: number } {
+    const cyc = clamp(cy, 0, this.size - 1);
+    const roadX = Math.round(this.centerX[cyc]);
+    const dir = Math.sign(roadX - cx) || 1;
+    for (let s = 0; s <= Math.abs(roadX - cx) + 8; s++) {
+      const x = cx + dir * s;
+      if (this.inBounds(x, cyc) && (this.land[this.idx(x, cyc)] as Land) === Land.Road) return { cx: x, cy: cyc };
+    }
+    for (let r = 1; r <= 40; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+          const x = cx + dx;
+          const y = cyc + dy;
+          if (this.inBounds(x, y) && (this.land[this.idx(x, y)] as Land) === Land.Road) return { cx: x, cy: y };
+        }
+    return { cx: clamp(roadX, 0, this.size - 1), cy: cyc };
+  }
+
+  /** Minimum spanning tree over the villages (complete graph, straight-line weight) as edges.
+   *  Deterministic (villages in seeded order, ties by index) so the network rebuilds on load. */
+  private villageMST(): [number, number][] {
+    const vs = this.villages;
+    const n = vs.length;
+    if (n < 2) return [];
+    const inTree = new Array<boolean>(n).fill(false);
+    const edges: [number, number][] = [];
+    inTree[0] = true;
+    for (let e = 0; e < n - 1; e++) {
+      let bi = -1;
+      let bj = -1;
+      let bd = Infinity;
+      for (let i = 0; i < n; i++) {
+        if (!inTree[i]) continue;
+        for (let j = 0; j < n; j++) {
+          if (inTree[j]) continue;
+          const d = Math.hypot(vs[i].cx - vs[j].cx, vs[i].cy - vs[j].cy);
+          if (d < bd) {
+            bd = d;
+            bi = i;
+            bj = j;
+          }
+        }
+      }
+      if (bj < 0) break;
+      inTree[bj] = true;
+      edges.push([bi, bj]);
+    }
+    return edges;
   }
 
   /** Per-cell cover (stops rounds) and concealment (blocks sight) from landcover. */
@@ -1431,6 +1621,7 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
   [Land.Hesco]: [0.92, 0.85], // HESCO bastion — the hardest cover on the map
   [Land.Structure]: [0.55, 0.8], // walls of a building — cover + blocks sight
   [Land.Gravel]: [0.04, 0.05], // graded pad — open, no cover
+  [Land.Track]: [0.05, 0.07], // graded dirt track — open, a hair of cover off the verge
 };
 
 /** Base movement multiplier per landcover (before slope). */
@@ -1459,4 +1650,5 @@ const LAND_MOVE: Record<Land, number> = {
   [Land.Hesco]: 0.15, // can't walk through the wall
   [Land.Structure]: 0.55, // moving through a building
   [Land.Gravel]: 0.98, // graded pad — easy going
+  [Land.Track]: 0.96, // graded secondary track — just under the MSR, well above open ground
 };

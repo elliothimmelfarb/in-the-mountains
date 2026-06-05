@@ -147,14 +147,17 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   }
 
   // Pace governor (continuous — a squad NEVER abandons cohesion): the point man eases the
-  // throttle smoothly the further the rearmost man trails his slot, down to a slow creep
-  // (floor 0.2×), and opens back up the instant the element closes up. Lag is the man's
-  // shortfall ALONG THE WAKE — the arc he still has to walk to reach his slot — not a
-  // straight-line distance, so a file legitimately wrapped around the COP ring (long
-  // straight-line span, everyone perfectly in place) reads as zero lag, not "strung out".
-  const slowZone = plan.spacing * 1.6;
+  // throttle the further the rearmost man trails his slot, and opens back up the instant the
+  // element closes up. Lag is the man's shortfall ALONG THE WAKE — the arc he still has to
+  // walk to reach his slot — not a straight-line distance, so a file legitimately wrapped
+  // around the COP ring (long straight-line span, everyone in place) reads as zero lag.
+  // FLOOR raised 0.2×→0.6× and the slow-zone widened (movement RC#2): on a long cliff detour
+  // the file is chronically strung out, and a 0.2× floor throttled the WHOLE march to a crawl
+  // — so a reachable village arrived only after the harness window and was mislabeled "stuck".
+  // 0.6× keeps the element together without collapsing the advance to a near-stop.
+  const slowZone = plan.spacing * 1.8;
   const slow = clamp01((lag - slowZone) / (slowZone * 2.2));
-  nav.paceScale = 1 - 0.8 * slow;
+  nav.paceScale = 1 - 0.4 * slow;
 
   return centroidOf(members);
 }
