@@ -29,7 +29,8 @@ const SEEDS = process.argv[2]
 const cs = 5;
 const ARRIVE = 50; // m — objectives snap to the village edge, so ~45 m IS "on the objective"
 const REACH_CELLS = Math.ceil(ARRIVE / cs); // a passable cell this close to the village counts
-const MAX_S = 1500; // generous window — a far village around a cliff is a long march
+const MAX_S = 1500; // a TACTICAL window — "did it arrive in ~25 min"
+const CAP_S = 3600; // hard safety cap for the arrival-eventually run (the sim's own STUCK_S ends most)
 
 /** 8-connected flood over passableCell from a seed cell. Returns the seen bitmap. */
 function floodPassable(t: any, fromCx: number, fromCy: number): Uint8Array {
@@ -73,7 +74,7 @@ function reachable(t: any, seen: Uint8Array, vx: number, vy: number): boolean {
   return false;
 }
 
-interface Row { reach: boolean; arrived: boolean; rear: boolean; miss: number; nullRoute: boolean; }
+interface Row { reach: boolean; arrived: boolean; arrTac: boolean; rear: boolean; miss: number; nullRoute: boolean; }
 
 console.log(
   "seed".padEnd(12),
@@ -81,12 +82,13 @@ console.log(
   "reach".padStart(6),
   "arr".padStart(4),
   "arr/reach".padStart(10),
+  "≤1500s".padStart(8),
   "REAR r/a".padStart(9),
   "falseOK".padStart(8),
   "  worst false-miss (reachable, not arrived)"
 );
 
-const G = { vil: 0, reach: 0, arr: 0, arrReach: 0, rearReach: 0, rearArr: 0, falseOK: 0, nullR: 0 };
+const G = { vil: 0, reach: 0, arr: 0, arrReach: 0, arrTac: 0, rearReach: 0, rearArr: 0, falseOK: 0, nullR: 0 };
 
 for (const seed of SEEDS) {
   let base: any;
@@ -117,38 +119,52 @@ for (const seed of SEEDS) {
     const routeEnd = route[route.length - 1];
     const nullRoute = !routeEnd || Math.hypot(routeEnd.x - objW.x, routeEnd.y - objW.y) > ARRIVE;
 
-    // Real sim, fresh world per village so tasks don't interfere.
+    // Real sim, fresh world per village so tasks don't interfere. We tick until the point man
+    // ARRIVES, or the SIM ITSELF stops advancing the patrol — i.e. its phase leaves "moving"
+    // (it either set up on the objective or fired its own STUCK_S no-progress backstop and held
+    // up short) — or a generous safety cap. Ending on the sim's OWN stall decision (not an
+    // arbitrary wall-clock) is what makes "slow but arriving" honest and "genuinely stuck"
+    // honest: a steadily-closing march is never cut off early, a truly stuck one still fails.
     const ww: any = createWorld(seed, 90);
     const sq = ww.platoon.squads.find((s: any) => s.id === "sq1");
     const ids: string[] = sq.memberIds.slice();
     const oW = ww.terrain.cellCenter(v.cx, v.cy);
     const task = ww.formPatrol(ids, [{ cx: v.cx, cy: v.cy }], "presence", "patrol");
     let closest = Infinity;
-    for (let k = 0; k < MAX_S * 10; k++) {
+    let arrivedAt = -1;
+    for (let k = 0; k < CAP_S * 10; k++) {
       ww.tick(0.1);
+      const tn = k * 0.1;
       const lead = ww.sim.unit(task.leadId);
-      if (lead && lead.alive) closest = Math.min(closest, Math.hypot(lead.pos.x - oW.x, lead.pos.y - oW.y));
+      if (lead && lead.alive) {
+        const d = Math.hypot(lead.pos.x - oW.x, lead.pos.y - oW.y);
+        if (d < closest) closest = d;
+        if (d < ARRIVE && arrivedAt < 0) arrivedAt = tn;
+      }
       if (closest < ARRIVE) break;
-      if (task.phase === "complete") break;
+      // the sim decided the leg is over (set up on objective OR held up short via STUCK_S)
+      if (task.phase !== "moving" && task.phase !== "assembling") break;
     }
-    const arrived = closest < ARRIVE;
+    const arrived = closest < ARRIVE; // arrived eventually (given a fair, sim-bounded window)
+    const arrTac = arrived && arrivedAt >= 0 && arrivedAt <= MAX_S; // arrived within a tactical window
     if (isReach && !arrived && closest - ARRIVE > worstMiss) {
       worstMiss = closest - ARRIVE;
       worstMissName = v.name;
     }
-    rows.push({ reach: isReach, arrived, rear, miss: closest, nullRoute });
+    rows.push({ reach: isReach, arrived, arrTac, rear, miss: closest, nullRoute });
   }
 
   const vil = rows.length;
   const reachN = rows.filter((r) => r.reach).length;
   const arrN = rows.filter((r) => r.arrived).length;
   const arrReachN = rows.filter((r) => r.reach && r.arrived).length;
+  const arrTacN = rows.filter((r) => r.reach && r.arrTac).length;
   const rearReachN = rows.filter((r) => r.rear && r.reach).length;
   const rearArrN = rows.filter((r) => r.rear && r.reach && r.arrived).length;
   const falseOK = rows.filter((r) => r.arrived && !r.reach).length;
   const nullR = rows.filter((r) => r.nullRoute).length;
 
-  G.vil += vil; G.reach += reachN; G.arr += arrN; G.arrReach += arrReachN;
+  G.vil += vil; G.reach += reachN; G.arr += arrN; G.arrReach += arrReachN; G.arrTac += arrTacN;
   G.rearReach += rearReachN; G.rearArr += rearArrN; G.falseOK += falseOK; G.nullR += nullR;
 
   console.log(
@@ -157,6 +173,7 @@ for (const seed of SEEDS) {
     String(reachN).padStart(6),
     String(arrN).padStart(4),
     `${arrReachN}/${reachN}`.padStart(10),
+    `${arrTacN}/${reachN}`.padStart(8),
     `${rearArrN}/${rearReachN}`.padStart(9),
     String(falseOK).padStart(8),
     worstMiss > 0 ? `  ${worstMissName} +${Math.round(worstMiss)}m` : "  (none)"
@@ -167,8 +184,9 @@ const pct = (a: number, b: number) => `${a}/${b} (${Math.round((a / Math.max(1, 
 console.log("-".repeat(92));
 console.log("TOTAL villages:", G.vil);
 console.log("  BFS-reachable on foot:        ", pct(G.reach, G.vil), "  ← the physical ceiling");
-console.log("  ARRIVED (real sim):           ", pct(G.arr, G.vil));
+console.log("  ARRIVED (real sim, eventually):", pct(G.arr, G.vil));
 console.log("  ARRIVED among REACHABLE:      ", pct(G.arrReach, G.reach), "  ← DoD target 100%");
+console.log("  ...of those, within 1500s:    ", pct(G.arrTac, G.reach), "  ← tactical window");
 console.log("  REAR (opposite-gate) arr/reach:", pct(G.rearArr, G.rearReach), "  ← the adversarial bucket");
 console.log("  false success (arr, !reach):  ", G.falseOK, "  (must be 0 — else a metric error)");
 console.log("  router NULL routes (best-effort):", pct(G.nullR, G.vil));

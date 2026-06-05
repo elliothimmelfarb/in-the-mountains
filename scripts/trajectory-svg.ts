@@ -81,9 +81,12 @@ const SCALE = 2.0; // px per meter
 const sx = (x: number) => ((x - minX) * SCALE).toFixed(1);
 const sy = (y: number) => ((y - minY) * SCALE).toFixed(1);
 
-// collect wall + trail cells in-window
+// collect wall + the road/track network cells in-window. Showing the whole tiered network
+// (MSR Road, secondary Track, foot Trail, Footbridge) makes the "does the squad ride the
+// network?" story legible in the before/after diagrams.
 const wallRects: string[] = [];
 const trailRects: string[] = [];
+const netRects: string[] = [];
 const c0x = Math.floor(minX / cs),
   c1x = Math.ceil(maxX / cs),
   c0y = Math.floor(minY / cs),
@@ -97,6 +100,9 @@ for (let cy = c0y; cy <= c1y; cy++)
       s = (cs * SCALE).toFixed(1);
     if (l === Land.Hesco) wallRects.push(`<rect x="${px}" y="${py}" width="${s}" height="${s}" fill="#b8860b" opacity="0.9"/>`);
     else if (l === Land.Trail) trailRects.push(`<rect x="${px}" y="${py}" width="${s}" height="${s}" fill="#6b5b3e" opacity="0.5"/>`);
+    else if (l === Land.Road) netRects.push(`<rect x="${px}" y="${py}" width="${s}" height="${s}" fill="#8a8a8a" opacity="0.55"/>`);
+    else if (l === Land.Track) netRects.push(`<rect x="${px}" y="${py}" width="${s}" height="${s}" fill="#7c6a46" opacity="0.6"/>`);
+    else if (l === Land.Footbridge) netRects.push(`<rect x="${px}" y="${py}" width="${s}" height="${s}" fill="#a07840" opacity="0.7"/>`);
   }
 
 const PALETTE = ["#ff4136", "#0074d9", "#2ecc40", "#ff851b", "#b10dc9", "#39cccc", "#f012be", "#85144b", "#3d9970"];
@@ -124,6 +130,7 @@ const gate = t.cellCenter(cop.gate.cx, cop.gate.cy);
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${(Wd * SCALE).toFixed(0)} ${(Ht * SCALE).toFixed(0)}" font-family="ui-monospace,monospace">
 <rect x="0" y="0" width="100%" height="100%" fill="#1a1d17"/>
+${netRects.join("\n")}
 ${trailRects.join("\n")}
 ${wallRects.join("\n")}
 <circle cx="${sx(objW.x)}" cy="${sy(objW.y)}" r="${(45 * SCALE).toFixed(0)}" fill="#2ecc40" opacity="0.08"/>
