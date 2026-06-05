@@ -35,9 +35,10 @@ export enum Land {
   Structure = 22, // a built structure (b-hut, TOC, conex) — enterable, blocks sight
   Gravel = 23, // graded gravel pad — motor pool / LZ / interior yard
   Track = 24, // graded secondary dirt track — village↔MSR & village↔village (Tier-2)
+  Ford = 25, // a shallow gravel-bar crossing of the river — slow & exposed, but passable on foot
 }
 
-export const LAND_COUNT = 25;
+export const LAND_COUNT = 26;
 
 export interface Village {
   id: string;
@@ -278,14 +279,190 @@ export class Terrain {
       }
     }
 
+    this.carveFloodplain(); // issue 010: a WALKABLE valley floor — the river is an obstacle, not a chasm
     this.computeSlope();
     this.classifyLand(rng, draws);
     this.placeVillagesAndCOP(rng);
+    this.placeFords(rng); // issue 010: regular crossings BEFORE roads, so the network can route over them
     this.carveRoadsAndTrails(rng);
     this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale (locally)
+    this.ensureRiverCrossings(); // issue 010: guarantee both banks join — add fords until the valley is one piece
     this.ensureNetworkConnectivity(); // issue 008: guarantee the gate connects to the MSR + villages
     this.deriveCoverConcealment();
     this.nameFeatures(rng);
+  }
+
+  /**
+   * Issue 010 — the WALKABLE VALLEY FLOOR. Verified root cause of most stranded patrols: the
+   * river ran in a deeply incised channel (the `riverCut` above carved a ~22 m, ~48 m-wide V into
+   * the floor), so the cells flanking the water classified as Cliff (slope > 1.5). The static audit
+   * measured 59% of river-adjacent cells impassable, thousands of "trap" cells (wade in, never climb
+   * out), zero crossings, and 28% of seeds with the two banks in SEPARATE passable components — you
+   * literally could not walk across the valley. Real mountain valleys have a walkable floodplain
+   * flanking the stream; the stream itself is the obstacle, crossed at fords and footbridges. This
+   * bench-grades a continuous floodplain band around the meandering centerline to a gentle profile
+   * (killing the incision cliffs and the worst detail-noise spikes), leaving a shallow channel down
+   * the middle for the water. The river is then made a real obstacle (passableCell) crossed only at
+   * the fords/footbridges placed by placeFords + ensureRiverCrossings.
+   */
+  private carveFloodplain() {
+    const { size, cellSize } = this;
+    // Reach far enough to fully override the incision (riverCut reaches 2.4*(20/cs) cells), so no
+    // incised cliff survives between the flat floor and the natural valley wall.
+    const incisionReach = 2.4 * (20 / cellSize);
+    const floodHalf = Math.max(incisionReach + 1, 45 / cellSize); // cells each side of the river
+    const channelHalf = Math.max(1.4, 8 / cellSize); // = riverHalf in classifyLand (kept in sync)
+    const channelDepth = 2.0; // m: a shallow channel so the banks stay walkable (≈0.4 slope per cell)
+    const featherCells = 3.5; // ease the outer rim back to the natural hillside over this many cells
+    const featherStart = floodHalf - featherCells;
+    for (let y = 0; y < size; y++) {
+      const cx = this.centerX[y];
+      const floorE = this.floorElevAtRow(y);
+      for (let x = 0; x < size; x++) {
+        const dx = Math.abs(x - cx);
+        if (dx > floodHalf) continue;
+        const i = this.idx(x, y);
+        // Flat floodplain at the floor elevation, dipping to a shallow channel down the middle.
+        const target = dx <= channelHalf ? floorE - channelDepth : floorE;
+        // Full flatten across the band; feather only the outer rim so the floor ties into the
+        // natural valley wall instead of leaving a hard step we'd merely have relocated outward.
+        const w = dx <= featherStart ? 1 : clamp01(1 - (dx - featherStart) / featherCells);
+        this.elev[i] = lerp(this.elev[i], target, w);
+        if (this.elev[i] < this.minElev) this.minElev = this.elev[i];
+      }
+    }
+  }
+
+  /**
+   * Issue 010 — lay regular FORDS across the river down the length of the valley, so the channel
+   * (now a real obstacle) is always crossable within a short detour. A ford is a shallow gravel-bar
+   * crossing: it spans the FULL channel width plus a cell onto each bank, is benched flat to the
+   * bank so a man can walk onto it and climb out the far side, and is a few cells wide along the
+   * river so a clean 15 m COARSE pathfinding node sits on it (the planner will route over it). It
+   * moves at moveCost 0.5 (wading) with almost no cover — a real killing ground, the way a fording
+   * site is in the valley. Placed BEFORE the roads so layTrack/findPath can route the network over
+   * them; ensureRiverCrossings adds more later wherever the two banks are still split.
+   */
+  private placeFords(rng: RNG) {
+    const { size, cellSize } = this;
+    const spacing = Math.max(20, Math.round(260 / cellSize)); // a ford roughly every ~260 m of valley
+    for (let y0 = spacing; y0 < size - spacing; y0 += spacing) {
+      const y = clamp(y0 + rng.int(-(spacing >> 2), spacing >> 2), 4, size - 5);
+      this.carveFordAt(y, 1);
+    }
+  }
+
+  /** Carve one ford crossing centred on river row `yc`, spanning the full channel + a bank cell each
+   *  side, over (2*halfAlong+1) rows so it forms a clean coarse-passable patch. Returns true if any
+   *  tread was laid. Benches the tread flat to the local bank elevation; never overwrites a qalat,
+   *  wall, structure or the wire. */
+  private carveFordAt(yc: number, halfAlong: number): boolean {
+    const { size, cellSize } = this;
+    const channelHalf = Math.max(1.4, 8 / cellSize);
+    const span = Math.ceil(channelHalf) + 1; // channel + one bank cell each side
+    const bankE = this.floorElevAtRow(yc); // the floodplain sits at the floor elevation
+    let laid = 0;
+    for (let dy = -halfAlong; dy <= halfAlong; dy++) {
+      const y = yc + dy;
+      if (y < 0 || y >= size) continue;
+      const cx = this.centerX[y];
+      for (let dx = -span; dx <= span; dx++) {
+        const x = Math.round(cx + dx);
+        if (!this.inBounds(x, y)) continue;
+        const i = this.idx(x, y);
+        const l = this.land[i] as Land;
+        if (l === Land.Compound || l === Land.CompoundWall || l === Land.Structure || l === Land.Hesco) continue;
+        if (l === Land.Footbridge) { laid++; continue; } // a built bridge is already a crossing — keep it
+        this.land[i] = Land.Ford;
+        this.elev[i] = lerp(this.elev[i], bankE, 0.7);
+        laid++;
+      }
+    }
+    if (laid) this.computeSlopeLocal(Math.round(this.centerXAt(yc)), yc, span + halfAlong + 2);
+    return laid > 0;
+  }
+
+  /** Diagnostics for the river-crossing guard (issue 010). */
+  riverRepair?: { fordsAdded: number; passes: number; banksJoined: boolean };
+
+  /**
+   * Issue 010 — guarantee the two BANKS are one connected piece. With the river now a real obstacle,
+   * a stretch with no crossing leaves the far bank walled off. The regular fords usually join the
+   * valley already, but a ford can be pre-empted by a compound, or the floodplain pinched by a spur;
+   * this samples reaches down the valley, and wherever a dry cell just west of the river is in a
+   * DIFFERENT passable component from a dry cell just east, it carves a ford there — repeating until
+   * every sampled reach connects across (or it runs out of passes). The cheap, robust analogue of
+   * the gate-portal / network guards, for the water.
+   */
+  private ensureRiverCrossings() {
+    const { size, cellSize } = this;
+    const step = Math.max(8, Math.round(110 / cellSize));
+    const rows: number[] = [];
+    for (let y = step; y < size - step; y += step) rows.push(y);
+    let fordsAdded = 0;
+    let passes = 0;
+    let stillSplit = false;
+    for (let pass = 0; pass < 6; pass++) {
+      passes = pass + 1;
+      const comp = this.passableComponentMap();
+      let carvedAny = false;
+      stillSplit = false;
+      for (const y of rows) {
+        const cx = Math.round(this.centerXAt(y));
+        const west = this.firstDryFrom(cx, y, -1);
+        const east = this.firstDryFrom(cx, y, 1);
+        if (!west || !east) continue;
+        if (comp[west.y * size + west.x] !== comp[east.y * size + east.x]) {
+          stillSplit = true;
+          if (this.carveFordAt(y, 1)) { fordsAdded++; carvedAny = true; }
+        }
+      }
+      if (!carvedAny) break; // either all reaches connect, or the rest are genuinely un-fordable
+      this.computeSlope(); // benching reshaped the ground; the next pass's component map sees the fords
+    }
+    this.riverRepair = { fordsAdded, passes, banksJoined: !stillSplit };
+  }
+
+  /** 8-connected component labels over passableCell (-1 = impassable). Used by the river guard. */
+  private passableComponentMap(): Int32Array {
+    const { size } = this;
+    const comp = new Int32Array(size * size).fill(-1);
+    let id = 0;
+    const stack: number[] = [];
+    for (let s = 0; s < size * size; s++) {
+      if (comp[s] !== -1 || !this.passableCell(s % size, (s / size) | 0)) continue;
+      comp[s] = id;
+      stack.length = 0;
+      stack.push(s);
+      while (stack.length) {
+        const i = stack.pop()!;
+        const x = i % size, y = (i / size) | 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+            const j = ny * size + nx;
+            if (comp[j] !== -1 || !this.passableCell(nx, ny)) continue;
+            comp[j] = id;
+            stack.push(j);
+          }
+      }
+      id++;
+    }
+    return comp;
+  }
+
+  /** Step off the river from (cx,cy) in direction `dir` (±x) to the first passable, non-river,
+   *  non-crossing dry cell — i.e. a true bank cell on that side. */
+  private firstDryFrom(cx: number, cy: number, dir: number): { x: number; y: number } | null {
+    for (let s = 1; s < 40; s++) {
+      const x = cx + dir * s;
+      if (x < 0 || x >= this.size) return null;
+      const l = this.land[this.idx(x, cy)] as Land;
+      if (l !== Land.River && l !== Land.Ford && l !== Land.Footbridge && this.passableCell(x, cy)) return { x, y: cy };
+    }
+    return null;
   }
 
   /** Re-entrant channels cut into the ridges — the enemy's covered approaches. */
@@ -1866,6 +2043,11 @@ export class Terrain {
     if (l === Land.CompoundWall) return false;
     if (l === Land.Hesco) return false; // the wire — only the gate is passable
     if (l === Land.Structure) return false; // buildings are solid — route around, not through (issue 004)
+    // The river is a REAL OBSTACLE (issue 010): the open channel is too deep/fast to wade, so it is
+    // crossed only at a Ford or a Footbridge. This is what makes "cross at the ford" a real tactical
+    // act and what stops a squad wading the chasm anywhere and getting trapped between the banks.
+    // placeFords + ensureRiverCrossings guarantee crossings exist so nothing is ever walled off.
+    if (l === Land.River) return false;
     if (this.slope[this.idx(cx, cy)] > 1.25) return false;
     return true;
   }
@@ -1916,6 +2098,7 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
   [Land.Structure]: [0.55, 0.8], // walls of a building — cover + blocks sight
   [Land.Gravel]: [0.04, 0.05], // graded pad — open, no cover
   [Land.Track]: [0.05, 0.07], // graded dirt track — open, a hair of cover off the verge
+  [Land.Ford]: [0.12, 0.06], // a crossing in open water — almost no cover, a killing ground
 };
 
 /** Base movement multiplier per landcover (before slope). */
@@ -1945,4 +2128,5 @@ const LAND_MOVE: Record<Land, number> = {
   [Land.Structure]: 0.55, // moving through a building
   [Land.Gravel]: 0.98, // graded pad — easy going
   [Land.Track]: 0.96, // graded secondary track — just under the MSR, well above open ground
+  [Land.Ford]: 0.5, // wading a shallow crossing — slow going, but it gets you across
 };

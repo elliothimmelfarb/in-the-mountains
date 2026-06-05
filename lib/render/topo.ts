@@ -66,6 +66,8 @@ function landColor(l: Land): [number, number, number] {
       return [140, 126, 100];
     case Land.Footbridge:
       return [128, 102, 74];
+    case Land.Ford:
+      return [108, 138, 142]; // pale shallow water over a gravel bar — reads as a crossing
     case Land.Hesco:
       return [168, 150, 104]; // tan bastion baskets
     case Land.Structure:
