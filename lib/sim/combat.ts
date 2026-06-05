@@ -621,7 +621,13 @@ export class CombatSim {
     speed *= STANCE_SPEED[u.stance];
     speed *= this.terrain.moveCostAt(u.pos.x, u.pos.y);
     speed *= 0.55 + 0.45 * u.fitnessMax;
-    speed *= 1 - u.fatigue * 0.45;
+    // Fatigue drag. A fully-spent man still loses a third of his pace, but no longer
+    // crawls: the old 0.45 term, combined with fatigue saturating to 1.0 on any long
+    // march (see the accrual block below), pinned patrols at ~0.55x speed for the whole
+    // hump — the dominant cause of "physically reachable, never arrives". 0.32 keeps
+    // fatigue a real drag without crippling a routine patrol. Combat fatigue still bites
+    // (ballistics MOA, composure) because it still climbs to 1.0 on steep ground / rushes.
+    speed *= 1 - u.fatigue * 0.32;
     speed *= 1 - u.suppression * 0.4;
     // Combat load: every man a mule. A heavy load (the SAW/240 gunner, the man
     // humping mortar rounds) drags the pace and burns him out faster; fitness offsets
@@ -664,11 +670,20 @@ export class CombatSim {
     u.moving = true;
     u.speed = blocked ? 0 : speed;
 
-    // fatigue from movement (steeper + higher + heavier = worse)
+    // Fatigue from movement (steeper + higher + heavier = worse), NET of a recovery the
+    // body does while walking easy ground. The gross accrual's flat-ground base is lower
+    // (0.0012->0.0007) and its slope term higher (0.004->0.006) — so a routine march no
+    // longer redlines, but a real climb still bites. The recovery-while-moving is gated by
+    // EXERTION: on gentle ground it offsets accrual so fatigue PLATEAUS at a working level
+    // instead of climbing to 1.0; on a steep pitch or a rush, exertion->1 cancels it, so
+    // fatigue still saturates and combat fatigue (ballistics MOA, composure) stays honest.
     const slope = this.terrain.slopeAt(u.pos.x, u.pos.y);
     const alt = clamp01((this.terrain.elevAt(u.pos.x, u.pos.y) - 1500) / 1400);
+    const exertion = clamp01(slope * 2.2 + (tech === "rush" ? 0.6 : 0));
     u.fatigue = clamp01(
-      u.fatigue + stepLen * (0.0012 + slope * 0.004 + alt * 0.0016) * (tech === "rush" ? 2 : 1) * (1 + overload * 0.012)
+      u.fatigue +
+        stepLen * (0.0007 + slope * 0.006 + alt * 0.0016) * (tech === "rush" ? 2 : 1) * (1 + overload * 0.012) -
+        dt * 0.001 * (1 - exertion)
     );
 
     this.watchStall(u, dt, blocked);

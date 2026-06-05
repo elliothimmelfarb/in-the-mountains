@@ -78,7 +78,12 @@ export function planFormation(w: World, t: Task, members: Unit[]): FormationPlan
   let concealBias = tech === "concealed" ? 0.72 : tech === "tactical" ? 0.38 : 0;
   if (seeking) concealBias = Math.max(concealBias, 0.42);
 
-  let roadBias = tech === "rush" ? 0.72 : tech === "traveling" ? 0.6 : tech === "patrol" ? 0.25 : tech === "tactical" ? 0.1 : 0;
+  // A presence patrol RIDES the graded network now that the connectivity guard guarantees a
+  // continuous gate->village Track (terrain.ensureNetworkConnectivity): Track is moveCost 0.96 vs
+  // 0.2-0.6 cross-country, so riding it is ~2x faster and is what lets far villages actually be
+  // reached in a tactical window. (Pre-guard this bias was inert — there was no continuous track to
+  // ride; with the carved lanes it becomes the second movement lever after the fatigue retune.)
+  let roadBias = tech === "rush" ? 0.72 : tech === "traveling" ? 0.62 : tech === "patrol" ? 0.55 : tech === "tactical" ? 0.2 : 0;
   if (seeking) roadBias = 0; // never walk the obvious road when sneaking or hunting
   else if (expect) roadBias *= 0.4; // don't canalize onto the road into an ambush
 

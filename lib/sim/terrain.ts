@@ -282,7 +282,8 @@ export class Terrain {
     this.classifyLand(rng, draws);
     this.placeVillagesAndCOP(rng);
     this.carveRoadsAndTrails(rng);
-    this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale
+    this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale (locally)
+    this.ensureNetworkConnectivity(); // issue 008: guarantee the gate connects to the MSR + villages
     this.deriveCoverConcealment();
     this.nameFeatures(rng);
   }
@@ -876,6 +877,270 @@ export class Terrain {
       }
       this.computeSlopeLocal(cop.center.cx, cop.center.cy, cop.radius + 10);
     }
+  }
+
+  /** Diagnostics for the gen-time network connectivity guard (issue 008). */
+  netRepair?: { carvedCells: number; villagesConnected: number; villages: number; passes: number };
+
+  /**
+   * Generation-time NETWORK connectivity guarantee (issue 008 — the deep one). `ensureGatePortal`
+   * proves the gate is a coarse portal LOCALLY (a radius+12 window); this proves the gate's
+   * EXTERIOR actually connects to the area of operations. The COP can be scored onto a fine
+   * commanding bench that a cliff band walls off from most of the valley — the gate then opens
+   * into a pocket that the coarse pathfinder (15 m nodes) can route almost nowhere from, so far
+   * villages return a best-effort "set up short" instead of a real route (measured: survey-5's
+   * gate flood reaches 2% of the map, 3/4 villages walled off).
+   *
+   * The guard floods the 15 m COARSE graph — the resolution the patrol planner actually uses —
+   * from the gate-outside node, then for the valley MSR and every village the flood does NOT
+   * reach, carves a benched, >=3-cell, grade-limited Track corridor that ties it into the
+   * connected component. The corridor is ROUTED over a gradeable surface (Dijkstra that goes
+   * AROUND cliffs through the draws), never a straight ramp through a cliff (the reverted
+   * straight-line negative). A village with no gradeable route within MAX_CARVE is left
+   * genuinely unreachable — the harness then flags it honestly rather than the squad faking an
+   * arrival. This is the "smart" form of the reverted raw-largest-component COP constraint: it
+   * gates on NETWORK reachability (roads counted) and REPAIRS, instead of rejecting good benches.
+   */
+  private ensureNetworkConnectivity() {
+    const cop = this.cop;
+    if (!cop) return;
+    const gate = this.cellCenter(cop.gateOutside.cx, cop.gateOutside.cy);
+    let carvedTotal = 0;
+    let reachedByRoute = 0;
+    let reachedByCarve = 0;
+    for (const v of this.villages) {
+      // The squad's objective snaps to the village EDGE (out of the walled qalat), so connect to a
+      // gradeable cell just outside the compound — the cell the patrol actually walks to.
+      const edge = this.gradeableEdgeCell(v.cx, v.cy);
+      if (!edge) continue;
+      const edgeW = this.cellCenter(edge.cx, edge.cy);
+      // 1) The route the patrol planner itself returns from the gate. If it reaches the village,
+      //    bench a fast Track ALONG it — so the squad rides moveCost 0.96 on a guaranteed
+      //    coarse-pathable lane instead of clawing 0.2-0.6 cross-country (the dominant "reachable
+      //    but too slow to arrive" loss). findPath is the oracle, so the Track follows exactly the
+      //    ground the squad crosses.
+      const route = findPath(this, gate, edgeW, { roadBias: 0.6 });
+      const end = route[route.length - 1];
+      const reached = !!end && Math.hypot(end.x - edgeW.x, end.y - edgeW.y) < this.cellSize * 5;
+      if (reached) {
+        // The route is already over WALKABLE ground, so just lay a light-tread Track on it (fast
+        // landcover, no elevation cut) — riding it is ~2x faster, and it stays coarse-pathable
+        // without gouging a trench. Benching is reserved for the cliff-crossing fallback below.
+        this.layPath([gate, ...route], Land.Track, 1, 0.12);
+        reachedByRoute++;
+        continue;
+      }
+      // 2) The coarse router can't thread it (cliff band / pocket). Carve a benched, grade-limited
+      //    Track that routes AROUND the cliffs over gradeable ground to the gate's reachable
+      //    component — making the village genuinely reachable. If even that fails (truly walled
+      //    off within MAX_CARVE), leave it: the harness then flags it as an honest refusal.
+      const seen = this.passableFromGate();
+      const carve = this.routeToNetwork(edge.cx, edge.cy, seen);
+      if (carve && carve.length >= 2) {
+        carvedTotal += this.carveTrackAlong(carve);
+        this.computeSlope(); // benching reshaped the ground; the next village's route sees it
+        reachedByCarve++;
+      }
+    }
+    this.computeSlope();
+    this.netRepair = {
+      carvedCells: carvedTotal,
+      villagesConnected: reachedByRoute + reachedByCarve,
+      villages: this.villages.length,
+      passes: 1,
+    };
+  }
+
+
+  /** 8-connected flood over PASSABLE ground from the gate-outside cell — the set the squad can
+   *  physically reach on foot. The carve fallback routes a disconnected village to this set. */
+  private passableFromGate(): Uint8Array {
+    const cop = this.cop!;
+    const size = this.size;
+    const seen = new Uint8Array(size * size);
+    const s = this.nearestPassable(cop.gateOutside.cx, cop.gateOutside.cy, 12);
+    if (!this.passableCell(s.cx, s.cy)) return seen;
+    const start = s.cy * size + s.cx;
+    seen[start] = 1;
+    const stack = [start];
+    while (stack.length) {
+      const i = stack.pop()!;
+      const x = i % size;
+      const y = (i / size) | 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const j = ny * size + nx;
+          if (seen[j] || !this.passableCell(nx, ny)) continue;
+          seen[j] = 1;
+          stack.push(j);
+        }
+    }
+    return seen;
+  }
+
+  /** Ground a benched Track can be cut into: not a cliff/wall/structure/qalat. (classifyLand
+   *  already promotes slope>1.5 to Cliff, so any non-cliff cell here is genuinely benchable.) */
+  private gradeableGround(cx: number, cy: number): boolean {
+    if (!this.inBounds(cx, cy)) return false;
+    const l = this.land[this.idx(cx, cy)] as Land;
+    return l !== Land.Cliff && l !== Land.Compound && l !== Land.CompoundWall && l !== Land.Hesco && l !== Land.Structure;
+  }
+
+  /** A gradeable cell just outside a village's walled footprint, on the COP-facing side — the
+   *  cell the patrol's objective actually snaps to (reachableObjective steps out of the qalat
+   *  toward the COP). Connecting here means findPath's route ends ON the squad's real target, not
+   *  on the far wall. Steps from the centre toward the COP first, then falls back to a ring scan. */
+  private gradeableEdgeCell(vx: number, vy: number): { cx: number; cy: number } | null {
+    const cop = this.cop;
+    if (cop) {
+      const dx = Math.sign(cop.center.cx - vx);
+      const dy = Math.sign(cop.center.cy - vy);
+      if (dx !== 0 || dy !== 0) {
+        for (let s = 1; s <= 24; s++) {
+          const cx = vx + dx * s;
+          const cy = vy + dy * s;
+          if (this.gradeableGround(cx, cy) && this.passableCell(cx, cy)) return { cx, cy };
+        }
+      }
+    }
+    for (let r = 1; r <= 18; r++)
+      for (let dy = -r; dy <= r; dy++)
+        for (let dx = -r; dx <= r; dx++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring
+          const cx = vx + dx;
+          const cy = vy + dy;
+          if (this.gradeableGround(cx, cy) && this.passableCell(cx, cy)) return { cx, cy };
+        }
+    return null;
+  }
+
+  /**
+   * Dijkstra from a village approach cell to the NEAREST cell already reachable on foot from the
+   * gate, over a gradeable surface (anything that isn't a cliff/wall/structure/compound;
+   * steep-but-benchable is allowed and gets benched flat by the carve). Cost favours gentle
+   * ground and avoids the river, so it threads the draws around a cliff band rather than
+   * charging it. Bounded to a box of MAX_CARVE cells so it stays cheap and never carves a
+   * kilometre-long scar; returns null (honestly unreachable) if no route fits. Deterministic.
+   */
+  private routeToNetwork(sCx: number, sCy: number, seenNet: Uint8Array): { cx: number; cy: number }[] | null {
+    const size = this.size;
+    const MAX_CARVE = 140; // cells (~700 m) — beyond this it's effectively unreachable
+    const x0 = Math.max(0, sCx - MAX_CARVE);
+    const x1 = Math.min(size - 1, sCx + MAX_CARVE);
+    const y0 = Math.max(0, sCy - MAX_CARVE);
+    const y1 = Math.min(size - 1, sCy + MAX_CARVE);
+    const bw = x1 - x0 + 1;
+    const bh = y1 - y0 + 1;
+    const li = (cx: number, cy: number) => (cy - y0) * bw + (cx - x0);
+    const cost = new Float64Array(bw * bh).fill(Infinity);
+    const prev = new Int32Array(bw * bh).fill(-1);
+    const gradeable = (cx: number, cy: number): boolean =>
+      cx >= x0 && cy >= y0 && cx <= x1 && cy <= y1 && this.gradeableGround(cx, cy);
+    const isConn = (cx: number, cy: number) => seenNet[this.idx(cx, cy)] === 1;
+    // tiny binary heap of [cost, localIndex]
+    const heap: number[] = []; // localIndex entries; cost read from `cost[]`
+    const push = (idx: number) => {
+      heap.push(idx);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (cost[heap[p]] <= cost[heap[i]]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    };
+    const pop = (): number => {
+      const top = heap[0];
+      const last = heap.pop()!;
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1;
+          const r = l + 1;
+          let m = i;
+          if (l < heap.length && cost[heap[l]] < cost[heap[m]]) m = l;
+          if (r < heap.length && cost[heap[r]] < cost[heap[m]]) m = r;
+          if (m === i) break;
+          [heap[m], heap[i]] = [heap[i], heap[m]];
+          i = m;
+        }
+      }
+      return top;
+    };
+    const start = li(sCx, sCy);
+    cost[start] = 0;
+    push(start);
+    let goal = -1;
+    let expanded = 0;
+    while (heap.length && expanded < 60000) {
+      const cur = pop();
+      expanded++;
+      const cx = (cur % bw) + x0;
+      const cy = ((cur / bw) | 0) + y0;
+      // reached the existing network on real passable ground? (never the disconnected start)
+      if (cur !== start && isConn(cx, cy) && this.passableCell(cx, cy)) {
+        goal = cur;
+        break;
+      }
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (!gradeable(nx, ny)) continue;
+          const ni = li(nx, ny);
+          const slope = this.slope[this.idx(nx, ny)];
+          const l = this.land[this.idx(nx, ny)] as Land;
+          const step = (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1) * (1 + slope * 1.5 + (l === Land.River ? 4 : 0));
+          const nc = cost[cur] + step;
+          if (nc < cost[ni]) {
+            cost[ni] = nc;
+            prev[ni] = cur;
+            push(ni);
+          }
+        }
+    }
+    if (goal < 0) return null;
+    const path: { cx: number; cy: number }[] = [];
+    let c = goal;
+    while (c !== -1) {
+      path.push({ cx: (c % bw) + x0, cy: ((c / bw) | 0) + y0 });
+      if (c === start) break;
+      c = prev[c];
+    }
+    path.reverse();
+    return path;
+  }
+
+  /**
+   * Bench a >=3-cell-wide graded Track along a routed cell path, easing each tread cell to a
+   * grade-limited design line (max ~0.42) so the corridor is genuinely walkable (passable at
+   * 5 m) AND carries a clean 15 m coarse node (so the patrol planner routes on it). On gentle
+   * ground the design elevation ~ the natural ground, so it rides light (no trench); only a
+   * steep pitch gets cut. Returns the number of tread cells laid. Skips qalats/structures/wire.
+   */
+  private carveTrackAlong(path: { cx: number; cy: number }[]): number {
+    if (path.length < 2) return 0;
+    const cs = this.cellSize;
+    const maxGrade = 0.42;
+    let designE = this.elev[this.idx(path[0].cx, path[0].cy)];
+    let laid = 0;
+    for (let k = 1; k < path.length; k++) {
+      const a = path[k - 1];
+      const b = path[k];
+      const natE = this.elev[this.idx(b.cx, b.cy)];
+      const dM = (Math.hypot(b.cx - a.cx, b.cy - a.cy) || 1) * cs;
+      const maxStep = maxGrade * dM;
+      designE = natE < designE ? Math.max(natE, designE - maxStep) : Math.min(natE, designE + maxStep);
+      this.gradeTreadAt(b.cx, b.cy, designE, 1, Land.Track);
+      laid++;
+    }
+    return laid;
   }
 
   /** Stamp a filled rectangle of landcover (cells), flattening it to `baseE`. */
