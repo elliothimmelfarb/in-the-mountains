@@ -31,11 +31,18 @@ The original issue text is preserved below each file with a **Resolution** secti
 
 | # | Issue | Severity | Status |
 |---|-------|----------|--------|
-| [006](006-far-village-reachability.md) | Far villages are a long march (cliff-isolation); reachability metric vs. time-warp | Low–Medium | Characterised, partially mitigated (graded village trails) |
+| [006](006-far-village-reachability.md) | Far villages are a long march (cliff-isolation); reachability metric vs. time-warp | Low–Medium | Characterised; village↔village trail web (MST) added 2026-06-05 — see 008 |
 | [007](007-sim-level-terrain-ecology.md) | Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats, hydrology) | Low (fidelity) | Future measured pass |
+| [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling: COP/village cliff-pockets cap it ~30% (BFS ~64%) | **Medium** | Characterised; routing & failure-mode fixed 2026-06-05, connectivity ceiling remains |
 
 New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
 **`reachability.ts`** (the fair all-villages movement metric — see 006).
+
+**2026-06-05 update:** the eight-item batch (`docs/progress/2026-06-05-batch/`) added a tiered road
+network (`Land.Track` + village→MSR spurs + a village MST) and fixed the "out-the-gate, loop, stuck"
+routing bug (`findPath` bounded-box fallback; route-quality 1.26→1.01, loopy 6%→2%). The remaining
+far-village *connectivity* ceiling (~30% reached vs ~64% BFS) is tracked in **[008](008-cop-pocket-reachability-ceiling.md)**;
+new harness **`network-probe.ts`** (network connectivity % + benched-path "trough" cells).
 
 ## Reproduction toolkit
 
