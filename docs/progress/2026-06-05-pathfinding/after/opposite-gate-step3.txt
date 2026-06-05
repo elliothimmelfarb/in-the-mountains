@@ -1,0 +1,3 @@
+### STEP1+2+3 (fatigue + connectivity guard + roadBias)  date 2026-06-05
+seed          vil  reach  arr  arr/reach  REAR r/a  falseOK   worst false-miss (reachable, not arrived)
+survey-0        4      4    2        2/4       0/0        0   Babiyal +541m

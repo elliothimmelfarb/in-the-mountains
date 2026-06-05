@@ -1,0 +1,43 @@
+=== WORLD ===
+Terrain: 512 cells @ 5 m = 2560 m, 1532 - 2828 m
+COP cell: { cx: 236, cy: 387 } Villages: Kandlay, Yaka China, Landigal, Chichal, Donga, Loy Kalay
+Platoon: 35 in 5 squads · civilians: 36
+Named features: Hill 2610(2820m), Sawtalo Sar(2737m), Abas Ghar(2625m), Gatigal Spur(2541m), Divpalu Ridge(2533m), Hill 2310(2488m), Sautalo(2403m)
+Landcover classes present: 23 / 25
+  Scree:26.2%  Forest:23.1%  DryWash:12.9%  Cliff:12.4%  Scrub:9.8%  Meadow:4.9%  Terrace:3.8%  Rock:2.3%  Cropland:1.4%  TerraceWall:0.9%  Track:0.6%  River:0.6%  Trail:0.2%  Road:0.2%  Orchard:0.2%  Gravel:0.1%  Hesco:0.1%  Grass:0.1%  Compound:0.1%  CompoundWall:0.1%  Structure:0.0%  Cemetery:0.0%  Footbridge:0.0%
+
+=== COP LAYOUT ===
+Center: { cx: 236, cy: 387 } · radius 17 cells (85 m) · gate passable: true · wall sealed: true
+Buildings: TOC, Armory, Aid Station, Barracks A, Barracks B, Chow Hall, Latrines, Motor Pool
+Fighting positions: 7 (towers: 3) · LZ: { cx: 228, cy: 380 }
+
+=== PATROL ===
+Task: Presence Patrol · pax 10 · phase assembling · route legs 2
+
+=== AFTER 30 GAME-MINUTES ( Day 1 · 06:29 ) ===
+Contact occurred: true · peak enemies on map: 11 · peak projectiles: 16
+Patrol pushed 520 m from the COP center (gate egress through the wire OK )
+US KIA: 2 · US WIA: 0 · enemy accounted: 3
+Metrics: {
+  stability: '40%',
+  attitude: '40%',
+  enemy: '46%',
+  power: '96%',
+  higher: '54%'
+}
+Intel reports: 1 | latest: ICOM: "...ready the tube... walk it onto the base..."
+Tasks active: 1 | ammo 5.56: 22000
+
+Log tail:
+  [Day 1 · 06:00] INFO: Arrived at COP Vimoto. 35 souls on the ground. The valley is quiet — for now.
+  [Day 1 · 06:00] RADIO: Presence Patrol ordered — 10 pax kitting up.
+  [Day 1 · 06:00] RADIO: ICOM chatter about a tube — possible incoming indirect.
+  [Day 1 · 06:02] RADIO: Presence Patrol: 10 pax filing out the gate (tactical).
+  [Day 1 · 06:13] CONTACT: Presence Patrol: CONTACT — enemy to the eastern.
+  [Day 1 · 06:13] KIA: PFC Gallagher of Colorado was killed in action.
+  [Day 1 · 06:13] KIA: PV2 Cortez of Tennessee was killed in action.
+  [Day 1 · 06:14] RADIO: Presence Patrol: contact broken — resuming movement.
+
+Serialized save size: 125.0 KB · units: 77
+
+SMOKE OK

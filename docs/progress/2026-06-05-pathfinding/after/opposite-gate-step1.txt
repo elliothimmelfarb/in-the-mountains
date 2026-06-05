@@ -1,0 +1,22 @@
+### STEP 1 (fatigue retune only)  f0facb9+dirty  date 2026-06-05
+seed          vil  reach  arr  arr/reach  REAR r/a  falseOK   worst false-miss (reachable, not arrived)
+survey-0        4      4    2        2/4       0/0        0   Babiyal +771m
+survey-1        5      5    3        3/5       0/0        0   Loy Kalay +662m
+survey-2        6      6    4        4/6       0/0        0   Kandlay +330m
+survey-3        6      3    2        2/3       1/1        0   Babiyal +240m
+survey-4        5      5    3        3/5       0/1        0   Yaka China +589m
+survey-5        4      1    0        0/1       0/0        0   Chichal +47m
+survey-6        6      6    2        2/6       1/2        0   Chichal +1224m
+survey-7        6      6    1        1/6       0/3        0   Chichal +930m
+survey-8        5      4    1        1/4       0/1        0   Chichal +723m
+survey-9        4      2    2        2/2       0/0        0   (none)
+survey-10       4      4    2        2/4       0/0        0   Landigal +308m
+survey-11       6      4    2        2/4       0/0        0   Yaka China +602m
+--------------------------------------------------------------------------------------------
+TOTAL villages: 61
+  BFS-reachable on foot:         50/61 (82%)   ← the physical ceiling
+  ARRIVED (real sim):            24/61 (39%)
+  ARRIVED among REACHABLE:       24/50 (48%)   ← DoD target 100%
+  REAR (opposite-gate) arr/reach: 2/8 (25%)   ← the adversarial bucket
+  false success (arr, !reach):   0   (must be 0 — else a metric error)
+  router NULL routes (best-effort): 19/61 (31%)

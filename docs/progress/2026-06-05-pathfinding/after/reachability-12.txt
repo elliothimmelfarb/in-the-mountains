@@ -1,0 +1,16 @@
+### AFTER @ f3885fc
+seed          villages  arrived   rate   worst-miss
+survey-0             4        2    50%   miss Babiyal by 609m
+survey-1             5        2    40%   miss Loy Kalay by 805m
+survey-2             6        3    50%   miss Babiyal by 287m
+survey-3             6        2    33%   miss Marastanau by 849m
+survey-4             5        4    80%   miss Yaka China by 96m
+survey-5             4        0     0%   miss Kandlay by 1382m
+survey-6             6        2    33%   miss Chichal by 1069m
+survey-7             6        1    17%   miss Yaka China by 848m
+survey-8             5        2    40%   miss Marastanau by 663m
+survey-9             4        2    50%   miss Darbart by 1003m
+survey-10            4        3    75%   miss Landigal by 357m
+survey-11            6        2    33%   miss Aliabad by 1103m
+
+TOTAL villages reached: 25 / 61 (41%)

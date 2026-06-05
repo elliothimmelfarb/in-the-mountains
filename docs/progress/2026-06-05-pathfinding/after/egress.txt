@@ -1,0 +1,5 @@
+smoke-test  wire=85m nearVil=174m farVil=1575m leadMaxOut=424m EGRESS-OK centMaxOut=375m
+korengal    wire=85m nearVil=227m farVil=896m leadMaxOut=390m EGRESS-OK centMaxOut=361m
+survey-7    wire=85m nearVil=188m farVil=1267m leadMaxOut=348m EGRESS-OK centMaxOut=322m
+survey-2    wire=85m nearVil=218m farVil=1035m leadMaxOut=516m EGRESS-OK centMaxOut=349m
+survey-9    wire=85m nearVil=204m farVil=1405m leadMaxOut=286m EGRESS-OK centMaxOut=258m

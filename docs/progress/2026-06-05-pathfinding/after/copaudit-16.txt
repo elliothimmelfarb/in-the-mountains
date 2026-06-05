@@ -1,0 +1,26 @@
+seed          egress  ring%  gate→vil  portal  open%  solid?  vilGap  vil∩  wireHits
+survey-0        PASS    100       27°       Y     81       Y     82m     0         0
+survey-1        PASS    100       31°       Y     77       Y    128m     0         0
+survey-2        PASS     99        8°       Y     81       Y    103m     0         0
+survey-3        PASS     98       39°       Y     81       Y    186m     0         0
+survey-4        PASS     77       42°       Y     81       Y     50m     0         1
+survey-5        PASS     99       33°       Y     72       Y     44m     0         0
+survey-6        PASS    100       13°       Y     81       Y     55m     0         0
+survey-7        PASS    100        5°       N     81       Y     63m     0         0
+survey-8        PASS    100       38°       Y     81       Y     86m     0         0
+survey-9        PASS     99        9°       Y     81       Y     99m     0         0
+survey-10       PASS    100       32°       Y     81       Y     85m     0         0
+survey-11       PASS    100       14°       Y     81       Y     60m     0         0
+survey-12       PASS    100       33°       Y     81       Y     66m     0         0
+survey-13       PASS     88       40°       Y     81       Y     87m     0         0
+survey-14       PASS    100        8°       Y     81       Y     42m     0         1
+survey-15       PASS    100        2°       Y     81       Y     80m     0         0
+
+summary over 16 seeds:
+  egress blocked:    0 / 16 (issue 001)
+  avg perimeter ring open%: 98 (issue 001)
+  gate faces >90° from nearest village: 0 / 16 (issue 002)
+  gate portal disconnected: 1 / 16 (issue 005)
+  village/COP footprint OVERLAP: 0 / 16 (item: village intersects COP — must be 0)
+  seeds with village-core cells in COP clearance: 0 / 16 (must be 0)
+  total civilian wire-pin ticks: 2 (villager bug)

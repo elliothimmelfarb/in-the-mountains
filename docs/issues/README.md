@@ -31,12 +31,20 @@ The original issue text is preserved below each file with a **Resolution** secti
 
 | # | Issue | Severity | Status |
 |---|-------|----------|--------|
-| [006](006-far-village-reachability.md) | Far villages are a long march (cliff-isolation); reachability metric vs. time-warp | Low–Medium | Characterised; village↔village trail web (MST) added 2026-06-05 — see 008 |
+| [006](006-far-village-reachability.md) | Far villages are a long march (cliff-isolation); reachability metric vs. time-warp | Low–Medium | ✅ Largely resolved 2026-06-05 (movement economy + connectivity guard) — remainder in 009 |
 | [007](007-sim-level-terrain-ecology.md) | Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats, hydrology) | Low (fidelity) | Future measured pass |
-| [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling: COP/village cliff-pockets cap it ~30% (BFS ~64%) | **Medium** | Characterised; routing & failure-mode fixed 2026-06-05, connectivity ceiling remains |
+| [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling: COP/village cliff-pockets cap it ~30% (BFS ~64%) | **Medium** | ✅ **Resolved 2026-06-05** — connectivity guard + fatigue economy; arr-among-reachable 36%→76%, netVil 59%→72% |
+| [009](009-far-village-tactical-window-and-network-ceiling.md) | Residuals: far-village tactical-window arrival, netVil 72% ceiling, trough cost | Low | Characterised (honest remainder of 006/008) |
 
 New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
 **`reachability.ts`** (the fair all-villages movement metric — see 006).
+
+**2026-06-05 (ONE WAYPOINT, ALWAYS pass):** instrumented the 30%-reached gap with a new adversarial
+harness (**`opposite-gate.ts`** — real-sim arrival per village, bearing-bucketed, scored vs an 8-connected
+BFS ground truth) + per-tick traces (`why-short.ts`, `lead-trace.ts`). The dominant cause was **movement
+economy** (fatigue saturation + off-road crawl), not the hypothesised router/egress; fixed alongside a
+generation-time **connectivity guard** (`terrain.ensureNetworkConnectivity`). See
+`docs/progress/2026-06-05-pathfinding/report.html`. Resolved [008]; remainder tracked in [009].
 
 **2026-06-05 update:** the eight-item batch (`docs/progress/2026-06-05-batch/`) added a tiered road
 network (`Land.Track` + village→MSR spurs + a village MST) and fixed the "out-the-gate, loop, stuck"

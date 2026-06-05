@@ -1,0 +1,23 @@
+### AFTER @ f3885fc  (fatigue + coarse connectivity guard + road-riding)  date 2026-06-05
+seed          vil  reach  arr  arr/reach   ≤1500s  REAR r/a  falseOK   worst false-miss (reachable, not arrived)
+survey-0        4      4    4        4/4      2/4       0/0        0   (none)
+survey-1        5      5    3        3/5      2/5       0/0        0   Kandlay +331m
+survey-2        6      6    4        4/6      3/6       0/0        0   Babiyal +237m
+survey-3        6      3    3        3/3      2/3       1/1        0   (none)
+survey-4        5      5    5        5/5      4/5       1/1        0   (none)
+survey-5        4      1    0        0/1      0/1       0/0        0   Chichal +47m
+survey-6        6      6    6        6/6      2/6       2/2        0   (none)
+survey-7        6      6    1        1/6      1/6       0/3        0   Yaka China +798m
+survey-8        5      4    3        3/4      2/4       0/1        0   Kandlay +4m
+survey-9        4      2    2        2/2      2/2       0/0        0   (none)
+survey-10       4      4    3        3/4      3/4       0/0        0   Landigal +307m
+survey-11       6      4    4        4/4      2/4       0/0        0   (none)
+--------------------------------------------------------------------------------------------
+TOTAL villages: 61
+  BFS-reachable on foot:         50/61 (82%)   ← the physical ceiling
+  ARRIVED (real sim, eventually): 38/61 (62%)
+  ARRIVED among REACHABLE:       38/50 (76%)   ← DoD target 100%
+  ...of those, within 1500s:     25/50 (50%)   ← tactical window
+  REAR (opposite-gate) arr/reach: 4/8 (50%)   ← the adversarial bucket
+  false success (arr, !reach):   0   (must be 0 — else a metric error)
+  router NULL routes (best-effort): 20/61 (33%)
