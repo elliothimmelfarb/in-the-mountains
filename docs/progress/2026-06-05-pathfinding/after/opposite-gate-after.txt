@@ -1,4 +1,4 @@
-### AFTER @ f3885fc  (fatigue + coarse connectivity guard + road-riding)  date 2026-06-05
+### AFTER @ fb01e4f  (+ gate-portal egress fix)  date 2026-06-05
 seed          vil  reach  arr  arr/reach   ≤1500s  REAR r/a  falseOK   worst false-miss (reachable, not arrived)
 survey-0        4      4    4        4/4      2/4       0/0        0   (none)
 survey-1        5      5    3        3/5      2/5       0/0        0   Kandlay +331m
