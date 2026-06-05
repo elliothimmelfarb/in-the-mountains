@@ -61,6 +61,17 @@ Reproduce: `npx tsx scripts/reachability.ts` (window/pace artifact) and `npx tsx
 - **Make the metric honest:** measure reachability at warp / with a generous window, and report the
   detour ratio separately, so "long march" and "genuinely unreachable" don't get conflated.
 
+## Update — 2026-06-05
+
+The **village↔village trail web** suggested above was implemented (a tiered `Land.Track` network:
+village→MSR spurs + a village minimum-spanning tree, `findPath`-routed + no-trench `layPath`), and the
+separate "out-the-gate, loop, stuck" routing bug was fixed (`findPath` bounded-box fallback;
+route-quality 1.26→1.01, loopy 6%→2%). Network connectivity rose 36%→59% and reachability 26%→30%, but
+the **connectivity ceiling remains** (~30% reached vs ~64% BFS). That remaining work — plus an honest
+negative (a "largest passable component" COP-siting constraint that regressed reachability 26%→13%) — is
+tracked with sharper numbers in **[008](008-cop-pocket-reachability-ceiling.md)**.
+
 ## Related
 
-- 002 (gate/siting vs villages), the graded village trails added this pass, 007 (terrain fidelity).
+- 002 (gate/siting vs villages), the graded village trails + MST network (2026-06-05), 007 (terrain
+  fidelity), **008** (the reachability ceiling follow-up).
