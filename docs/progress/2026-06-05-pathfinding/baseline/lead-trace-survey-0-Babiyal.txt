@@ -1,0 +1,20 @@
+seed=survey-0 village=Babiyal obj=(183,113) crow=1140m
+ t(s) distObj spd(m/s)  pace fatig mCost       land  blkT  navRem      phase
+    0     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  100     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  200    1171     0.00  1.00  0.17  0.64      Trail   0.0    1482     moving
+  300    1261     0.92  0.90  0.38  0.90      Trail   0.0    1387     moving
+  400    1245     0.26  0.89  0.53  0.62    DryWash   0.0    1332     moving
+  500    1195     0.51  0.83  0.65  0.64    DryWash   0.0    1281     moving
+  600    1148     0.48  0.85  0.77  0.63   Cropland   0.0    1233     moving
+  700    1099     0.50  0.79  0.89  0.63   Cropland   0.0    1183     moving
+  800    1061     0.40  1.00  0.99  0.49    Terrace   0.0    1143     moving
+  900    1036     0.26  0.94  1.00  0.27 TerraceWall   0.0    1117     moving
+ 1000    1019     0.18  1.00  1.00  0.21      Scrub   0.0    1072     moving
+ 1100    1004     0.20  1.00  1.00  0.26 TerraceWall   0.0    1047     moving
+ 1200     983     0.27  0.92  1.00  0.42    Terrace   0.0    1019     moving
+ 1300     967     0.22  0.90  1.00  0.29 TerraceWall   0.0     998     moving
+ 1400     948     0.26  0.88  1.00  0.30 TerraceWall   0.0     972     moving
+ 1500     920     0.35  0.60  1.00  0.67   Cropland   0.0     937     moving
+ 1600     896     0.26  0.60  1.00  0.49    Terrace   0.0     910     moving
+closest approach: 896m  (ARRIVE=50m ⇒ SHORT)

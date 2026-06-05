@@ -1,0 +1,2 @@
+### git HEAD e22c1a9  date 2026-06-05
+seed          vil  reach  arr  arr/reach  REAR r/a  falseOK   worst false-miss (reachable, not arrived)

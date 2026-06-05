@@ -1,0 +1,6 @@
+seed=survey-0  COP=(335,305)  gateDir=(-0.00,-1.00)  flood=68220 cells (26% of map)
+village      bearing  crowM fineBFS wpts  routeM  endGap  ratio  closeM   atS      phase  navRem   verdict
+Yaka China       15°    424     yes    7     706      40   1.67     175  1500     moving     146   EXEC (route ok, squad short)
+Babiyal          38°   1140     yes   13    1510      21   1.32     920  1500     moving     937   EXEC (route ok, squad short)
+Chichal           9°    727     yes   10     978      21   1.35     449  1500     moving     438   EXEC (route ok, squad short)
+Aliabad          27°    111     yes    4     261      30   2.35      50   541     moving      25   OK

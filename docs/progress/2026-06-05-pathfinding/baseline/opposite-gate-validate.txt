@@ -1,0 +1,12 @@
+### git HEAD e22c1a9  date 2026-06-05  (validation, 2 survey seeds)
+seed          vil  reach  arr  arr/reach  REAR r/a  falseOK   worst false-miss (reachable, not arrived)
+survey-0        4      4    1        1/4       0/0        0   Babiyal +870m
+survey-1        5      5    2        2/5       0/0        0   Loy Kalay +804m
+--------------------------------------------------------------------------------------------
+TOTAL villages: 9
+  BFS-reachable on foot:         9/9 (100%)   ← the physical ceiling
+  ARRIVED (real sim):            3/9 (33%)
+  ARRIVED among REACHABLE:       3/9 (33%)   ← DoD target 100%
+  REAR (opposite-gate) arr/reach: 0/0 (0%)   ← the adversarial bucket
+  false success (arr, !reach):   0   (must be 0 — else a metric error)
+  router NULL routes (best-effort): 1/9 (11%)

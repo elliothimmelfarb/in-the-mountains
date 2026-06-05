@@ -1,0 +1,6 @@
+seed=survey-5  COP=(150,425)  gateDir=(-0.71,-0.71)  flood=5003 cells (2% of map)
+village      bearing  crowM fineBFS wpts  routeM  endGap  ratio  closeM   atS      phase  navRem   verdict
+Chichal          33°     96     yes    3      73      40   0.76      97   219   complete      71   EXEC (route ok, squad short)
+Yaka China       94°   1235      NO    5     483     793   0.39    1160   374   complete      78   UNREACHABLE
+Darbart          73°    972      NO    5     483     598   0.50     957   381   complete      78   UNREACHABLE
+Kandlay          67°   1377      NO    5     483    1031   0.35    1382   374   complete      76   UNREACHABLE

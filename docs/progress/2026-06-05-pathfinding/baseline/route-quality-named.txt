@@ -1,0 +1,7 @@
+seed          objs  meanRatio  maxRatio loopy(>2.5)  meanRev  meanExc
+smoke-test       6       1.69      5.10           1      0.0      74m
+korengal         4       1.07      1.25           0      0.0       0m
+survey-7         6       0.78      1.20           0      0.0       0m
+survey-9         4       0.97      1.59           0      0.0      59m
+------------------------------------------------------------------------
+ALL             20       1.15      5.10      1 (5%)      0.0      34m
