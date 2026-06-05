@@ -41,6 +41,18 @@ Generation is resolution-independent (landform frequencies are expressed per-met
    Movement ladder (`LAND_MOVE`): **Road 1.0 > Track 0.96 > Trail 0.92 > Footbridge 0.85** ≫ open
    ground — so a patrol on **Fast** (roadBias) and villagers on inter-village errands both prefer the
    network. Tracks/trails are deterministic (seeded), so the network rebuilds identically on load.
+   - **Connectivity guard** (`ensureNetworkConnectivity`, after `ensureGatePortal`) — the network is
+     only useful if it actually reaches the gate. The MSR can be fragmented by river/steep banks and a
+     COP can sit on a bench a cliff band walls off from the valley, so for **each village** the guard
+     runs the patrol planner from the gate: if `findPath` reaches it, a **benched ≥3-cell Track** is
+     laid along that exact route (the squad rides moveCost 0.96, not 0.2–0.6 cross-country, and the
+     lane is guaranteed coarse-pathable); if the coarse router can't thread it (cliff pocket), a
+     bounded Dijkstra over **gradeable** ground carves a benched Track **around** the cliffs to the
+     gate's reachable component. A village with no gradeable route within ~700 m is left **genuinely
+     unreachable** (honest refusal, not a faked arrival). Deterministic (no RNG) → save-load safe.
+     This is the "smart" form of the reverted raw-largest-component COP constraint (issue 008): it
+     gates on **network reachability and repairs**, never rejects a good bench, and uses no
+     straight-line term.
 9. **Cover & concealment** derived per cell from landcover (compound walls and terrace risers are
    real hard cover; dry washes give defilade; forest/orchard conceal).
 10. **Named features** — prominent crest peaks get names and spot elevations.
@@ -142,6 +154,14 @@ Posture sets base speed, stance (concealed/tactical crouch; crawl prone), and **
 slow, low, cover-hugging movement reads as near-static to an observer (folded into
 `detectionChance` via a stealth term), while a rush is fast but loud and exposed. The posture also
 feeds the squad's formation choice and pathfinding biases (below).
+
+**Fatigue economy** (`combat.ts`) — speed also pays a fatigue drag (`×(1 − fatigue·0.32)`). Fatigue
+accrues with effort but is **exertion-gated**: on gentle ground a recovery-while-moving term offsets
+the small accrual so a routine foot patrol **plateaus** at a working level, while a steep climb or a
+rush still saturates it (so combat fatigue — ballistics MOA, composure — stays meaningful). Before
+this, fatigue saturated to 1.0 on any long march and pinned the squad at ~0.55× speed for the rest of
+the hump, which was the dominant reason a physically-reachable far village was never actually reached
+(see `docs/progress/2026-06-05-pathfinding/`).
 
 ## Squad movement & doctrine (`world/formation.ts`)
 

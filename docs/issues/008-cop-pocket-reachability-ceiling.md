@@ -1,6 +1,6 @@
 # 008 — Far-village reachability ceiling: COP/village cliff-pockets cap it at ~30% (BFS ~64%)
 
-**Severity:** Medium · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × COP siting × pathfinding/formation · **Status:** OPEN (characterised; routing & failure-mode fixed, connectivity ceiling remains)
+**Severity:** Medium · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × COP siting × pathfinding/formation · **Status:** ✅ RESOLVED 2026-06-05 (connectivity guard + fatigue economy; honest remainders → [009](009-far-village-tactical-window-and-network-ceiling.md)) — see Resolution below
 
 ## Summary
 
@@ -94,3 +94,38 @@ isolation and re-baseline (per CLAUDE.md).
 - [002](002-cop-siting-ignores-objective-bearing.md) — gate/siting vs villages.
 - [007](007-sim-level-terrain-ecology.md) — terrain fidelity.
 - New harness: `scripts/network-probe.ts` (network connectivity % + benched-path "trough" cells).
+
+## Resolution (2026-06-05) — the connectivity ceiling is lifted; the cause was not what the title said
+
+Fixed on branch `fix/one-waypoint-always` (the "ONE WAYPOINT, ALWAYS" pass). Full write-up + before/after
+diagrams: `docs/progress/2026-06-05-pathfinding/report.html`.
+
+**The instrumented finding overturned this issue's framing.** A new adversarial harness
+(`scripts/opposite-gate.ts`: real-sim arrival per village, bucketed by bearing from the gate, scored
+against an 8-connected BFS ground truth) plus per-tick traces (`scripts/{why-short,lead-trace}.ts`)
+showed the 30%-reached-vs-64%-BFS gap was **dominated by movement economy, not connectivity**: on a long
+march fatigue saturated to 1.0 and pinned the squad at ~0.55× speed forever, and routes crawled
+cross-country (moveCost 0.2–0.6) instead of riding the road net. The router was already near-optimal
+(`route-quality` 1.01). Connectivity was real but **pocket-specific** (`survey-5`: gate flood = 2% of map).
+
+**The fix (three changes, each measured in isolation):**
+1. **Fatigue economy** (`combat.ts`) — penalty 0.45→0.32, flat-march accrual cut, slope term raised, and an
+   exertion-gated recovery so a routine patrol *plateaus* while climbs/rushes still saturate (combat
+   fatigue preserved). Alone: arrived-among-reachable 36%→48%.
+2. **Connectivity guard** (`terrain.ensureNetworkConnectivity`, after `ensureGatePortal`) — the *smart*
+   form of the reverted raw-component check: it runs `findPath` from the gate to each village and benches a
+   ≥3-cell graded Track along the route; for a cliff-pocketed village a bounded gradeable Dijkstra carves a
+   benched Track *around* the cliffs; a village with no gradeable route is left genuinely unreachable
+   (honest refusal). Deterministic → save/load safe. No straight-line term, no raw-component constraint, no
+   steeper profile (all three documented negatives honoured).
+3. **Ride the net** (`formation.ts`) — patrol roadBias 0.25→0.55 (now a real lever).
+
+**Measured (12 survey seeds, before → after):** arrived-among-reachable **36% → 76%**;
+opposite-gate (REAR) bucket **13% → 50%**; `network-probe` netVil **59% → 72%**;
+worst pocket `survey-5` **0/4 → 4/4** connected; **false-success 0** (the metric never fakes an arrival);
+`copaudit` egress **1/16 → 0/16**, no regression (overlap 0, gate>90° 0); `balance` no stranding;
+`tsc`/`build` green; deterministic rebuild.
+
+**Status:** the reachable-but-stranded bug and the connectivity ceiling are resolved. The honest remainders
+(far villages exceed the 25-min *tactical* window though they now arrive; netVil 72% not 100%; trough cells
+rose from benched corridors) are tracked in **[009](009-far-village-tactical-window-and-network-ceiling.md)**.
