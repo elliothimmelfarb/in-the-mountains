@@ -62,8 +62,10 @@ function components(t: any): { comp: Int32Array; count: number } {
           if (!dx && !dy) continue;
           const nx = x + dx, ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          if (!t.passableCell(nx, ny)) continue;
+          if (dx !== 0 && dy !== 0 && !t.passableCell(x + dx, y) && !t.passableCell(x, y + dy)) continue; // no corner-cut
           const j = ny * size + nx;
-          if (comp[j] !== -1 || !t.passableCell(nx, ny)) continue;
+          if (comp[j] !== -1) continue;
           comp[j] = id;
           st.push(j);
         }
@@ -72,6 +74,11 @@ function components(t: any): { comp: Int32Array; count: number } {
   return { comp, count };
 }
 
+// Ground-truth reachability uses the SAME connectivity the mover/router honour: 8-connected, but
+// a diagonal step is forbidden when BOTH orthogonal neighbours are impassable (the anti-corner-cut
+// rule — a soldier can't squeeze a 1-cell diagonal gap and the A* won't route one). A plain
+// 8-connected flood OVER-counts reachability (it credits diagonal-squeeze pockets the squad can't
+// actually enter), which made findPath look like it "gave up" on cells nothing could ever reach.
 function floodFromGate(t: any): Uint8Array {
   const size = t.size;
   const seen = new Uint8Array(size * size);
@@ -88,13 +95,35 @@ function floodFromGate(t: any): Uint8Array {
         if (!dx && !dy) continue;
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+        if (!t.passableCell(nx, ny)) continue;
+        if (dx !== 0 && dy !== 0 && !t.passableCell(x + dx, y) && !t.passableCell(x, y + dy)) continue; // no corner-cut
         const j = ny * size + nx;
-        if (seen[j] || !t.passableCell(nx, ny)) continue;
+        if (seen[j]) continue;
         seen[j] = 1;
         st.push(j);
       }
   }
   return seen;
+}
+/** Snap an objective to ground the squad would actually be sent to — exactly as the game's
+ *  reachableObjective does: step a compound objective out toward the COP, else nearest passable.
+ *  Without this the audit "misses" objectives the router never actually has to enter (a qalat
+ *  interior, a river/cliff cell), overcounting router failures the game never hits. */
+function snapObjective(t: any, cx: number, cy: number): { cx: number; cy: number } {
+  const inCompound = (x: number, y: number) => {
+    const l = t.land[t.idx(x, y)] as number;
+    return l === Land.Compound || l === Land.CompoundWall;
+  };
+  if (t.inBounds(cx, cy) && inCompound(cx, cy)) {
+    const dx = Math.sign(t.cop.center.cx - cx);
+    const dy = Math.sign(t.cop.center.cy - cy);
+    for (let s = 0; s < 24; s++) {
+      const nx = cx + dx * s, ny = cy + dy * s;
+      if (t.inBounds(nx, ny) && !inCompound(nx, ny) && t.passableCell(nx, ny)) return { cx: nx, cy: ny };
+    }
+  }
+  if (t.passableCell(cx, cy)) return { cx, cy };
+  return t.nearestPassable(cx, cy);
 }
 function reachWithin(t: any, seen: Uint8Array, vx: number, vy: number): boolean {
   for (let dy = -REACH_CELLS; dy <= REACH_CELLS; dy++)
@@ -191,7 +220,8 @@ for (const seed of SEEDS) {
   const gateW = w.gateOutsideWorld();
   for (const v of t.villages) {
     if (!reachWithin(t, seen, v.cx, v.cy)) vilUn++;
-    const objW = t.cellCenter(v.cx, v.cy);
+    const s = snapObjective(t, v.cx, v.cy); // route to the village EDGE, as the game does
+    const objW = t.cellCenter(s.cx, s.cy);
     const route = findPath(t, gateW, objW, { roadBias: 0.25 });
     const end = route[route.length - 1];
     if (!end || Math.hypot(end.x - objW.x, end.y - objW.y) > ARRIVE) nullR++;
@@ -209,7 +239,8 @@ for (const seed of SEEDS) {
     if (tx < 2 || ty < 2 || tx >= size - 2 || ty >= size - 2) continue;
     if (!reachWithin(t, seen, tx, ty)) continue; // only score physically-reachable targets
     far++;
-    const objW = t.cellCenter(tx, ty);
+    const snap = snapObjective(t, tx, ty); // snap to passable ground, as the game does
+    const objW = t.cellCenter(snap.cx, snap.cy);
     const route = findPath(t, gateW, objW, { roadBias: 0.25 });
     const end = route[route.length - 1];
     if (!end || Math.hypot(end.x - objW.x, end.y - objW.y) > ARRIVE) farMiss++;

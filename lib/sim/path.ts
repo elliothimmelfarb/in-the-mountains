@@ -144,11 +144,15 @@ const CORRIDOR_RADII = [7, 15, 30];
 export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions = {}): Vec2[] {
   const coarse = route(terrain, start, goal, COARSE_F, opts, 60000);
   if (!coarse) {
-    // Even the coarse pass can't reach the goal (walled off / across the valley / the unit is
-    // pocketed). DON'T hand back a single straight waypoint into a cliff — that gave the mover a
-    // degenerate 1-point "path" it crept into the terrain on, then "arrived" 1.4 km short. Run a
-    // bounded free best-effort A* and advance to the nearest cell we can actually reach.
-    const be = route(terrain, start, goal, 1, opts, 40000, undefined, approachClip(terrain, start, goal), true);
+    // The coarse pass couldn't reach the goal. That no longer means "unreachable": with the river
+    // a real barrier, the coarse line can dead-end at the channel when the only crossing is a thin
+    // ford the coarse graph misses. So try a FREE full-resolution A* first — it honours the actual
+    // fords and finds the genuine (often long, ford-detouring) route if one exists.
+    const free = route(terrain, start, goal, 1, opts, 300000);
+    if (free) return stringPull(terrain, start, free, opts);
+    // Truly unreachable: a bounded free best-effort A* advances to the nearest cell we can reach
+    // (never a degenerate single straight waypoint into a cliff — that "arrived" 1.4 km short).
+    const be = route(terrain, start, goal, 1, opts, 60000, undefined, approachClip(terrain, start, goal), true);
     return be ? stringPull(terrain, start, be, opts) : [{ ...goal }];
   }
   for (const R of CORRIDOR_RADII) {
@@ -156,15 +160,23 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
     const fine = route(terrain, start, goal, 1, opts, 40000, gen);
     if (fine) return stringPull(terrain, start, fine, opts); // smooth the walkable fine path
   }
-  // Goal unreachable in every corridor (walled off / across a barrier / the unit is in a
-  // sealed pocket). DON'T fall back to a corridor-constrained best-effort: confined to the
-  // OPTIMISTIC coarse line (which cuts through the wall it can't actually cross), that pass
-  // returns a valley-circling, partially-unwalkable blow-up — the 10×-too-long route that
-  // sent patrols out the gate, looping the wire, and back in stuck (movement RC#1). Instead
-  // run a FREE best-effort A* in a bounding box around start→goal: it finds the genuinely
-  // nearest reachable cell with an A*-optimal — so non-looping and fully walkable — path, and
-  // the unit advances to it and holds. A true "get as close as the ground allows, then stop."
-  const best = route(terrain, start, goal, 1, opts, 40000, undefined, approachClip(terrain, start, goal), true);
+  // Every corridor failed. The dominant cause (verified — scripts/corridor-shortfall.ts) is a
+  // route that must detour FAR off the coarse line to reach a real river crossing (a ford up or
+  // down the valley): the genuine route runs many multiples of the crow distance and swings well
+  // outside even the widest corridor, so the corridor-confined fine pass gives up short. Before
+  // settling for best-effort, run a FREE, UNCLIPPED full-resolution A* with a generous budget. It
+  // honours every 5 m feature (so it's genuinely walkable) and is bounded only by the map, so it
+  // finds the true route to a distant ford if one exists — exactly the routes the corridor can't
+  // contain. This is the correctness backstop; the corridor stays the cheap common-case path.
+  const free = route(terrain, start, goal, 1, opts, 300000);
+  if (free) return stringPull(terrain, start, free, opts);
+  // Genuinely unreachable at fine resolution (walled off / sealed pocket / across a barrier with
+  // no crossing). DON'T fall back to a corridor-constrained best-effort: confined to the OPTIMISTIC
+  // coarse line it returns a valley-circling, partially-unwalkable blow-up (movement RC#1). Instead
+  // a FREE best-effort A* in a box around start→goal finds the genuinely nearest reachable cell with
+  // a non-looping, fully walkable path, and the unit advances to it and holds — "get as close as the
+  // ground allows, then stop."
+  const best = route(terrain, start, goal, 1, opts, 60000, undefined, approachClip(terrain, start, goal), true);
   if (best) return stringPull(terrain, start, best, opts);
   return stringPull(terrain, start, coarse, opts);
 }
@@ -267,6 +279,8 @@ function route(
     let concealSum = 0;
     let coverSum = 0;
     let roadCells = 0;
+    let riverCells = 0; // impassable deep channel inside this coarse node
+    let crossCells = 0; // a real crossing (ford / footbridge) inside this coarse node
     for (let yy = 0; yy < f; yy++) {
       const fy = y0 + yy;
       if (fy >= terrain.size) continue;
@@ -274,17 +288,29 @@ function route(
         const fx = x0 + xx;
         if (fx >= terrain.size) continue;
         inb++;
+        const idx = terrain.idx(fx, fy);
+        const l = terrain.land[idx] as Land;
+        if (l === Land.River) riverCells++;
+        else if (l === Land.Ford || l === Land.Footbridge) crossCells++;
         if (!terrain.passableCell(fx, fy)) continue;
         passable++;
-        const idx = terrain.idx(fx, fy);
         moveSum += clampMove(terrain, fx, fy);
         concealSum += terrain.conceal[idx];
         coverSum += terrain.cover[idx];
-        const l = terrain.land[idx] as Land;
-        if (l === Land.Road || l === Land.Trail || l === Land.Footbridge || l === Land.Track) roadCells++;
+        if (l === Land.Road || l === Land.Trail || l === Land.Footbridge || l === Land.Track || l === Land.Ford) roadCells++;
       }
     }
     if (passable === 0) return Infinity;
+    // The river is a REAL barrier at coarse scale too (issue 010). A coarse node "open if ANY
+    // subcell is passable" used to let the global line cut the channel through a single dry bank
+    // cell — cheaper than detouring to a ford — and the fine pass (river truly impassable) then
+    // could not follow it, stranding the route short (the corridor-shortfall bug). A node the
+    // channel runs THROUGH (river-dominated) with no ford/footbridge in it is therefore
+    // impassable, so the coarse line is forced to cross only at real crossings. The channel is
+    // ~3 cells wide, so a node the crossing threads carries ≥3 river cells; bank-walking nodes
+    // sit a column inland (the floodplain is several coarse nodes wide) and keep enough river-free
+    // cells to stay open, so this blocks crossing-without-a-ford without walling the riverside.
+    if (riverCells >= 3 && crossCells === 0) return Infinity;
     let c = passable / moveSum; // = 1 / (avg move cost)
     const blockFrac = inb > 0 ? (inb - passable) / inb : 0;
     if (blockFrac > 0) c *= 1 + BARRIER_PENALTY * blockFrac * blockFrac;
