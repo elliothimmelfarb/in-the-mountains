@@ -812,52 +812,34 @@ export class Terrain {
   private ensureGatePortal() {
     const cop = this.cop;
     if (!cop) return;
-    const f = 3; // MUST match path.ts COARSE (15 m nodes)
-    const cw = Math.ceil(this.size / f);
-    const win = cop.radius + 12; // only search the COP's immediate vicinity (cells)
-    const nodeOpen = (nx: number, ny: number): boolean => {
-      for (let yy = 0; yy < f; yy++)
-        for (let xx = 0; xx < f; xx++) {
-          const cx = nx * f + xx;
-          const cy = ny * f + yy;
-          if (cx < this.size && cy < this.size && this.passableCell(cx, cy)) return true;
-        }
-      return false;
-    };
+    // Verify the gate with the ACTUAL planner, not a hand-rolled flood. The old check was a plain
+    // 8-connected coarse flood with no corner-cut rule; findPath FORBIDS a diagonal step when both
+    // orthogonal neighbours are blocked (anti corner-cutting). So on a DIAGONAL gate the flood said
+    // "connected" (it cuts the wall corner) while findPath could not transit — the gate sealed for
+    // the squad and the portal guard never fired (the "squad cannot leave the COP" bug on diagonal-
+    // gate seeds, e.g. valley-5293). Probing with findPath itself guarantees the gate is genuinely
+    // transitable by the planner the squad uses, diagonal or not.
+    // Probe the FULL egress the squad actually performs: muster (deep in the yard) -> gateOutside.
+    // On a diagonal gate the corner-cut bites not only at the gate gap but all along the diagonal
+    // interior lane, so a gate that transits gateInside->gateOutside can still strand a squad that
+    // can't reach the gate from the muster yard (valley-5293).
     const connected = (): boolean => {
-      const startI = Math.floor(cop.gateInside.cy / f) * cw + Math.floor(cop.gateInside.cx / f);
-      const goalX = Math.floor(cop.gateOutside.cx / f);
-      const goalY = Math.floor(cop.gateOutside.cy / f);
-      const seen = new Set<number>([startI]);
-      const stack = [startI];
-      while (stack.length) {
-        const i = stack.pop()!;
-        const x = i % cw;
-        const y = (i / cw) | 0;
-        if (x === goalX && y === goalY) return true;
-        for (let dy = -1; dy <= 1; dy++)
-          for (let dx = -1; dx <= 1; dx++) {
-            if (!dx && !dy) continue;
-            const nx = x + dx;
-            const ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= cw || ny >= cw) continue;
-            if (Math.abs(nx * f - cop.center.cx) > win || Math.abs(ny * f - cop.center.cy) > win) continue;
-            const ni = ny * cw + nx;
-            if (seen.has(ni) || !nodeOpen(nx, ny)) continue;
-            seen.add(ni);
-            stack.push(ni);
-          }
-      }
-      return false;
+      const muW = this.cellCenter(cop.muster.cx, cop.muster.cy);
+      const goW = this.cellCenter(cop.gateOutside.cx, cop.gateOutside.cy);
+      const route = findPath(this, muW, goW);
+      const end = route[route.length - 1];
+      return !!end && Math.hypot(end.x - goW.x, end.y - goW.y) < this.cellSize * 2;
     };
     const baseE = this.elev[this.idx(cop.center.cx, cop.center.cy)];
     let tries = 0;
-    while (!connected() && tries < 4) {
+    while (!connected() && tries < 5) {
       tries++;
-      // Widen the gate: carve a flat passable lane along the gate axis, OVERWRITING
-      // the wall (but never a village qalat), so the opening grows by a cell each pass.
+      // Widen the egress: carve a flat passable lane along the FULL muster->gateOutside axis,
+      // OVERWRITING the wall (but never a village qalat / a COP structure), so the opening — and
+      // the diagonal interior approach to it — grows by a cell each pass until the planner can
+      // transit it orthogonally (defeating the diagonal corner-cut at coarse resolution).
       const half = 1 + tries;
-      const gi = cop.gateInside;
+      const gi = cop.muster;
       const go = cop.gateOutside;
       const steps = (Math.max(Math.abs(go.cx - gi.cx), Math.abs(go.cy - gi.cy)) + 1) * 2;
       for (let s = 0; s <= steps; s++) {
