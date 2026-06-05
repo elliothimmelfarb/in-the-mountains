@@ -1,0 +1,20 @@
+seed          egress  ring%  gate→vil  portal  open%  solid?  wireHits
+survey-0        PASS    100       27°       Y     81       Y         0
+survey-1        PASS    100       31°       N     75       Y         0
+survey-2        PASS    100       44°       N     81       Y         0
+survey-3        PASS     98       39°       Y     81       Y         0
+survey-4        PASS     77       42°       Y     81       Y         0
+survey-5        PASS     99       37°       Y     80       Y         0
+survey-6        PASS    100       13°       Y     81       Y         0
+survey-7        PASS    100       29°       Y     81       Y         0
+survey-8        PASS     99       38°       Y     75       Y         0
+survey-9        PASS    100        9°       Y     81       Y         0
+survey-10       PASS    100       32°       Y     81       Y         0
+survey-11       PASS    100       14°       Y     81       Y         0
+
+summary over 12 seeds:
+  egress blocked:    0 / 12 (issue 001)
+  avg perimeter ring open%: 98 (issue 001)
+  gate faces >90° from nearest village: 0 / 12 (issue 002)
+  gate portal disconnected: 2 / 12 (issue 005)
+  total civilian wire-pin ticks: 0 (villager bug)

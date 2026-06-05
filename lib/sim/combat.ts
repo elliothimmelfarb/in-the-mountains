@@ -1373,8 +1373,18 @@ export class CombatSim {
    * that is never inside the COP wire/apron, so villagers by an outpost never have a
    * goal across the HESCO (the "villagers wander into the wire" bug).
    */
-  civMoveTo(u: Unit, point: Vec2) {
-    this.walkTo(u, this.terrain.civSafePoint(point.x, point.y));
+  civMoveTo(u: Unit, point: Vec2, roadBias = 0) {
+    const p = this.terrain.civSafePoint(point.x, point.y);
+    // A calm villager on a long errand (to another village's bazaar) prefers the road/track
+    // network (roadBias > 0); a panicked one (roadBias 0) bolts straight for dead ground.
+    if (roadBias > 0) {
+      const q = { x: clamp(p.x, 2, this.terrain.worldSize - 2), y: clamp(p.y, 2, this.terrain.worldSize - 2) };
+      u.path = walkable(this.terrain, u.pos, q) ? [q] : findPath(this.terrain, u.pos, q, { roadBias });
+      u.pathGoal = q;
+      this.resetStall(u);
+    } else {
+      this.walkTo(u, p);
+    }
   }
 
   /** Route a unit to a point following the terrain, honoring its move posture. */

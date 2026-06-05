@@ -1,0 +1,8 @@
+seed         gate→vil°  vilDist  arrived arrAt(s)  bumpTk  ovlpPk  wallMin  finishAt verdict
+smoke-test        104°     227m      yes      572     218       2       3m       48m OK
+korengal          141°     297m      yes      876     499       4       3m       55m OK
+survey-2          164°     410m       NO        -     221       3       3m      375m SET UP SHORT (closest 347m)
+survey-7          104°     447m       NO        -     375       2       3m      211m SET UP SHORT (closest 180m)
+survey-9           72°     335m       NO     1194      75       4       8m         - STUCK (closest 22m)
+valley-3          138°     456m      yes     1049      95       4       3m       63m OK
+ridge-11           43°     115m      yes      262      97       2       3m       49m OK

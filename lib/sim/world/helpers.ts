@@ -67,6 +67,15 @@ export function buildRoutine(terrain: Terrain, v: VillageState, rng: RNG): CivRo
       activity: rng.pick(["fields", "herding", "water", "market"]),
     });
   }
+  // Some villagers travel to ANOTHER village's bazaar — they walk the road/track network to
+  // get there (civilianBrain routes with a road bias), so the new inter-village tracks read as
+  // living routes rather than terrain decoration.
+  if (terrain.villages.length > 1 && rng.chance(0.5)) {
+    const others = terrain.villages.filter((o) => o.id !== v.id);
+    const o = rng.pick(others);
+    const oc = terrain.cellCenter(o.cx, o.cy);
+    nodes.push({ phase: "day", target: terrain.civSafePoint(oc.x, oc.y), activity: "market" });
+  }
   return nodes;
 }
 

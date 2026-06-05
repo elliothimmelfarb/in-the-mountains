@@ -27,9 +27,20 @@ Generation is resolution-independent (landform frequencies are expressed per-met
 7. **The COP** scored onto a commanding bench/low spur near the valley (prominent, a few tens of
    metres above the floor, close enough to be supplied by road — not an alpine perch), then built out
    as a real fortified position (see below).
-8. **Roads & trails** — a valley-floor road and goat trails to villages and up the draws, bridging
-   the river where a trail crosses it; the COP's **switchbacked access road** descends its spur to
-   the valley road, grading the tread only where the natural pitch is too steep (no straight ramp).
+8. **Road & path network** — a tiered, connected network (`carveRoadsAndTrails`):
+   - the valley-floor **Road** (MSR) just off the river;
+   - a graded secondary **Track** (`Land.Track`) tying every village to the MSR, plus a village
+     **minimum-spanning tree** of tracks linking the villages to one another — routed over the real
+     terrain with `findPath` so they follow walkable ground, then laid by `layPath` which conforms
+     LIGHTLY to local ground (never a deep cut). This replaced the old "trail trench to the water":
+     a cliff-isolated village instead gets a feathered switchbacked graded-Track descent that reads
+     as a real mountain road, not a gouge;
+   - faint Tier-3 goat **Trails** up the draws (surface-laid, no benching), bridging the river where
+     they cross (**Footbridge**);
+   - the COP's **switchbacked access road** descends its spur to the MSR.
+   Movement ladder (`LAND_MOVE`): **Road 1.0 > Track 0.96 > Trail 0.92 > Footbridge 0.85** ≫ open
+   ground — so a patrol on **Fast** (roadBias) and villagers on inter-village errands both prefer the
+   network. Tracks/trails are deterministic (seeded), so the network rebuilds identically on load.
 9. **Cover & concealment** derived per cell from landcover (compound walls and terrace risers are
    real hard cover; dry washes give defilade; forest/orchard conceal).
 10. **Named features** — prominent crest peaks get names and spot elevations.

@@ -67,7 +67,7 @@ function pickDeco(land: Land, r: number): Pick | null {
 function isClearanceBlocker(land: Land): boolean {
   return (
     land === Land.Road || land === Land.Trail || land === Land.Footbridge || land === Land.River ||
-    land === Land.Hesco || land === Land.Structure || land === Land.Gravel ||
+    land === Land.Track || land === Land.Hesco || land === Land.Structure || land === Land.Gravel ||
     land === Land.Compound || land === Land.CompoundWall || land === Land.TerraceWall
   );
 }

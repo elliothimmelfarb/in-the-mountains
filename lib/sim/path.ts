@@ -85,7 +85,9 @@ class Heap {
  * (no clipping), and the corridor bound means it physically cannot wander off to loop. The
  * coarse line only has to point the right general way; the corridor pass finds the true route.
  */
-const COARSE = COARSE_F; // ~15 m coarse nodes on the 5 m grid (shared with terrain.ts)
+// ~15 m coarse nodes on the 5 m grid: COARSE_F, imported from terrain.ts. NB: used only
+// INSIDE functions (not at module top-level) so terrain.ts can import findPath without a
+// load-time circular-dependency crash (terrain → path → terrain reads COARSE_F lazily).
 const BARRIER_PENALTY = 16; // how hard a coarse node is charged for the walls/cliffs it contains
 const FINE_CLIP_MARGIN = 10; // cells (~50 m) of slack around a fine repair — room for a local
 // detour around a wash bank or wall corner, but far too tight to loop the COP ring. This is
@@ -140,22 +142,49 @@ const CORRIDOR_RADII = [7, 15, 30];
  * Returns world-space waypoints (excluding the start); a straight shot if truly unreachable.
  */
 export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions = {}): Vec2[] {
-  const coarse = route(terrain, start, goal, COARSE, opts, 60000);
-  if (!coarse) return [{ ...goal }]; // unreachable — best effort
-  let widest = CORRIDOR_RADII[0];
+  const coarse = route(terrain, start, goal, COARSE_F, opts, 60000);
+  if (!coarse) {
+    // Even the coarse pass can't reach the goal (walled off / across the valley / the unit is
+    // pocketed). DON'T hand back a single straight waypoint into a cliff — that gave the mover a
+    // degenerate 1-point "path" it crept into the terrain on, then "arrived" 1.4 km short. Run a
+    // bounded free best-effort A* and advance to the nearest cell we can actually reach.
+    const be = route(terrain, start, goal, 1, opts, 40000, undefined, approachClip(terrain, start, goal), true);
+    return be ? stringPull(terrain, start, be, opts) : [{ ...goal }];
+  }
   for (const R of CORRIDOR_RADII) {
-    widest = R;
     const gen = rasterizeCorridor(terrain, start, coarse, R);
     const fine = route(terrain, start, goal, 1, opts, 40000, gen);
     if (fine) return stringPull(terrain, start, fine, opts); // smooth the walkable fine path
   }
-  // Couldn't reach the exact goal in any corridor (it's walled off / across a barrier).
-  // Walk as close as the terrain allows — a genuinely walkable approach, not a clipping
-  // coarse line — so the unit sets up where it can actually get to.
-  const gen = rasterizeCorridor(terrain, start, coarse, widest);
-  const best = route(terrain, start, goal, 1, opts, 40000, gen, undefined, true);
+  // Goal unreachable in every corridor (walled off / across a barrier / the unit is in a
+  // sealed pocket). DON'T fall back to a corridor-constrained best-effort: confined to the
+  // OPTIMISTIC coarse line (which cuts through the wall it can't actually cross), that pass
+  // returns a valley-circling, partially-unwalkable blow-up — the 10×-too-long route that
+  // sent patrols out the gate, looping the wire, and back in stuck (movement RC#1). Instead
+  // run a FREE best-effort A* in a bounding box around start→goal: it finds the genuinely
+  // nearest reachable cell with an A*-optimal — so non-looping and fully walkable — path, and
+  // the unit advances to it and holds. A true "get as close as the ground allows, then stop."
+  const best = route(terrain, start, goal, 1, opts, 40000, undefined, approachClip(terrain, start, goal), true);
   if (best) return stringPull(terrain, start, best, opts);
   return stringPull(terrain, start, coarse, opts);
+}
+
+/**
+ * A generous fine-cell box around the start→goal segment for the unreachable-goal
+ * best-effort approach: wide enough to swing around a barrier to the true nearest
+ * approach, but bounded so the search stays cheap and physically cannot wander off to
+ * circle the whole valley (which is exactly what the old corridor-constrained fallback did).
+ */
+function approachClip(terrain: Terrain, a: Vec2, b: Vec2): ClipRect {
+  const cs = terrain.cellSize;
+  const ax = a.x / cs, ay = a.y / cs, bx = b.x / cs, by = b.y / cs;
+  const M = 40; // cells (~200 m) of slack around the segment
+  return {
+    x0: Math.max(0, Math.floor(Math.min(ax, bx)) - M),
+    y0: Math.max(0, Math.floor(Math.min(ay, by)) - M),
+    x1: Math.min(terrain.size - 1, Math.ceil(Math.max(ax, bx)) + M),
+    y1: Math.min(terrain.size - 1, Math.ceil(Math.max(ay, by)) + M),
+  };
 }
 
 // Generation-stamped corridor membership: cell i is in the current corridor iff
@@ -252,7 +281,7 @@ function route(
         concealSum += terrain.conceal[idx];
         coverSum += terrain.cover[idx];
         const l = terrain.land[idx] as Land;
-        if (l === Land.Road || l === Land.Trail || l === Land.Footbridge) roadCells++;
+        if (l === Land.Road || l === Land.Trail || l === Land.Footbridge || l === Land.Track) roadCells++;
       }
     }
     if (passable === 0) return Infinity;

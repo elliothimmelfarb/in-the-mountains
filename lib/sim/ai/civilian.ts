@@ -62,11 +62,13 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     return;
   }
 
-  // calm: amble toward today's routine objective (or idle)
+  // calm: amble toward today's routine objective (or idle), preferring the road/track network
+  // for the longer hops between villages — so the inter-village tracks carry foot traffic.
   if (u.path.length === 0 && u.routine && u.routine.length > 0) {
     if (sim.rng.chance(0.01)) {
       const node = sim.rng.pick(u.routine);
-      sim.civMoveTo(u, node.target);
+      const far = dist(node.target, u.pos) > 160; // a real errand, not a step into the next field
+      sim.civMoveTo(u, node.target, far ? 0.4 : 0);
     }
   }
 }

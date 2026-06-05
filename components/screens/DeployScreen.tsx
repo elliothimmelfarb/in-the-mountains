@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useGame, SPEEDS } from "@/state/store";
 import WorldView from "@/components/world/WorldView";
 import { getWeapon } from "@/lib/sim/weapons";
@@ -64,6 +64,98 @@ function roleAbbr(role: string): string {
   return map[role] ?? role.slice(0, 3).toUpperCase();
 }
 
+// ---------------------------------------------------------------- log split predicate
+// One shared partition used by Combat Log, Command Log, and the Contact Feed — every log
+// entry shows in exactly one channel. Retune by editing this single Set.
+const FIGHT_KINDS = new Set(["contact", "kia", "casualty", "support"]);
+const isCombat = (l: { kind: string }) => FIGHT_KINDS.has(l.kind);
+
+function kindStyle(kind: string): string {
+  switch (kind) {
+    case "kia":      return "text-rust border-rust font-semibold";
+    case "casualty": return "text-tan border-tan";
+    case "contact":  return "text-amber border-amber";
+    case "support":  return "text-us border-us";
+    default:         return "text-inkdim border-line";
+  }
+}
+
+// ---------------------------------------------------------------- dock primitive
+// A dock module: stencil header (collapsible) + internally-scrolling body + bottom drag handle.
+// `grow` panels are the elastic sink (no fixed height, no handle); exactly one per column.
+function DockPanel({
+  id, title, accent = "amber", right, grow = false, defaultHeight = 130, last = false, children,
+}: {
+  id: string; title: string; accent?: string; right?: ReactNode;
+  grow?: boolean; defaultHeight?: number; last?: boolean; children: ReactNode;
+}) {
+  const collapsed = useGame((s) => !!s.layout.collapsed[id]);
+  const height = useGame((s) => s.layout.heights[id]);
+  const togglePanel = useGame((s) => s.togglePanel);
+  const h = height ?? defaultHeight;
+  // collapsed → header only (28px); grow → flex:1; else → fixed pixel height.
+  const style: CSSProperties = collapsed
+    ? { height: 28, flex: "0 0 auto" }
+    : grow
+      ? { flex: "1 1 0%", minHeight: 64 }
+      : { height: h, flex: "0 0 auto", minHeight: 28 };
+  return (
+    <div className="relative flex flex-col min-h-0 border-b border-line" style={style}>
+      {/* Header row: a click-to-collapse button + an optional right slot that may itself hold
+          interactive controls (Convoy/Air, badges). The right slot is a SIBLING of the toggle
+          button — never nested inside it — so we never produce an invalid button-in-button DOM. */}
+      <div className="dock-header w-full flex items-center justify-between px-2 h-7 shrink-0 border-b border-line bg-panel select-none">
+        <button
+          onClick={() => togglePanel(id)}
+          className="flex items-center gap-1.5 min-w-0 flex-1 text-left hover:text-amber"
+        >
+          <span className="text-inkdim text-[9px] transition-transform" style={{ transform: collapsed ? "rotate(-90deg)" : "none" }}>▾</span>
+          <span className={`stencil text-[10px] text-${accent}`}>{title}</span>
+        </button>
+        {right && <span className="text-[9px] font-mono shrink-0 ml-2">{right}</span>}
+      </div>
+      {!collapsed && <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>}
+      {!collapsed && !grow && !last && <ResizeHandle id={id} defaultHeight={defaultHeight} />}
+    </div>
+  );
+}
+
+// 5px bottom-edge grab target. Drag resizes THIS panel; the column's lone `grow` panel
+// (Intel left / Task Org right) absorbs/yields the slack, so the column sum stays exact
+// and the fixed-height shell never scrolls.
+function ResizeHandle({ id, defaultHeight }: { id: string; defaultHeight: number }) {
+  const setPanelHeight = useGame((s) => s.setPanelHeight);
+  const persist = useGame((s) => s.persistPanelLayout);
+  const onDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const el = e.currentTarget;
+    el.setPointerCapture(e.pointerId);
+    el.dataset.active = "true";
+    document.body.classList.add("dock-dragging");
+    const startY = e.clientY;
+    const startH = useGame.getState().layout.heights[id] ?? defaultHeight;
+    const onMove = (ev: PointerEvent) => {
+      const next = Math.max(28, Math.min(560, startH + (ev.clientY - startY)));
+      setPanelHeight(id, next);
+    };
+    const onUp = () => {
+      el.removeEventListener("pointermove", onMove);
+      el.removeEventListener("pointerup", onUp);
+      el.dataset.active = "false";
+      document.body.classList.remove("dock-dragging");
+      persist();
+    };
+    el.addEventListener("pointermove", onMove);
+    el.addEventListener("pointerup", onUp);
+  };
+  return (
+    <div className="dock-handle" data-active="false" role="separator" aria-orientation="horizontal"
+      onPointerDown={onDown} onDoubleClick={() => { setPanelHeight(id, defaultHeight); persist(); }}>
+      <i />
+    </div>
+  );
+}
+
 export default function DeployScreen() {
   const world = useGame((s) => s.world);
   const togglePause = useGame((s) => s.togglePause);
@@ -71,6 +163,7 @@ export default function DeployScreen() {
   const toggleWarp = useGame((s) => s.toggleWarp);
   const setFireSupport = useGame((s) => s.setFireSupport);
   const setPlanning = useGame((s) => s.setPlanning);
+  const hasDirectives = useGame((s) => !!s.world && s.world.state.directives.some((d) => d.status === "active"));
   useGame((s) => s.tick);
 
   useEffect(() => {
@@ -104,11 +197,12 @@ export default function DeployScreen() {
     <div className="w-full h-full flex flex-col">
       <CommandBar />
       <div className="flex-1 flex min-h-0">
-        <div className="w-[272px] shrink-0 border-r border-line flex flex-col min-h-0">
-          <TasksPanel />
-          <DirectivesPanel />
-          <IntelPanel />
-          <LogPanel />
+        <div className="w-[280px] shrink-0 border-r border-line flex flex-col min-h-0">
+          <DockPanel id="tasks" title="Active Elements" defaultHeight={132}><TasksBody /></DockPanel>
+          {hasDirectives && <DockPanel id="directives" title="Battalion Directives" defaultHeight={120}><DirectivesBody /></DockPanel>}
+          <DockPanel id="intel" title="Intel Feed" grow><IntelBody /></DockPanel>
+          <DockPanel id="combatlog" title="Combat Log" defaultHeight={150} right={<CombatBadge />}><CombatLogBody /></DockPanel>
+          <DockPanel id="commandlog" title="Command Log" defaultHeight={130} last><CommandLogBody /></DockPanel>
         </div>
         <div className="flex-1 relative min-w-0">
           <WorldView />
@@ -196,14 +290,13 @@ function CommandBar() {
 }
 
 // ---------------------------------------------------------------- left column
-function TasksPanel() {
+function TasksBody() {
   const world = useGame((s) => s.world)!;
   const recallTask = useGame((s) => s.recallTask);
   useGame((s) => s.tick);
   const tasks = world.state.tasks;
   return (
-    <div className="border-b border-line p-2">
-      <div className="stencil text-[10px] text-amber mb-1.5">Active Elements</div>
+    <div className="p-2">
       {tasks.length === 0 && <div className="text-inkdim text-[11px] italic">All elements at the COP.</div>}
       <div className="flex flex-col gap-1">
         {tasks.map((t) => (
@@ -220,14 +313,13 @@ function TasksPanel() {
   );
 }
 
-function DirectivesPanel() {
+function DirectivesBody() {
   const world = useGame((s) => s.world)!;
   useGame((s) => s.tick);
   const active = world.state.directives.filter((d) => d.status === "active");
   if (active.length === 0) return null;
   return (
-    <div className="border-b border-line p-2">
-      <div className="stencil text-[10px] text-amber mb-1.5">Battalion Directives</div>
+    <div className="p-2">
       <div className="flex flex-col gap-1.5">
         {active.map((d) => (
           <div key={d.id} className="bg-bg border border-line p-1.5">
@@ -246,42 +338,66 @@ function DirectivesPanel() {
   );
 }
 
-function IntelPanel() {
+function IntelBody() {
   const world = useGame((s) => s.world)!;
   useGame((s) => s.tick);
   return (
-    <div className="border-b border-line p-2 flex-1 min-h-0 flex flex-col">
-      <div className="stencil text-[10px] text-amber mb-1.5">Intel Feed</div>
-      <div className="overflow-y-auto flex-1 flex flex-col gap-1 pr-1">
-        {world.state.intel.slice(0, 26).map((r) => (
-          <div key={r.id} className="text-[10px] leading-snug border-l-2 pl-1.5" style={{ borderColor: r.source === "SIGINT" ? "#e0a72b" : r.source === "HUMINT" ? "#6fae54" : "#c89c5c" }}>
-            <span className="font-mono text-inkdim">[{r.source} ·{Math.round(r.reliability * 100)}%] </span>
-            <span className="text-ink">{r.text}</span>
-          </div>
-        ))}
-        {world.state.intel.length === 0 && <div className="text-inkdim italic text-[11px]">No reporting yet. Patrol and talk to people.</div>}
-      </div>
+    <div className="p-2 flex flex-col gap-1">
+      {world.state.intel.slice(0, 26).map((r) => (
+        <div key={r.id} className="text-[10px] leading-snug border-l-2 pl-1.5" style={{ borderColor: r.source === "SIGINT" ? "#e0a72b" : r.source === "HUMINT" ? "#6fae54" : "#c89c5c" }}>
+          <span className="font-mono text-inkdim">[{r.source} ·{Math.round(r.reliability * 100)}%] </span>
+          <span className="text-ink">{r.text}</span>
+        </div>
+      ))}
+      {world.state.intel.length === 0 && <div className="text-inkdim italic text-[11px]">No reporting yet. Patrol and talk to people.</div>}
     </div>
   );
 }
 
-function LogPanel() {
+// ---- Combat Log / Command Log / Contact Feed (req #3) — split by log kind ----
+function CombatLogBody() {
   const world = useGame((s) => s.world)!;
+  const markCombatSeen = useGame((s) => s.markCombatSeen);
   useGame((s) => s.tick);
-  const recent = world.state.log.slice(-40).reverse();
+  const lines = world.state.log.filter(isCombat).slice(-60).reverse();
+  // mark the newest combat line seen while this panel is open (clears the "N NEW" badge).
+  const newestId = lines.length ? lines[0].id : 0;
+  useEffect(() => { if (newestId) markCombatSeen(newestId); }, [newestId, markCombatSeen]);
   return (
-    <div className="p-2 h-[150px] flex flex-col">
-      <div className="stencil text-[10px] text-amber mb-1.5">Command Log</div>
-      <div className="overflow-y-auto flex-1 flex flex-col gap-0.5 pr-1">
-        {recent.map((l) => (
-          <div key={l.id} className={`text-[10px] leading-snug ${l.kind === "kia" ? "text-rust" : l.kind === "objective" ? "text-amber" : l.kind === "casualty" ? "text-tan" : l.kind === "support" ? "text-us" : l.kind === "contact" ? "text-amber" : "text-inkdim"}`}>
-            <span className="font-mono opacity-60">D{l.day} </span>
-            {l.msg}
-          </div>
-        ))}
-      </div>
+    <div className="p-2 flex flex-col gap-0.5">
+      {lines.length === 0 && <div className="text-inkdim italic text-[11px]">No contact. The valley is quiet.</div>}
+      {lines.map((l) => (
+        <div key={l.id} className={`text-[10px] leading-snug font-mono pl-1.5 border-l-2 ${kindStyle(l.kind)}`}>
+          <span className="opacity-50">D{l.day} </span>{l.msg}
+        </div>
+      ))}
     </div>
   );
+}
+
+function CommandLogBody() {
+  const world = useGame((s) => s.world)!;
+  useGame((s) => s.tick);
+  const lines = world.state.log.filter((l) => !isCombat(l)).slice(-40).reverse();
+  return (
+    <div className="p-2 flex flex-col gap-0.5">
+      {lines.map((l) => (
+        <div key={l.id} className={`text-[10px] leading-snug ${l.kind === "objective" ? "text-amber" : "text-inkdim"}`}>
+          <span className="font-mono opacity-60">D{l.day} </span>{l.msg}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// header badge: live ● TIC, or unread-since-seen count when collapsed.
+function CombatBadge() {
+  const world = useGame((s) => s.world)!;
+  const seen = useGame((s) => s.layout.seenCombatId);
+  useGame((s) => s.tick);
+  if (world.inContact()) return <span className="stencil text-[9px] text-rust blink">● TIC</span>;
+  const n = world.state.log.filter((l) => isCombat(l) && l.id > seen).length;
+  return n > 0 ? <span className="stencil text-[9px] text-rust">{n} NEW</span> : <span className="text-inkdim">—</span>;
 }
 
 // ---------------------------------------------------------------- map overlays
@@ -342,39 +458,61 @@ function OrderBar() {
 
   return (
     <div className="absolute bottom-0 left-0 right-0 bg-panel/95 border-t border-line p-2 z-10">
-      <div className="flex items-start gap-3 flex-wrap">
+      <div className="flex items-stretch gap-3">
+        {/* ZONE 1 — squad readout */}
         <SquadReadout />
-        {fr && (
-          <div className="border-l border-rust pl-3 animate-pulse">
-            <div className="stencil text-[9px] text-rust mb-1">▲ Call for Fire — {fr.label}</div>
-            <div className="font-mono text-[10px] text-ink max-w-[200px] mb-1">{fr.reason}. Requesting <span className="text-amber">{getWeapon(fr.weaponId).short}</span> on grid {String(fr.cx).padStart(3, "0")}–{String(fr.cy).padStart(3, "0")}.</div>
-            <div className="flex gap-1">
-              <button className="tac-btn tac-btn-danger active flex-1 text-[10px]" onClick={approveFires}>✓ CLEARED HOT</button>
-              <button className="tac-btn flex-1 text-[10px]" onClick={denyFires}>✕ DENY</button>
+        {/* ZONE 2 — call-for-fire + fire support + medevac */}
+        <div className="flex items-stretch gap-3 border-l border-line pl-3">
+          {fr && (
+            <div className="border-l border-rust pl-3 animate-pulse">
+              <div className="stencil text-[9px] text-rust mb-1">▲ Call for Fire — {fr.label}</div>
+              <div className="font-mono text-[10px] text-ink max-w-[200px] mb-1">{fr.reason}. Requesting <span className="text-amber">{getWeapon(fr.weaponId).short}</span> on grid {String(fr.cx).padStart(3, "0")}–{String(fr.cy).padStart(3, "0")}.</div>
+              <div className="flex gap-1">
+                <button className="tac-btn tac-btn-danger active flex-1 text-[10px]" onClick={approveFires}>✓ CLEARED HOT</button>
+                <button className="tac-btn flex-1 text-[10px]" onClick={denyFires}>✕ DENY</button>
+              </div>
             </div>
-          </div>
-        )}
-        <div className="border-l border-line pl-3">
-          <div className="stencil text-[9px] text-amber mb-1">Fire Support <span className="text-inkdim normal-case">— click the map to place</span></div>
-          <div className="flex flex-col gap-1 max-w-[230px]">
-            {sim.mortars.map((mt) => {
-              const wp = getWeapon(mt.weaponId);
-              return (
-                <button key={mt.weaponId} disabled={mt.rounds <= 0} className={`tac-btn inline-flex items-center gap-1.5 text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
-                  <Icon name="ico-mortar" size={13} /> {wp.name} <span className="text-inkdim">({mt.rounds})</span>
-                </button>
-              );
-            })}
-            <div className="flex gap-1">
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] flex-1 ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
+          )}
+          <div>
+            <div className="stencil text-[9px] text-amber mb-1">Fire Support <span className="text-inkdim normal-case">— click the map</span></div>
+            <div className="grid grid-cols-2 gap-1 max-w-[320px]">
+              {sim.mortars.map((mt) => {
+                const wp = getWeapon(mt.weaponId);
+                return (
+                  <button key={mt.weaponId} disabled={mt.rounds <= 0} className={`tac-btn inline-flex items-center gap-1.5 text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
+                    <Icon name="ico-mortar" size={13} /> {wp.name} <span className="text-inkdim">({mt.rounds})</span>
+                  </button>
+                );
+              })}
+              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
+              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
+              <button className={`col-span-2 tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${casualtyInField ? "tac-btn-danger active" : ""}`} onClick={medevacSelected}>
+                <Icon name="ico-medevac" size={13} /> 9-LINE MEDEVAC {casualtyInField && <span className="text-[9px]">· casualty down</span>}
+              </button>
             </div>
-            <button className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${casualtyInField ? "tac-btn-danger active" : ""}`} onClick={medevacSelected}>
-              <Icon name="ico-medevac" size={13} /> 9-LINE MEDEVAC {casualtyInField && <span className="text-[9px]">· casualty down</span>}
-            </button>
           </div>
         </div>
+        {/* ZONE 3 — live contact feed fills the reclaimed right half */}
+        <ContactFeed />
       </div>
+    </div>
+  );
+}
+
+// The reclaimed right half of the Ops Strip: the last few firefight lines, live.
+function ContactFeed() {
+  const world = useGame((s) => s.world)!;
+  useGame((s) => s.tick);
+  const lines = world.state.log.filter(isCombat).slice(-6).reverse();
+  return (
+    <div className="flex-1 min-w-0 border-l border-line pl-3">
+      <div className="stencil text-[9px] text-amber mb-1">Contact Feed</div>
+      {lines.length === 0
+        ? <div className="text-inkdim text-[10px] font-mono">— net quiet —</div>
+        : <div className="columns-2 gap-x-4">{lines.map((l) => (
+            <div key={l.id} className={`text-[10px] leading-snug font-mono pl-1.5 border-l-2 mb-0.5 break-inside-avoid ${kindStyle(l.kind)}`}>
+              <span className="opacity-50">D{l.day} </span>{l.msg}
+            </div>))}</div>}
     </div>
   );
 }
@@ -417,12 +555,34 @@ function SquadReadout() {
 function RightColumn() {
   const planning = useGame((s) => s.planning);
   const selectedVillage = useGame((s) => s.selectedVillage);
+  const showVillage = !!selectedVillage && !planning;
   return (
-    <div className="w-[336px] shrink-0 border-l border-line flex flex-col min-h-0">
-      {selectedVillage && !planning ? <VillagePanel villageId={selectedVillage} /> : <ElementPanel />}
-      <LogisticsPanel />
+    <div className="w-[344px] shrink-0 border-l border-line flex flex-col min-h-0">
+      {showVillage ? (
+        // village takes the ORDERS slot exactly as today; it's the elastic sink while open
+        <div className="flex-1 min-h-0 overflow-y-auto border-b border-line"><VillagePanel villageId={selectedVillage!} /></div>
+      ) : (
+        <>
+          <DockPanel id="orders" title="Squad Orders" defaultHeight={300} right={<DeployBadge />}><SquadOrdersBody /></DockPanel>
+          <DockPanel id="taskorg" title="Task Organization" grow><TaskOrgBody /></DockPanel>
+        </>
+      )}
+      <DockPanel id="logistics" title="Logistics" defaultHeight={196} last
+        right={<><LogiBadge /><span onClick={(e) => e.stopPropagation()}><ResupplyButtons /></span></>}>
+        <LogisticsBody />
+      </DockPanel>
     </div>
   );
+}
+
+// The ● DEPLOYED indicator for the Squad Orders header (shown when the active squad is tasked).
+function DeployBadge() {
+  const world = useGame((s) => s.world)!;
+  const activeSquadId = useGame((s) => s.activeSquadId);
+  useGame((s) => s.tick);
+  const activeSq = world.platoon.squads.find((s) => s.id === activeSquadId) ?? null;
+  const activeTask = activeSq ? world.state.tasks.find((t) => activeSq.memberIds.some((id) => t.memberIds.includes(id))) : null;
+  return activeTask ? <span className="text-good">● DEPLOYED</span> : <span className="text-inkdim">—</span>;
 }
 
 // A segmented button group — one row of the SOP card.
@@ -456,10 +616,10 @@ function SopCard({ sop, onChange, locked }: { sop: SquadSOP; onChange: (patch: P
   );
 }
 
-function ElementPanel() {
+// The hot path: mission, SOP, officer-attach, route/step-off for the active squad.
+function SquadOrdersBody() {
   const world = useGame((s) => s.world)!;
   const activeSquadId = useGame((s) => s.activeSquadId);
-  const selectSquad = useGame((s) => s.selectSquad);
   const attachOfficers = useGame((s) => s.attachOfficers);
   const toggleOfficers = useGame((s) => s.toggleOfficers);
   const planning = useGame((s) => s.planning);
@@ -473,7 +633,6 @@ function ElementPanel() {
   const reroute = useGame((s) => s.reroute);
   const setSquadSOP = useGame((s) => s.setSquadSOP);
   const patrolIds = useGame((s) => s.patrolIds);
-  const setJacket = useGame((s) => s.setJacket);
   useGame((s) => s.tick);
 
   const activeSq = world.platoon.squads.find((s) => s.id === activeSquadId) ?? null;
@@ -495,74 +654,76 @@ function ElementPanel() {
   };
 
   return (
-    <div className="border-b border-line flex flex-col min-h-0 flex-1">
-      {/* orders for the active squad */}
-      <div className="p-2 border-b border-line">
-        <div className="flex items-center justify-between mb-1.5">
-          <div className="stencil text-[10px] text-amber">{activeSq ? `${activeSq.name} — Orders` : "Squad Orders"}</div>
-          {activeTask && <span className="text-[9px] font-mono text-good">● DEPLOYED</span>}
-        </div>
-        {!activeSq ? (
-          <div className="text-inkdim text-[10px] font-mono">Select a squad below (or click one on the map) to give it orders.</div>
-        ) : (
-          <>
-            {!activeTask && (
-              <div className="flex flex-wrap gap-1 mb-1.5">
-                {MISSIONS.map((mt) => (
-                  <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
+    <div className="p-2">
+      {!activeSq ? (
+        <div className="text-inkdim text-[10px] font-mono">Select a squad below (or click one on the map) to give it orders.</div>
+      ) : (
+        <>
+          {!activeTask && (
+            <div className="flex flex-wrap gap-1 mb-1.5">
+              {MISSIONS.map((mt) => (
+                <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
+              ))}
+            </div>
+          )}
+          <SopCard sop={sop} onChange={onSop} locked={inContact} />
+          {!activeTask && !hasMedic && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — attach officers (HQ) for the doc, or expect bleed-outs.</div>}
+          {!activeTask && (
+            <label className="flex items-center gap-1.5 text-[10px] font-mono text-inkdim mb-1.5 cursor-pointer">
+              <input type="checkbox" checked={attachOfficers} onChange={toggleOfficers} className="accent-amber" />
+              Send officers (HQ: PL · medic · RTO · JTAC)
+            </label>
+          )}
+          <div className="text-inkdim text-[10px] mb-1 font-mono">{ids.length} pax · {planRoute.length} waypoints{planning ? " · click the map to draw" : ""}</div>
+          <div className="flex gap-1">
+            <button className={`tac-btn flex-1 ${planning ? "active" : ""}`} onClick={() => setPlanning(!planning)}>{planning ? "Drawing…" : "✚ Draw Route [R]"}</button>
+            {activeTask
+              ? <button className={`tac-btn flex-1 ${canReroute ? "active" : ""}`} disabled={!canReroute} onClick={reroute}>↳ Re-route</button>
+              : <button className={`tac-btn flex-1 ${canStep ? "active" : ""}`} disabled={!canStep} onClick={stepOff}>▸ Step Off</button>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// The platoon's fixed squads — pick which to command (never a man). The elastic roster.
+function TaskOrgBody() {
+  const world = useGame((s) => s.world)!;
+  const activeSquadId = useGame((s) => s.activeSquadId);
+  const selectSquad = useGame((s) => s.selectSquad);
+  const setJacket = useGame((s) => s.setJacket);
+  useGame((s) => s.tick);
+  return (
+    <div className="p-2">
+      {world.platoon.squads.map((sq) => {
+        const members = sq.memberIds.map((id) => world.platoon.members.find((x) => x.id === id)).filter(Boolean) as NonNullable<ReturnType<typeof world.platoon.members.find>>[];
+        const readyCount = members.filter((mm) => mm.alive && (mm.status === "ready" || mm.status === "rest")).length;
+        const tasked = world.state.tasks.some((t) => t.memberIds.some((id) => sq.memberIds.includes(id)));
+        const active = sq.id === activeSquadId;
+        return (
+          <div key={sq.id} className="mb-2.5">
+            <button className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`} onClick={() => selectSquad(sq.id)}>
+              <span className="font-semibold inline-flex items-center gap-1.5">{active && <span>▸</span>}{sq.name}</span>
+              <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1">●deployed</span>}{readyCount}/{members.length} ready</span>
+            </button>
+            {active && (
+              <div className="grid grid-cols-1 gap-0.5 mt-0.5">
+                {members.map((mm) => (
+                  <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-1 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
+                    <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
+                    <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
+                    <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
+                    <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
+                    <button title="Service record" onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber px-1 shrink-0">ⓘ</button>
+                  </div>
                 ))}
               </div>
             )}
-            <SopCard sop={sop} onChange={onSop} locked={inContact} />
-            {!activeTask && !hasMedic && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — attach officers (HQ) for the doc, or expect bleed-outs.</div>}
-            {!activeTask && (
-              <label className="flex items-center gap-1.5 text-[10px] font-mono text-inkdim mb-1.5 cursor-pointer">
-                <input type="checkbox" checked={attachOfficers} onChange={toggleOfficers} className="accent-amber" />
-                Send officers (HQ: PL · medic · RTO · JTAC)
-              </label>
-            )}
-            <div className="text-inkdim text-[10px] mb-1 font-mono">{ids.length} pax · {planRoute.length} waypoints{planning ? " · click the map to draw" : ""}</div>
-            <div className="flex gap-1">
-              <button className={`tac-btn flex-1 ${planning ? "active" : ""}`} onClick={() => setPlanning(!planning)}>{planning ? "Drawing…" : "✚ Draw Route [R]"}</button>
-              {activeTask
-                ? <button className={`tac-btn flex-1 ${canReroute ? "active" : ""}`} disabled={!canReroute} onClick={reroute}>↳ Re-route</button>
-                : <button className={`tac-btn flex-1 ${canStep ? "active" : ""}`} disabled={!canStep} onClick={stepOff}>▸ Step Off</button>}
-            </div>
-          </>
-        )}
-      </div>
-      {/* the platoon's fixed squads — pick which to command (never a man) */}
-      <div className="p-2 overflow-y-auto flex-1 min-h-0">
-        <div className="stencil text-[10px] text-amber mb-1.5">Task Organization</div>
-        {world.platoon.squads.map((sq) => {
-          const members = sq.memberIds.map((id) => world.platoon.members.find((x) => x.id === id)).filter(Boolean) as NonNullable<ReturnType<typeof world.platoon.members.find>>[];
-          const readyCount = members.filter((mm) => mm.alive && (mm.status === "ready" || mm.status === "rest")).length;
-          const tasked = world.state.tasks.some((t) => t.memberIds.some((id) => sq.memberIds.includes(id)));
-          const active = sq.id === activeSquadId;
-          return (
-            <div key={sq.id} className="mb-2">
-              <button className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`} onClick={() => selectSquad(sq.id)}>
-                <span className="font-semibold inline-flex items-center gap-1.5">{active && <span>▸</span>}{sq.name}</span>
-                <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1">●deployed</span>}{readyCount}/{members.length} ready</span>
-              </button>
-              {active && (
-                <div className="grid grid-cols-1 gap-0.5 mt-0.5">
-                  {members.map((mm) => (
-                    <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-0.5 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
-                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
-                      <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
-                      <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
-                      <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
-                      <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
-                      <button title="Service record" onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber px-1 shrink-0">ⓘ</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -629,21 +790,37 @@ const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: numb
   { key: "food", label: "food", max: 560, warn: 100, icon: "ico-food" },
 ];
 
-function LogisticsPanel() {
+// Convoy/Air request buttons — live in the Logistics dock header right slot. The wrapper in
+// RightColumn stops propagation so clicking these never toggles the panel collapse.
+function ResupplyButtons() {
   const world = useGame((s) => s.world)!;
   const requestResupply = useGame((s) => s.requestResupply);
+  useGame((s) => s.tick);
+  const inbound = world.state.resupplies[0];
+  return (
+    <span className="inline-flex gap-1">
+      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound} onClick={() => requestResupply("convoy")}>Convoy</button>
+      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound || !world.state.weather.airAvailable} onClick={() => requestResupply("air")}>Air</button>
+    </span>
+  );
+}
+
+// Low-supply warning glyph for the collapsed Logistics header.
+function LogiBadge() {
+  const world = useGame((s) => s.world)!;
+  useGame((s) => s.tick);
+  const s = world.state.supplies;
+  const low = SUPPLY_ROWS.some((row) => s[row.key] < row.warn);
+  return low ? <span className="text-rust mr-1">⚠</span> : null;
+}
+
+function LogisticsBody() {
+  const world = useGame((s) => s.world)!;
   useGame((s) => s.tick);
   const s = world.state.supplies;
   const inbound = world.state.resupplies[0];
   return (
-    <div className="p-2 h-[230px] overflow-y-auto">
-      <div className="flex items-center justify-between mb-1.5">
-        <div className="stencil text-[10px] text-amber">Logistics</div>
-        <div className="flex gap-1">
-          <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound} onClick={() => requestResupply("convoy")}>Convoy</button>
-          <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound || !world.state.weather.airAvailable} onClick={() => requestResupply("air")}>Air</button>
-        </div>
-      </div>
+    <div className="p-2">
       {inbound && <div className="text-us text-[10px] font-mono mb-1">⟳ {inbound.kind} resupply inbound (~{Math.max(0, Math.round((inbound.eta - world.state.clock) / 3600))} h)</div>}
       <div className="space-y-1">
         {SUPPLY_ROWS.map((row) => {

@@ -1,0 +1,17 @@
+seed          troughCells   netVil   rate
+survey-0              222      2/4    50%
+survey-1              254      0/5     0%
+survey-2              329      2/6    33%
+survey-3              414      1/6    17%
+survey-4              169      3/5    60%
+survey-5              166      1/4    25%
+survey-6              224      2/6    33%
+survey-7              484      5/6    83%
+survey-8              276      0/5     0%
+survey-9              255      2/4    50%
+survey-10             329      3/4    75%
+survey-11             478      1/6    17%
+
+summary over 12 seeds:
+  total trough cells: 3600 (item 8: must drop to ~0)
+  villages network-connected: 22 / 61 (36%) — target 100%

@@ -76,7 +76,7 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   m2: {
     id: "m2", name: "M2 Browning .50", short: "M2", cls: "hmg", caliber: "12.7×99mm", faction: "us",
-    muzzleVel: 890, effRange: 1830, maxRange: 6800, dispersionMOA: 5, cyclicRPM: 550, magSize: 100,
+    muzzleVel: 890, effRange: 1830, maxRange: 3700, dispersionMOA: 5, cyclicRPM: 550, magSize: 100,
     burst: [5, 9], auto: true, damage: 95, damageType: "ball", penetration: 0.92,
     suppressionRadius: 16, suppression: 3.4, reload: 8, roundWeight: 0.11, aimTime: 0.8, opticRange: 2000,
   },
@@ -108,7 +108,7 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   m107: {
     id: "m107", name: "M107 .50 Sniper", short: "M107", cls: "sniper", caliber: "12.7×99mm", faction: "us",
-    muzzleVel: 853, effRange: 1800, maxRange: 6800, dispersionMOA: 1.1, cyclicRPM: 10, magSize: 10,
+    muzzleVel: 853, effRange: 1800, maxRange: 3700, dispersionMOA: 1.1, cyclicRPM: 10, magSize: 10,
     burst: [1, 1], auto: false, damage: 98, damageType: "ball", penetration: 0.95,
     suppressionRadius: 8, suppression: 2.2, reload: 5, roundWeight: 0.11, aimTime: 3.5, opticRange: 2200,
   },
@@ -121,7 +121,7 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   javelin: {
     id: "javelin", name: "FGM-148 Javelin", short: "Jav", cls: "missile", caliber: "127mm", faction: "us",
-    muzzleVel: 70, effRange: 2500, maxRange: 4750, dispersionMOA: 2, cyclicRPM: 1, magSize: 1,
+    muzzleVel: 70, effRange: 2500, maxRange: 3700, dispersionMOA: 2, cyclicRPM: 1, magSize: 1,
     burst: [1, 1], auto: false, damage: 100, damageType: "heat", penetration: 0.98,
     suppressionRadius: 12, suppression: 3, blastRadius: 6,
     reload: 99, roundWeight: 11.8, aimTime: 6, opticRange: 4750,
@@ -142,14 +142,14 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   mortar81: {
     id: "mortar81", name: "M252 81mm Mortar", short: "81mm", cls: "mortar", caliber: "81mm", faction: "us",
-    muzzleVel: 250, effRange: 5600, maxRange: 5600, dispersionMOA: 40, cyclicRPM: 16, magSize: 1,
+    muzzleVel: 250, effRange: 3700, maxRange: 3700, dispersionMOA: 40, cyclicRPM: 16, magSize: 1,
     burst: [1, 1], auto: false, damage: 92, damageType: "frag", penetration: 0.55,
     suppressionRadius: 30, suppression: 3.8, indirect: true, minRange: 80, blastRadius: 24,
     reload: 5, roundWeight: 4.2, aimTime: 0, opticRange: 0,
   },
   mortar120: {
     id: "mortar120", name: "120mm Mortar", short: "120mm", cls: "mortar", caliber: "120mm", faction: "us",
-    muzzleVel: 318, effRange: 7200, maxRange: 7200, dispersionMOA: 40, cyclicRPM: 10, magSize: 1,
+    muzzleVel: 318, effRange: 3700, maxRange: 3700, dispersionMOA: 40, cyclicRPM: 10, magSize: 1,
     burst: [1, 1], auto: false, damage: 100, damageType: "frag", penetration: 0.65,
     suppressionRadius: 40, suppression: 4.4, indirect: true, minRange: 200, blastRadius: 35,
     reload: 7, roundWeight: 13, aimTime: 0, opticRange: 0,
@@ -194,7 +194,7 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   dshk: {
     id: "dshk", name: "DShK 12.7mm", short: "DShK", cls: "hmg", caliber: "12.7×108mm", faction: "insurgent",
-    muzzleVel: 850, effRange: 1600, maxRange: 6000, dispersionMOA: 6, cyclicRPM: 600, magSize: 50,
+    muzzleVel: 850, effRange: 1600, maxRange: 3700, dispersionMOA: 6, cyclicRPM: 600, magSize: 50,
     burst: [5, 9], auto: true, damage: 95, damageType: "ball", penetration: 0.9,
     suppressionRadius: 16, suppression: 3.3, reload: 9, roundWeight: 0.13, aimTime: 0.9, opticRange: 1800,
   },
@@ -207,7 +207,7 @@ export const WEAPONS: Record<string, Weapon> = {
   },
   mortar82: {
     id: "mortar82", name: "82mm Mortar", short: "82mm", cls: "mortar", caliber: "82mm", faction: "insurgent",
-    muzzleVel: 211, effRange: 4000, maxRange: 4000, dispersionMOA: 55, cyclicRPM: 12, magSize: 1,
+    muzzleVel: 211, effRange: 3700, maxRange: 3700, dispersionMOA: 55, cyclicRPM: 12, magSize: 1,
     burst: [1, 1], auto: false, damage: 90, damageType: "frag", penetration: 0.55,
     suppressionRadius: 26, suppression: 3.6, indirect: true, minRange: 85, blastRadius: 22,
     reload: 6, roundWeight: 3.1, aimTime: 0, opticRange: 0,

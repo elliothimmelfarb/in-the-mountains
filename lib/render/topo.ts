@@ -60,6 +60,8 @@ function landColor(l: Land): [number, number, number] {
       return [146, 138, 120];
     case Land.Road:
       return [122, 110, 92];
+    case Land.Track:
+      return [128, 116, 96]; // graded dirt track — between the MSR and a faint footpath
     case Land.Trail:
       return [140, 126, 100];
     case Land.Footbridge:
@@ -114,9 +116,13 @@ export function bakeTerrain(terrain: Terrain): Baked {
   const cached = cache.get(terrain);
   if (cached) return cached;
 
-  // Target a fixed ~2200 px sheet regardless of cell count so the high-fidelity
-  // 5 m grid bakes quickly and stays sharp when zoomed.
-  const pxPerCell = Math.max(2, Math.min(8, Math.round(3000 / terrain.size)));
+  // Native bake density. The elevation field is bilinear-continuous, so MORE pixels
+  // per cell = smoother shaded relief deep into zoom (not 5 m stairsteps). Bumped from
+  // 3000/size to 4500/size (→ 8 px/cell on the 512 grid, a 4096² sheet) so the relief
+  // stays crisp far longer before the bitmap upscales. Contours are NO LONGER baked in
+  // here — they're redrawn live as sharp vectors (drawContoursLive), so zooming never
+  // blurs a contour line.
+  const pxPerCell = Math.max(3, Math.min(8, Math.round(4500 / terrain.size)));
   const W = terrain.size * pxPerCell;
   const canvas = document.createElement("canvas");
   canvas.width = W;
@@ -292,54 +298,103 @@ export function bakeTerrain(terrain: Terrain): Baked {
   }
   ctx.putImageData(img, 0, 0);
 
-  drawContours(ctx, terrain, pxPerCell);
+  // NB: contours are intentionally NOT baked here anymore — they are drawn live as
+  // crisp vectors (drawContoursLive) so they never blur when the bitmap upscales.
 
   const baked: Baked = { canvas, pxPerCell };
   cache.set(terrain, baked);
   return baked;
 }
 
-/** Marching-squares contour lines with index contours every 5th line. */
-function drawContours(ctx: CanvasRenderingContext2D, terrain: Terrain, pxPerCell: number) {
-  const interval = 40; // meters between contours
-  const start = Math.ceil(terrain.minElev / interval) * interval;
+/** Pick a contour interval (m) for the current zoom so on-screen line density stays
+ *  sane: fine 20 m lines close in, coarsening to 50/100/200 m as you pull out. Index
+ *  contours are every 5th line, so the bold interval is 5×. */
+function contourIntervalFor(ppm: number): number {
+  if (ppm >= 2.2) return 10;
+  if (ppm >= 1.1) return 20;
+  if (ppm >= 0.55) return 50;
+  if (ppm >= 0.3) return 100;
+  return 200;
+}
+
+/**
+ * Marching-squares contour lines drawn LIVE in screen space, every frame, over only the
+ * visible cell window — so they are crisp mathematical strokes at ANY zoom (never the
+ * blurry upscaled raster the old baked-in contours became). The interval LODs with zoom
+ * (denser close in) and the grid is downsampled when zoomed out to bound the per-frame
+ * cost; close in, step=1 gives full 5 m fidelity. Index contours (every 5th) are bolder.
+ */
+export function drawContoursLive(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera) {
   const cs = terrain.cellSize;
-  ctx.lineCap = "round";
-  for (let level = start; level < terrain.maxElev; level += interval) {
-    const isIndex = Math.round(level / interval) % 5 === 0;
-    ctx.strokeStyle = isIndex ? "rgba(60,40,24,0.55)" : "rgba(60,44,28,0.3)";
-    ctx.lineWidth = isIndex ? 2 : 1;
-    ctx.beginPath();
-    for (let cy = 0; cy < terrain.size - 1; cy++) {
-      for (let cx = 0; cx < terrain.size - 1; cx++) {
-        const e00 = terrain.elev[terrain.idx(cx, cy)];
-        const e10 = terrain.elev[terrain.idx(cx + 1, cy)];
-        const e01 = terrain.elev[terrain.idx(cx, cy + 1)];
-        const e11 = terrain.elev[terrain.idx(cx + 1, cy + 1)];
-        const minV = Math.min(e00, e10, e01, e11);
-        const maxV = Math.max(e00, e10, e01, e11);
-        if (level < minV || level > maxV) continue;
-        // sample crossing on the 4 edges
+  const size = terrain.size;
+  // visible world rect → cell window (pad by 1 so partial edge cells still draw)
+  const wx0 = cam.cx - cam.vw / 2 / cam.ppm;
+  const wx1 = cam.cx + cam.vw / 2 / cam.ppm;
+  const wy0 = cam.cy - cam.vh / 2 / cam.ppm;
+  const wy1 = cam.cy + cam.vh / 2 / cam.ppm;
+  const cx0 = Math.max(0, Math.floor(wx0 / cs) - 1);
+  const cy0 = Math.max(0, Math.floor(wy0 / cs) - 1);
+  const cx1 = Math.min(size - 1, Math.ceil(wx1 / cs) + 1);
+  const cy1 = Math.min(size - 1, Math.ceil(wy1 / cs) + 1);
+  if (cx1 <= cx0 || cy1 <= cy0) return;
+
+  // downsample the sampling grid so the work stays bounded (~30k cell-iterations max);
+  // at tactical zoom the window is small so step collapses to 1 (full detail).
+  const visCells = (cx1 - cx0) * (cy1 - cy0);
+  const step = Math.max(1, Math.ceil(Math.sqrt(visCells / 30000)));
+  const interval = contourIntervalFor(cam.ppm);
+  const ox = cam.vw / 2 - cam.cx * cam.ppm;
+  const oy = cam.vh / 2 - cam.cy * cam.ppm;
+  const sx = (gx: number) => gx * cs * cam.ppm + ox; // grid x → screen x
+  const sy = (gy: number) => gy * cs * cam.ppm + oy;
+
+  const elev = terrain.elev;
+  const idx = (x: number, y: number) => y * size + x;
+  // batch minor and index contours into two paths so we stroke each style once
+  const minor = new Path2D();
+  const index = new Path2D();
+  const ex = (a: number, b: number, L: number) => (L - a) / (b - a);
+
+  for (let cy = cy0; cy < cy1; cy += step) {
+    const cyn = Math.min(size - 1, cy + step);
+    for (let cx = cx0; cx < cx1; cx += step) {
+      const cxn = Math.min(size - 1, cx + step);
+      const e00 = elev[idx(cx, cy)];
+      const e10 = elev[idx(cxn, cy)];
+      const e01 = elev[idx(cx, cyn)];
+      const e11 = elev[idx(cxn, cyn)];
+      let minV = e00, maxV = e00;
+      if (e10 < minV) minV = e10; else if (e10 > maxV) maxV = e10;
+      if (e01 < minV) minV = e01; else if (e01 > maxV) maxV = e01;
+      if (e11 < minV) minV = e11; else if (e11 > maxV) maxV = e11;
+      const lo = Math.ceil(minV / interval) * interval;
+      for (let L = lo; L <= maxV; L += interval) {
         const pts: [number, number][] = [];
-        const ex = (a: number, b: number) => (level - a) / (b - a);
-        if ((e00 <= level) !== (e10 <= level)) pts.push([cx + ex(e00, e10), cy]);
-        if ((e10 <= level) !== (e11 <= level)) pts.push([cx + 1, cy + ex(e10, e11)]);
-        if ((e01 <= level) !== (e11 <= level)) pts.push([cx + ex(e01, e11), cy + 1]);
-        if ((e00 <= level) !== (e01 <= level)) pts.push([cx, cy + ex(e00, e01)]);
-        if (pts.length >= 2) {
-          const sc = pxPerCell;
-          ctx.moveTo(pts[0][0] * sc, pts[0][1] * sc);
-          ctx.lineTo(pts[1][0] * sc, pts[1][1] * sc);
-          if (pts.length === 4) {
-            ctx.moveTo(pts[2][0] * sc, pts[2][1] * sc);
-            ctx.lineTo(pts[3][0] * sc, pts[3][1] * sc);
-          }
+        if ((e00 <= L) !== (e10 <= L)) pts.push([cx + (cxn - cx) * ex(e00, e10, L), cy]);
+        if ((e10 <= L) !== (e11 <= L)) pts.push([cxn, cy + (cyn - cy) * ex(e10, e11, L)]);
+        if ((e01 <= L) !== (e11 <= L)) pts.push([cx + (cxn - cx) * ex(e01, e11, L), cyn]);
+        if ((e00 <= L) !== (e01 <= L)) pts.push([cx, cy + (cyn - cy) * ex(e00, e01, L)]);
+        if (pts.length < 2) continue;
+        const p = Math.round(L / interval) % 5 === 0 ? index : minor;
+        p.moveTo(sx(pts[0][0]), sy(pts[0][1]));
+        p.lineTo(sx(pts[1][0]), sy(pts[1][1]));
+        if (pts.length === 4) {
+          p.moveTo(sx(pts[2][0]), sy(pts[2][1]));
+          p.lineTo(sx(pts[3][0]), sy(pts[3][1]));
         }
       }
     }
-    ctx.stroke();
   }
-  void cs;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "rgba(58,40,22,0.34)";
+  ctx.lineWidth = 1;
+  ctx.stroke(minor);
+  ctx.strokeStyle = "rgba(48,32,16,0.62)";
+  ctx.lineWidth = 1.6;
+  ctx.stroke(index);
+  ctx.restore();
 }
 
 /** A small tiling fbm-noise tile (grayscale ~128) used as a high-zoom ground-detail
@@ -379,14 +434,16 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(baked.canvas, ox, oy, baked.canvas.width * destScale, baked.canvas.height * destScale);
 
-  // high-zoom ground-detail overlay: world-anchored noise grain that hides the upscale
-  // blur of the relief bitmap. Fades in as we zoom past the bitmap's native resolution.
-  const detailA = clamp01((cam.ppm - 0.9) / 1.5) * 0.46;
+  // high-zoom ground-detail overlay: world-anchored noise grain that gives the ground
+  // crisp micro-texture ("tooth") so the upscaled relief reads as detailed rock/scrub
+  // instead of a smeared bitmap. Fades in earlier and a little stronger now that the
+  // relief is the only raster layer (contours are sharp vectors on top).
+  const detailA = clamp01((cam.ppm - 0.6) / 2.0) * 0.5;
   if (detailA > 0.01) {
     const tile = bakeNoiseTile();
     const pat = ctx.createPattern(tile, "repeat");
     if (pat && (pat as CanvasPattern).setTransform) {
-      const sc = 0.5 * cam.ppm; // ~0.5 m per noise pixel → ~few-px grain at tactical zoom
+      const sc = 0.4 * cam.ppm; // ~0.4 m per noise pixel → fine grain that sharpens with zoom
       (pat as CanvasPattern).setTransform(new DOMMatrix([sc, 0, 0, sc, ox, oy]));
       ctx.save();
       ctx.globalAlpha = detailA;
@@ -396,6 +453,9 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
       ctx.restore();
     }
   }
+
+  // crisp vector contours, redrawn live every frame (never blur on zoom)
+  drawContoursLive(ctx, terrain, cam);
 
   // night / low-light wash
   if (night > 0) {
