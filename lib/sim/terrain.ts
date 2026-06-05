@@ -923,10 +923,12 @@ export class Terrain {
       const end = route[route.length - 1];
       const reached = !!end && Math.hypot(end.x - edgeW.x, end.y - edgeW.y) < this.cellSize * 5;
       if (reached) {
-        // The route is already over WALKABLE ground, so just lay a light-tread Track on it (fast
-        // landcover, no elevation cut) — riding it is ~2x faster, and it stays coarse-pathable
-        // without gouging a trench. Benching is reserved for the cliff-crossing fallback below.
-        this.layPath([gate, ...route], Land.Track, 1, 0.12);
+        // Bench a graded Track ALONG the route. Benching (flattening the tread) — not just
+        // stamping Track landcover — matters: a Track left on the natural cross-slope still pays
+        // the slope speed penalty (moveCost 0.96*(1-slope*0.62)), ~1.3x slower than a flat tread,
+        // which on a borderline far village is the difference between arriving and not. The cost
+        // is some benched cut on steep sections (troughCells); arrival is the goal, so we pay it.
+        carvedTotal += this.carveTrackAlong(this.densifyCells([gate, ...route]));
         reachedByRoute++;
         continue;
       }
@@ -1141,6 +1143,31 @@ export class Terrain {
       laid++;
     }
     return laid;
+  }
+
+  /** Densify a polyline of world waypoints into a contiguous run of cells (a findPath route is
+   *  sparse string-pulled segments; carveTrackAlong needs every cell so the bench is continuous). */
+  private densifyCells(pts: Vec2[]): { cx: number; cy: number }[] {
+    const cs = this.cellSize;
+    const out: { cx: number; cy: number }[] = [];
+    const push = (cx: number, cy: number) => {
+      if (!this.inBounds(cx, cy)) return;
+      const last = out[out.length - 1];
+      if (!last || last.cx !== cx || last.cy !== cy) out.push({ cx, cy });
+    };
+    let prev = pts[0];
+    push(Math.floor(prev.x / cs), Math.floor(prev.y / cs));
+    for (let k = 1; k < pts.length; k++) {
+      const cur = pts[k];
+      const ax = prev.x / cs, ay = prev.y / cs, bx = cur.x / cs, by = cur.y / cs;
+      const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay)));
+      for (let s = 1; s <= steps; s++) {
+        const t = s / steps;
+        push(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t));
+      }
+      prev = cur;
+    }
+    return out;
   }
 
   /** Stamp a filled rectangle of landcover (cells), flattening it to `baseE`. */
