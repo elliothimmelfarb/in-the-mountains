@@ -25,7 +25,7 @@ const STEPS: Step[] = [
   {
     title: "Send a Patrol",
     body:
-      "Pick a squad — click one in Task Organization on the right, or click any of its men on the map. Choose a mission, then set its SOP, the standing orders it fights by: MOVEMENT (Stealth hugs cover and is hard to spot; Fast takes the roads), ON CONTACT (Hold & Return Fire, Suppress & Call Fires, Assault, or Break Contact), and ROE (Weapons Hold / Tight / Free — Tight keeps your fire off civilians). Optionally send officers (the HQ medic/JTAC). Hit 'Draw Route', click waypoints, then 'Step Off'. The squad leader gets them there.",
+      "Pick a squad — click one in Task Organization on the right, or click any of its men on the map. Choose a mission, then set its SOP, the standing orders it fights by: MOVEMENT (Stealth hugs cover and is hard to spot; Fast takes the roads), ON CONTACT (Hold & Return Fire, Suppress & Call Fires, Assault, or Break Contact), and ROE (Weapons Hold / Tight / Free — Tight keeps your fire off civilians). Optionally send officers (the HQ medic/JTAC). Hit 'Draw Route', click waypoints, then 'Step Off'. The squad leader gets them there — reading the ground as he goes: the river is a real obstacle, so he routes to a ford or footbridge to cross, rounds the cliffs, and takes the track when you've ordered a fast move. Mind the crossings: a route to the far bank may be a long march to the nearest ford.",
   },
   {
     title: "The Fight You Don't Click",
