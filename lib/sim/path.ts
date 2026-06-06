@@ -24,6 +24,10 @@ export interface PathOptions {
   roadBias?: number;
   /** Cap on node expansions before giving up (returns straight-line fallback). */
   maxExpand?: number;
+  /** Skip the expensive whole-map free-A* fallback (used by low-stakes movers — civilians,
+   *  infiltrators — so a cross-river errand best-efforts cheaply instead of paying a ~200k-expansion
+   *  search; the player's squads leave this off so their objectives are always found). */
+  cheapFallback?: boolean;
 }
 
 interface Node {
@@ -149,14 +153,27 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
   // (a measured 179 ms tick spike). In that case we skip straight to the bounded best-effort. Far
   // ford-detour goals (the reason the free pass exists) ARE in the gate component, so they keep it.
   const worthFreeSearch = (): boolean => {
+    if (opts.cheapFallback) return false; // low-stakes mover — never pay the whole-map search
     const reach = terrain.reachableFromGate();
     const sc = terrain.nearestPassable(Math.floor(start.x / terrain.cellSize), Math.floor(start.y / terrain.cellSize), 6);
     const gc = terrain.nearestPassable(Math.floor(goal.x / terrain.cellSize), Math.floor(goal.y / terrain.cellSize), 6);
     const startInMain = !!reach[terrain.idx(sc.cx, sc.cy)];
     const goalInMain = !!reach[terrain.idx(gc.cx, gc.cy)];
-    return goalInMain || !startInMain; // skip only when start is in the main component and goal isn't
+    // Run the whole-map free search ONLY when a route can plausibly exist — i.e. BOTH endpoints are
+    // in the connected valley (the gate component). This is the cap the verification workflow demanded:
+    // a unit that itself sits outside the main component (a mis-spawned civilian in a walled pocket)
+    // must NOT trigger a 300k-expansion search every tick. Far ford-detour goals keep it (both in main).
+    return goalInMain && startInMain;
   };
-  const coarse = route(terrain, start, goal, COARSE_F, opts, 60000);
+  // A low-stakes mover (civilian/infiltrator) routes on a budget: a hard cross-valley route that the
+  // cheap passes can't find just best-efforts, rather than paying the squad-grade search every errand
+  // (the per-tick civilian stall). The player's squads leave cheapFallback off and get the full budget.
+  const cheap = !!opts.cheapFallback;
+  const coarseBudget = cheap ? 14000 : 60000;
+  const fineBudget = cheap ? 12000 : 40000;
+  const beBudget = cheap ? 12000 : 60000;
+  const radii = cheap ? [7] : CORRIDOR_RADII;
+  const coarse = route(terrain, start, goal, COARSE_F, opts, coarseBudget);
   if (!coarse) {
     // The coarse pass couldn't reach the goal. That no longer means "unreachable": with the river
     // a real barrier, the coarse line can dead-end at the channel when the only crossing is a thin
@@ -168,12 +185,12 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
     }
     // Truly unreachable: a bounded free best-effort A* advances to the nearest cell we can reach
     // (never a degenerate single straight waypoint into a cliff — that "arrived" 1.4 km short).
-    const be = route(terrain, start, goal, 1, opts, 60000, undefined, approachClip(terrain, start, goal), true);
+    const be = route(terrain, start, goal, 1, opts, beBudget, undefined, approachClip(terrain, start, goal), true);
     return be ? stringPull(terrain, start, be, opts) : [{ ...goal }];
   }
-  for (const R of CORRIDOR_RADII) {
+  for (const R of radii) {
     const gen = rasterizeCorridor(terrain, start, coarse, R);
-    const fine = route(terrain, start, goal, 1, opts, 40000, gen);
+    const fine = route(terrain, start, goal, 1, opts, fineBudget, gen);
     if (fine) return stringPull(terrain, start, fine, opts); // smooth the walkable fine path
   }
   // Every corridor failed. The dominant cause (verified — scripts/corridor-shortfall.ts) is a
@@ -195,7 +212,7 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
   // a FREE best-effort A* in a box around start→goal finds the genuinely nearest reachable cell with
   // a non-looping, fully walkable path, and the unit advances to it and holds — "get as close as the
   // ground allows, then stop."
-  const best = route(terrain, start, goal, 1, opts, 60000, undefined, approachClip(terrain, start, goal), true);
+  const best = route(terrain, start, goal, 1, opts, beBudget, undefined, approachClip(terrain, start, goal), true);
   if (best) return stringPull(terrain, start, best, opts);
   return stringPull(terrain, start, coarse, opts);
 }

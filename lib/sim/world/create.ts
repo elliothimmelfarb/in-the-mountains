@@ -68,9 +68,13 @@ export function createWorld(seed: string, totalDays = 90): World {
       const roles: Role[] = ["farmer", "herder", "villager", "child", "elder"];
       const role = rng.weighted(roles, [40, 20, 25, 12, 3]);
       const c = terrain.cellCenter(v.cx + rng.int(-spread, spread), v.cy + rng.int(-spread, spread));
-      // Spawn on passable ground that's never inside the wire (a village hard by the COP
-      // must not seed villagers on the HESCO).
-      const civ = makeCivilian(rng.fork(`civ-${v.id}-${i}`), role, terrain.civSafePoint(c.x, c.y), v.id);
+      // Spawn on REACHABLE passable ground that's never inside the wire. The reachable snap (issue
+      // 010) is essential: a jittered cell can land in a tiny walled-qalat pocket disconnected from
+      // the valley, and a villager born there is stranded forever AND re-fires findPath's whole-map
+      // free A* on every errand (worthFreeSearch's out-of-component-start branch) — a per-tick stall.
+      // reachablePoint puts every villager in the connected valley; civSafePoint keeps him off the wire.
+      const r = terrain.reachablePoint(c.x, c.y);
+      const civ = makeCivilian(rng.fork(`civ-${v.id}-${i}`), role, terrain.civSafePoint(r.x, r.y), v.id);
       civ.routine = buildRoutine(terrain, v, rng);
       units.push(civ);
     }
