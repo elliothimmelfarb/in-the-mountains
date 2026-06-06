@@ -46,11 +46,24 @@ villages (skill/aggression scale with valley "heat").
 
 ## Civilian (`civilian.ts`)
 
-Unarmed. Accumulate **fear** from nearby gunfire, explosions, and armed men who have fired; above a
-threshold they **panic** and flee — away from the nearest shooter, blended toward their home
-compound. When calm they amble along their pattern of life. Their flight is the atmospheric tell a
-sharp player learns to read; their presence near a fight complicates fire and risks the COIN
-catastrophe of civilian casualties.
+Unarmed, and meant to read as a **lived-in valley**, not particles. Each civilian reacts to armed men
+in **four graduated tiers** (a continuous read of threat proximity + count + gunfire fear, with
+rise-instant / fall-slow hysteresis), not a single panic switch:
+
+- **Oblivious** — no armed men close: go about the day.
+- **Wary** — armed men in the middle distance: stop, look up, watch them.
+- **Clear-road** — a patrol bears down: step off its line to the field edge and let it pass.
+- **Flee** — gunfire, a blast, or armed men right on top of them: bolt for home / dead ground.
+
+**Role flavour** splits the crowd into people: a curious child drifts *in* for a look (never into the
+flee band); an elder withdraws toward his compound; farmers/villagers stand aside and watch. **Pattern
+of life** gives each civilian a stable per-person amble pace (~0.75–1.4 m/s, child/elder skewed), a
+dwell at each routine node (work/chat for 10–40 s), and a slow idle look-around — no more uniform
+2 m/s shuffle. Every trait is derived from a pure hash of the unit id, so the world stays
+**replay-deterministic**. Their sudden absence is still the oldest tell in the valley; from the
+friendly side a patrol **eases its pace (escalation of force)** to let a villager on the track clear
+rather than barging through. All of it complicates fire and risks the COIN catastrophe of civilian
+casualties.
 
 ## Friendly per-man brain (`friendly.ts`)
 

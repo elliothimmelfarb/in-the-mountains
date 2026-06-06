@@ -15,7 +15,6 @@ const SHIFT = 90 * 60; // guard rotation, game-seconds
 const ARRIVE = 4; // m — close enough to a billet
 
 export function tickGarrison(w: World, dt: number) {
-  void dt;
   const cop = w.terrain.cop;
   if (!cop) return;
 
@@ -122,10 +121,21 @@ export function tickGarrison(w: World, dt: number) {
     // nearestReachable (not just nearestPassable) guarantees the seat is in the garrison's own
     // component, so walkTo never re-fires the heavy free A* every tick chasing an unreachable seat.
     const seat = w.terrain.reachablePoint(post.x, post.y);
-    if (m.path.length === 0 && dist(m.pos, seat) > ARRIVE) {
-      w.sim.walkTo(m, seat);
-    } else if (dist(m.pos, seat) <= ARRIVE) {
+    const far = dist(m.pos, seat) > ARRIVE;
+    // Track a man WEDGED (moving but not advancing) while still short of his post: the cheap garrison
+    // router (walkTo, one thin corridor) can fail to thread a tight or carved interior and hand him a
+    // path that grazes a wall, where he grinds — drops it after 2 s — and is handed the same path again.
+    // Once that persists, escalate him to the FULL planner (pathTo), which finds the route the cheap one
+    // missed (every post is findPath-reachable from the muster by construction). This fires ONLY for a
+    // genuinely stuck man and only when his path empties, so it never pays the heavy search on open ground.
+    if (far && m.moving && (m.speed ?? 0) < 0.05) m.postStuck = (m.postStuck ?? 0) + dt;
+    else if (!far || (m.speed ?? 0) > 0.1) m.postStuck = Math.max(0, (m.postStuck ?? 0) - dt);
+    if (m.path.length === 0 && far) {
+      if ((m.postStuck ?? 0) > 4) w.sim.pathTo(m, seat, { cheapFallback: false });
+      else w.sim.walkTo(m, seat);
+    } else if (!far) {
       m.path = [];
+      m.postStuck = 0;
     }
   }
 }

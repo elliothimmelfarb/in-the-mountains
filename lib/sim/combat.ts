@@ -1,5 +1,5 @@
-import { RNG, clamp, clamp01, lerp } from "./rng";
-import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle, segDist } from "./vec";
+import { RNG, clamp, clamp01, lerp, smoothstep } from "./rng";
+import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle, angleDiff, segDist } from "./vec";
 import { Terrain } from "./terrain";
 import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
 import { findPath, walkable } from "./path";
@@ -171,6 +171,21 @@ const STANCE_SPEED: Record<Unit["stance"], number> = {
 const STALL_WINDOW = 2; // seconds of continuous blocking before re-planning
 const NB_BUCKET = 4; // meters per spatial-hash bucket (neighbor queries / separation)
 
+// --- natural-movement polish (deterministic; no per-tick RNG) ---
+const ARRIVE_EASE = 4; // m — decelerate into the final waypoint within this distance
+const SCAN_AMP = 0.3; // rad (~17°) — how far a halted man sweeps his sector while scanning
+const MIN_BODY = 1.1; // m — closer than this two non-hostile bodies interpenetrate (de-overlap)
+const MOVE_SLEW = 3.0; // rad/s (~172°/s) — facing turn-rate while marching
+const HALT_SLEW = 1.4; // rad/s (~80°/s) — facing turn-rate while holding/scanning
+const AIM_SLEW = 6.0; // rad/s (~344°/s) — facing whips onto an acquired threat
+/** Per-man scan period (7–11 s) and phase — stable from the id, so replays stay bit-exact. */
+function scanPeriod(id: string): number {
+  return 7 + (RNG.hashString(id) % 1000) / 250;
+}
+function scanPhase(id: string): number {
+  return (RNG.hashString(id + "p") % 1000) / 1000;
+}
+
 export interface CombatInit {
   terrain: Terrain;
   rng: RNG;
@@ -304,6 +319,11 @@ export class CombatSim {
     return u.technique ?? "traveling";
   }
 
+  /** Living civilians (rebuilt once per tick) — for the squad's civilian-yield check. */
+  liveCivilians(): Unit[] {
+    return this.civilians;
+  }
+
   // ---------------------------------------------------------------- main tick
   tick(dt: number) {
     if (this.outcome !== "ongoing") return;
@@ -337,6 +357,12 @@ export class CombatSim {
       if (!u.alive || u.evac) continue;
       this.moveUnit(u, dt);
     }
+    // 4a. hard de-overlap for HALTED bodies. Local steering separation only runs for a man
+    // who is path-following (inside moveUnit); two men settling onto a security perimeter,
+    // or a soldier and a standing villager, otherwise interpenetrate and read as "stuck on
+    // each other". Ease any overlapping non-hostile pair apart a little each tick (never a
+    // teleport), onto passable ground only.
+    this.resolveOverlaps();
 
     // 4b. buried IEDs — a patrol that walks into the kill zone sets one off
     this.stepIeds();
@@ -587,7 +613,7 @@ export class CombatSim {
    */
   moveUnit(u: Unit, dt: number) {
     if (!u.conscious) {
-      this.halt(u);
+      this.halt(u, dt);
       return;
     }
     // Out of waypoints → the goal is reached (paths run to the goal). Drop it and
@@ -595,11 +621,11 @@ export class CombatSim {
     // path next tick if it still needs to move. No per-tick re-plan here.
     if (u.path.length === 0) {
       u.pathGoal = null;
-      this.halt(u);
+      this.halt(u, dt);
       return;
     }
     if (u.formationHold) {
-      this.halt(u);
+      this.halt(u, dt);
       return;
     }
 
@@ -639,7 +665,16 @@ export class CombatSim {
     // squad pace governor: the point man eases the throttle (never a dead stop) so
     // the element stays together — read as a smooth slowdown, not a freeze.
     if (u.paceScale != null) speed *= Math.max(0, Math.min(1, u.paceScale));
-    speed = Math.max(0.15, speed);
+    // Never-freeze floor: a PATROL must always read as MOVING (easing only — never a dead
+    // stop on poor ground or fatigue, which is what pinned the squad at ~1/3 doctrinal pace).
+    // Kept low for the stealth crawls so a man on his belly still creeps, not scoots — and lower
+    // still for CIVILIANS, so a slow elder keeps the unhurried amble the civilian brain gives him
+    // (per-person pace) instead of being clamped up to a soldier's marching floor.
+    const floor = u.faction === "civilian" ? 0.12 : tech === "crawl" ? 0.2 : tech === "concealed" ? 0.35 : 0.5;
+    speed = Math.max(floor, speed);
+    // Arrival ease-in: flow into the LAST waypoint (slot / objective / cover) instead of
+    // marching at full pace then snapping to a halt — a body decelerates onto its mark.
+    if (u.path.length === 1) speed *= 0.45 + 0.55 * smoothstep(0.4, ARRIVE_EASE, d);
 
     // Local steering: round nearby obstacles and keep clear of other bodies. With a
     // clear lane ahead and no one crowding, this returns the goal heading unchanged,
@@ -647,9 +682,14 @@ export class CombatSim {
     // where the ground (the HESCO ring, a draw) or the crowd (a choke) demands it.
     const dir = steer(this.terrain, u, goalDir, this.neighborsFor(u), speed).dir;
 
-    // Walk the steered heading, but face the assigned security sector if one is
-    // locked (flank/rear men scan outboard while moving).
-    u.facing = u.faceLock != null ? u.faceLock : angle(dir);
+    // Face the assigned security sector if one is locked (flank/rear men scan outboard
+    // while moving), else the way we're walking — but SLEW onto it at a bounded turn rate
+    // rather than snapping. A body doesn't spin 700°/s; that instantaneous snap was the
+    // dominant "robotic" tell (cohesion jitter peaked at 729°/s). Aim stays fast so a man
+    // whips onto a threat the instant he acquires one.
+    const targetFace = u.faceLock != null ? u.faceLock : angle(dir);
+    const slew = (u.targetId ? AIM_SLEW : MOVE_SLEW) * dt;
+    u.facing += clamp(angleDiff(u.facing, targetFace), -slew, slew);
     const stepLen = Math.min(d, speed * dt);
     const next = add(u.pos, scale(dir, stepLen));
     // The wire is solid: never step into an impassable cell (HESCO, compound
@@ -695,12 +735,50 @@ export class CombatSim {
     this.watchStall(u, dt, blocked);
   }
 
-  /** Stop moving but keep holding any locked security sector. */
-  private halt(u: Unit) {
+  /** Stop moving but keep holding any locked security sector. A halted man finishes
+   *  rotating onto his sector smoothly and then SCANS it (a slow deterministic sweep)
+   *  instead of locking rigid like a turret — the scan freezes the instant he has a real
+   *  threat to look at, so he never looks away from contact. */
+  private halt(u: Unit, dt: number) {
     u.moving = false;
     u.speed = 0;
     u.blockedTimer = 0;
-    if (u.faceLock != null && u.conscious) u.facing = u.faceLock;
+    if (!u.conscious) return;
+    const alert = u.targetId != null || u.threatDir != null || u.suppression > 0.3;
+    let targetFace = u.faceLock != null ? u.faceLock : u.facing;
+    if (u.faceLock != null && !alert) {
+      targetFace += SCAN_AMP * Math.sin(2 * Math.PI * (this.timeS / scanPeriod(u.id) + scanPhase(u.id)));
+    }
+    const slew = (alert ? AIM_SLEW : HALT_SLEW) * dt;
+    u.facing += clamp(angleDiff(u.facing, targetFace), -slew, slew);
+  }
+
+  /**
+   * Push any two interpenetrating, non-hostile, NOT-actively-moving bodies apart — the
+   * separation that local steering can't provide because it only runs for a man following
+   * a path. Eases each apart by a clamped step (so they settle over a few ticks, never
+   * pop), and only into passable cells. Pure geometry → deterministic. This is what keeps
+   * a settled security perimeter from collapsing into a pile and stops a soldier from
+   * standing inside a halted civilian. Active movers are left to steer() (which already
+   * separates them) and to the assault (which must be able to close on the enemy).
+   */
+  private resolveOverlaps() {
+    const cs = this.terrain.cellSize;
+    const MAX_PUSH = 0.25; // m/tick
+    for (const u of this.units) {
+      if (!u.alive || u.evac || !u.conscious) continue;
+      if (u.moving && u.path.length > 0) continue; // a mover is steered, not shoved
+      for (const nb of this.neighborsFor(u)) {
+        if (nb.moving && nb.path.length > 0) continue;
+        const dx = u.pos.x - nb.pos.x;
+        const dy = u.pos.y - nb.pos.y;
+        const d = Math.hypot(dx, dy);
+        if (d >= MIN_BODY || d < 1e-4) continue;
+        const push = Math.min(MAX_PUSH, 0.5 * (MIN_BODY - d));
+        const np = { x: u.pos.x + (dx / d) * push, y: u.pos.y + (dy / d) * push };
+        if (this.terrain.passableCell(Math.floor(np.x / cs), Math.floor(np.y / cs))) u.pos = np;
+      }
+    }
   }
 
   /**

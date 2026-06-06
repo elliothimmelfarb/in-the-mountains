@@ -174,6 +174,8 @@ export interface Unit {
   villageId?: string;
   routine?: CivRoutineNode[];
   panic?: number; // 0..1
+  reactTier?: number; // graduated reaction to armed men: 0 oblivious / 1 wary / 2 clear-road / 3 flee
+  tierHoldS?: number; // seconds since the tier last needed to fall a step (rising-instant, falling-slow)
 
   // --- transient firing scratch (set during a burst, not persisted) ---
   _fireTarget?: string | null;
@@ -275,6 +277,7 @@ function baseUnit(faction: Faction, role: Role, pos: Vec2, over: UnitOverrides =
 
 export interface RosterMember extends Unit {
   // Strategic-layer fields layered on top of the tactical Unit.
+  postStuck?: number; // seconds spent wedged trying to reach a garrison post (escalates the router)
   rest: number; // 0..1, drops with ops, recovers at the COP
   morale: number; // 0..1 longer-arc morale
   bio: string;

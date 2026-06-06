@@ -6,7 +6,7 @@ import { Camera, drawTerrain, drawGrid, worldToScreen, screenToWorld } from "@/l
 import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
-import { loadSprites, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
+import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
 
@@ -81,8 +81,10 @@ export default function WorldView() {
   const initCam = useRef(false);
 
   // Rasterize the authored SVG asset library once on mount (bake-once / blit-many).
+  // The loading screen normally pre-warms this; the guard skips a redundant re-raster on
+  // deploy and still covers the resume-from-memory path where no loading screen ran.
   useEffect(() => {
-    if (ASSETS.length) loadSprites(ASSETS);
+    if (ASSETS.length && !spritesReady()) loadSprites(ASSETS);
     // dev: programmatic camera control for screenshot verification
     (window as unknown as { __setCam?: (x: number, y: number, ppm?: number) => void }).__setCam = (x, y, ppm) => {
       camRef.current.cx = x;

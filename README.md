@@ -100,7 +100,7 @@ state/store.ts      Zustand store bridging React <-> the World (the real-time fr
 components/
   world/WorldView.tsx     The single live map (terrain + units + orders + planning)
   Icon.tsx                Authored UI icons throughout the chrome
-  screens/                MenuScreen · DeployScreen · TourEndScreen
+  screens/                MenuScreen · LoadingScreen · DeployScreen · TourEndScreen
   TutorialCoach.tsx       In-game guided tutorial
 app/                Next.js App Router entry
 docs/visual-overhaul/   Map art bible (ART_BIBLE.md), 160 SVG assets, asset-bible.html

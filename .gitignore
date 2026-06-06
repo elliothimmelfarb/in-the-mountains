@@ -46,3 +46,6 @@ next-env.d.ts
 
 # generated asset-gallery manifest (regen: node scripts/gallery.mjs)
 public/_dev/assets.json
+
+# Claude Code: share project settings (.claude/settings.json), never the machine-local file
+.claude/settings.local.json

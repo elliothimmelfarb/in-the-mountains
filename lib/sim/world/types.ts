@@ -126,6 +126,9 @@ export interface Task {
    *  rigid geometric slots; reset when the navigator changes. */
   trail?: Vec2[];
   trailLeadId?: string;
+  /** Cached security-halt sector bearing per member (memberId → outward facing), so a
+   *  perimeter isn't reshuffled every time contact flickers and the men re-occupy. */
+  ringSlots?: Record<string, number>;
 }
 
 export type ProjectStage =

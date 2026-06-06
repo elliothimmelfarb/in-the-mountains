@@ -1,5 +1,5 @@
-import { clamp, clamp01 } from "../rng";
-import { Vec2, dist, sub, add, scale, norm, len, dot, fromAngle, angle } from "../vec";
+import { clamp, clamp01, RNG } from "../rng";
+import { Vec2, dist, sub, add, scale, norm, len, dot, fromAngle, angle, angleDiff } from "../vec";
 import { findPath } from "../path";
 import { Unit } from "../entities";
 import type { World } from "./world";
@@ -54,11 +54,15 @@ export function planFormation(w: World, t: Task, members: Unit[]): FormationPlan
   const expect = expectsContact(w, t, center);
   const seeking = t.missionType === "ambush" || t.missionType === "recon" || tech === "concealed" || tech === "crawl";
 
+  // The doctrinal "5 and 10": ~5 m between individual men, opened "to the limit of
+  // control" in the open and closed down in restrictive ground. The old ladder (patrol 9 m)
+  // marched the squad strung-out and gappy on a top-down view; this lands the working
+  // interval at ~5 m in this valley — men close enough to keep eyes on their team leader.
   let spacing =
-    tech === "crawl" ? 4 : tech === "concealed" ? 6 : tech === "tactical" ? 8 : tech === "patrol" ? 9 : tech === "traveling" ? 11 : 13;
+    tech === "crawl" ? 3.5 : tech === "concealed" ? 4.5 : tech === "tactical" ? 5 : tech === "patrol" ? 5.5 : tech === "traveling" ? 7 : 8.5;
   if (expect) spacing *= 1.3; // open the interval up when contact is likely
-  if (open < 0.4) spacing *= 0.72; // close it down in restrictive terrain for control
-  spacing = clamp(spacing, 3.5, 20);
+  if (open < 0.4) spacing *= 0.78; // close it down in restrictive terrain for control
+  spacing = clamp(spacing, 4, 12);
 
   // Formation choice. This valley is close, broken ground end to end — draws, benches,
   // the wire, terraced fields — and on close ground a foot squad moves in FILE: a single
@@ -160,9 +164,27 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   // the file is chronically strung out, and a 0.2× floor throttled the WHOLE march to a crawl
   // — so a reachable village arrived only after the harness window and was mislabeled "stuck".
   // 0.6× keeps the element together without collapsing the advance to a near-stop.
-  const slowZone = plan.spacing * 1.8;
-  const slow = clamp01((lag - slowZone) / (slowZone * 2.2));
-  nav.paceScale = 1 - 0.4 * slow;
+  // The slow-zone is decoupled from the (now tighter, ~5 m) interval and floored at 15 m:
+  // a 9-man file is naturally ~30 m long, so braking the moment a man trailed 1.8×spacing
+  // (≈9 m) had the point man chronically throttling on a normally-strung column (throt% 40-60%).
+  // Only ease once the rearmost is genuinely lagging his slot, and never below 0.65× — a squad
+  // eases to stay together, it doesn't crawl.
+  // Two-stage governor. MODERATE lag → a gentle ease (floor 0.65) so a normally-strung march
+  // isn't throttled to a crawl. EXTREME lag → a firmer brake so the point man genuinely WAITS
+  // for a straggler who's fallen way back (e.g. a man who cleared the gate late), instead of
+  // marching on and leaving a 200 m gap in the file. `lag` is the rearmost man's shortfall
+  // ALONG THE WAKE (arc to his slot), so a file legitimately wrapped around a cliff — everyone
+  // in place — reads as ~0 and is never braked; only a genuine straggler trips the firm brake.
+  const slowZone = Math.max(plan.spacing * 2.0, 15);
+  const slow = clamp01((lag - slowZone) / (slowZone * 2.0));
+  const farLag = clamp01((lag - slowZone * 3) / (slowZone * 3)); // engages only when truly strung out
+  nav.paceScale = (1 - 0.35 * slow) * (1 - 0.55 * farLag); // ~0.65 floor normally, down to ~0.29 when badly strung
+
+  // Escalation-of-force feel: ease the throttle (never a dead stop) if an unalarmed civilian
+  // is on the patrol's track just ahead — let him clear rather than barging through. Pure
+  // throttle (no re-path), so cohesion and the stall watchdog are untouched; clears the
+  // instant the lane is empty.
+  if (civAhead(w, nav, headDir)) nav.paceScale = Math.min(nav.paceScale, 0.6);
 
   return centroidOf(members);
 }
@@ -221,22 +243,189 @@ export function steerFile(w: World, t: Task, members: Unit[], target: Vec2, spac
   return centroidOf(members);
 }
 
-/** Lay an element into a 360° security halt around a point, facing outward. */
-export function holdSecurity(w: World, members: Unit[], center: Vec2, radius: number) {
-  const n = Math.max(1, members.length);
-  members.forEach((m, i) => {
-    const a = (i / n) * Math.PI * 2 + 0.4;
-    const slot = {
-      x: clamp(center.x + Math.cos(a) * radius, 4, w.terrain.worldSize - 4),
-      y: clamp(center.y + Math.sin(a) * radius, 4, w.terrain.worldSize - 4),
-    };
-    m.faceLock = a; // face out
-    m.formationHold = false;
-    m.paceScale = 1;
-    m.brainState = "holding";
-    m.pathGoal = slot; // so a man who's reached his sector doesn't re-plan every tick
-    m.path = dist(m.pos, slot) > 2 ? [slot] : [];
+/** Below this gap to his sector a man is "in place" — he settles and stops re-pathing.
+ *  Kept above moveUnit's 1.2 m waypoint-arrival epsilon so "arrived" is stable (a man
+ *  parked just shy of his slot doesn't get handed a fresh one-waypoint path every tick
+ *  and re-aim — the old source of the on-station dither). */
+const SETTLE_IN = 1.5;
+
+/**
+ * Lay an element into a 360° security halt — the cigar/hasty-perimeter the way a real
+ * squad occupies one. Two things make it read right instead of a clown-car pile-up:
+ *
+ *  1. NEAR-SIDE OCCUPATION. Slots are NOT handed out by roster index (which routinely
+ *     ordered a man on the east to walk to the west slot, straight through the other
+ *     eight — the "stuck on each other in a 360" the player saw). Instead each man takes
+ *     the ring sector NEAREST the bearing he's already on: we lay n evenly-spaced outward
+ *     slots and rotate that ring against the men (sorted by their current bearing from
+ *     center) to minimize total angular travel. For points on a circle that pairing is
+ *     crossing-free — everyone peels to his own side.
+ *  2. COMMAND IN THE CENTER. The squad leader and any attachments (medic/RTO/terp) hold
+ *     the inside of the cigar — they control from within the perimeter, which also thins
+ *     the ring so the security men get a clean ~45° interval and full 360° coverage.
+ *
+ * Each ring slot is nudged a little off the geometric ideal per man (so the circle isn't
+ * a machined lattice), snapped onto passable ground, and biased onto nearby cover — a man
+ * sets up behind the wall/rock/ditch he can see, not on an open arc. The assignment is
+ * cached on the task and reused across a contact flicker so the element doesn't reshuffle
+ * its whole perimeter every time someone ducks.
+ */
+export function holdSecurity(w: World, members: Unit[], center: Vec2, radius: number, t?: Task) {
+  if (members.length === 0) return;
+  radius = fitRadius(w, center, radius); // occupy what the ground gives — shrink to fit broken terrain
+  const sq = buildSquad(w, members);
+  const inner = new Set<string>();
+  if (sq.slId) inner.add(sq.slId);
+  sq.attachedIds.forEach((id) => inner.add(id));
+  const ring = members.filter((m) => !inner.has(m.id));
+  const cmd = members.filter((m) => inner.has(m.id));
+
+  // --- the security ring: bearing-optimal, no-crossing assignment ---
+  const n = ring.length;
+  if (n > 0) {
+    const bm = ring
+      .map((u) => ({ u, a: Math.atan2(u.pos.y - center.y, u.pos.x - center.x) }))
+      .sort((p, q) => p.a - q.a);
+    const slotA = Array.from({ length: n }, (_, k) => (k / n) * Math.PI * 2);
+    // rotate the slot ring against the men to minimize total angular travel (≤ n² ops)
+    let bestR = 0;
+    let bestCost = Infinity;
+    for (let r = 0; r < n; r++) {
+      let cost = 0;
+      for (let i = 0; i < n; i++) cost += Math.abs(angleDiff(bm[i].a, slotA[(i + r) % n]));
+      if (cost < bestCost) {
+        bestCost = cost;
+        bestR = r;
+      }
+    }
+    for (let i = 0; i < n; i++) {
+      const u = bm[i].u;
+      const h = hashUnit01(u.id);
+      const h2 = hashUnit01(u.id + "r");
+      const aBase = slotA[(i + bestR) % n];
+      const a = aBase + (h - 0.5) * 0.32; // ±~9° tangential personality (no machined ring)
+      const rad = radius + (h2 - 0.5) * 1.4; // ±0.7 m radial personality
+      const ideal = { x: center.x + Math.cos(a) * rad, y: center.y + Math.sin(a) * rad };
+      const slot = securitySlot(w, ideal, center);
+      placeOnSector(w, u, slot, center, t);
+    }
+  }
+
+  // --- command element holds the inside of the perimeter ---
+  cmd.forEach((u, i) => {
+    const a = cmd.length > 1 ? (i / cmd.length) * Math.PI * 2 + 0.5 : bestSectorBias(center);
+    const slot = securitySlot(w, { x: center.x + Math.cos(a) * radius * 0.35, y: center.y + Math.sin(a) * radius * 0.35 }, center);
+    placeOnSector(w, u, slot, center, t);
   });
+}
+
+/** Put one man on his security slot: face outward, settle (don't re-path) if he's already
+ *  there, else walk to it — ROUTING AROUND obstacles when the straight line is blocked, so
+ *  a man whose sector sits past a wall/rock peels around it instead of grinding the terrain
+ *  forever (the broken-ground churn). Cache his sector bearing on the task for stable
+ *  re-occupation across a contact flicker. */
+function placeOnSector(w: World, u: Unit, slot: Vec2, center: Vec2, t?: Task) {
+  let path: Vec2[] = [];
+  const straight = dist(u.pos, slot);
+  if (straight > SETTLE_IN) {
+    path = lineClear(w, u.pos, slot) ? [slot] : findPath(w.terrain, u.pos, slot, { cheapFallback: true });
+    // If the assigned sector needs a long detour (cramped/broken ground — a wall or draw
+    // between the man and his geometric slot), take a HASTY position on his OWN near side
+    // instead of grinding a 60 m loop to the ideal arc. This is what a man actually does:
+    // occupy the nearest workable spot facing out, not march across the objective.
+    if (path.length === 0 || routeLength(u.pos, path) > straight * 2.0 + 12) {
+      slot = hastyPosition(w, u.pos, center, dist(center, slot));
+      path = dist(u.pos, slot) <= SETTLE_IN ? [] : lineClear(w, u.pos, slot) ? [slot] : findPath(w.terrain, u.pos, slot, { cheapFallback: true });
+    }
+  }
+  u.faceLock = Math.atan2(slot.y - center.y, slot.x - center.x); // face out of the perimeter
+  u.formationHold = false;
+  u.paceScale = 1;
+  u.brainState = "holding";
+  u.pathGoal = slot;
+  u.orderTarget = slot;
+  u.path = path;
+  if (t) (t.ringSlots ??= {})[u.id] = u.faceLock;
+}
+
+/** Total length of a polyline route from `start` through `path`. */
+function routeLength(start: Vec2, path: Vec2[]): number {
+  if (path.length === 0) return 0;
+  let total = dist(start, path[0]);
+  for (let i = 1; i < path.length; i++) total += dist(path[i - 1], path[i]);
+  return total;
+}
+
+/** A hasty all-round position on the man's OWN bearing from the perimeter center, at the
+ *  ring radius, snapped onto reachable ground — the near-side spot he can occupy without
+ *  crossing the element when his ideal sector is walled off. */
+function hastyPosition(w: World, manPos: Vec2, center: Vec2, radius: number): Vec2 {
+  const cs = w.terrain.cellSize;
+  let dir = sub(manPos, center);
+  if (len(dir) < 1e-3) dir = { x: 1, y: 0 };
+  dir = norm(dir);
+  const p = { x: center.x + dir.x * radius, y: center.y + dir.y * radius };
+  const rc = w.terrain.nearestReachable(Math.floor(p.x / cs), Math.floor(p.y / cs), 8);
+  return w.terrain.cellCenter(rc.cx, rc.cy);
+}
+
+/** A default inward-facing bearing for a lone command man (faces back down the likely
+ *  approach axis — toward the center of the map's lower edge as a stable fallback). */
+function bestSectorBias(center: Vec2): number {
+  return angle({ x: 0 - center.x, y: 0 - center.y }); // toward map origin; deterministic
+}
+
+/**
+ * Snap a security slot onto passable ground and bias it onto the best nearby cover
+ * within a short search — a man digs in behind the wall/rock/ditch he can reach, not on
+ * an exposed arc. Falls back toward `center` (known-good ground) if the ideal is blocked.
+ */
+function securitySlot(w: World, ideal: Vec2, center: Vec2): Vec2 {
+  const cs = w.terrain.cellSize;
+  let best = ideal;
+  let bestScore = -Infinity;
+  for (let k = 0; k < 8; k++) {
+    const a = (k / 8) * Math.PI * 2;
+    for (const r of [0, 2, 4]) {
+      const p = { x: ideal.x + Math.cos(a) * r, y: ideal.y + Math.sin(a) * r };
+      if (!passableAt(w, p)) continue;
+      const score = w.terrain.coverAt(p.x, p.y) * 1.5 - r * 0.12; // prefer cover, mild distance penalty
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+  }
+  // Guarantee the slot is on ground the element can actually REACH (broken terrain / a
+  // cliff edge / the wrong side of a wall), so a man settles on his sector instead of
+  // creeping toward an unreachable point forever. nearestReachable keeps it in the gate's
+  // connected component — the side the squad is on.
+  void center;
+  const rc = w.terrain.nearestReachable(Math.floor(best.x / cs), Math.floor(best.y / cs), 8);
+  return w.terrain.cellCenter(rc.cx, rc.cy);
+}
+
+/** Shrink a security perimeter to the largest radius whose ring is mostly on passable
+ *  ground — a squad halting in a draw or against a cliff sets a TIGHTER all-round, it
+ *  doesn't hang men over the edge. Returns the desired radius unchanged on open ground. */
+function fitRadius(w: World, center: Vec2, want: number): number {
+  for (const f of [1, 0.88, 0.76, 0.64, 0.52, 0.42]) {
+    const r = want * f;
+    let open = 0;
+    const N = 24;
+    for (let k = 0; k < N; k++) {
+      const a = (k / N) * Math.PI * 2;
+      if (passableAt(w, { x: center.x + Math.cos(a) * r, y: center.y + Math.sin(a) * r })) open++;
+    }
+    if (open / N >= 0.8) return r;
+  }
+  return want * 0.42;
+}
+
+/** Stable per-unit scalar in [0,1) from the unit id — a pure hash (advances no RNG
+ *  stream), so every derived bit of "personality" is identical across replays. */
+export function hashUnit01(id: string): number {
+  return RNG.hashString(id) / 4294967296;
 }
 
 /** Clear squad-movement locks (back to individual behavior). */
@@ -289,7 +478,7 @@ function squadSlots(w: World, sq: SquadS, plan: FormationPlan): Slot[] {
   const interval = plan.spacing;
   const file = plan.formation === "file" || plan.formation === "column";
   const width = file ? 0 : plan.formation === "wedge" ? interval * 0.85 : interval * 1.25;
-  const gap = Math.max(interval * 2.0, 14); // along-trail gap between lead team, SL and trail team
+  const gap = clamp(interval * 2.2, 10, 14); // inter-team gap (~10-14 m), SL rides between the teams
   const slots: Slot[] = [];
 
   if (sq.teams[0]) addTeamSlots(w, slots, sq.teams[0], 0, 0, interval, width, file, true);
@@ -459,6 +648,11 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
     u.path = dist(u.pos, aim) > 1.2 ? [aim] : [];
     return 0;
   }
+
+  // Per-soldier interval personality: a stable ±10% on his slot distance, so no two men
+  // hold the exact same spacing and the file reads as people rather than a machined lattice.
+  // Pure id-hash (advances no RNG stream) → identical across replays.
+  back *= 0.9 + 0.2 * hashUnit01(u.id);
 
   const slotSP = trailPoint(t, nav.pos, headDir, back);
   const slotPerp = { x: -slotSP.tan.y, y: slotSP.tan.x };
@@ -631,6 +825,21 @@ function canonicalIndex(w: World, id: string): number {
     if (i >= 0) return s * 100 + i;
   }
   return 9999;
+}
+
+/** True if an unalarmed civilian is on the patrol's track just ahead of the point man — the
+ *  cue to ease the pace and let him clear (escalation of force). A fleeing civ (tier 3) is
+ *  already clearing, so it doesn't trip the yield. */
+function civAhead(w: World, nav: Unit, headDir: Vec2): boolean {
+  for (const c of w.sim.liveCivilians()) {
+    if (!c.alive || (c.reactTier ?? 0) >= 3) continue;
+    const to = sub(c.pos, nav.pos);
+    const fwd = dot(to, headDir);
+    if (fwd < 1 || fwd > 14) continue; // within 14 m ahead
+    const lateral = Math.abs(to.x * -headDir.y + to.y * headDir.x);
+    if (lateral < 4) return true; // within ~4 m of the line of travel
+  }
+  return false;
 }
 
 /** Quick passability test at a world point. */

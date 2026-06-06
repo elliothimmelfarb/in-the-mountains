@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.command // \"\"' | grep -Eq '(^|[^[:alnum:]_])git[[:space:]]+stash([^[:alnum:]_]|$)' && jq -nc --arg r 'Blocked `git stash`. This working tree is likely shared with other agents running in parallel, so `git stash` / `push` / `save` would yank ALL uncommitted changes (theirs included) off the tree, and `pop` / `clear` can clobber or drop in-progress work. Do NOT stash. To set your own changes aside, commit them to a branch or a separate git worktree, or just leave them in place. If you truly need stash here, ask the human to lift this guard via /hooks.' '{hookSpecificOutput:{hookEventName:\"PreToolUse\",permissionDecision:\"deny\",permissionDecisionReason:$r}}' || true",
+            "statusMessage": "Guarding against git stash"
+          }
+        ]
+      }
+    ]
+  }
+}

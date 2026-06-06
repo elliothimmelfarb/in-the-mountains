@@ -1,0 +1,13 @@
+seed          settle  churn  maxChu  minGap  ovlp%  maxGap°  radCV  jit°/s
+smoke-test     31.8s   0.78     1.0   0.70m   0.2%      50°   0.05       8
+korengal       30.4s   0.90     1.1   0.22m   0.4%      72°   0.07       8
+survey-2       29.3s   0.94     1.2   0.24m   6.5%     141°   0.44       9
+survey-7           —   1.05     1.2   0.50m   4.7%     126°   0.38       7
+survey-9       23.8s   0.78     1.0   1.66m   0.0%      50°   0.13       8
+valley-3       28.6s   1.00     1.0   2.14m   0.0%      56°   0.11       8
+ridge-11       20.6s   0.78     1.0   1.66m   0.0%      50°   0.13       8
+------------------------------------------------------------------------------
+MEAN           27.4s   0.89     1.1   1.02m   1.7%      78°   0.19       8
+
+legend: settle fast good; churn≈1 good; minGap>1.1m good (no overlap); ovlp%→0 good;
+maxGap°≈45 good / large=hole in the 360; radCV→0 good; jit ~5-10 = live scan, high=dither.

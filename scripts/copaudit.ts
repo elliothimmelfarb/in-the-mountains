@@ -26,7 +26,36 @@
  */
 import { createWorld } from "../lib/sim/world";
 import { Land } from "../lib/sim/terrain";
-import { findPath } from "../lib/sim/path";
+import { findPath, walkable } from "../lib/sim/path";
+
+// issue 012 — interior connectivity. seatReach: can the planner the garrison uses (findPath) actually
+// reach every building seat / fighting position from the muster? (Rejecting findPath's degenerate
+// straight-into-the-wall fallback, which otherwise reads a sealed-off post as "reachable".) pockets:
+// passable interior cells unreachable from the gate (man-traps). Both MUST be 0.
+function interiorReach(t: any, cop: any): { seatBad: number; fpBad: number; pockets: number } {
+  const muW = t.cellCenter(cop.muster.cx, cop.muster.cy);
+  const arrives = (p: any) => {
+    const r = findPath(t, muW, p);
+    const e = r[r.length - 1];
+    if (!e || Math.hypot(e.x - p.x, e.y - p.y) >= cs * 2) return false;
+    return r.length > 1 || walkable(t, muW, p);
+  };
+  let seatBad = 0;
+  for (const b of cop.buildings) if (b.kind !== "motorpool" && !arrives(t.buildingSeat(b))) seatBad++;
+  let fpBad = 0;
+  for (const f of cop.fightingPositions) if (!arrives(t.cellCenter(f.cx, f.cy))) fpBad++;
+  const reach = t.reachableFromGate();
+  const R = cop.radius;
+  let pockets = 0;
+  for (let dy = -R; dy <= R; dy++)
+    for (let dx = -R; dx <= R; dx++) {
+      if (Math.hypot(dx, dy) > R - 1) continue;
+      const x = cop.center.cx + dx;
+      const y = cop.center.cy + dy;
+      if (t.inBounds(x, y) && t.passableCell(x, y) && !reach[t.idx(x, y)]) pockets++;
+    }
+  return { seatBad, fpBad, pockets };
+}
 
 const SEEDS = process.argv[2]
   ? Array.from({ length: Number(process.argv[2]) }, (_, i) => "survey-" + i)
@@ -52,6 +81,8 @@ console.log(
   "portal".padStart(7),
   "open%".padStart(6),
   "solid?".padStart(7),
+  "seatBad".padStart(8),
+  "pockets".padStart(8),
   "vilGap".padStart(7),
   "vil∩".padStart(5),
   "wireHits".padStart(9)
@@ -64,6 +95,7 @@ let portalFail = 0;
 let wireSum = 0;
 let overlapSeeds = 0; // seeds where a village footprint overlaps the COP wire
 let coreHitSeeds = 0; // seeds with village-core cells inside the COP clearance band
+let interiorBadSeeds = 0; // issue 012 — seeds with an unreachable post or a sealed interior pocket
 
 for (const seed of SEEDS) {
   let w: any;
@@ -199,6 +231,13 @@ for (const seed of SEEDS) {
   }
   wireSum += wireHits;
 
+  // --- 011: interior connectivity. The HARD invariant is that every garrison post (building seat +
+  // fighting position) is reachable from the muster — that is the "stuck on a building" bug. `pockets`
+  // is a secondary diagnostic: a tiny unreachable sliver behind a building is harmless (no path leads
+  // INTO it), so it is reported but does not fail the seed.
+  const ic = interiorReach(t, cop);
+  if (ic.seatBad > 0 || ic.fpBad > 0) interiorBadSeeds++;
+
   console.log(
     seed.padEnd(12),
     (egress ? "PASS" : "BLOCK").padStart(7),
@@ -207,6 +246,8 @@ for (const seed of SEEDS) {
     (realPortal ? "Y" : "N").padStart(7),
     String(openPct).padStart(6),
     solid.padStart(7),
+    String(ic.seatBad + ic.fpBad).padStart(8),
+    String(ic.pockets).padStart(8),
     String(vilGapM + "m").padStart(7),
     String(coreHits).padStart(5),
     String(wireHits).padStart(9)
@@ -222,3 +263,4 @@ console.log("  gate portal disconnected:", portalFail, "/", n, "(issue 005)");
 console.log("  village/COP footprint OVERLAP:", overlapSeeds, "/", n, "(item: village intersects COP — must be 0)");
 console.log("  seeds with village-core cells in COP clearance:", coreHitSeeds, "/", n, "(must be 0)");
 console.log("  total civilian wire-pin ticks:", wireSum, "(villager bug)");
+console.log("  seeds with an unreachable garrison post:", interiorBadSeeds, "/", n, "(issue 012 — must be 0)");
