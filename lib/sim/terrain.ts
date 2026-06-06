@@ -1145,6 +1145,12 @@ export class Terrain {
           if (nx < 0 || ny < 0 || nx >= cw || ny >= cw) continue;
           const ni = ny * cw + nx;
           if (seenNode[ni] || !open(nx, ny)) continue;
+          // Honour the SAME anti-corner-cut rule the planner's coarse A* uses (path.ts): a diagonal
+          // step is forbidden when both orthogonal coarse neighbours are blocked. Without this the
+          // guard's flood credited a diagonal-only coarse crossing that findPath can't actually
+          // transit, so it skipped carving a Track to a village the squad then couldn't reach
+          // (issue 008 / hunt #8). Now the guard's "reachable" matches the planner's.
+          if (dx !== 0 && dy !== 0 && !open(x + dx, y) && !open(x, y + dy)) continue;
           seenNode[ni] = 1;
           stack.push(ni);
         }
