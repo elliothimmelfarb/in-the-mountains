@@ -77,11 +77,16 @@ reviewed the diff for regressions, and hunted untested stranding vectors. It ear
 
 - **Confirmed** on the fresh tail: banks-split 0/60, router-null and far-miss hold; the wins are not
   overfit to the tuned seed set.
-- **Caught a real regression I introduced:** the free-A* fallback (budget > whole map) ran on the
-  live tick and was re-fired every tick by callers chasing a passable-but-*unreachable* goal across
-  the river — a **179 ms tick spike** (garrison seats via `passablePoint`; civilian flee into the
-  water). Fixed: a reachability guard on the free pass + `nearestReachable` snapping for garrison
-  seats and civilian flee. Worst tick **179 ms → 49.7 ms** (one-time), average **0.31 ms**.
+- **Caught a real regression I introduced** (the first pass FAILed): the free-A* fallback (budget >
+  whole map) ran on the live tick and was re-fired every tick by movers chasing a
+  passable-but-*unreachable* goal across the river. The worst offender was **civilians**: cross-river
+  bazaar errands stalled the tick at **473 ms on survey-0** (mean 166 ms), because `civMoveTo`
+  re-snapped the goal with `nearestPassable` (undoing the reachable snap) and ~40% of villagers were
+  spawned outside the gate component (born in walled pockets). Garrison seats had the same issue at
+  smaller scale. Fixed: reachable-snap for civilian goals/spawns/garrison seats, the guard hardened to
+  only search when both endpoints are in the connected valley, and a `cheapFallback` budget for
+  low-stakes movers (civilians/infiltrators/garrison) so flavour routes never pay the squad-grade
+  search. **Worst tick 473 ms → ~29 ms, average 0.2 ms; spawned-out-of-component ~40% → 0%.**
 - **Found a missing-snap vector:** civilian bazaar errands and enemy infiltration used the old
   `nearestPassable` snap, stranding on the far bank (component-mismatch 84/260 → 3/260 with the
   reachable snap). Fixed via `terrain.reachablePoint`.
