@@ -191,12 +191,32 @@ lost the campaign.
 
 Fires are **AI-requested, player-approved**. When the SOP calls for it (*Suppress & Call Fires*) or
 the squad is pinned and losing ground, the JTAC/leader raises a call-for-fire (`maybeRequestFires` →
-`World.requestSquadFires`) — but **only onto a position the squad has actually seen or been shot
-from**, never a fabricated grid. The request surfaces to the commander with the squad, the reason
-(pinned / enemy fixed), and the proposed grid; one request pending at a time, with a cooldown. The
-commander **approves** (`approveFireRequest`, optionally adjusting the aimpoint) and rounds fly, or
-**denies** it (`denyFireRequest`). The same approve/deny pattern, plus calling the MEDEVAC, plus the SOP and route set
-beforehand, is the player's entire in-combat toolkit.
+`World.requestSquadFires`). A real FO obeys two hard rules, and the AI now enforces both so it
+**never proposes a grid a commander would refuse**:
+
+1. **PID the target.** The aimpoint (`fireAimpoint`) is the centroid of the **densest cluster of
+   currently-observed enemies** (cluster radius ~35 m) — never a projected guess, and crucially
+   **not the centroid of *all* visible enemies**. On a two-sided / L-shaped contact that global
+   centroid lands *between* the enemy groups — i.e. on the squad ("nowhere near the enemy"); a
+   densest-cluster aimpoint instead sits squarely on a real group. No eyes on → no mission.
+2. **Danger close is the commander's call, not a default.** The AI **withholds** the request if the
+   aimpoint falls inside the weapon's danger-close radius (`blast × 2.5`) of *any* friendly — so the
+   squad never proposes dropping HE on itself (the old behaviour produced real fratricide). When the
+   only target is danger-close the squad fights with organic weapons / breaks contact instead. This
+   also stops calling fire onto an objective the maneuver element is assaulting onto.
+
+Behind that, the FDC keeps a final safety: **check-fire** (`stepFireMissions`) aborts a friendly
+mission's remaining rounds if troops have maneuvered within a round's lethal blast of the impact
+point after the mission was cleared — the dynamic case the call-time gate can't foresee.
+
+The request surfaces to the commander with the squad, the reason (pinned / enemy fixed), and the
+proposed grid; one request pending at a time, with a cooldown. The commander **approves**
+(`approveFireRequest`, optionally adjusting the aimpoint) and rounds fly, or **denies** it
+(`denyFireRequest`). The same approve/deny pattern, plus calling the MEDEVAC, plus the SOP and route
+set beforehand, is the player's entire in-combat toolkit. *(Note: the AI gate withholds at the wider
+danger-close radius `blast×2.5`; the FDC check-fire aborts only at the narrower lethal radius
+`blast×1.3` — a deliberate asymmetry so the AI never proposes danger-close, yet a player who
+knowingly calls danger-close fire still gets it unless a round would actually land on a man.)*
 
 ## Strategic / COIN feedback (`world/`)
 

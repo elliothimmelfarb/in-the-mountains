@@ -60,7 +60,10 @@ Two read-anytime documents are served statically:
 - **People, not pieces** — named soldiers with attributes, morale, suppression, fatigue, regional
   wounds (with body armor), bleeding, buddy aid, and medics. Losses are permanent.
 - **AI** — insurgents that infiltrate the draws, ambush from defilade, shoot-and-scoot, and exfil;
-  civilians with pattern-of-life and panic flight; friendly soldiers that execute your intent.
+  civilians with pattern-of-life and panic flight; friendly soldiers that execute your intent. The
+  squad leader runs the firefight (base-of-fire/maneuver, bound, break contact) and raises a
+  **call-for-fire** like a real forward observer — only onto a PID'd, observed enemy and never inside
+  its own danger-close radius — for you to approve or deny.
 - **COIN** — village attitudes, shuras (KLE), CERP projects with real logistics, SIGINT/HUMINT
   intel, battalion directives, decision events, resupply (convoy vs. air), and an end-of-tour
   assessment. You can win every firefight and still lose the valley.

@@ -3,6 +3,7 @@ import { Task, SquadSOP, defaultSOP } from "../world/types";
 import { buildSquad } from "../world/formation";
 import { centroidOf } from "../world/helpers";
 import { Unit } from "../entities";
+import { getWeapon } from "../weapons";
 import { dist, Vec2, norm, sub, add, scale, len } from "../vec";
 
 /**
@@ -97,7 +98,7 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
     case "break":
       t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
       runState(w, t, members, threat, enemyCount, eff, sop);
-      maybeRequestFires(w, t, members, threat, eff, sop);
+      maybeRequestFires(w, t, members, eff, sop);
       break;
     default:
       t.squadState = "react";
@@ -227,19 +228,29 @@ function stampBreak(w: World, t: Task, members: Unit[], threat: Vec2, sop: Squad
 }
 
 /** The squad's JTAC/leader calls for fire when the SOP wants it (suppress) or the squad
- *  is pinned and losing ground — the World queues it for the commander's approval. */
-function maybeRequestFires(w: World, t: Task, members: Unit[], threat: Vec2, eff: Eff, sop: SquadSOP) {
+ *  is pinned and losing ground — the World queues it for the commander's approval. A real FO
+ *  obeys two hard rules, both enforced here so the AI never proposes a grid a commander would
+ *  refuse: (1) PID — call fire only onto a CURRENTLY-OBSERVED enemy position, never a guessed
+ *  grid; (2) DANGER CLOSE is not a default — never lay HE inside friendly troops' danger-close
+ *  radius (which also stops calling fire onto an objective the maneuver element is assaulting). */
+function maybeRequestFires(w: World, t: Task, members: Unit[], eff: Eff, sop: SquadSOP) {
   if (w.state.fireRequest) return; // one pending at a time
   // Want fires when the SOP calls for it (suppress) or the squad is pinned and losing ground.
   const wantFires = sop.contact === "suppress" || eff.effFrac < 0.78;
   if (!wantFires) return;
-  // Only call fire onto a position we have actually seen or been shot from — never a guessed
-  // grid fabricated by threatCentroid's fallback projection.
-  if (!threatIsReal(members)) return;
+  // (1) PID: aim at an actually-observed enemy cluster — null means no eyes on, no fire mission.
+  const aim = fireAimpoint(w.sim, members);
+  if (!aim) return;
   const mortar = w.sim.mortars.find((m) => m.rounds > 0);
   if (!mortar) return;
-  const cx = Math.floor(threat.x / w.terrain.cellSize);
-  const cy = Math.floor(threat.y / w.terrain.cellSize);
+  // (2) DANGER CLOSE: withhold if the aimpoint lands inside the weapon's danger-close radius of
+  // ANY friendly (not just this squad — a second element could be in the beaten zone). The squad
+  // keeps fighting with organic weapons / breaks contact rather than drop HE on itself.
+  const blast = getWeapon(mortar.weaponId).blastRadius ?? 15;
+  const safeDist = blast * 2.5; // matches CombatSim.isDangerClose — so an approved call is never "DANGER CLOSE"
+  if (w.sim.playerUnits().some((u) => dist(u.pos, aim) < safeDist)) return;
+  const cx = Math.floor(aim.x / w.terrain.cellSize);
+  const cy = Math.floor(aim.y / w.terrain.cellSize);
   const reason = eff.effFrac < 0.8 ? `pinned, enemy fixed` : `enemy position fixed`;
   w.requestSquadFires(t, mortar.weaponId, cx, cy, reason);
 }
@@ -414,7 +425,33 @@ function smokeIfNeeded(w: World, t: Task, m: Unit, threat: Vec2): boolean {
   return true;
 }
 
-/** Is there a real, recently-observed enemy to call fire on (vs. a projected guess)? */
-function threatIsReal(members: Unit[]): boolean {
-  return members.some((m) => m.alive && (m.visibleEnemyIds.length > 0 || m.threatDir != null));
+/** The aimpoint for a call-for-fire: the centroid of the DENSEST cluster of currently-observed
+ *  (PID'd) enemies — never a projected guess, and never the global centroid. On a two-sided /
+ *  L-shaped contact the global centroid of the visible enemies lands BETWEEN the groups (often on
+ *  the squad itself — the "nowhere near the enemy" bug); a densest-cluster centroid instead sits
+ *  squarely on a real group of enemies. Returns null when no enemy is observed (→ no fire). */
+function fireAimpoint(sim: World["sim"], members: Unit[]): Vec2 | null {
+  const pts: Vec2[] = [];
+  const seen = new Set<string>();
+  for (const m of members) {
+    if (!m.alive) continue;
+    for (const id of m.visibleEnemyIds) {
+      if (seen.has(id)) continue;
+      const e = sim.unit(id);
+      if (e && e.alive && !e.evac) { seen.add(id); pts.push({ x: e.pos.x, y: e.pos.y }); }
+    }
+  }
+  if (pts.length === 0) return null;
+  if (pts.length === 1) return { ...pts[0] };
+  const R = 35; // cluster radius (m) — roughly one enemy fire team / firing position
+  let best: Vec2 | null = null;
+  let bestCount = -1;
+  for (let i = 0; i < pts.length; i++) {
+    let sx = 0, sy = 0, n = 0;
+    for (let j = 0; j < pts.length; j++) {
+      if (dist(pts[i], pts[j]) <= R) { sx += pts[j].x; sy += pts[j].y; n++; }
+    }
+    if (n > bestCount) { bestCount = n; best = { x: sx / n, y: sy / n }; } // first-max wins → deterministic
+  }
+  return best;
 }
