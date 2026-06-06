@@ -119,6 +119,8 @@ export interface Task {
   holdTimer?: number;
   goalDist?: number; // best centroid→objective distance seen this leg
   noProgressS?: number; // seconds since that best improved
+  arrivedHoldS?: number; // seconds the point man has held on the objective waiting for the element to close up
+  homeFileS?: number; // seconds the element has been filing back in through the gate (return-leg budget)
   /** Breadcrumb of where the point man has actually walked (newest last), so the
    *  rest of the squad moves in trace along his real route rather than chasing
    *  rigid geometric slots; reset when the navigator changes. */

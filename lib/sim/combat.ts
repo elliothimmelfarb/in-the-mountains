@@ -680,9 +680,15 @@ export class CombatSim {
     const slope = this.terrain.slopeAt(u.pos.x, u.pos.y);
     const alt = clamp01((this.terrain.elevAt(u.pos.x, u.pos.y) - 1500) / 1400);
     const exertion = clamp01(slope * 2.2 + (tech === "rush" ? 0.6 : 0));
+    // Altitude makes EXERTION brutal (climbing/rushing thin-air), but ambling a flat track at
+    // altitude is not itself draining. The old unconditional `alt*0.0016` term accrued even on a
+    // benched, gentle Track, so a long patrol at altitude redlined fatigue to 1.0 and rode at a
+    // permanent ~0.68x — a reachable far village then arrived only after the tactical window (the
+    // SLOW failure). Gating the altitude penalty by exertion lets a flat-track patrol PLATEAU
+    // (recovery still offsets it) while a climb at altitude still saturates as it should.
     u.fatigue = clamp01(
       u.fatigue +
-        stepLen * (0.0007 + slope * 0.006 + alt * 0.0016) * (tech === "rush" ? 2 : 1) * (1 + overload * 0.012) -
+        stepLen * (0.0007 + slope * 0.006 + alt * exertion * 0.004) * (tech === "rush" ? 2 : 1) * (1 + overload * 0.012) -
         dt * 0.001 * (1 - exertion)
     );
 

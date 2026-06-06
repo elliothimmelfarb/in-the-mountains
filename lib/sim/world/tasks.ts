@@ -11,6 +11,8 @@ import { squadFight } from "../ai/squad-combat";
 const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
 const LEG_ARRIVE = 18; // m — the point man has reached the objective
 const STUCK_S = 90; // s of zero route progress before a leg is declared genuinely stuck
+const OBJ_COHESION = 90; // m — a man this close to the objective counts as "closed up" on it
+const COHESION_GRACE_S = 45; // s the lead waits on the objective for the element before setting up regardless
 const CONTACT_HOLD_S = 10; // s a squad stays "in contact" after the last round/sighting (anti-flicker)
 
 /**
@@ -168,6 +170,27 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
   // genuinely can't move at all.
   const arrived = !!lead && dist(lead.pos, target) < LEG_ARRIVE;
   const stuck = stalled(t, lead ? routeRemaining(lead) : 0, dt, STUCK_S);
+  const finalLeg = t.legIndex >= t.route.length - 1;
+
+  // On the FINAL leg, don't set up security the instant the POINT MAN touches the objective —
+  // that left the squad in pieces, with men still strung out across the last draw (the element
+  // is "on station" only when it has actually closed up). Hold the lead on the objective (the
+  // pace governor keeps drawing the file in) until the bulk is up, or a grace window expires so a
+  // single wedged man can't hold the patrol out there forever. Intermediate legs still advance on
+  // the lead alone (they're waypoints, not setup points).
+  if (arrived && finalLeg && !stuck) {
+    const closed = members.filter((m) => dist(m.pos, target) < OBJ_COHESION).length;
+    const cohered = closed >= Math.ceil(members.length * 0.7);
+    t.arrivedHoldS = (t.arrivedHoldS ?? 0) + dt;
+    if (cohered || (t.arrivedHoldS ?? 0) > COHESION_GRACE_S) {
+      t.legIndex++;
+      resetProgress(t);
+      t.arrivedHoldS = 0;
+      enterOnStation(w, t, members, target);
+    }
+    return;
+  }
+
   if (arrived || stuck) {
     if (stuck && !arrived) w.log(`${t.label}: held up short of the objective.`, "radio");
     t.legIndex++;
@@ -190,22 +213,46 @@ function routeRemaining(u: Unit): number {
 function driveReturn(w: World, t: Task, members: Unit[], dt: number, centroid: Vec2) {
   const center = w.copWorld();
   const wire = w.terrain.cop.radius * w.terrain.cellSize + 18;
-  // Home once the bulk is inside the wire (a single straggler can't hold the
-  // task open — the garrison walks him in); or the no-progress backstop.
+  // Home once the bulk is genuinely inside the wire (a single straggler can't hold the task
+  // open — the garrison walks him in).
   const inside = members.filter((m) => dist(m.pos, center) < wire).length;
-  if (inside >= Math.ceil(members.length * 0.6) || noProgress(t, centroid, center, dt, 60)) {
+  if (inside >= Math.ceil(members.length * 0.6)) {
     t.phase = "complete";
     return;
   }
   const go = w.gateOutsideWorld();
-  const nearGate = dist(centroid, go) < 30 || dist(centroid, center) < w.terrain.cop.radius * w.terrain.cellSize * 1.2;
-  if (nearGate) {
-    // Bunch up and file back in through the gate to the muster yard.
+  const lead = w.sim.unit(t.leadId);
+  const wireM = w.terrain.cop.radius * w.terrain.cellSize;
+  // File in once the POINT MAN reaches the gate area — NOT the centroid. The file trails the lead,
+  // so a centroid-based gate test never trips while the lead is already at the wire and the column
+  // strung out behind him; the route-stall backstop then completed the task with the whole element
+  // still OUTSIDE (the "gave up out" return bug — measured: centroid stalled 148 m out, 0/9 inside).
+  // Keying on the lead mirrors the outbound egress (drivePatrol's t.exited) and reliably commits
+  // the element to pour through the ECP.
+  const leadAtGate = !!lead && (dist(lead.pos, go) < 34 || dist(lead.pos, center) < wireM * 1.25);
+  if (leadAtGate || dist(centroid, go) < 40) {
+    // Bunch up and file back in through the gate to the muster yard. The element completes the
+    // moment the bulk is inside (above); this is just a generous time budget so a couple of
+    // stragglers don't hold the task open forever — the garrison walks the last man in.
     steerFile(w, t, members, w.musterWorld(), GATE_SPACING, dt);
+    t.homeFileS = (t.homeFileS ?? 0) + dt;
+    // Generous budget: filing a 9-man element through the single-lane ECP and on to the muster
+    // yard genuinely takes a few minutes. The element normally completes the instant the bulk is
+    // inside (above); this only stops a last straggler or two from holding the task open forever —
+    // the garrison walks them in. (Cutting it short here stranded men just outside the wire.)
+    if ((t.homeFileS ?? 0) > 360) t.phase = "complete";
     return;
   }
   const plan = planFormation(w, t, members);
   steerSquad(w, t, members, go, { ...plan, roadBias: Math.max(plan.roadBias, 0.45), concealBias: Math.min(plan.concealBias, 0.3) }, dt);
+  // Backstop on the navigator's REMAINING ROUTE to the gate (monotonic as he advances), not the
+  // centroid's straight-line distance to the COP CENTER. Rounding the wire ring or approaching a
+  // gate on the far side keeps that straight-line distance flat, which used to trip the backstop
+  // and stand the element down OUTSIDE the wire. Route length only stalls when the lead genuinely
+  // can't get closer.
+  if (stalled(t, lead ? routeRemaining(lead) : dist(centroid, go), dt, STUCK_S)) {
+    t.phase = "complete";
+  }
 }
 
 /** No-progress backstop: true once the element hasn't closed on `goal` for `limit` s. */
