@@ -1384,32 +1384,38 @@ export class CombatSim {
    */
   walkTo(u: Unit, point: Vec2) {
     const p = { x: clamp(point.x, 2, this.terrain.worldSize - 2), y: clamp(point.y, 2, this.terrain.worldSize - 2) };
-    u.path = walkable(this.terrain, u.pos, p) ? [p] : findPath(this.terrain, u.pos, p);
+    // walkTo is for SHORT, LOCAL moves (garrison seats, mustering, falling back to cover) — never a
+    // cross-valley objective — so it uses the cheap fallback: if the corridor can't find the route it
+    // best-efforts instead of paying the whole-map free A*. Only the player's squads (steerSquad ->
+    // pathTo, no cheapFallback) keep the full search for their objectives.
+    u.path = walkable(this.terrain, u.pos, p) ? [p] : findPath(this.terrain, u.pos, p, { cheapFallback: true });
     u.pathGoal = p;
     this.resetStall(u);
   }
 
   /**
-   * Civilian movement: as walkTo, but the goal is first snapped to passable ground
-   * that is never inside the COP wire/apron, so villagers by an outpost never have a
-   * goal across the HESCO (the "villagers wander into the wire" bug).
+   * Civilian movement: as walkTo, but the goal is first snapped to REACHABLE passable ground
+   * that is never inside the COP wire/apron. The reachable snap (issue 010) matters: with the river
+   * a real obstacle, a goal across it is in a different component, and a plain nearestPassable snap
+   * would re-land it across the water — making findPath re-fire its whole-map free A* every tick (a
+   * measured ~470 ms civilian tick stall). reachablePoint keeps the goal in the gate component;
+   * civSafePoint then keeps it off the wire.
    */
   civMoveTo(u: Unit, point: Vec2, roadBias = 0) {
-    const p = this.terrain.civSafePoint(point.x, point.y);
-    // A calm villager on a long errand (to another village's bazaar) prefers the road/track
-    // network (roadBias > 0); a panicked one (roadBias 0) bolts straight for dead ground.
-    if (roadBias > 0) {
-      const q = { x: clamp(p.x, 2, this.terrain.worldSize - 2), y: clamp(p.y, 2, this.terrain.worldSize - 2) };
-      u.path = walkable(this.terrain, u.pos, q) ? [q] : findPath(this.terrain, u.pos, q, { roadBias });
-      u.pathGoal = q;
-      this.resetStall(u);
-    } else {
-      this.walkTo(u, p);
-    }
+    const r = this.terrain.reachablePoint(point.x, point.y);
+    const p = this.terrain.civSafePoint(r.x, r.y);
+    // A calm villager on a long errand (to another village's bazaar) prefers the road/track network
+    // (roadBias > 0); a panicked one (roadBias 0) bolts straight for dead ground. Either way a
+    // civilian uses the CHEAP fallback — a villager is flavour, not a soldier with an objective, so a
+    // route the corridor can't cheaply find best-efforts instead of paying the whole-map free A*.
+    const q = { x: clamp(p.x, 2, this.terrain.worldSize - 2), y: clamp(p.y, 2, this.terrain.worldSize - 2) };
+    u.path = walkable(this.terrain, u.pos, q) ? [q] : findPath(this.terrain, u.pos, q, { roadBias, cheapFallback: true });
+    u.pathGoal = q;
+    this.resetStall(u);
   }
 
   /** Route a unit to a point following the terrain, honoring its move posture. */
-  pathTo(u: Unit, point: Vec2, opts: { concealBias?: number; roadBias?: number; coverBias?: number } = {}) {
+  pathTo(u: Unit, point: Vec2, opts: { concealBias?: number; roadBias?: number; coverBias?: number; cheapFallback?: boolean } = {}) {
     const p = {
       x: clamp(point.x, 2, this.terrain.worldSize - 2),
       y: clamp(point.y, 2, this.terrain.worldSize - 2),
@@ -1418,6 +1424,7 @@ export class CombatSim {
       concealBias: opts.concealBias ?? this.defaultConcealBias(u),
       roadBias: opts.roadBias ?? 0,
       coverBias: opts.coverBias ?? 0,
+      cheapFallback: opts.cheapFallback,
     });
     u.orderTarget = p;
     u.pathGoal = p;

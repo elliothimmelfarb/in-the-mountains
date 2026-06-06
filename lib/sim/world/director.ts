@@ -140,7 +140,7 @@ function spawnInfiltration(w: World) {
     // infiltrator whose village sits across the now-impassable river routes to a ford instead of
     // wading toward it and stranding at the water (issue 010 — the enemy analogue of the squad snap).
     const aim = w.terrain.reachablePoint(targetPt.x + w.rng.range(-60, 60), targetPt.y + w.rng.range(-60, 60));
-    w.sim.pathTo(e, aim, { concealBias: 0.7 });
+    w.sim.pathTo(e, aim, { concealBias: 0.7, cheapFallback: true });
   }
   if (w.rng.chance(0.5))
     w.addIntel({ source: "SIGINT", text: `ICOM: fighters moving toward ${v.name} tonight.`, reliability: 0.55, cx: v.cx, cy: v.cy });
