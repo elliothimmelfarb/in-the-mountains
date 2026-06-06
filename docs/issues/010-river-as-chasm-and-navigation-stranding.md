@@ -73,7 +73,14 @@ A realistic river + a planner that respects it, all gated at generation time:
 - **Free-A\* fallback** (`path.ts`): when every corridor fails, a free unclipped full-resolution A\*
   finds the genuine (often long, ford-detouring) route before settling for best-effort.
 - **Component-aware objective snap** (`terrain.nearestReachable` + `reachableObjective`): snap to the
-  nearest cell that is passable **and** in the gate's connected component — never the far bank.
+  nearest cell that is passable **and** in the gate's connected component — never the far bank. The
+  same snap was extended to **civilian bazaar errands** and **enemy infiltration** approaches
+  (`terrain.reachablePoint`), so neither strands at the water either.
+- **Free-A\* perf guard** (`path.ts worthFreeSearch`): the free fallback has a budget larger than the
+  whole map, so it must never run for a genuinely-unreachable goal (a caller chasing one re-fired it
+  every tick — a measured 179 ms spike). It runs only when the goal is in the start's component;
+  otherwise it goes straight to the bounded best-effort. Garrison seats now snap via
+  `nearestReachable` too. (Caught by the adversarial verification workflow.)
 - **Squad cohesion gate, lead-keyed return, exertion-gated altitude fatigue** (`tasks.ts`,
   `combat.ts`): set up on station only once the element has closed up; file back in keyed on the
   point man reaching the gate; altitude only drags when actually climbing.
@@ -88,10 +95,13 @@ ground truth, objectives snapped as in-game:
 | river bank-cliff fraction | 59% | **1%** |
 | river trap cells | 5,296 | **0** |
 | seeds with banks SPLIT | 28% | **0%** |
-| villages BFS-unreachable | 18% | **1%** (genuine cliff-pocket sitings, reported honestly) |
-| router NULL routes to villages | 30% | **0%** |
-| far reachable objectives missed by router | 20% | **0%** |
+| villages BFS-unreachable | 18% | **2%** (genuine cliff-pocket sitings, reported honestly) |
+| router NULL routes to villages | 30% | **2%** (≈ the cliff-pocket villages + a few borderline far-ford ones — the squad sets up as close as the ground allows, never a hang) |
+| far reachable objectives missed by router | 20% | **0.4%** |
 | crossings present | 0 | ~70–140 / seed |
+
+(Numbers are the honest **full 60-seed** figures — verified independently on the fresh survey-40..59
+tail, not just the tuned set; the residual ~2% is the cliff-pocket ceiling of issue 008.)
 
 Whole-squad behaviour (`scripts/squad-arrival.ts`, combat-free, 6 seeds × nearest villages):
 
