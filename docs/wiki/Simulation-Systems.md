@@ -15,13 +15,23 @@ Generation is resolution-independent (landform frequencies are expressed per-met
    noise for spurs/fingers and irregular crests.
 3. **Draws** (re-entrants) carved into one side or the other, lower and wetter — the enemy's
    covered approaches, exposed as `drawChannels`.
-4. **River incision** near the centerline; modest surface roughness everywhere.
-5. **Landcover classification** into **24 classes** by altitude band, slope, distance to the river,
+4. **A walkable floodplain + the river as a real obstacle** (`carveFloodplain`, issue 010). The raw
+   river incision used to cut a ~22 m, ~48 m-wide V into the floor, so the cells flanking the water
+   read as **cliffs** and the channel fragmented into impassable, **valley-splitting** pieces (a
+   measured 28% of seeds could not be walked across). Instead a continuous, gentle **floodplain** is
+   benched around the meandering centerline (killing the incision cliffs), leaving a shallow channel
+   for the water. The **river itself is impassable on foot** — too deep/fast to wade — and is crossed
+   only at a **Ford** (a shallow gravel-bar crossing: passable, slow, almost no cover — a killing
+   ground) or a **Footbridge**. `placeFords` lays fords down the valley (~every 260 m) and
+   `ensureRiverCrossings` adds more wherever the two banks are still in different passable components,
+   until the valley is one connected piece. This is the realistic core: the river *shapes* movement
+   (you cross at the ford), it doesn't wall the valley off or trap a man who steps into it.
+5. **Landcover classification** into **25 classes** by altitude band, slope, distance to the river,
    and a moisture field: river, marsh, **dry wash**, irrigated cropland, **terraces** and their
    stone **terrace-wall** risers (emergent from sharp downhill drops), orchards, upland meadow,
    grass, holly scrub, forest, scree, **boulder fields**, rock, **cliffs**, walled **compounds**
-   and **compound walls**, **cemeteries**, roads, trails, **footbridges**, and the COP's **HESCO**
-   barriers, **structures** and **gravel** pads.
+   and **compound walls**, **cemeteries**, roads, trails, **footbridges**, **fords**, and the COP's
+   **HESCO** barriers, **structures** and **gravel** pads.
 6. **Villages** placed on benches, stamped with walled qalats (interior + perimeter wall),
    surrounding orchards/terraces, and an occasional cemetery.
 7. **The COP** scored onto a commanding bench/low spur near the valley (prominent, a few tens of
@@ -59,7 +69,10 @@ Generation is resolution-independent (landform frequencies are expressed per-met
 
 Queries (world meters, bilinear where it matters): `elevAt`, `slopeAt`, `landAt`, `coverAt`
 (stops rounds), `concealAt` (blocks sight), `moveCostAt` (speed multiplier from slope + landcover),
-`passableCell` (cliffs/compound walls/**HESCO**/very steep are impassable on foot).
+`passableCell` (cliffs/compound walls/**HESCO**/**the river channel**/very steep are impassable on
+foot — the river is crossed only at a Ford or Footbridge), and `reachableFromGate`/`nearestReachable`
+(the cached, mover-faithful — anti-corner-cut — reachable set, so objectives snap to ground the
+squad can actually get to, never the far bank).
 
 ## The combat outpost (`terrain.cop`)
 
@@ -105,21 +118,33 @@ moment they're engaged and falling back to the routine on the lull.
 
 ## Pathfinding (`path.ts`)
 
-`findPath(terrain, start, goal, opts)` is **hierarchical A***, which is what makes it both correct
-and cheap. A fast **coarse** pass (~15 m nodes) finds the long route across the valley for a few
-thousand node expansions; then string-pulling walks that route, and wherever a straight segment
-would clip a 5 m feature (a compound wall, a cliff lip) it splices in a short **fine**
-(full-resolution) A* over just that ~15 m gap. So long-range stays coarse-cheap, and the only
-full-resolution work happens in the few metres where it matters — **no unit is ever handed a path it
-can't physically walk**, which is what kept patrols off the wire. The A* scratch is reused with
-generation-stamping (no per-call allocation), so re-planning is essentially free.
+`findPath(terrain, start, goal, opts)` is **two-stage, corridor-constrained A***, which is what makes
+it both correct and cheap:
+
+1. a fast **coarse** pass (~15 m nodes) lays the global line across the valley. It is honest about
+   the big barriers: a coarse node the **river channel** runs through (≥3 river cells) with no
+   Ford/Footbridge in it is **impassable**, so the global line is forced to cross at a real crossing
+   instead of optimistically cutting the channel;
+2. a **full-resolution** A* confined to a **corridor** around that line produces the path the unit
+   actually walks — honouring every 5 m feature (it crosses at the real ford, threads the ECP gate,
+   slips through a qalat gap) and **always genuinely walkable**. The corridor keeps the search cheap
+   and makes a looping/spiralling path impossible; it widens if a tight corridor can't get through.
+3. a **free, unclipped** full-resolution A* **fallback** when every corridor fails — a cross-river
+   objective often needs a long detour to a distant ford that swings outside any corridor, and the
+   free pass finds that genuine route before settling for a best-effort "get as close as the ground
+   allows" stop.
+
+The A* scratch is reused with generation-stamping (no per-call allocation), so re-planning is cheap.
+**No unit is ever handed a path it can't physically walk**, and objectives are snapped with
+`nearestReachable` to a cell in the squad's **own connected component** — never across the river or a
+wall on the far bank.
 
 Three optional biases shape the route: a **concealment bias** so a stealthy route threads forest,
 orchards and dry washes instead of crossing open ground; a **road bias** so fast movement takes the
-valley road/trails; and a **cover bias** the enemy uses to stay off the skyline. The COP's HESCO
-wall is impassable, so routes in and out of the outpost are funneled through the gate (which has a
-narrow, switchbacked access road that follows the terrain down the spur to the valley road — see the
-COP section). Patrols, fire teams and infiltrating fighters all route through it.
+valley road/trails (and fords); and a **cover bias** the enemy uses to stay off the skyline. The
+COP's HESCO wall is impassable, so routes in and out of the outpost are funneled through the gate
+(which has a narrow, switchbacked access road that follows the terrain down the spur to the valley
+road — see the COP section). Patrols, fire teams and infiltrating fighters all route through it.
 
 A coarse node stays passable if *any* of its sub-cells is (so a thin wall can't seal a reachable
 goal), but it is charged a **barrier penalty** (`BARRIER_PENALTY`, quadratic in the fraction of
@@ -164,10 +189,12 @@ feeds the squad's formation choice and pathfinding biases (below).
 **Fatigue economy** (`combat.ts`) — speed also pays a fatigue drag (`×(1 − fatigue·0.32)`). Fatigue
 accrues with effort but is **exertion-gated**: on gentle ground a recovery-while-moving term offsets
 the small accrual so a routine foot patrol **plateaus** at a working level, while a steep climb or a
-rush still saturates it (so combat fatigue — ballistics MOA, composure — stays meaningful). Before
-this, fatigue saturated to 1.0 on any long march and pinned the squad at ~0.55× speed for the rest of
-the hump, which was the dominant reason a physically-reachable far village was never actually reached
-(see `docs/progress/2026-06-05-pathfinding/`).
+rush still saturates it (so combat fatigue — ballistics MOA, composure — stays meaningful). The
+**altitude** penalty is exertion-gated too (issue 010): thin air makes *climbing* brutal, but ambling
+a flat track at altitude is not itself draining — previously the unconditional altitude term redlined
+a long high-valley patrol to ~0.68× and made far villages arrive only after the tactical window.
+Before the broader retune, fatigue saturated to 1.0 on any long march and pinned the squad at ~0.55×
+for the rest of the hump (see `docs/progress/2026-06-05-pathfinding/` and `2026-06-06-river-navigation/`).
 
 ## Squad movement & doctrine (`world/formation.ts`)
 
@@ -214,9 +241,15 @@ on so a man genuinely hung up on an obstacle is left to chase rather than freezi
 old binary "hold" froze him outright, which — combined with the leg's no-progress backstop — could
 strand a patrol at its own gate.) Filing out the ECP, the point man pours straight through at full
 pace, and the file-out backstop watches *his* progress, not the lagging centroid, so the element
-doesn't flip to formation while the lead is still inside the wire. On the objective each fire team
-sets into a sector of a 360° security halt. The instant rounds crack, the formation releases and
-combat AI takes over; it re-forms on the lull.
+doesn't flip to formation while the lead is still inside the wire. On the objective the squad sets up
+only once it has **closed up** — the lead holds on the objective (the pace governor draws the file in)
+until ~70% of the element is within ~90 m, or a short grace expires, so security goes in as a squad,
+not the instant the point man arrives with his men strung out behind him (issue 010). Each fire team
+then sets into a sector of a 360° security halt. Coming home, the element **files back in keyed on the
+LEAD reaching the gate** (not the centroid — the column trails the point man, so a centroid test left
+the squad standing down *outside* the wire), and completes the moment the bulk is inside (the garrison
+walks in the last straggler). The instant rounds crack, the formation releases and combat AI takes
+over; it re-forms on the lull.
 
 ## Line of Sight (`los.ts`)
 
