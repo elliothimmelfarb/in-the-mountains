@@ -35,6 +35,16 @@ The original issue text is preserved below each file with a **Resolution** secti
 | [007](007-sim-level-terrain-ecology.md) | Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats, hydrology) | Low (fidelity) | Future measured pass |
 | [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling: COP/village cliff-pockets cap it ~30% (BFS ~64%) | **Medium** | ✅ **Resolved 2026-06-05** — connectivity guard + fatigue economy; arr-among-reachable 36%→76%, netVil 59%→72% |
 | [009](009-far-village-tactical-window-and-network-ceiling.md) | Residuals: far-village tactical-window arrival, netVil 72% ceiling, trough cost | Low | Characterised (honest remainder of 006/008) |
+| [010](010-river-as-chasm-and-navigation-stranding.md) | River was an impassable cliff-walled chasm (0 crossings, 28% of seeds split the valley); planner stranded patrols | **High** | ✅ **Resolved 2026-06-06** — walkable floodplain + fords/footbridges + free-A* fallback + component-aware snap + squad cohesion/return fixes; router-null 30%→0%, banks-split 28%→0%, return-home 23%→81% |
+
+**2026-06-06 (river navigation overhaul):** a fast static structural audit (**`terrain-audit.ts`**)
+showed the river was a cliff-walled chasm with **zero crossings** that **split the valley in 28% of
+seeds** — the dominant "can't reach / stuck on the river / can't cross" cause. Rebuilt it as a
+walkable floodplain crossed at **fords + footbridges**, made the foot planner river-aware (coarse
+barrier + free-A* fallback + component-aware objective snap), and fixed squad-level stranding
+(cohesion gate, lead-keyed return, altitude-fatigue). New harness **`squad-arrival.ts`** scores the
+WHOLE squad (cohesion + the return leg), not just the point man. See [010] and
+`docs/progress/2026-06-06-river-navigation/`.
 
 New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
 **`reachability.ts`** (the fair all-villages movement metric — see 006).
