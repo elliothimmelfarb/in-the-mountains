@@ -110,14 +110,14 @@ interface Baked {
 const cache = new WeakMap<Terrain, Baked>();
 
 /**
- * Bake a high-resolution shaded-relief topographic image of the whole valley
- * once, so the live views only pan/zoom a bitmap. Hillshade + landcover tint +
- * marching-squares contour lines, drawn like a real military map sheet.
+ * Set up a relief bake and return a row-band processor + a finisher. The whole 4096² sheet
+ * is ~16 M pixels of hillshade + landcover shading — the single heaviest op in a deploy
+ * (multiple seconds). Splitting it into `processRows(py0,py1)` lets two drivers share the
+ * exact same per-pixel math: the synchronous `bakeTerrain` (one shot, used by the lazy live
+ * draw) and the async `bakeTerrainProgressive` (banded + yielding, so the loading screen's
+ * progress bar can fill smoothly through the bake instead of freezing).
  */
-export function bakeTerrain(terrain: Terrain): Baked {
-  const cached = cache.get(terrain);
-  if (cached) return cached;
-
+function makeBake(terrain: Terrain) {
   // Native bake density. The elevation field is bilinear-continuous, so MORE pixels
   // per cell = smoother shaded relief deep into zoom (not 5 m stairsteps). Bumped from
   // 3000/size to 4500/size (→ 8 px/cell on the 512 grid, a 4096² sheet) so the relief
@@ -146,7 +146,9 @@ export function bakeTerrain(terrain: Terrain): Baked {
   const cs = terrain.cellSize;
   const snowLine = terrain.minElev + range * 0.68; // permanent snow on the high crests
 
-  for (let py = 0; py < W; py++) {
+  // Shade rows [py0, py1) into the shared ImageData. Identical math regardless of driver.
+  const processRows = (py0: number, py1: number) => {
+  for (let py = py0; py < py1; py++) {
     const wy = (py / pxPerCell) * cs;
     for (let px = 0; px < W; px++) {
       const wx = (px / pxPerCell) * cs;
@@ -298,14 +300,49 @@ export function bakeTerrain(terrain: Terrain): Baked {
       data[o + 3] = 255;
     }
   }
-  ctx.putImageData(img, 0, 0);
+  }; // end processRows
 
-  // NB: contours are intentionally NOT baked here anymore — they are drawn live as
-  // crisp vectors (drawContoursLive) so they never blur when the bitmap upscales.
+  // Blit the shaded ImageData onto the canvas, cache it, and return the Baked sheet.
+  const finish = (): Baked => {
+    ctx.putImageData(img, 0, 0);
+    const baked: Baked = { canvas, pxPerCell };
+    cache.set(terrain, baked);
+    return baked;
+  };
 
-  const baked: Baked = { canvas, pxPerCell };
-  cache.set(terrain, baked);
-  return baked;
+  return { W, processRows, finish };
+}
+
+/** One-shot synchronous relief bake — used by the lazy live draw path (drawTerrain). */
+export function bakeTerrain(terrain: Terrain): Baked {
+  const cached = cache.get(terrain);
+  if (cached) return cached;
+  const bake = makeBake(terrain);
+  bake.processRows(0, bake.W);
+  return bake.finish();
+}
+
+/**
+ * Progressive relief bake for the deploy loading screen: shade the sheet in row-bands,
+ * reporting 0→1 and yielding a frame between bands so the progress bar fills smoothly and the
+ * spinner keeps turning through the multi-second bake. Populates the SAME cache the live draw
+ * reads, so the first deploy frame is a pure cache hit (no first-frame freeze).
+ */
+export async function bakeTerrainProgressive(
+  terrain: Terrain,
+  onProgress?: (frac: number) => void,
+): Promise<Baked> {
+  const cached = cache.get(terrain);
+  if (cached) { onProgress?.(1); return cached; }
+  const bake = makeBake(terrain);
+  const BANDS = 40; // ~40 bar updates across the bake — smooth without excessive rAF overhead
+  const step = Math.max(1, Math.ceil(bake.W / BANDS));
+  for (let py = 0; py < bake.W; py += step) {
+    bake.processRows(py, Math.min(bake.W, py + step));
+    onProgress?.(Math.min(1, (py + step) / bake.W));
+    if (typeof requestAnimationFrame !== "undefined") await new Promise<void>((r) => requestAnimationFrame(() => r()));
+  }
+  return bake.finish();
 }
 
 /** Pick a contour interval (m) for the current zoom so on-screen line density stays

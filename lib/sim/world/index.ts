@@ -1,5 +1,5 @@
 export { World } from "./world";
-export { createWorld, loadWorld } from "./create";
+export { createWorld, createTerrain, loadWorld } from "./create";
 export { applyWorldEventChoice, makeWorldEvent } from "./events";
 export type {
   WorldState,

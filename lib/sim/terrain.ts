@@ -288,6 +288,7 @@ export class Terrain {
     this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale (locally)
     this.ensureRiverCrossings(); // issue 010: guarantee both banks join — add fords until the valley is one piece
     this.ensureNetworkConnectivity(); // issue 008: guarantee the gate connects to the MSR + villages
+    this.ensureInteriorConnectivity(); // issue 012: every COP seat/fighting-position joins the muster yard (no sealed pockets). LAST, so its findPath checks see the final terrain (river/network carving can't re-sever the yard after).
     this.deriveCoverConcealment();
     this.nameFeatures(rng);
   }
@@ -881,14 +882,23 @@ export class Terrain {
       const p = at(back, side);
       buildings.push({ kind, label, cx: p.cx, cy: p.cy, hw, hh });
     };
-    place("toc", "TOC", 0.12, 0.0, 2, 2); // command post, center
-    place("armory", "Armory", 0.12, 0.34, 1, 2);
-    place("aid", "Aid Station", 0.12, -0.34, 2, 1);
-    place("barracks", "Barracks A", 0.62, 0.34, 3, 1);
-    place("barracks", "Barracks B", 0.62, -0.34, 3, 1);
-    place("dfac", "Chow Hall", 0.5, 0.02, 2, 2);
-    place("latrine", "Latrines", 0.74, 0.0, 1, 1);
-    place("motorpool", "Motor Pool", -0.42, 0.42, 3, 2);
+    // Camp laid out along streets, not piled in one corner: the command cluster sits
+    // central-REAR on the yard (a dead-centre TOC was 93% of the old "stuck on a building"
+    // grind), the chow hall fronts the yard off the TOC, the two billet rows are slimmed to
+    // 2-wide and pushed wide apart so a real gravel street runs between them, and the
+    // latrines sit rearmost and downwind. These hand values are only a SEED — spaceCopBuildings
+    // below enforces a walkable street (>=10 m) between every pair regardless of rounding, so
+    // the interior is always one connected yard (no sealed courtyard a man can grind against).
+    place("toc", "TOC", 0.3, 0.0, 2, 2); // command post, central-rear of the yard
+    place("dfac", "Chow Hall", 0.05, 0.32, 2, 2); // chow fronts the yard, off the spine
+    place("aid", "Aid Station", 0.05, -0.32, 2, 1); // aid station front-left
+    place("armory", "Armory", 0.34, 0.46, 1, 2); // right flank
+    place("latrine", "Latrines", 0.34, -0.5, 1, 1); // left flank, downwind
+    place("barracks", "Barracks A", 0.6, 0.3, 2, 1); // billet rows to the rear,
+    place("barracks", "Barracks B", 0.6, -0.26, 2, 1); //   a gravel street between them
+    place("motorpool", "Motor Pool", -0.42, 0.42, 3, 2); // vehicles up front (Gravel, passable)
+    // Open guaranteed streets between footprints BEFORE stamping them solid.
+    this.spaceCopBuildings(buildings, c, R, gateDir);
     for (const b of buildings) {
       const land = b.kind === "motorpool" ? Land.Gravel : Land.Structure;
       this.stampRect(b.cx, b.cy, b.hw, b.hh, land, baseE);
@@ -1036,10 +1046,372 @@ export class Terrain {
       }
       this.computeSlopeLocal(cop.center.cx, cop.center.cy, cop.radius + 10);
     }
+    this._gateReachable = undefined; // carving changed terrain — drop the memoised reachability mask
   }
 
   /** Diagnostics for the gen-time network connectivity guard (issue 008). */
   netRepair?: { carvedCells: number; villagesConnected: number; villages: number; passes: number };
+
+  /** Diagnostics for the COP interior connectivity guard (issue 012). */
+  interiorRepair?: { passes: number; carvedCells: number; sealedCells: number; relocatedFPs: number };
+
+  /**
+   * Open guaranteed STREETS between COP building footprints (issue 012). The buildings start at
+   * hand-tuned positions; this pushes any pair that is closer than MIN_GAP cells apart, outward
+   * along its centre->building bearing, and keeps every footprint wholly inside R-3 (clear of the
+   * HESCO wall band). If a pair still touches after the budget (a very tight wire), the lower-priority
+   * footprint is shrunk a cell. Pure integer geometry over the FIXED buildings[] order and no RNG —
+   * so it is bit-identical across replays and never perturbs the seeded stream the rest of gen uses.
+   *
+   * Why streets first, then a connectivity guard: spacing removes the CAUSE (touching footprints that
+   * seal courtyards) cheaply on every seed; the guard (ensureInteriorConnectivity) is then only the
+   * insurance for the residue a slope-sealed or wall-pinched pocket can still leave.
+   */
+  private spaceCopBuildings(buildings: CopBuilding[], c: { cx: number; cy: number }, R: number, gateDir: Vec2) {
+    const MIN_GAP = 2; // >=10 m walkable street between any two footprints
+    const solids = buildings.filter((b) => b.kind !== "motorpool"); // the motor pool is passable gravel
+    const gap = (a: CopBuilding, b: CopBuilding) =>
+      Math.max(Math.abs(a.cx - b.cx) - (a.hw + b.hw), Math.abs(a.cy - b.cy) - (a.hh + b.hh)); // matches minBuildingGap
+    const farther = (b: CopBuilding) => Math.hypot(b.cx - c.cx, b.cy - c.cy);
+    const clampInside = (b: CopBuilding) => {
+      let guard = 0;
+      while (guard++ < 40) {
+        const corner = Math.max(
+          Math.hypot(b.cx + b.hw - c.cx, b.cy + b.hh - c.cy),
+          Math.hypot(b.cx - b.hw - c.cx, b.cy + b.hh - c.cy),
+          Math.hypot(b.cx + b.hw - c.cx, b.cy - b.hh - c.cy),
+          Math.hypot(b.cx - b.hw - c.cx, b.cy - b.hh - c.cy)
+        );
+        if (corner <= R - 3) break;
+        b.cx += b.cx < c.cx ? 1 : b.cx > c.cx ? -1 : 0; // step toward centre (deterministic integer)
+        b.cy += b.cy < c.cy ? 1 : b.cy > c.cy ? -1 : 0;
+      }
+    };
+    void gateDir;
+    for (let pass = 0; pass < 24; pass++) {
+      let moved = false;
+      for (let i = 0; i < solids.length; i++)
+        for (let j = i + 1; j < solids.length; j++) {
+          const a = solids[i];
+          const b = solids[j];
+          if (gap(a, b) >= MIN_GAP) continue;
+          // gap = max(xSep, ySep): clearing EITHER axis is enough, so separate along whichever
+          // axis is closest to clearing. Push both apart one cell along that axis (away from each
+          // other), then re-contain. This works for any bearing — two footprints on the same radial
+          // (the old failure) separate cleanly because we move along the axis, not the radius.
+          const xSep = Math.abs(a.cx - b.cx) - (a.hw + b.hw);
+          const ySep = Math.abs(a.cy - b.cy) - (a.hh + b.hh);
+          if (xSep >= ySep) {
+            const dir = a.cx <= b.cx ? -1 : 1; // a moves one way, b the other
+            a.cx += dir;
+            b.cx -= dir;
+          } else {
+            const dir = a.cy <= b.cy ? -1 : 1;
+            a.cy += dir;
+            b.cy -= dir;
+          }
+          clampInside(a);
+          clampInside(b);
+          moved = true;
+        }
+      if (!moved) break; // converged
+    }
+    for (const b of solids) clampInside(b); // final containment guarantee
+    // If a pair STILL touches (R too small for the footprints), shrink the lower-priority one.
+    const order = ["toc", "aid", "armory", "dfac", "barracks", "latrine"];
+    const prio = (b: CopBuilding) => order.indexOf(b.kind);
+    for (let i = 0; i < solids.length; i++)
+      for (let j = i + 1; j < solids.length; j++) {
+        let guard = 0;
+        while (gap(solids[i], solids[j]) < MIN_GAP && guard++ < 4) {
+          const lo = prio(solids[i]) >= prio(solids[j]) ? solids[i] : solids[j];
+          if (lo.hw > 1) lo.hw--;
+          else if (lo.hh > 1) lo.hh--;
+          else break;
+        }
+      }
+  }
+
+  /**
+   * The INTERIOR twin of ensureGatePortal (issue 012). Floods passable interior cells from the muster
+   * yard (honouring the mover's anti-corner-cut rule, so it matches what findPath can actually walk)
+   * and, for any garrison seat / fighting position NOT reached, carves the MINIMAL benched doorway
+   * (Structure -> Gravel) toward the muster — NEVER the HESCO wire, a compound, the LZ or the motor
+   * pool. Any residual passable pocket that still has no seat in it is filled SOLID so no wandering
+   * man can ever be funnelled into a dead end. Deterministic: integer cell math, fixed iteration
+   * order, zero RNG. The root cause was a man assigned (or funnelled) to ground his squad's billet
+   * sat behind a wall of other buildings with no walkable route — he ground the wall forever.
+   */
+  private ensureInteriorConnectivity() {
+    const cop = this.cop;
+    if (!cop) return;
+    const c = cop.center;
+    const R = cop.radius;
+    const size = this.size;
+    const baseE = this.elev[this.idx(c.cx, c.cy)];
+    const inWire = (x: number, y: number) => Math.hypot(x - c.cx, y - c.cy) <= R - 1;
+
+    const flood = (): Uint8Array => {
+      const seen = new Uint8Array(size * size);
+      const s = this.nearestPassable(cop.muster.cx, cop.muster.cy, 6);
+      if (!this.passableCell(s.cx, s.cy)) return seen;
+      seen[this.idx(s.cx, s.cy)] = 1;
+      const st = [this.idx(s.cx, s.cy)];
+      while (st.length) {
+        const i = st.pop()!;
+        const x = i % size;
+        const y = (i / size) | 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (!this.inBounds(nx, ny) || !inWire(nx, ny) || !this.passableCell(nx, ny)) continue;
+            if (dx && dy && !this.passableCell(x + dx, y) && !this.passableCell(x, y + dy)) continue; // no corner-cut
+            const j = ny * size + nx;
+            if (seen[j]) continue;
+            seen[j] = 1;
+            st.push(j);
+          }
+      }
+      return seen;
+    };
+
+    // The garrison sends men to building SEATS (yard-side doorways, inside R-3). These we connect by
+    // carving a door. Fighting positions sit ON the berm (R-3 ring) and a gunner SPAWNS on his (the MG
+    // emplacement is fps[0]/fps[1]) — we never carve to the ring (that would bleed the wall), we
+    // RELOCATE an unreachable one a few cells inward to reachable berm instead.
+    const seatCells = (): { cx: number; cy: number }[] => {
+      const out: { cx: number; cy: number }[] = [];
+      for (const b of cop.buildings) {
+        if (b.kind === "motorpool") continue;
+        const sW = this.buildingSeat(b);
+        out.push(this.nearestPassable(Math.floor(sW.x / this.cellSize), Math.floor(sW.y / this.cellSize), 3));
+      }
+      return out;
+    };
+
+    // Footprints we must never seal over (passable by design) — the LZ pad and the motor pool.
+    const protectedRect = (x: number, y: number): boolean => {
+      for (const b of cop.buildings) {
+        if (b.kind !== "motorpool") continue;
+        if (Math.abs(x - b.cx) <= b.hw && Math.abs(y - b.cy) <= b.hh) return true;
+      }
+      const lz = cop.lz;
+      return Math.abs(x - lz.cx) <= 3 && Math.abs(y - lz.cy) <= 3;
+    };
+
+    // Target cells (seat doorways + fighting positions): a region holding one must be CONNECTED, never
+    // sealed — that is where the garrison actually sends men.
+    const SLIVER = 9; // a passable orphan region with fewer cells than this and no post = harmless; seal it
+    const centre = this.nearestPassable(c.cx, c.cy, 4);
+
+    // 1) Make the WHOLE interior one walkable yard. Each pass: flood from the muster (anti-corner-cut,
+    //    matching the planner), enumerate the unreachable passable components, and carve a widening
+    //    benched lane from each LARGE one (or any holding a post) toward the centre — bridging whatever
+    //    severs it (a steep internal rise split survey-44's yard in half). This is the real guarantee:
+    //    no man can ever be standing in a region disconnected from his posts, because there are none.
+    let passes = 0;
+    let carved = 0;
+    for (passes = 0; passes < 12; passes++) {
+      const reach = flood();
+      const targetIdx = new Set<number>();
+      for (const s of seatCells()) if (this.inBounds(s.cx, s.cy)) targetIdx.add(this.idx(s.cx, s.cy));
+      for (const f of cop.fightingPositions) if (this.inBounds(f.cx, f.cy)) targetIdx.add(this.idx(f.cx, f.cy));
+      // enumerate unreachable passable interior components
+      const seen = new Uint8Array(size * size);
+      const comps: { rep: number; size: number; hasTarget: boolean; minIdx: number }[] = [];
+      for (let dy = -R; dy <= R; dy++)
+        for (let dx = -R; dx <= R; dx++) {
+          const x = c.cx + dx;
+          const y = c.cy + dy;
+          if (!this.inBounds(x, y) || !inWire(x, y) || !this.passableCell(x, y)) continue;
+          const i = this.idx(x, y);
+          if (reach[i] || seen[i]) continue;
+          let count = 0;
+          let hasTarget = false;
+          let rep = i;
+          let repD = Infinity;
+          let minIdx = i;
+          seen[i] = 1;
+          const st = [i];
+          while (st.length) {
+            const cur = st.pop()!;
+            count++;
+            if (targetIdx.has(cur)) hasTarget = true;
+            if (cur < minIdx) minIdx = cur;
+            const cx2 = cur % size;
+            const cy2 = (cur / size) | 0;
+            const d = Math.hypot(cx2 - centre.cx, cy2 - centre.cy);
+            if (d < repD) {
+              repD = d;
+              rep = cur;
+            }
+            for (let ey = -1; ey <= 1; ey++)
+              for (let ex = -1; ex <= 1; ex++) {
+                if (!ex && !ey) continue;
+                const nx = cx2 + ex;
+                const ny = cy2 + ey;
+                if (!this.inBounds(nx, ny) || !inWire(nx, ny) || !this.passableCell(nx, ny)) continue;
+                if (ex && ey && !this.passableCell(cx2 + ex, cy2) && !this.passableCell(cx2, cy2 + ey)) continue;
+                const j = ny * size + nx;
+                if (reach[j] || seen[j]) continue;
+                seen[j] = 1;
+                st.push(j);
+              }
+          }
+          comps.push({ rep, size: count, hasTarget, minIdx });
+        }
+      const mustConnect = comps.filter((cm) => cm.size >= SLIVER || cm.hasTarget).sort((a, b) => a.minIdx - b.minIdx);
+      if (mustConnect.length === 0) break; // only small post-free slivers remain — sealed below
+      const half = Math.min(Math.floor(passes / 2), 2); // 1-cell, then 3-cell, then 5-cell lanes
+      for (const cm of mustConnect) {
+        const rx = cm.rep % size;
+        const ry = (cm.rep / size) | 0;
+        // Carve toward the NEAREST already-muster-reachable cell (not the geometric centre — the centre
+        // itself may be in the disconnected half, as on survey-44). This is the shortest real bridge to
+        // the muster's component, so the flood strictly grows every pass and the loop converges.
+        let tgt = { cx: centre.cx, cy: centre.cy };
+        let found = false;
+        for (let rr = 1; rr <= 2 * R && !found; rr++)
+          for (let dy = -rr; dy <= rr && !found; dy++)
+            for (let dx = -rr; dx <= rr; dx++) {
+              if (Math.max(Math.abs(dx), Math.abs(dy)) !== rr) continue;
+              const nx = rx + dx;
+              const ny = ry + dy;
+              if (this.inBounds(nx, ny) && reach[ny * size + nx]) {
+                tgt = { cx: nx, cy: ny };
+                found = true;
+                break;
+              }
+            }
+        carved += this.carveInteriorDoor(rx, ry, tgt.cx, tgt.cy, baseE, half);
+      }
+      this.computeSlopeLocal(c.cx, c.cy, R + 2);
+      this._gateReachable = undefined;
+    }
+
+    // 2) Relocate any fighting position not in the connected yard inward to the nearest reachable cell
+    //    (using the FLOOD — the true anti-corner-cut oracle, immune to findPath's degenerate "walk
+    //    straight into the wall" fallback). The MG gunner spawns on fps[0]/fps[1], so this also frees him.
+    let relocated = 0;
+    {
+      const reach = flood();
+      for (const f of cop.fightingPositions) {
+        if (this.inBounds(f.cx, f.cy) && reach[this.idx(f.cx, f.cy)]) continue;
+        let best: { cx: number; cy: number } | null = null;
+        for (let r = 1; r <= R && !best; r++)
+          for (let dy = -r; dy <= r && !best; dy++)
+            for (let dx = -r; dx <= r; dx++) {
+              if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; // ring at radius r
+              const nx = f.cx + dx;
+              const ny = f.cy + dy;
+              if (this.inBounds(nx, ny) && inWire(nx, ny) && reach[this.idx(nx, ny)]) {
+                best = { cx: nx, cy: ny };
+                break;
+              }
+            }
+        if (best) {
+          f.cx = best.cx;
+          f.cy = best.cy;
+          relocated++;
+        }
+      }
+    }
+
+    // 3) Seal the small post-free slivers left over (passable, unreachable, no post) so a man can never
+    //    be funnelled into a dead-end nook. Phase 1 already connected everything large/with-a-post, so
+    //    this only ever closes tiny dead corners — never a region a man works in.
+    const reach = flood();
+    const nearTarget = (x: number, y: number): boolean => {
+      for (const f of cop.fightingPositions) if (Math.abs(x - f.cx) <= 2 && Math.abs(y - f.cy) <= 2) return true;
+      for (const s of seatCells()) if (Math.abs(x - s.cx) <= 2 && Math.abs(y - s.cy) <= 2) return true;
+      return false;
+    };
+    let sealed = 0;
+    const musterI = this.idx(cop.muster.cx, cop.muster.cy);
+    for (let dy = -R; dy <= R; dy++)
+      for (let dx = -R; dx <= R; dx++) {
+        const x = c.cx + dx;
+        const y = c.cy + dy;
+        if (!this.inBounds(x, y) || !inWire(x, y) || !this.passableCell(x, y)) continue;
+        const i = this.idx(x, y);
+        if (reach[i] || i === musterI || protectedRect(x, y) || nearTarget(x, y)) continue;
+        if (this.interiorComponentSize(x, y, SLIVER) >= SLIVER) continue; // never seal a large region
+        this.land[i] = Land.Structure; // tiny orphan dead corner — make it solid
+        this.elev[i] = baseE;
+        sealed++;
+      }
+    if (sealed) {
+      this.computeSlopeLocal(c.cx, c.cy, R + 2);
+      this._gateReachable = undefined;
+    }
+    this.interiorRepair = { passes, carvedCells: carved, sealedCells: sealed, relocatedFPs: relocated };
+  }
+
+  /**
+   * Carve a benched Gravel lane (half-width `half`: 0 => 1 cell, 1 => 3 cells, ...) from (x0,y0)
+   * toward (x1,y1) (issue 012). Punches THROUGH a building's Structure (that IS the door) but never
+   * the HESCO wire or a village compound, and stays inside R-3 so it can never bleed into the wall
+   * band / ring road. A WIDER lane is what bridges a STEEP internal divider: a 1-cell benched line
+   * stays steep because slope is a forward-difference of its still-high neighbours, so we widen the
+   * lane (like ensureGatePortal) until the benched ground genuinely reads passable. Returns cells cut.
+   */
+  private carveInteriorDoor(x0: number, y0: number, x1: number, y1: number, baseE: number, half = 0): number {
+    const cop = this.cop!;
+    const c = cop.center;
+    const R = cop.radius;
+    const steps = (Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1) * 2;
+    let n = 0;
+    for (let s = 0; s <= steps; s++) {
+      const bx = lerp(x0, x1, s / steps);
+      const by = lerp(y0, y1, s / steps);
+      for (let h = -half; h <= half; h++)
+        for (let g = -half; g <= half; g++) {
+          const x = Math.round(bx + h);
+          const y = Math.round(by + g);
+          if (!this.inBounds(x, y)) continue;
+          if (Math.hypot(x - c.cx, y - c.cy) > R - 3) continue; // never touch the wall band / ring
+          const i = this.idx(x, y);
+          const l = this.land[i] as Land;
+          if (l === Land.Hesco || l === Land.Compound || l === Land.CompoundWall) continue; // never wire / qalat
+          if (l !== Land.Gravel) n++;
+          this.land[i] = Land.Gravel;
+          this.elev[i] = lerp(this.elev[i], baseE, 0.85); // bench flat so slope<1.25 -> passable
+        }
+    }
+    return n;
+  }
+
+  /** Size of the connected passable component containing (sx,sy), capped at `cap` (8-connected, no
+   *  corner-cut) — used to tell a small orphan sliver (seal it solid) from a large severed yard
+   *  (never seal — connect it instead). */
+  private interiorComponentSize(sx: number, sy: number, cap: number): number {
+    const size = this.size;
+    if (!this.passableCell(sx, sy)) return 0;
+    const seen = new Set<number>([sy * size + sx]);
+    const st = [sy * size + sx];
+    let count = 0;
+    while (st.length && count < cap) {
+      const cur = st.pop()!;
+      count++;
+      const x = cur % size;
+      const y = (cur / size) | 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (!this.inBounds(nx, ny) || !this.passableCell(nx, ny)) continue;
+          if (dx && dy && !this.passableCell(x + dx, y) && !this.passableCell(x, y + dy)) continue;
+          const j = ny * size + nx;
+          if (seen.has(j)) continue;
+          seen.add(j);
+          st.push(j);
+        }
+    }
+    return count;
+  }
 
   /**
    * Generation-time NETWORK connectivity guarantee (issue 008 — the deep one). `ensureGatePortal`

@@ -45,7 +45,8 @@ The engine knows nothing about React. The renderers know nothing about React sta
   (`inContact`, `nearestVillage`, …). It owns a single persistent `CombatSim`.
 - **`types.ts`** — `WorldState`, `Task`, `Project`, `MissionType`, constants, and the shared `Ids`
   counters.
-- **`create.ts`** — `createWorld(seed, days)` and `loadWorld(blob)` factories.
+- **`create.ts`** — `createWorld(seed, days, terrain?)` and `loadWorld(blob)` factories, plus
+  `createTerrain(seed)` (the terrain seam the loading screen builds as its own phase).
 - **`director.ts`** — the enemy activity director (`runDirector`): heat drift + scheduled
   ambush / infiltration / harassment / complex-attack spawns, all routed through the terrain.
 - **`tasks.ts`** — strategic task progression (`tickTasks`): muster → file out the gate → move to
@@ -109,6 +110,22 @@ There is one screen. `WorldView` owns a `requestAnimationFrame` loop that calls
 - Pauses stepping while `world.pendingEvent` is set (a decision modal blocks time).
 - Bumps a `tick` counter ~9×/sec so HUD panels (which subscribe to `tick` and re-read `world.state`)
   refresh, and autosaves periodically. Heavy per-frame data never round-trips through React.
+
+## Deploy / loading flow (`store.runDeploy`)
+
+A deploy is several hundred ms — to seconds — of synchronous main-thread work (heightmap gen, the
+4096² relief bake, the 164-sprite atlas). Done in one click handler it would freeze the UI with no
+feedback, so `newCampaign` / `loadCampaign` / `startTutorial` route through `runDeploy`, which shows
+a `"loading"` screen and stages the work into phases, **yielding to a real browser paint
+(double-`requestAnimationFrame`) before each phase** so the loading screen — a phase checklist +
+spinner + progress bar (`components/screens/LoadingScreen.tsx`, fed by `loadProgress` in the store)
+— renders before anything blocks. Phases: `createTerrain` → `createWorld(seed, days, terrain)` (the
+terrain seam lets it be one visible phase, built once, byte-identical) → `bakeTerrainProgressive`
+(bakes the relief in yielding row-bands, reporting 0→1 so the bar fills *through* the multi-second
+bake, into the **same `WeakMap` the live draw reads** — so the first deploy frame is a warm cache
+hit, no first-frame freeze) → `loadSprites`. Deploy cost itself is unchanged; see
+`docs/issues/011` for the bake-time follow-up and
+`docs/progress/2026-06-06-deploy-loading-screen/` for the write-up.
 
 ## Rendering
 

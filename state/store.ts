@@ -1,8 +1,29 @@
 "use client";
 import { create } from "zustand";
-import { World, createWorld, loadWorld, applyWorldEventChoice, MissionType, SquadSOP, defaultSOP } from "@/lib/sim/world";
+import { World, createWorld, createTerrain, loadWorld, applyWorldEventChoice, MissionType, SquadSOP, defaultSOP } from "@/lib/sim/world";
+// Render-cache pre-warm: the bridge owns the deploy moment, so it warms the renderer's
+// caches (the 4096² terrain bake + the 164-asset sprite atlas) DURING the loading screen,
+// where the cost is visible and narrated — instead of freezing the first deploy frame.
+import { bakeTerrainProgressive } from "@/lib/render/topo";
+import { loadSprites } from "@/lib/render/sprites";
+import { ASSETS } from "@/lib/render/asset-manifest.generated";
 
-export type Screen = "menu" | "deploy" | "tourend";
+export type Screen = "menu" | "loading" | "deploy" | "tourend";
+
+// ---- deploy loading feedback (a generation phase the player watches happen) ----
+export type LoadStatus = "pending" | "active" | "done";
+export interface LoadStep {
+  id: string;
+  label: string;
+  status: LoadStatus;
+}
+export interface LoadProgress {
+  title: string; // headline: DEPLOYING / RESUMING COMMAND
+  sub: string; // seed · tour length
+  pct: number; // 0..1 overall
+  steps: LoadStep[];
+  flavor: string; // a field-manual line, for atmosphere while the valley builds
+}
 
 export const SPEEDS = [1, 2, 4, 8, 16];
 
@@ -35,6 +56,7 @@ interface GameStore {
   selectedVillage: string | null;
   banner: string | null;
   jacketId: string | null;
+  loadProgress: LoadProgress | null; // non-null while the deploy/loading screen is up
 
   // ---- panel layout (left + right dock columns; localStorage-backed) ----
   layout: PanelLayout;
@@ -52,12 +74,14 @@ interface GameStore {
   tutorialStep: number;
 
   // ---- lifecycle ----
-  newCampaign: (seed?: string, days?: number) => void;
-  loadCampaign: () => void;
+  // Generation is staged across paint-yielding phases (see runDeploy) so the player gets a
+  // loading screen instead of a frozen button — hence these return promises now.
+  newCampaign: (seed?: string, days?: number, tutorial?: boolean) => Promise<void>;
+  loadCampaign: () => Promise<void>;
   saveCampaign: () => void;
   gotoMenu: () => void;
   resume: () => void;
-  startTutorial: () => void;
+  startTutorial: () => Promise<void>;
   tutorialNext: () => void;
   tutorialPrev: () => void;
   endTutorial: () => void;
@@ -160,6 +184,96 @@ function persistLayout(l: PanelLayout) {
   }
 }
 
+// ---- deploy staging ---------------------------------------------------------------
+// The deploy work (terrain gen + the 4096² relief bake + 164 sprite rasters) is several
+// hundred ms of synchronous main-thread work. Done in one click handler it freezes the UI
+// with no feedback. runDeploy splits it into phases and YIELDS TO A REAL BROWSER PAINT
+// before each one, so the loading screen renders the active phase (and its spinner keeps
+// turning — it's a GPU transform) *before* the blocking work runs. Each phase is honest:
+// it names a real cost centre the player is waiting on.
+type SetGame = (partial: Partial<GameStore>) => void;
+
+// Field-manual / first-hand lines shown under the title while the valley builds.
+const DEPLOY_FLAVORS = [
+  "“The terrain is the enemy. Learn it before he does.”",
+  "“Every ridgeline is someone’s high ground. Make it yours.”",
+  "“You can win every firefight and still lose the valley.”",
+  "“The hardest part of command is watching.”",
+  "“Patience is a weapon system. Shuras win more than rifles.”",
+  "“Know where the dead ground is. So does he.”",
+  "“No two valleys are the same. Read this one.”",
+];
+function pickFlavor(): string {
+  // performance.now keeps it varied per deploy without Math.random (and SSR-safe enough —
+  // this only runs in a click handler on the client).
+  const t = typeof performance !== "undefined" ? performance.now() : 0;
+  return DEPLOY_FLAVORS[Math.floor(t) % DEPLOY_FLAVORS.length];
+}
+
+// Wait for the browser to actually PAINT the current state. A single rAF fires before paint;
+// double-rAF guarantees the previous commit has hit the screen, so the loading screen and the
+// "active" phase are visible before we block the thread on heavy work.
+const nextPaint = (): Promise<void> =>
+  typeof requestAnimationFrame === "undefined"
+    ? Promise.resolve()
+    : new Promise((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())));
+
+interface DeployPhase {
+  id: string;
+  label: string;
+  // `report(frac)` lets a long phase (the relief bake) advance the bar smoothly within its
+  // slice of the overall progress, instead of the bar sitting frozen for the whole phase.
+  run: (report: (frac: number) => void) => void | Promise<void>;
+}
+
+async function runDeploy(
+  set: SetGame,
+  meta: { title: string; sub: string },
+  phases: DeployPhase[],
+  finalize: () => void,
+): Promise<void> {
+  const flavor = pickFlavor();
+  const steps: LoadStep[] = phases.map((p) => ({ id: p.id, label: p.label, status: "pending" }));
+  const snap = (pct: number) =>
+    set({ loadProgress: { ...meta, pct, flavor, steps: steps.map((s) => ({ ...s })) } });
+
+  set({ screen: "loading" });
+  snap(0);
+  await nextPaint(); // let the loading screen itself paint before anything heavy
+
+  try {
+    for (let i = 0; i < phases.length; i++) {
+      steps[i].status = "active";
+      snap(i / phases.length);
+      await nextPaint(); // paint the active row + spinner BEFORE the (often blocking) work
+      // overall pct = completed phases + this phase's own fraction, all over the phase count.
+      await phases[i].run((frac) => snap((i + Math.max(0, Math.min(1, frac))) / phases.length));
+      steps[i].status = "done";
+      snap((i + 1) / phases.length);
+    }
+  } catch (e) {
+    // A generation failure must never strand the player on a frozen loading screen.
+    console.error("[deploy] generation failed:", e);
+    set({ screen: "menu", loadProgress: null });
+    return;
+  }
+
+  await nextPaint(); // let the 100%/all-green state register for a beat, then swap in the game
+  finalize();
+}
+
+// The render-cache pre-warm phases shared by every deploy path: bake the relief into the
+// WeakMap drawTerrain reads, then rasterize the sprite atlas. After these, the first deploy
+// frame is a pure cache hit — no first-frame freeze.
+function renderWarmPhases(getWorld: () => World): DeployPhase[] {
+  return [
+    // The relief bake is the long pole (~seconds, 16 M shaded pixels) — bake it progressively
+    // so the bar fills smoothly through it, and cache it so the first deploy frame is instant.
+    { id: "relief", label: "Surveying the relief — baking the topographic map", run: async (report) => { await bakeTerrainProgressive(getWorld().terrain, report); } },
+    { id: "assets", label: "Issuing kit — rasterizing the asset library", run: () => loadSprites(ASSETS) },
+  ];
+}
+
 export const useGame = create<GameStore>((set, get) => ({
   screen: "menu",
   world: null,
@@ -177,6 +291,7 @@ export const useGame = create<GameStore>((set, get) => ({
   selectedVillage: null,
   banner: null,
   jacketId: null,
+  loadProgress: null,
   layout: loadLayout(),
   savedExists: false,
   tutorial: false,
@@ -184,62 +299,91 @@ export const useGame = create<GameStore>((set, get) => ({
 
   refreshSave: () => set({ savedExists: hasSaveOnDisk() }),
 
-  newCampaign: (seed, days = 90) => {
+  newCampaign: async (seed, days = 90, tutorial = false) => {
     const s = seed && seed.length ? seed : `valley-${Math.floor(performance.now())}`;
-    const world = createWorld(s, days);
     _acc = 0;
     _wasInContact = false;
-    set({
-      world,
-      screen: "deploy",
-      activeSquadId: "sq1",
-      attachOfficers: false,
-      planning: false,
-      planRoute: [],
-      planMission: "presence",
-      planSOP: DEFAULT_SOP,
-      paused: true,
-      speed: 4,
-      warp: false,
-      fireSupport: null,
-      selectedVillage: null,
-      banner: null,
-      jacketId: null,
-      tutorial: false,
-      tick: get().tick + 1,
-    });
-    get().saveCampaign();
+    let terrain!: ReturnType<typeof createTerrain>;
+    let world!: World;
+    await runDeploy(
+      set,
+      { title: tutorial ? "BEGINNING THE WALK-THROUGH" : "DEPLOYING", sub: `${s} · ${days}-day tour` },
+      [
+        // Phase 1 is the heavy one (~200 ms heightmap). Phase 2 (~40 ms) musters the platoon,
+        // reads the villages, populates the valley and stands up the COP — reusing the terrain
+        // from phase 1 (byte-identical to the one-shot path; verified).
+        { id: "valley", label: "Carving the valley — ridgelines, draws, and the river", run: () => { terrain = createTerrain(s); } },
+        { id: "muster", label: "Mustering the platoon; reading the villages; standing up COP Vimoto", run: () => { world = createWorld(s, days, terrain); } },
+        ...renderWarmPhases(() => world),
+      ],
+      () => {
+        set({
+          world,
+          screen: "deploy",
+          activeSquadId: "sq1",
+          attachOfficers: false,
+          planning: false,
+          planRoute: [],
+          planMission: "presence",
+          planSOP: DEFAULT_SOP,
+          paused: true,
+          speed: 4,
+          warp: false,
+          fireSupport: null,
+          selectedVillage: null,
+          banner: null,
+          jacketId: null,
+          tutorial,
+          tutorialStep: 0,
+          loadProgress: null,
+          tick: get().tick + 1,
+        });
+        get().saveCampaign();
+      },
+    );
   },
 
-  loadCampaign: () => {
+  loadCampaign: async () => {
+    let parsed: Parameters<typeof loadWorld>[0] | null = null;
     try {
       const raw = window.localStorage.getItem(SAVE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { rngState: number; state: import("@/lib/sim/world").WorldState; units: never };
-      const world = loadWorld(parsed as Parameters<typeof loadWorld>[0]);
-      _acc = 0;
-      _wasInContact = false;
-      set({
-        world,
-        screen: "deploy",
-        activeSquadId: "sq1",
-        attachOfficers: false,
-        planning: false,
-        planRoute: [],
-        planSOP: DEFAULT_SOP,
-        paused: true,
-        speed: 4,
-        warp: false,
-        fireSupport: null,
-        selectedVillage: null,
-        banner: null,
-        jacketId: null,
-        tutorial: false,
-        tick: get().tick + 1,
-      });
+      parsed = JSON.parse(raw) as Parameters<typeof loadWorld>[0];
     } catch {
-      /* corrupt save — ignore */
+      return; // corrupt / unreadable save — stay on the menu
     }
+    _acc = 0;
+    _wasInContact = false;
+    let world!: World;
+    await runDeploy(
+      set,
+      { title: "RESUMING COMMAND", sub: "restoring the deployment record" },
+      [
+        { id: "restore", label: "Reading the deployment record; rebuilding the valley", run: () => { world = loadWorld(parsed!); } },
+        ...renderWarmPhases(() => world),
+      ],
+      () => {
+        set({
+          world,
+          screen: "deploy",
+          activeSquadId: "sq1",
+          attachOfficers: false,
+          planning: false,
+          planRoute: [],
+          planSOP: DEFAULT_SOP,
+          paused: true,
+          speed: 4,
+          warp: false,
+          fireSupport: null,
+          selectedVillage: null,
+          banner: null,
+          jacketId: null,
+          tutorial: false,
+          loadProgress: null,
+          tick: get().tick + 1,
+        });
+      },
+    );
   },
 
   saveCampaign: () => {
@@ -261,9 +405,10 @@ export const useGame = create<GameStore>((set, get) => ({
     if (get().world) set({ screen: "deploy" });
   },
 
-  startTutorial: () => {
-    get().newCampaign("tutorial-valley", 60);
-    set({ tutorial: true, tutorialStep: 0, paused: true });
+  startTutorial: async () => {
+    // newCampaign now carries the tutorial flag through the loading screen and sets
+    // tutorial/tutorialStep/paused in its finalize, so the coach is live the moment deploy shows.
+    await get().newCampaign("tutorial-valley", 60, true);
   },
   tutorialNext: () => set((st) => ({ tutorialStep: st.tutorialStep + 1 })),
   tutorialPrev: () => set((st) => ({ tutorialStep: Math.max(0, st.tutorialStep - 1) })),

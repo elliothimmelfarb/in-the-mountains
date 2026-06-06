@@ -7,12 +7,31 @@ import { World } from "./world";
 import { WorldState, Ids, resetIds, defaultSOP } from "./types";
 import { buildRoutine, clampMap, crewEmplacements, buildEmplacements } from "./helpers";
 
-/** Create a fresh deployment. */
-export function createWorld(seed: string, totalDays = 90): World {
+/**
+ * Build *only* the valley terrain for a seed — the single heaviest phase of a deploy
+ * (a 512² heightmap + landcover + river/road network; ~200 ms). Exposed so the UI can
+ * stage generation across visible loading phases and pre-warm the renderer, then hand the
+ * finished terrain straight to `createWorld` instead of building it twice. Headless callers
+ * never need this — they just call `createWorld(seed, days)` and let it build its own.
+ */
+export function createTerrain(seed: string): Terrain {
+  return new Terrain({ ...DEFAULT_TERRAIN, seed });
+}
+
+/**
+ * Create a fresh deployment.
+ *
+ * `prebuiltTerrain` (optional) lets the deploy UI reuse a terrain it already built+rendered
+ * for the loading screen. It MUST have been built from the same `seed` (via `createTerrain`):
+ * the terrain carries its own independent RNG, so reusing a same-seed terrain leaves every
+ * outer-`rng` draw below in the exact same order — the resulting World is byte-identical to
+ * the no-arg path. A mismatched-seed terrain would silently break the determinism contract.
+ */
+export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terrain): World {
   resetIdCounter(0);
   resetIds();
   const rng = new RNG(seed);
-  const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed });
+  const terrain = prebuiltTerrain ?? new Terrain({ ...DEFAULT_TERRAIN, seed });
   const platoon = makePlatoon(rng.fork("platoon"), 0.45);
 
   const villages: VillageState[] = terrain.villages.map((v) => {

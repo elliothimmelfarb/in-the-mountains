@@ -11,8 +11,8 @@ import { squadFight } from "../ai/squad-combat";
 const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
 const LEG_ARRIVE = 18; // m — the point man has reached the objective
 const STUCK_S = 90; // s of zero route progress before a leg is declared genuinely stuck
-const OBJ_COHESION = 90; // m — a man this close to the objective counts as "closed up" on it
-const COHESION_GRACE_S = 45; // s the lead waits on the objective for the element before setting up regardless
+const OBJ_COHESION = 55; // m — a man this close to the objective counts as "closed up" on it
+const COHESION_GRACE_S = 80; // s the lead waits on the objective for the element before setting up regardless
 const CONTACT_HOLD_S = 10; // s a squad stays "in contact" after the last round/sighting (anti-flicker)
 
 /**
@@ -159,7 +159,11 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
     return;
   }
 
-  // Outside the wire: move to the objective in formation.
+  // Outside the wire: move to the objective in formation. (A discrete "rally and form up at
+  // the gate" hold was tried here to keep the file from stringing out behind a fast point man,
+  // but it bunched-then-surged the element — worsening the accordion and pushing reach past the
+  // tactical window — so the squad instead closes up continuously via the pace governor's
+  // far-lag brake, and fully coheres on the objective before setting up security.)
   steerSquad(w, t, members, target, planFormation(w, t, members), dt);
   const lead = w.sim.unit(t.leadId);
   // Progress is the navigator's REMAINING ROUTE LENGTH, not straight-line distance to
@@ -180,7 +184,7 @@ function drivePatrol(w: World, t: Task, members: Unit[], dt: number) {
   // the lead alone (they're waypoints, not setup points).
   if (arrived && finalLeg && !stuck) {
     const closed = members.filter((m) => dist(m.pos, target) < OBJ_COHESION).length;
-    const cohered = closed >= Math.ceil(members.length * 0.7);
+    const cohered = closed >= Math.ceil(members.length * 0.8);
     t.arrivedHoldS = (t.arrivedHoldS ?? 0) + dt;
     if (cohered || (t.arrivedHoldS ?? 0) > COHESION_GRACE_S) {
       t.legIndex++;
@@ -306,7 +310,7 @@ function releaseCombat(w: World, t: Task, members: Unit[]) {
   }
   releaseFormation(members);
   if (t.phase === "onstation") {
-    holdSecurity(w, byTeam(w, members), centroidOf(members), t.kind === "kle" ? 14 : 20);
+    holdSecurity(w, byTeam(w, members), centroidOf(members), t.kind === "kle" ? 9 : 14, t);
   }
   w.log(
     `${t.label}: contact broken — ${t.phase === "returning" ? "continuing exfil" : t.phase === "onstation" ? "re-securing the objective" : "resuming movement"}.`,
@@ -318,9 +322,9 @@ function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
   t.phase = "onstation";
   t.timer = dwellFor(t);
   const at = center ?? centroidOf(members);
-  const radius = t.kind === "kle" ? 14 : 20;
+  const radius = t.kind === "kle" ? 9 : 14;
   // Set up around the objective by team, each fire team holding a sector.
-  holdSecurity(w, byTeam(w, members), at, radius);
+  holdSecurity(w, byTeam(w, members), at, radius, t);
   w.interrupt(`${t.label} on objective`);
 }
 

@@ -95,6 +95,20 @@ stamped into the landcover so cover, sight and pathing all respect it. A `CopLay
   forbids a diagonal step through a wall corner (anti corner-cutting), so a **diagonal** gate can be
   every-cell-passable and ring-100%-open yet sealed for the planner — the old flood-based check missed
   it and stranded the squad inside the wire (the "squad cannot leave COP" bug);
+- a **connected interior yard with real streets** (`spaceCopBuildings` + `ensureInteriorConnectivity`,
+  issue 012). The wire is small (R ≈ 85 m) and packs eight buildings, so without a guard their
+  footprints touch and **seal interior courtyards** — leaving garrison posts a man literally can't path
+  to, where he grinds a wall forever ("a squad gets stuck on buildings"). Two deterministic guards fix
+  it: `spaceCopBuildings` relaxes any two footprints that are closer than 2 cells apart (separating along
+  the axis closest to clearing, clamped inside R−3) so there is always a ≥ 10 m **gravel street**
+  between buildings; then `ensureInteriorConnectivity` (run **last** in generation, so it sees the final
+  terrain) floods the interior from the muster with the planner's own anti-corner-cut rule and **carves a
+  widening benched lane** from any unreachable region (or post) to the nearest reachable cell until the
+  **whole interior is one walkable yard** — relocating a stranded fighting position inward to reachable
+  berm, and sealing only tiny post-free dead corners. It never touches the HESCO wire, so the perimeter
+  (and infiltration) is unchanged. Belt-and-suspenders: a garrison man wedged short of his post escalates
+  from the cheap router to a full `findPath` (`world/garrison.ts`). `copaudit` carries the invariant
+  ("seeds with an unreachable garrison post: 0/N");
 - a **switchbacked access road** (`gradeAccessRoad`) that descends from the gate to the valley road.
   Rather than lerping a straight cut from the gate to the river — which gouged a long, dead-straight,
   25 m-wide trench across the hillside whenever the knob stood well above the floor — it routes one
@@ -114,7 +128,10 @@ towers and the MG crews stay on their guns (always eyes on the wire); meal hours
 hall**; after dark the off-guard rack out in the **barracks**; by day leaders work the **TOC**, the
 medic keeps the **aid station**, and everyone else knocks about the yard. When fighters close on the
 wire the whole COP **stands to** and mans the nearest fighting positions, breaking to fight the
-moment they're engaged and falling back to the routine on the lull.
+moment they're engaged and falling back to the routine on the lull. Posts are kept on **reachable**
+ground (`reachablePoint`), and a man who somehow wedges short of his post (a tight interior, a relocated
+spot) escalates from the cheap local router to a full `findPath` after a few seconds rather than
+grinding the wall — a runtime backstop behind the generation-time connectivity guard (issue 012).
 
 ## Pathfinding (`path.ts`)
 
@@ -178,6 +195,17 @@ naturally collapses to single file at a choke). It is a no-op when the lane ahea
 crowds, so open-ground and combat movement are unaffected; neighbour lookups use a per-tick spatial
 hash. This is *physics* — every agent (soldiers, civilians, the enemy) gets it for free.
 
+**Facing is rate-limited, not snapped.** A body slews toward its target heading at a bounded turn rate
+(≈170°/s marching, ≈80°/s holding/scanning, fast onto an acquired threat) instead of teleporting to it
+each tick — the instantaneous snap was the dominant "robotic" tell (heading jitter peaked at ~730°/s;
+it now sits ~16°/s on the march). Movement also **eases into its final waypoint** (decelerate onto the
+slot, not full-speed-then-stop) and keeps a **never-freeze speed floor** so a patrol always reads as
+moving. Where separation can't run — two *halted* bodies, since steering only fires for a man
+following a path — a cheap **de-overlap** pass eases them apart (onto passable ground only), so a
+settled 360 or a soldier-meets-standing-civilian never interpenetrates. Every bit of per-agent
+variation (interval personality, scan phase, civilian pace/dwell) comes from a **pure hash of the unit
+id**, so the headless sim stays bit-for-bit reproducible across replays.
+
 ## Movement postures
 
 Units carry a `technique` (`entities.ts`): **crawl, concealed, tactical, patrol, traveling, rush**.
@@ -205,8 +233,10 @@ mission, posture, terrain and whether the squad **expects contact**:
 
 - **Formation** — *file* in restrictive ground (forest/draws) or when moving stealthy; *staggered
   column* on an admin road march; *wedge* for movement to contact in the open; *dispersed* (teams
-  abreast, all-round) when contact is expected. Interval opens up when contact is likely and closes
-  down in close terrain for control.
+  abreast, all-round) when contact is expected. Interval follows the doctrinal **"5 and 10"** — ~5 m
+  between individual men, ~11–14 m between fire teams with the squad leader riding between them —
+  opening up when contact is likely and closing down in close terrain for control, with a stable
+  per-soldier ±10% so the file reads as men rather than a machined lattice.
 - **Routing** — concealed/seeking postures hug cover and stay off the obvious lanes; fast postures
   bias to roads; an ambush/recon never walks the road into its own kill zone.
 
@@ -243,9 +273,24 @@ strand a patrol at its own gate.) Filing out the ECP, the point man pours straig
 pace, and the file-out backstop watches *his* progress, not the lagging centroid, so the element
 doesn't flip to formation while the lead is still inside the wire. On the objective the squad sets up
 only once it has **closed up** — the lead holds on the objective (the pace governor draws the file in)
-until ~70% of the element is within ~90 m, or a short grace expires, so security goes in as a squad,
-not the instant the point man arrives with his men strung out behind him (issue 010). Each fire team
-then sets into a sector of a 360° security halt. Coming home, the element **files back in keyed on the
+until ~80% of the element is within ~55 m, or a short grace expires, so the 360 forms with the squad
+*together* rather than with a fire team still 100 m back (the strung-out arrival).
+
+The **360° security halt** itself (`holdSecurity`) is a *cigar-perimeter, near-side occupation* — the
+fix for men "getting stuck on each other" setting up security. Each man takes the ring sector he is
+already **nearest**: evenly-spaced outward slots are laid down and the ring is rotated against the men
+(sorted by their current bearing) to **minimise total angular travel**, which for points on a circle
+is crossing-free — nobody marches across the formation through everyone else (the old raw-index
+assignment routinely sent a man on the east to the *west* slot). Slots are nudged per-man off the
+geometric ideal (so it isn't a machined circle), snapped onto **passable + cover**, and snapped onto
+**reachable** ground; a sector walled off behind broken terrain falls back to a **hasty position on
+the man's own bearing** instead of a long detour. The **squad leader holds the inside** of the cigar
+(command from within the perimeter), the radius **fits the terrain** (it shrinks in a draw and is
+squad-sized — deliberate 14 m / KLE 9 m), and the assignment is cached so a contact flicker doesn't
+reshuffle the whole perimeter. A halted man **settles** (a deadband stops the sub-metre re-aim dither),
+**scans his sector** (a slow facing sweep that freezes onto a real threat) rather than locking like a
+turret, and a per-tick **de-overlap** pass eases any two settled bodies apart so the perimeter can't
+collapse into a pile. Coming home, the element **files back in keyed on the
 LEAD reaching the gate** (not the centroid — the column trails the point man, so a centroid test left
 the squad standing down *outside* the wire), and completes the moment the bulk is inside (the garrison
 walks in the last straggler). The instant rounds crack, the formation releases and combat AI takes
