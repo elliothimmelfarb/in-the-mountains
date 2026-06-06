@@ -1,0 +1,16 @@
+bal-36: 1 req  | cum N=63 dc=0% onF=0% proj=5% off=5% medFr=222m medEn=2m
+bal-37: 0 reqs  | cum N=63 dc=0% onF=0% proj=5% off=5% medFr=222m medEn=2m
+bal-38: 0 reqs  | cum N=63 dc=0% onF=0% proj=5% off=5% medFr=222m medEn=2m
+bal-39: 0 reqs  | cum N=63 dc=0% onF=0% proj=5% off=5% medFr=222m medEn=2m
+
+================ FIRE-MISSION QUALITY (HEAD) ================
+mode=deny  seeds=40  minutes=30  requests=63
+d_friendly   median 222m  mean 237m  min 40m
+d_enemy_seen median 2m  mean 2m
+d_enemy_live median 2m
+dangerClose% 0%  (0/63)   aimpoint inside blast*2.5 of a friendly
+onFriendlies%0%  (0/63)   aimpoint inside LETHAL blast of a friendly
+projection%  5%  (3/63)   no enemy visible to the squad
+offTarget%   5%  (3/63)   >60m from nearest observed enemy (incl. none-seen=3)
+by squadState: suppress:57  break:3  hold:3
+============================================================

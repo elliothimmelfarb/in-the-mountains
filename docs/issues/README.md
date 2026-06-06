@@ -36,6 +36,9 @@ The original issue text is preserved below each file with a **Resolution** secti
 | [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling: COP/village cliff-pockets cap it ~30% (BFS ~64%) | **Medium** | ✅ **Resolved 2026-06-05** — connectivity guard + fatigue economy; arr-among-reachable 36%→76%, netVil 59%→72% |
 | [009](009-far-village-tactical-window-and-network-ceiling.md) | Residuals: far-village tactical-window arrival, netVil 72% ceiling, trough cost | Low | Characterised (honest remainder of 006/008) |
 | [010](010-river-as-chasm-and-navigation-stranding.md) | River was an impassable cliff-walled chasm (0 crossings, 28% of seeds split the valley); planner stranded patrols | **High** | ✅ **Resolved 2026-06-06** — walkable floodplain + fords/footbridges + free-A* fallback + component-aware snap + squad cohesion/return fixes; router-null 30%→0%, banks-split 28%→0%, return-home 23%→81% |
+| [011](011-deploy-relief-bake-cost.md) | Deploy-time relief bake (4096² sheet) is the dominant load cost (~seconds) | Low–Medium | 🟡 **Open (restraint-logged 2026-06-06)** — now *covered* by the staged loading screen + progressive bake; speed is a future measured perf pass |
+| [012](012-cop-interior-connectivity.md) | A squad gets stuck on buildings in the COP (terrain-gen + a `copaudit` metric blind spot) | **High** | ✅ **Resolved 2026-06-06** — see `docs/progress/2026-06-06-cop-interior/` |
+| [013](013-call-for-fire-danger-close-and-aimpoint.md) | Squad called mortar missions on itself / nowhere near the enemy (centroid-averaging + no danger-close gate → real fratricide) | **High** | ✅ **Resolved 2026-06-06** — densest-cluster PID aimpoint + danger-close withhold + FDC check-fire; `fire-mission-probe`: dangerClose 3–4%→0%, fratricide 1→0, offLive 0% (held-out confirmed) |
 
 **2026-06-06 (river navigation overhaul):** a fast static structural audit (**`terrain-audit.ts`**)
 showed the river was a cliff-walled chasm with **zero crossings** that **split the valley in 28% of
@@ -45,6 +48,15 @@ barrier + free-A* fallback + component-aware objective snap), and fixed squad-le
 (cohesion gate, lead-keyed return, altitude-fatigue). New harness **`squad-arrival.ts`** scores the
 WHOLE squad (cohesion + the return leg), not just the point man. See [010] and
 `docs/progress/2026-06-06-river-navigation/`.
+
+**2026-06-06 (call-for-fire realism):** a player report ("squad called a mission much too close to
+them, nowhere near the enemy") metricized with a new probe (**`fire-mission-probe.ts`**, intercepts
+every AI call-for-fire and scores the aimpoint vs ground truth + counts fratricide). Both halves were
+real: a centroid-of-all-enemies aimpoint that lands *between* split contacts (on the squad), and **no
+danger-close gate** (one run produced a real US fratricide). Fixed with a densest-cluster PID
+aimpoint + a danger-close withhold + an FDC check-fire. dangerClose 3–4%→0%, fratricide 1→0,
+off-target-vs-living-enemy 0% (held-out confirmed). See [013] and
+`docs/progress/2026-06-06-firemission-realism/`.
 
 New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
 **`reachability.ts`** (the fair all-villages movement metric — see 006).

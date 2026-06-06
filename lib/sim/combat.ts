@@ -1258,6 +1258,18 @@ export class CombatSim {
       if (fm.nextRoundS <= 0 && fm.roundsLeft > 0) {
         const weapon = getWeapon(fm.weaponId);
         const off = this.rng.inDisc(fm.target.x, fm.target.y, fm.spread);
+        // FDC CHECK FIRE: never drop a friendly round into a friendly's lethal blast. If troops
+        // maneuvered into the impact area after the mission was cleared (the dynamic case the
+        // call-for-fire gate can't foresee), abort the remaining rounds. Enemy missions don't care.
+        if (fm.faction === "us") {
+          const lethal = (weapon.blastRadius ?? 12) * 1.3;
+          if (this.playerUnits().some((u) => dist(u.pos, off) < lethal)) {
+            this.addLog(`CHECK FIRE — friendlies in the impact area; mission aborted.`, "support");
+            fm.status = "complete";
+            fm.roundsLeft = 0;
+            continue;
+          }
+        }
         // build a projectile that detonates immediately at the offset point
         const p: Projectile = {
           id: `fm${fm.id}-${fm.roundsLeft}`,

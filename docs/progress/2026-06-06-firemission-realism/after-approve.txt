@@ -1,0 +1,16 @@
+bal-37: 0 reqs  | cum N=34 dc=0% onF=0% proj=3% off=3% medFr=242m medEn=2m fratricide=0
+bal-38: 0 reqs  | cum N=34 dc=0% onF=0% proj=3% off=3% medFr=242m medEn=2m fratricide=0
+bal-39: 0 reqs  | cum N=34 dc=0% onF=0% proj=3% off=3% medFr=242m medEn=2m fratricide=0
+
+================ FIRE-MISSION QUALITY (HEAD) ================
+mode=approve  seeds=40  minutes=30  requests=34
+d_friendly   median 242m  mean 246m  min 69m
+d_enemy_seen median 2m  mean 3m
+d_enemy_live median 2m
+dangerClose% 0%  (0/34)   aimpoint inside blast*2.5 of a friendly
+onFriendlies%0%  (0/34)   aimpoint inside LETHAL blast of a friendly
+projection%  3%  (1/34)   no enemy visible to the squad
+offTarget%   3%  (1/34)   >60m from nearest observed enemy (incl. none-seen=1)
+by squadState: suppress:20  break:11  hold:3
+US fratricide casualties: 0
+============================================================

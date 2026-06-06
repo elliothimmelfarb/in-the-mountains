@@ -1,0 +1,19 @@
+FIRE-MISSION QUALITY BASELINE — HEAD (661c41f), scripts/fire-mission-probe.ts
+mode=deny  seeds=40 (bal-0..39)  minutes=30  requests=67
+d_friendly   median 241m  mean 212m  min 23m
+d_enemy_seen median 4m   mean 29m
+d_enemy_live median 15m
+dangerClose% 3%  (2/67)   aimpoint inside blast*2.5 of a friendly
+onFriendlies%0%  (0/67)
+projection%  9%  (6/67)   no enemy visible to the squad (guessed grid)
+offTarget%   18% (12/67)  >60m from nearest observed enemy
+by squadState: suppress:58  break:6  hold:3
+
+mode=approve seeds=40 minutes=30 requests=75  (rounds actually land)
+d_friendly   median 136m  mean 181m  min 10m
+d_enemy_seen median 4m   mean 66m
+dangerClose% 4%  (3/75)
+onFriendlies%1%  (1/75)   a round inside LETHAL blast of a friendly
+projection%  32% (24/75)
+offTarget%   52% (39/75)
+US fratricide casualties: 1
