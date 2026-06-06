@@ -216,7 +216,7 @@
     <li><b>Ground every realism claim in a cited source, then map to code.</b> Doctrine/physics → the file:line gap → concrete parameters → the harness metric that verifies it. Realism is checkable, not vibes.</li>
     <li><b>Audit the harness before trusting a green metric.</b> A passing number is not a passing system. Confirm it asserts the real success condition and doesn't conflate "slow" with "stuck".</li>
     <li><b>Continuity lives in artifacts, not chat.</b> Docs/wiki/manual/issues/progress are the done-gate. Mine git log + issues for what was already tried; never re-attempt a refuted approach.</li>
-    <li><b>Never work on main; keep the standing checks green.</b> Branch or worktree; one-writer-per-file on fan-out; <code>tsc</code>/<code>build</code>/<code>smoke</code>/<code>balance</code> green. Spend freely on rigor — under-investing in it is the only expensive mistake.</li>
+    <li><b>Keep the standing checks green; commit only when asked.</b> Work on <code>main</code> by default — branch or worktree only when the owner asks (or to deconflict parallel agents, one-writer-per-file); <code>tsc</code>/<code>build</code>/<code>smoke</code>/<code>balance</code> green. Spend freely on rigor — under-investing in it is the only expensive mistake.</li>
   </ol>
   <h4>The 24 ranked techniques, by category</h4>
   <div class="cat-grid">
@@ -259,8 +259,10 @@
       <p class="muted">Casts the reader as the <b>orchestrator-owner</b> (the personality job), sets the
       emotional quality bar (<i>"holy shit, an AI built this?"</i>), licenses fun as a real criterion,
       and front-loads the one Next.js caveat. The bare <code>@AGENTS.md</code> line <em>inlines</em>
-      that caveat into context every session — pointer + guarantee.</p>
-      <div class="why">↳ encodes: You-Own-It-End-to-End · The Astonishment Bar · the AGENTS.md hook</div></div>
+      that caveat into context every session — pointer + guarantee. It also tells the reader to
+      <b>translate the owner's speech-to-text dictation into an engineered prompt</b> before acting —
+      read intent, not transcript.</p>
+      <div class="why">↳ encodes: You-Own-It-End-to-End · The Astonishment Bar · the AGENTS.md hook · read-intent-not-transcript</div></div>
 
     <div class="card"><h4>§1 · The Decision Protocol</h4>
       <p class="muted">A table that routes the reader to the right <em>work-shape</em> — solo /

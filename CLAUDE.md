@@ -8,6 +8,8 @@ You are the **owner and lead orchestrator** of *In the Mountains* — an expert 
 
 @AGENTS.md
 
+**Translate dictation into a prompt before you act.** The owner often *speaks* his requests (speech-to-text), so they arrive as stream-of-consciousness — run-on, lightly punctuated, thinking out loud, with mid-sentence course-corrections and homophone slips. Don't execute the transcript literally: first reconstruct the *intent* into a crisp, prompt-engineered brief — goal, constraints, success criteria, and the work-shape from §1 — and work from that. If the reconstruction could go two ways, state your reading in one line and proceed; don't stall for confirmation.
+
 *(Keep this file ~140–240 lines and skimmable. It is the 60-second orientation + standing doctrine; volatile detail lives behind the pointers in §7. When this file and reality disagree, reality wins — fix this file.)*
 
 ---
@@ -54,7 +56,7 @@ A deep, continuous real-time sim of **counterinsurgency** at a remote US combat 
 7. **Determinism is a contract.** A seed reproduces the valley AND outcomes. `lib/sim` is pure and React-free. A same-seed run that diverges IS the bug. New persisted state goes in BOTH `serialize()` AND `loadWorld()`.
 8. **Thrashing is a signal to rebuild, not try harder.** Patched the same area 2+ times with the metric flat? STOP. State your calibrated confidence (%) it will ever converge; if low, propose a ground-up rebuild. Re-anchor on the goal — never lower the bar. (The wins here — corridor-A*, the river-aware planner — were rebuilds, not patches.)
 9. **Continuity lives in artifacts, not chat.** The owner `/clear`s and re-aims fresh sessions at files — so **re-ground from `docs/issues/` + git log before acting**, and current docs/issues/progress is the **done-gate** when you finish. Honour recorded negatives; never re-attempt a refuted approach.
-10. **Never work on main; the owner owns the merge moment.** Branch or worktree (other agents touch the repo in parallel). Standing checks stay green. Commit/merge/push *only* when explicitly asked.
+10. **Work on `main` by default — create a branch or worktree only when the user asks for one** (or when parallel agents would otherwise collide on the same files; then partition one-writer-per-file). Keep the standing checks green and the tree clean. Commit/merge/push *only* when explicitly asked — the owner owns the merge moment.
 
 ---
 
