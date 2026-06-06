@@ -40,10 +40,12 @@ Static structural audit — `scripts/terrain-audit.ts`, 40 seeds (mover-faithful
 | river bank-cliff fraction | 59% | **1%** |
 | river "trap" cells (stuck-in-river) | 5,296 | **0** |
 | seeds with the two banks SPLIT | 28% | **0%** |
-| villages BFS-unreachable | 18% | **1%** (genuine cliff pockets, honest) |
-| router NULL routes to villages | 30% | **0%** |
-| far reachable objectives missed by router | 20% | **0%** |
+| villages BFS-unreachable | 18% | **2%** (genuine cliff pockets, honest) |
+| router NULL routes to villages | 30% | **2%** (≈ the cliff-pocket villages; squad sets up as close as the ground allows) |
+| far reachable objectives missed by router | 20% | **0.4%** |
 | crossings present | 0 | ~70–140 / seed |
+
+(Full 60-seed figures, verified independently on the fresh survey-40..59 tail.)
 
 Whole-squad behaviour — `scripts/squad-arrival.ts`, combat-free, 6 seeds × nearest villages:
 
@@ -67,6 +69,22 @@ getting trapped:
 ![valley overview with the river](river-survey2-overview.png)
 ![the river ribbon and its walkable floodplain banks](river-ford-crossing.png)
 ![the squad filing across the river at a crossing](river-crossing-squad.png)
+
+## Adversarial verification (a second workflow)
+
+A second multi-agent workflow independently re-measured the claims on **fresh seeds** (survey-40..59),
+reviewed the diff for regressions, and hunted untested stranding vectors. It earned its keep:
+
+- **Confirmed** on the fresh tail: banks-split 0/60, router-null and far-miss hold; the wins are not
+  overfit to the tuned seed set.
+- **Caught a real regression I introduced:** the free-A* fallback (budget > whole map) ran on the
+  live tick and was re-fired every tick by callers chasing a passable-but-*unreachable* goal across
+  the river — a **179 ms tick spike** (garrison seats via `passablePoint`; civilian flee into the
+  water). Fixed: a reachability guard on the free pass + `nearestReachable` snapping for garrison
+  seats and civilian flee. Worst tick **179 ms → 49.7 ms** (one-time), average **0.31 ms**.
+- **Found a missing-snap vector:** civilian bazaar errands and enemy infiltration used the old
+  `nearestPassable` snap, stranding on the far bank (component-mismatch 84/260 → 3/260 with the
+  reachable snap). Fixed via `terrain.reachablePoint`.
 
 ## What's still imperfect (honest remainder)
 
