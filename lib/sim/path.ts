@@ -142,14 +142,30 @@ const CORRIDOR_RADII = [7, 15, 30];
  * Returns world-space waypoints (excluding the start); a straight shot if truly unreachable.
  */
 export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions = {}): Vec2[] {
+  // Is the expensive free, unclipped A* fallback even worth running? It's only correct to pay for
+  // when a route actually exists. If the START is in the main (gate) component but the GOAL is NOT,
+  // the goal is genuinely unreachable — running a 300k-expansion free A* would explore nearly the
+  // whole map, fail, AND get re-fired every tick by a caller chasing an unreachable seat/flee point
+  // (a measured 179 ms tick spike). In that case we skip straight to the bounded best-effort. Far
+  // ford-detour goals (the reason the free pass exists) ARE in the gate component, so they keep it.
+  const worthFreeSearch = (): boolean => {
+    const reach = terrain.reachableFromGate();
+    const sc = terrain.nearestPassable(Math.floor(start.x / terrain.cellSize), Math.floor(start.y / terrain.cellSize), 6);
+    const gc = terrain.nearestPassable(Math.floor(goal.x / terrain.cellSize), Math.floor(goal.y / terrain.cellSize), 6);
+    const startInMain = !!reach[terrain.idx(sc.cx, sc.cy)];
+    const goalInMain = !!reach[terrain.idx(gc.cx, gc.cy)];
+    return goalInMain || !startInMain; // skip only when start is in the main component and goal isn't
+  };
   const coarse = route(terrain, start, goal, COARSE_F, opts, 60000);
   if (!coarse) {
     // The coarse pass couldn't reach the goal. That no longer means "unreachable": with the river
     // a real barrier, the coarse line can dead-end at the channel when the only crossing is a thin
     // ford the coarse graph misses. So try a FREE full-resolution A* first — it honours the actual
     // fords and finds the genuine (often long, ford-detouring) route if one exists.
-    const free = route(terrain, start, goal, 1, opts, 300000);
-    if (free) return stringPull(terrain, start, free, opts);
+    if (worthFreeSearch()) {
+      const free = route(terrain, start, goal, 1, opts, 300000);
+      if (free) return stringPull(terrain, start, free, opts);
+    }
     // Truly unreachable: a bounded free best-effort A* advances to the nearest cell we can reach
     // (never a degenerate single straight waypoint into a cliff — that "arrived" 1.4 km short).
     const be = route(terrain, start, goal, 1, opts, 60000, undefined, approachClip(terrain, start, goal), true);
@@ -167,9 +183,12 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
   // settling for best-effort, run a FREE, UNCLIPPED full-resolution A* with a generous budget. It
   // honours every 5 m feature (so it's genuinely walkable) and is bounded only by the map, so it
   // finds the true route to a distant ford if one exists — exactly the routes the corridor can't
-  // contain. This is the correctness backstop; the corridor stays the cheap common-case path.
-  const free = route(terrain, start, goal, 1, opts, 300000);
-  if (free) return stringPull(terrain, start, free, opts);
+  // contain. This is the correctness backstop; the corridor stays the cheap common-case path. Gated
+  // by worthFreeSearch() so an unreachable goal never triggers a whole-map search every tick.
+  if (worthFreeSearch()) {
+    const free = route(terrain, start, goal, 1, opts, 300000);
+    if (free) return stringPull(terrain, start, free, opts);
+  }
   // Genuinely unreachable at fine resolution (walled off / sealed pocket / across a barrier with
   // no crossing). DON'T fall back to a corridor-constrained best-effort: confined to the OPTIMISTIC
   // coarse line it returns a valley-circling, partially-unwalkable blow-up (movement RC#1). Instead

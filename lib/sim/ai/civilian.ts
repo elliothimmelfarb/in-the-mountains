@@ -54,9 +54,10 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
       dir = norm(add(scale(dir, 0.5), scale(toHome, 0.6)));
     }
     if (len(dir) < 0.1) dir = { x: 0, y: 1 };
-    const dest = add(u.pos, scale(dir, 60));
-    // Flee to passable ground off the wire, routing around it if the straight bolt
-    // is blocked — a panicked villager runs for home and dead ground, not into the HESCO.
+    // Flee to REACHABLE dead ground off the wire — a panicked villager runs for home and cover, not
+    // into the HESCO and not into the now-impassable river (snapping the 60 m bolt to reachable
+    // ground keeps him on his own bank and stops a per-tick best-effort re-plan toward the water).
+    const dest = sim.terrain.reachablePoint(u.pos.x + dir.x * 60, u.pos.y + dir.y * 60);
     sim.civMoveTo(u, dest);
     u.stance = "stand";
     return;

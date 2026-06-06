@@ -117,9 +117,11 @@ export function tickGarrison(w: World, dt: number) {
     }
 
     m.faceLock = face;
-    // Keep the seat on passable ground (a jittered post can land on a solid wall/
-    // building) and route to it around solids instead of pinning on them.
-    const seat = w.terrain.passablePoint(post.x, post.y);
+    // Keep the seat on REACHABLE ground (a jittered post can land on a solid wall/building or, with
+    // the river now a real barrier, in a tiny passable pocket the man can't actually get to). Using
+    // nearestReachable (not just nearestPassable) guarantees the seat is in the garrison's own
+    // component, so walkTo never re-fires the heavy free A* every tick chasing an unreachable seat.
+    const seat = w.terrain.reachablePoint(post.x, post.y);
     if (m.path.length === 0 && dist(m.pos, seat) > ARRIVE) {
       w.sim.walkTo(m, seat);
     } else if (dist(m.pos, seat) <= ARRIVE) {
