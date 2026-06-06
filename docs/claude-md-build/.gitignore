@@ -1,0 +1,5 @@
+# Regenerable from transcripts via extract-corpus.mjs — not committed (verbatim prompt dumps)
+corpus/
+# Raw workflow return dumps — distilled into catalog.md / brief.md / tournament tables
+mine-raw.json
+tournament-raw.json
