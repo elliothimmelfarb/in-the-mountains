@@ -74,7 +74,11 @@ export function buildRoutine(terrain: Terrain, v: VillageState, rng: RNG): CivRo
     const others = terrain.villages.filter((o) => o.id !== v.id);
     const o = rng.pick(others);
     const oc = terrain.cellCenter(o.cx, o.cy);
-    nodes.push({ phase: "day", target: terrain.civSafePoint(oc.x, oc.y), activity: "market" });
+    // The bazaar may be on the far bank — snap it to ground actually reachable over the network
+    // (a real crossing), never a cell across the impassable river, so the errand never strands the
+    // villager at the water (issue 010). civSafePoint then keeps it clear of the COP wire.
+    const reach = terrain.reachablePoint(oc.x, oc.y);
+    nodes.push({ phase: "day", target: terrain.civSafePoint(reach.x, reach.y), activity: "market" });
   }
   return nodes;
 }

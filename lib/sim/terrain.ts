@@ -2096,6 +2096,16 @@ export class Terrain {
     return this.nearestPassable(cx, cy); // nothing reachable nearby — fall back to nearest passable
   }
 
+  /** A world point snapped to the nearest cell anyone on the valley network can actually reach
+   *  (passable AND in the gate's connected component). Pattern-of-life destinations across the
+   *  river — a market in another village — use this so a villager is never given an errand that
+   *  ends across an uncrossable barrier (issue 010): they route to a real crossing or stay home. */
+  reachablePoint(wx: number, wy: number): Vec2 {
+    const cs = this.cellSize;
+    const c = this.nearestReachable(Math.floor(wx / cs), Math.floor(wy / cs));
+    return this.cellCenter(c.cx, c.cy);
+  }
+
   /** Is this cell passable on foot at all (cliffs/deep channels are not). */
   passableCell(cx: number, cy: number): boolean {
     if (!this.inBounds(cx, cy)) return false;

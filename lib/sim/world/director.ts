@@ -136,7 +136,11 @@ function spawnInfiltration(w: World) {
     e.brainState = "patrolling";
     e.rof = "free";
     e.technique = "concealed";
-    w.sim.pathTo(e, add(targetPt, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(20, 60))), { concealBias: 0.7 });
+    // Snap the approach point to ground actually reachable from the network (a real crossing), so an
+    // infiltrator whose village sits across the now-impassable river routes to a ford instead of
+    // wading toward it and stranding at the water (issue 010 — the enemy analogue of the squad snap).
+    const aim = w.terrain.reachablePoint(targetPt.x + w.rng.range(-60, 60), targetPt.y + w.rng.range(-60, 60));
+    w.sim.pathTo(e, aim, { concealBias: 0.7 });
   }
   if (w.rng.chance(0.5))
     w.addIntel({ source: "SIGINT", text: `ICOM: fighters moving toward ${v.name} tonight.`, reliability: 0.55, cx: v.cx, cy: v.cy });
