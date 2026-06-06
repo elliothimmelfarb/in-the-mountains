@@ -32,7 +32,10 @@ const REACH_CELLS = Math.ceil(ARRIVE / cs); // a passable cell this close to the
 const MAX_S = 1500; // a TACTICAL window — "did it arrive in ~25 min"
 const CAP_S = 3600; // hard safety cap for the arrival-eventually run (the sim's own STUCK_S ends most)
 
-/** 8-connected flood over passableCell from a seed cell. Returns the seen bitmap. */
+/** Flood over passableCell from a seed cell, honouring the mover's anti-corner-cut rule (a
+ *  diagonal step is forbidden when both orthogonal neighbours are impassable — the squad can't
+ *  squeeze a 1-cell diagonal gap). This is the HONEST physical ceiling: a plain 8-connected flood
+ *  over-credits diagonal-squeeze pockets the mover can never enter. Returns the seen bitmap. */
 function floodPassable(t: any, fromCx: number, fromCy: number): Uint8Array {
   const size = t.size;
   const seen = new Uint8Array(size * size);
@@ -51,8 +54,10 @@ function floodPassable(t: any, fromCx: number, fromCy: number): Uint8Array {
         const nx = x + dx;
         const ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+        if (!t.passableCell(nx, ny)) continue;
+        if (dx !== 0 && dy !== 0 && !t.passableCell(x + dx, y) && !t.passableCell(x, y + dy)) continue; // no corner-cut
         const j = ny * size + nx;
-        if (seen[j] || !t.passableCell(nx, ny)) continue;
+        if (seen[j]) continue;
         seen[j] = 1;
         stack.push(j);
       }
