@@ -223,8 +223,27 @@ function __uxAudit(stateName) {
 
   if (!hasReducedMotionBlock) defects.reducedMotion = animated;
 
+  // DIAGNOSTIC (not scored): horizontal overflow / text clipping. Catches the
+  // exact failure mode a font-size bump risks — content wider than its clipped
+  // box. Reported separately so it never perturbs the before/after defect ruler.
+  let overflowClipped = 0; const overflowSamples = [];
+  for (const el of all) {
+    if (!visible(el)) continue;
+    const cs = getComputedStyle(el);
+    const clips = cs.overflowX === 'hidden' || cs.overflowX === 'clip' || cs.textOverflow === 'ellipsis';
+    if (!clips) continue;
+    if (el.scrollWidth > el.clientWidth + 2 && el.clientWidth > 0) {
+      // ignore intentionally-truncated single-line labels (.truncate) — those are by-design ellipsis
+      const byDesign = el.classList.contains('truncate');
+      if (!byDesign) {
+        overflowClipped++;
+        if (overflowSamples.length < 12) overflowSamples.push({ cls: (el.className||tag).toString().slice(0,44), sw: el.scrollWidth, cw: el.clientWidth, txt: (el.textContent||'').replace(/\\s+/g,' ').trim().slice(0,30) });
+      }
+    }
+  }
+
   const total = defects.contrast + defects.tinyText + defects.unlabeled + defects.tinyTarget + defects.noFocusRing + defects.reducedMotion;
-  return { state: stateName, defects, total, counts: { textNodes, interactives, animated }, flags: { hasFocusVisibleRule, hasReducedMotionBlock }, samples };
+  return { state: stateName, defects, total, counts: { textNodes, interactives, animated }, flags: { hasFocusVisibleRule, hasReducedMotionBlock }, diagnostics: { overflowClipped, overflowSamples }, samples };
 }
 window.__uxAudit = __uxAudit;
 'ready'`;
