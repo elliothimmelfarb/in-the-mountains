@@ -1,0 +1,629 @@
+{
+  "ts": "2026-06-07T22:40:25.158Z",
+  "grandTotal": 461,
+  "totalsByCategory": {
+    "contrast": 2,
+    "tinyText": 262,
+    "subEleven": 121,
+    "unlabeled": 10,
+    "tinyTarget": 33,
+    "noFocusRing": 152,
+    "reducedMotion": 2
+  },
+  "states": [
+    {
+      "state": "menu",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 3,
+        "subEleven": 1,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 9,
+        "reducedMotion": 1
+      },
+      "total": 13,
+      "counts": {
+        "textNodes": 15,
+        "interactives": 9,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": false,
+        "hasReducedMotionBlock": false
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "VALLEY SEED (optional)",
+            "fs": 11,
+            "cls": "flex flex-col gap-1 text-[11px] text-ink"
+          },
+          {
+            "text": "TOUR LENGTH",
+            "fs": 11,
+            "cls": "flex flex-col gap-1 text-[11px] text-ink"
+          },
+          {
+            "text": "ONE CONTINUOUS CLOCK · SPACE pause · 1–5",
+            "fs": 10,
+            "cls": "text-center text-[10px] text-inkdim/60 m"
+          }
+        ],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    },
+    {
+      "state": "hud",
+      "defects": {
+        "contrast": 2,
+        "tinyText": 95,
+        "subEleven": 54,
+        "unlabeled": 4,
+        "tinyTarget": 19,
+        "noFocusRing": 64,
+        "reducedMotion": 0
+      },
+      "total": 184,
+      "counts": {
+        "textNodes": 166,
+        "interactives": 64,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": false,
+        "hasReducedMotionBlock": false
+      },
+      "samples": {
+        "contrast": [
+          {
+            "text": "⚠ NO MEDIC — attach officers (HQ) for th",
+            "ratio": 3.93,
+            "need": 4.5,
+            "fs": 10,
+            "color": "rgb(181, 83, 42)",
+            "cls": "text-rust text-[10px] mb-1 font-mono"
+          },
+          {
+            "text": "9/9 ready",
+            "ratio": 3.73,
+            "need": 4.5,
+            "fs": 9,
+            "color": "rgb(154, 154, 130)",
+            "cls": "font-mono text-[9px] text-inkdim"
+          }
+        ],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "hud"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "hud"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "hud"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "hud"
+          }
+        ],
+        "tinyTarget": [
+          {
+            "tag": "INPUT",
+            "w": 64,
+            "h": 16,
+            "name": "Volume",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Active Elements",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Battalion Directives",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Intel Feed",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 250,
+            "h": 15,
+            "name": "▾Combat Log",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Command Log",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 314,
+            "h": 15,
+            "name": "▾Squad Orders",
+            "state": "hud"
+          },
+          {
+            "tag": "INPUT",
+            "w": 13,
+            "h": 13,
+            "name": "Send officers (HQ: PL · ",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 327,
+            "h": 15,
+            "name": "▾Task Organization",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 18,
+            "h": 15,
+            "name": "Service record",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 18,
+            "h": 15,
+            "name": "Service record",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 18,
+            "h": 15,
+            "name": "Service record",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 18,
+            "h": 15,
+            "name": "Service record",
+            "state": "hud"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 18,
+            "h": 15,
+            "name": "Service record",
+            "state": "hud"
+          }
+        ]
+      }
+    },
+    {
+      "state": "village",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 72,
+        "subEleven": 27,
+        "unlabeled": 3,
+        "tinyTarget": 7,
+        "noFocusRing": 39,
+        "reducedMotion": 0
+      },
+      "total": 121,
+      "counts": {
+        "textNodes": 113,
+        "interactives": 39,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": false,
+        "hasReducedMotionBlock": false
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "village"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "village"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "village"
+          }
+        ],
+        "tinyTarget": [
+          {
+            "tag": "INPUT",
+            "w": 64,
+            "h": 16,
+            "name": "Volume",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Active Elements",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Battalion Directives",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Intel Feed",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 250,
+            "h": 15,
+            "name": "▾Combat Log",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Command Log",
+            "state": "village"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 200,
+            "h": 15,
+            "name": "▾Logistics",
+            "state": "village"
+          }
+        ]
+      }
+    },
+    {
+      "state": "jacket",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 92,
+        "subEleven": 39,
+        "unlabeled": 3,
+        "tinyTarget": 7,
+        "noFocusRing": 40,
+        "reducedMotion": 1
+      },
+      "total": 143,
+      "counts": {
+        "textNodes": 136,
+        "interactives": 40,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": false,
+        "hasReducedMotionBlock": false
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "jacket"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "jacket"
+          },
+          {
+            "tag": "DIV",
+            "cls": "dock-handle",
+            "state": "jacket"
+          }
+        ],
+        "tinyTarget": [
+          {
+            "tag": "INPUT",
+            "w": 64,
+            "h": 16,
+            "name": "Volume",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Active Elements",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Battalion Directives",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Intel Feed",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 250,
+            "h": 15,
+            "name": "▾Combat Log",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 263,
+            "h": 15,
+            "name": "▾Command Log",
+            "state": "jacket"
+          },
+          {
+            "tag": "BUTTON",
+            "w": 200,
+            "h": 15,
+            "name": "▾Logistics",
+            "state": "jacket"
+          }
+        ]
+      }
+    }
+  ],
+  "flags": {
+    "hasFocusVisibleRule": false,
+    "hasReducedMotionBlock": false
+  }
+}

@@ -1,0 +1,368 @@
+{
+  "ts": "2026-06-07T22:48:36.722Z",
+  "grandTotal": 261,
+  "totalsByCategory": {
+    "contrast": 0,
+    "tinyText": 260,
+    "subEleven": 121,
+    "unlabeled": 0,
+    "tinyTarget": 1,
+    "noFocusRing": 0,
+    "reducedMotion": 0
+  },
+  "states": [
+    {
+      "state": "menu",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 3,
+        "subEleven": 1,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 3,
+      "counts": {
+        "textNodes": 15,
+        "interactives": 9,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "VALLEY SEED (optional)",
+            "fs": 11,
+            "cls": "flex flex-col gap-1 text-[11px] text-ink"
+          },
+          {
+            "text": "TOUR LENGTH",
+            "fs": 11,
+            "cls": "flex flex-col gap-1 text-[11px] text-ink"
+          },
+          {
+            "text": "ONE CONTINUOUS CLOCK · SPACE pause · 1–5",
+            "fs": 10,
+            "cls": "text-center text-[10px] text-inkdim/60 m"
+          }
+        ],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    },
+    {
+      "state": "hud",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 93,
+        "subEleven": 54,
+        "unlabeled": 0,
+        "tinyTarget": 1,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 94,
+      "counts": {
+        "textNodes": 162,
+        "interactives": 62,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [],
+        "tinyTarget": [
+          {
+            "tag": "INPUT",
+            "w": 16,
+            "h": 16,
+            "name": "Send officers (HQ: PL · ",
+            "state": "hud"
+          }
+        ]
+      }
+    },
+    {
+      "state": "village",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 72,
+        "subEleven": 27,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 72,
+      "counts": {
+        "textNodes": 113,
+        "interactives": 39,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    },
+    {
+      "state": "jacket",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 92,
+        "subEleven": 39,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 92,
+      "counts": {
+        "textNodes": 136,
+        "interactives": 40,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [
+          {
+            "text": "COP Vimoto",
+            "fs": 11,
+            "cls": "text-ink"
+          },
+          {
+            "text": "Wrecker · ux-audit",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "CLOCK",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "/120d",
+            "fs": 10,
+            "cls": "text-inkdim text-[10px]"
+          },
+          {
+            "text": "LIGHT",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "WX",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "AIR",
+            "fs": 11,
+            "cls": "text-inkdim"
+          },
+          {
+            "text": "Stability",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "40%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Attitudes",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "42%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Enemy",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          },
+          {
+            "text": "59%",
+            "fs": 11,
+            "cls": "w-[40px] text-right text-ink"
+          },
+          {
+            "text": "Comb. Pwr",
+            "fs": 11,
+            "cls": "w-[80px] text-inkdim shrink-0 inline-fle"
+          }
+        ],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    }
+  ],
+  "flags": {
+    "hasFocusVisibleRule": true,
+    "hasReducedMotionBlock": true
+  }
+}
