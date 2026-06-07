@@ -14,20 +14,20 @@
       "relief": 1368
     },
     "cop": {
-      "x": 1227.5,
-      "y": 1917.5,
-      "cx": 245,
-      "cy": 383,
-      "radiusCells": 17,
-      "radiusM": 85,
-      "diameterM": 170,
+      "x": 1202.5,
+      "y": 1852.5,
+      "cx": 240,
+      "cy": 370,
+      "radiusCells": 12,
+      "radiusM": 60,
+      "diameterM": 120,
       "gate": {
-        "x": 1337.5,
-        "y": 1917.5
+        "x": 1262.5,
+        "y": 1912.5
       },
       "gateDir": {
-        "x": 1,
-        "y": 0
+        "x": 0.7071067811865476,
+        "y": 0.7071067811865475
       }
     },
     "villages": [
@@ -35,8 +35,8 @@
         "name": "Babiyal",
         "cx": 229,
         "cy": 148,
-        "sizeCells": 4,
-        "radiusM": 20,
+        "sizeCells": 6,
+        "radiusM": 30,
         "population": 190,
         "x": 1147.5,
         "y": 742.5
@@ -45,8 +45,8 @@
         "name": "Marastanau",
         "cx": 170,
         "cy": 338,
-        "sizeCells": 4,
-        "radiusM": 20,
+        "sizeCells": 6,
+        "radiusM": 30,
         "population": 40,
         "x": 852.5,
         "y": 1692.5
@@ -55,8 +55,8 @@
         "name": "Landigal",
         "cx": 281,
         "cy": 404,
-        "sizeCells": 6,
-        "radiusM": 30,
+        "sizeCells": 8,
+        "radiusM": 40,
         "population": 52,
         "x": 1407.5,
         "y": 2022.5
@@ -65,8 +65,8 @@
         "name": "Kandlay",
         "cx": 189,
         "cy": 202,
-        "sizeCells": 5,
-        "radiusM": 25,
+        "sizeCells": 7,
+        "radiusM": 35,
         "population": 96,
         "x": 947.5,
         "y": 1012.5
@@ -75,19 +75,19 @@
     "copVillDist": [
       {
         "name": "Landigal",
-        "m": 208
+        "m": 266
       },
       {
         "name": "Marastanau",
-        "m": 437
+        "m": 385
       },
       {
         "name": "Kandlay",
-        "m": 947
+        "m": 878
       },
       {
         "name": "Babiyal",
-        "m": 1178
+        "m": 1111
       }
     ],
     "villageGap": {
@@ -95,15 +95,15 @@
       "maxM": 1306
     },
     "garrison": {
-      "count": 35,
-      "nnMeanM": 4.65
+      "count": 41,
+      "nnMeanM": 2.11
     }
   },
   "constants": {
     "SOLDIER_TRUE_M": 0.6,
     "SQUAD_N": 9,
     "DISPERSION_M": 5.5,
-    "realSoldierVsCopFraction": 0.00353
+    "realSoldierVsCopFraction": 0.005
   },
   "projection": [
     {
@@ -115,8 +115,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 20,
       "trueSoldierPx": 0.18,
-      "copDiameterPx": 51,
-      "soldierFigVsCop": 0.137,
+      "copDiameterPx": 36,
+      "soldierFigVsCop": 0.194,
       "squadSpanPx": 13,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -132,8 +132,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 12,
       "trueSoldierPx": 0.3,
-      "copDiameterPx": 85,
-      "soldierFigVsCop": 0.082,
+      "copDiameterPx": 60,
+      "soldierFigVsCop": 0.117,
       "squadSpanPx": 22,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -149,8 +149,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 8.6,
       "trueSoldierPx": 0.42,
-      "copDiameterPx": 119,
-      "soldierFigVsCop": 0.059,
+      "copDiameterPx": 84,
+      "soldierFigVsCop": 0.083,
       "squadSpanPx": 31,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -166,8 +166,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 6,
       "trueSoldierPx": 0.6,
-      "copDiameterPx": 170,
-      "soldierFigVsCop": 0.041,
+      "copDiameterPx": 120,
+      "soldierFigVsCop": 0.058,
       "squadSpanPx": 44,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -183,8 +183,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 3,
       "trueSoldierPx": 1.2,
-      "copDiameterPx": 340,
-      "soldierFigVsCop": 0.021,
+      "copDiameterPx": 240,
+      "soldierFigVsCop": 0.029,
       "squadSpanPx": 88,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -200,8 +200,8 @@
       "dotDiamPx": 6,
       "dotGroundM": 1.5,
       "trueSoldierPx": 2.4,
-      "copDiameterPx": 680,
-      "soldierFigVsCop": 0.01,
+      "copDiameterPx": 480,
+      "soldierFigVsCop": 0.015,
       "squadSpanPx": 176,
       "squadFiguresWidthPx": 63,
       "squadFiguresOverlap": false,
@@ -217,8 +217,8 @@
       "dotDiamPx": 11.2,
       "dotGroundM": 1.4,
       "trueSoldierPx": 4.8,
-      "copDiameterPx": 1360,
-      "soldierFigVsCop": 0.009,
+      "copDiameterPx": 960,
+      "soldierFigVsCop": 0.013,
       "squadSpanPx": 352,
       "squadFiguresWidthPx": 115,
       "squadFiguresOverlap": false,

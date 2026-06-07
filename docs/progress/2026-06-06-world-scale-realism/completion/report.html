@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — World Scale, Finished</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:760px}
+h2{font-size:21px;margin:42px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:22px 0 4px;color:var(--ink)}
+h3 .tag{font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;color:var(--bg);background:var(--ol);padding:3px 6px;border-radius:3px;vertical-align:middle;margin-right:8px}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:120px}
+.statstrip .s b{display:block;color:var(--am);font-size:21px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+figure{margin:20px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure .row{display:grid;grid-template-columns:1fr 1fr;gap:0}
+figure .row>div{line-height:0;position:relative}
+figure img{width:100%;display:block}
+figure .lbl{position:absolute;top:8px;left:8px;font:600 11px/1 ui-monospace,monospace;letter-spacing:1px;padding:4px 7px;border-radius:3px;background:rgba(7,11,18,.82);border:1px solid var(--line)}
+figure .lbl.before{color:var(--rd)}figure .lbl.after{color:var(--gn)}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.card{background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:4px;padding:14px 18px;margin:16px 0}
+.card.gn{border-left-color:var(--gn)}
+.card.rd{border-left-color:var(--rd)}
+.card h3{margin-top:0}
+ul{margin:8px 0;padding-left:20px}li{margin:4px 0;color:#cfdaea}
+.foot{color:var(--dim);font-size:12.5px;margin-top:50px;border-top:1px solid var(--line);padding-top:16px}
+.back{display:inline-block;margin-bottom:18px;color:var(--am);font:600 12px/1 ui-monospace,monospace;text-decoration:none}
+@media(max-width:680px){figure .row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="/manual/archive/index.html">← Development Archive</a>
+<p class="kick">2026·06·07 · World-map scale · the deferred half, shipped</p>
+<h1>World scale, <span>finished</span></h1>
+<p class="lede">The June 6 audit proved the soldiers were painted <strong>36× too big</strong> — a renderer lie over a simulation whose elevations, ridgelines and engagement bands were already authentic. The loud render half (figure size, squad icons) shipped that day; the riskier <strong>sim-scale</strong> half — the outpost's footprint, the platoon's roster, the valley's gradient, the villages' shape — was deliberately deferred behind the determinism contract. This is that half, built, adversarially verified, and integrated.</p>
+
+<div class="statstrip">
+  <div class="s"><b>120&nbsp;m <span class="was">← 170 m</span></b><span>COP diameter</span></div>
+  <div class="s"><b>41 <span class="was">← 35</span></b><span>platoon strength</span></div>
+  <div class="s"><b>9 <span class="was">← 3</span></b><span>weapons squad</span></div>
+  <div class="s"><b>2–6 <span class="was">← 1</span></b><span>qalats / village</span></div>
+  <div class="s"><b>north <span class="was">← "south"</span></b><span>valley drainage (name fix)</span></div>
+  <div class="s"><b>0 <span class="was">← 1</span></b><span>stranded patrols / 12</span></div>
+</div>
+
+<h2>The scorecard</h2>
+<p>Every row is a measured delta on a held-out probe, not a vibe. Bucket 1 (R1/R2) is the audit-day render fix, repeated here for the full picture; the rest is the new work.</p>
+<table>
+<thead><tr><th>Fix</th><th>Doctrinal / real basis</th><th>Before → after</th><th>Proven by</th></tr></thead>
+<tbody>
+<tr><td><strong>R1</strong> figure size</td><td>a soldier is ~0.6 m top-down; sub-pixel at operational zoom</td><td><span class="w">36×/12× oversized</span> → <span class="b">17×/3×</span>; overlap true→<span class="b">false</span> at every zoom</td><td><code>scale-probe</code></td></tr>
+<tr><td><strong>R2</strong> squad icon</td><td>NATO APP-6: track units, not men</td><td>35 stacked dots → <span class="b">one icon/squad</span> below tactical zoom</td><td><code>scale-probe</code> + live</td></tr>
+<tr><td><strong>S1</strong> weapons squad</td><td>FM/ATP 3-21.8: HQ + 3×9 rifle + 1×9 weapons ≈ 39–42</td><td>weapons sqd <span class="w">3</span> → <span class="b">9</span>; platoon <span class="w">35</span> → <span class="b">41</span></td><td>roster probe, smoke, balance</td></tr>
+<tr><td><strong>S2</strong> COP footprint</td><td>Restrepo / KOP core ≈ 100–130 m position; Wanat 300×100 m</td><td>170 m circle → <span class="b">120 m platoon OP</span>; <span class="b">0 sealed pockets</span></td><td>cop-render, copaudit ×60</td></tr>
+<tr><td><strong>S3</strong> floor gradient</td><td>the Korengal drains north into the Pech</td><td>names/lerp transposed (read "inverted") → <span class="b">honest, drains north</span>, terrain bit-identical</td><td>sha256 of elev/land arrays</td></tr>
+<tr><td><strong>S4</strong> village shape</td><td>a village is a cluster of stacked qalats, not one box</td><td>1 compound (~40 m) → <span class="b">2–6-qalat hamlet (~70–90 m)</span></td><td>extents probe, connectivity ×40</td></tr>
+<tr><td><strong>R3</strong> village render</td><td>—</td><td>one sprite → <span class="b">cluster over the real stamped qalats</span></td><td>live capture</td></tr>
+<tr><td><strong>R4</strong> LOD bands</td><td>dot → squad-icon → figure must be monotonic</td><td>pin double-draw + garrison pop → <span class="b">clean handoffs</span></td><td>read-only LOD audit + live</td></tr>
+</tbody>
+</table>
+
+<h2>The outpost, right-sized</h2>
+<p>The model's COP was a clean 170 m circle — a brigade FOB on a valley a real <em>platoon</em> outpost would hold. The fix shrinks the perimeter to a 120 m position (a 60 m wire radius), the scale of Restrepo or the KOP's core. The subtle part: the radius is read in <strong>two</strong> places — once when siting scores a bench (reserving the footprint + a clearance band from the villages) and once when the wire is actually stamped. They had drifted out of sync (sited for 85 m, built at 60 m). Both now read a single <code>copRadiusCells()</code>, so the reserved footprint and the stamped wire can never disagree again.</p>
+<figure>
+  <div class="row">
+    <div><span class="lbl before">BEFORE · 170 m</span><img src="cop-before-170m.png" alt="COP interior at 170 m — a sprawling FOB-scale circle"></div>
+    <div><span class="lbl after">AFTER · 120 m</span><img src="cop-after-120m.png" alt="COP interior at 120 m — a compact platoon outpost"></div>
+  </div>
+  <figcaption>The same outpost, sited and built. <strong>Red</strong> would mark sealed interior man-traps — there are none in either, and the tighter camp packs the TOC, two barracks rows, chow, aid, armory and motor pool around a walkable yard exactly as a cramped real OP does. Verified across 60 seeds (including the held-out tail survey-40..59): zero sealed pockets, zero unreachable fighting positions, every village still clear of the wire.</figcaption>
+</figure>
+
+<h2>Villages as hamlets</h2>
+<p>A "village" was a single walled box. A real Korengal village — Aliabad, Babiyal — is a cluster of stacked compounds spilling along a terraced bench. <code>villageHamlet(v)</code> now lays out a ring of 2–6 discrete qalats around an open courtyard, the count scaled by population, orchards and terraces filling the benches between them. It is a <strong>pure function of the village id</strong> — no random draws, no saved state — so the simulation's stamped terrain and the renderer's painted sprites compute the identical hamlet and land pixel-for-pixel on top of each other.</p>
+<figure>
+  <img src="village-hamlet.png" alt="Landigal rendered as a ring of distinct walled compounds in orchards">
+  <figcaption>Landigal at tactical zoom — discrete walled qalats ringing an open centre, set in orchards and terraces. The compounds are deliberately <em>spaced</em> (≥ a 2-cell alley), not merged — see the stall hunt below for why that spacing is load-bearing, not cosmetic.</figcaption>
+</figure>
+
+<h2>The platoon, at strength</h2>
+<p>The roster was missing its weapons squad — a 3-man stub where doctrine (FM/ATP 3-21.8) puts a full nine: a weapons-squad leader, two M240 medium-gun teams, ammo bearers, a grenadier and the platoon marksman. Restoring it brings the platoon to 41 (5 HQ + 27 rifle + 9 weapons), squarely in the real 39–42 band. Adding men advances the seeded <em>roster</em> RNG, so soldiers' names and stats shift for a given seed — but <code>rng.fork("platoon")</code> derives that stream <em>without</em> advancing the parent, so the valley itself is untouched.</p>
+<figure>
+  <img src="squad-icon-weapons9.png" alt="The COP at default zoom with a Weapons x9 squad icon">
+  <figcaption>The outpost at the default zoom: one NATO squad icon per element (R2), the perimeter fighting positions ringed around it, and the restored weapons squad reading <code>Weapons ×9</code> (S1). No floating base-pin floats over the built camp anymore (R4).</figcaption>
+</figure>
+
+<h2>Two stories the rigor turned up</h2>
+
+<div class="card rd">
+<h3>The brief was wrong about the gradient — and the code said so</h3>
+<p>The fix spec flagged the valley's floor gradient as <em>inverted</em> (<code>floorSouth: 1550 / floorNorth: 2000</code>) and said to swap it. Reading the generator instead of trusting the spec: <code>North is -y</code> (the top of the map), and the generation <code>lerp</code> already placed the <em>low</em> end (1550) at the north mouth. The valley <strong>already drained north into the Pech</strong>, matching the real Korengal — only the field <em>names</em> and the <code>lerp</code> argument order were transposed, so the code <em>read</em> backwards. Swapping the spec's way would have inverted a correct gradient. The real fix is a compensating double-swap (values <em>and</em> arg order) that leaves the generated terrain <strong>byte-identical</strong> — proven by a sha256 of the elevation, slope, landcover and river-centerline arrays against the parent commit — with honest names. Code is ground truth; a spec is a hypothesis.</p>
+</div>
+
+<div class="card rd">
+<h3>The stall the static audit couldn't see</h3>
+<p>A 7-agent adversarial verification pass — each agent assigned one commit and told to <em>refute</em> it — read every diff, ran <code>copaudit</code>, sha256'd the terrain, and returned <strong>zero blockers</strong>. But static structural checks can't watch a patrol <em>walk</em>. The dynamic balance harness caught what they missed: on seed <code>bal-6</code>, a squad <em>returning</em> from Loy Kalay froze — a valid 28-cell path, but oscillating between two cells at 2.5 m per 90 seconds. The first hamlet had scattered <em>overlapping</em> compounds whose walls fused into a labyrinth of 1-cell slots; the path planner threaded it, the local steering refused, and the element deadlocked (an issue-010-class trap). The fix made the hamlet a ring of <em>discrete</em> qalats with guaranteed ≥2-cell alleys — wide enough to thread or skirt. Stall count over all 12 deployment seeds: <strong>1 → 0</strong>. The lesson: a green static pass is necessary, not sufficient — drive the thing.</p>
+</div>
+
+<h2>Honest about the cost</h2>
+<p>The valley is generated from one seeded RNG stream, so reshaping a subsystem — a smaller COP consumes fewer cells, a sparser hamlet fewer draws — <em>ripples</em> everything downstream into a different but statistically equivalent valley. On the fixed probe seeds this shows up as a patrol-march reach of 66→48% and average wounded 4.9→7.5 (killed held flat at ~1.0). An A/B holding the seeds fixed and varying one knob, plus <strong>98% structural village connectivity (203/207 over 40 seeds, vs 99% baseline)</strong>, confirm this is a reshuffle, not a sealed village or a logic regression. The deliberate restraint, logged: I did <em>not</em> fork dedicated RNGs for the COP and village stamps to zero out the ripple — a larger change to the determinism contract with no correctness payoff once connectivity is preserved.</p>
+
+<h2>How it was verified</h2>
+<ul>
+<li><strong>Standing checks green:</strong> <code>tsc --noEmit</code> · <code>npm run build</code> · <code>eslint</code> (no new errors) · <code>smoke.ts</code> → <em>SMOKE OK</em> (no-NaN + serialize round-trip) · <code>balance.ts</code> 12×50 → <em>0 stranded</em>.</li>
+<li><strong>Adversarial fan-out:</strong> 7 skeptical agents, one per commit + a determinism cross-cut + a done-gate auditor — 0 blockers, 0 majors, every change re-derived from the code.</li>
+<li><strong>Held-out proof:</strong> COP audit and village connectivity measured on the tune set <em>and</em> the held-out tail (survey-40..59) — not curve-fit to the seeds it was built on.</li>
+<li><strong>Driven live:</strong> the dev game booted headless, the camera framed at A–E zooms, every figure measured against its true 0.6 m footprint and every screenshot read back and critiqued.</li>
+</ul>
+
+<h2>How it works, briefly</h2>
+<p><strong>One radius, two readers.</strong> <code>copRadiusCells()</code> is the single source of truth for the wire; siting and building both call it, so they cannot drift. The same discipline that fixed the squad-icon footprint (one <code>figurePx</code>, imported by the combat FX so suppression crescents stay glued to the resized men) — collapse duplicated truth into one function.</p>
+<p><strong>One layout, two consumers.</strong> <code>villageHamlet(v.id)</code> is a pure, deterministic ring layout. The worldgen stamps terrain from it; the renderer paints sprites from it; neither stores anything. Determinism for free — the hamlet is recomputed identically on every frame and every reload.</p>
+<p><strong>Monotonic level-of-detail.</strong> As you zoom in, each element hands off cleanly: a base pin retires exactly as the built COP resolves (0.35→0.7), garrison squads crossfade in (0.42→0.62) rather than popping, and a man resolves from a dot to a squad icon to a near-true-footprint figure with no representation drawn twice at once.</p>
+
+<p class="foot">Raw record, baselines and probes: <code>docs/progress/2026-06-06-world-scale-realism/</code> and issue <code>014-world-map-scale-realism</code>. Commits: <code>e4c28fb</code> (S1) · <code>e8b1ebf</code> (S3) · <code>e460857</code> (R4) · <code>e365c33</code> (S2+S4) · <code>41d22ef</code> (R3) · <code>8c24bdc</code> (hamlet stall-fix). Built with Claude Opus 4.8.</p>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
