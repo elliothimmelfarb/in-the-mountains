@@ -82,7 +82,7 @@ export class World {
   serialize() {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null }));
     return {
-      v: 6,
+      v: 7,
       rngState: this.rng.getState(),
       state: this.state,
       units,

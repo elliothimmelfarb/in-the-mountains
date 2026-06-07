@@ -1,0 +1,23 @@
+WS1 dwell AFTER — npx tsx scripts/dwell-probe.ts (all in band; census progressive)
+
+mission     | pop | dwell(s) | dwell  | band(h)      | P | note
+presence    | 172 |     3600 |  1.00h |      0.5-2.0 | ✓ |
+recon       | 224 |     4500 |  1.25h |      1.0-2.0 | ✓ |
+ambush      | 148 |    14400 |  4.00h |      2.0-8.0 | ✓ |
+census      | 112 |    11200 |  3.11h |      2.0-8.0 | ✓ | progress 0.00→0.16 (~1800s) PROGRESSIVE
+cordon      |  77 |     7700 |  2.14h |      2.0-8.0 | ✓ |
+overwatch   | 280 |    18000 |  5.00h |     3.0-24.0 | ✓ |
+kle         | 282 |     5856 |  1.63h |      1.0-2.0 | ✓ |
+
+Before→after (dwell):
+  presence 180→3600 (20x) · recon 150→4500 (30x) · ambush 1100→14400 (13x)
+  census 300 INSTANT → 11200 PROGRESSIVE · cordon 300→7700 (26x)
+  overwatch 900→18000 (20x) · kle 360→5856 (16x)
+
+Dwell event-roll (scratch verified, all choice handlers exercised):
+  cordon (2.1h): 3 events {squirter x2, find x1}
+  census (3.1h, evt-census seed): 5 events {medcap, biometric, tip x2, grievance} — no kind > 2 (anti-repeat)
+Warp halt: dwell events set w.pendingEvent + interrupt → store warp loop exits + running gated false.
+Live (korengal-2): modal renders "SITUATION · FIND · DAY 1 · 06:00"; resolveEvent('leave_watch')
+  cleared modal + added intel "Cache left in place under surveillance near Loy Kalay".
+Standing checks: tsc clean · build OK · lint (changed files clean; repo baseline 186 pre-existing) · SMOKE OK · balance no-stall.

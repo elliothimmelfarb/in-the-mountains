@@ -2,11 +2,19 @@ import { clamp } from "../rng";
 import { dist, Vec2 } from "../vec";
 import { Unit } from "../entities";
 import { Land } from "../terrain";
+import type { VillageState } from "../campaign";
 import type { World } from "./world";
 import { Task, defaultSOP } from "./types";
 import { centroidOf, dwellFor } from "./helpers";
+import { makeDwellEvent } from "./events";
 import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam } from "./formation";
 import { squadFight } from "../ai/squad-combat";
+
+// On-station dwell event-roll cadence: roll at most every THROTTLE game-seconds, with CHANCE per
+// roll. Tuned so a multi-hour cordon/census/KLE surfaces ~1–5 decisions across the dwell (scaling
+// with its length) — enough to make the patient hours worth warping through, never a barrage.
+const DWELL_EVENT_THROTTLE = 2000; // s (~33 game-min)
+const DWELL_EVENT_CHANCE = 0.33;
 
 const GATE_SPACING = 3.2; // tight file — bunch up and pour through the ECP
 const LEG_ARRIVE = 18; // m — the point man has reached the objective
@@ -326,8 +334,15 @@ function releaseCombat(w: World, t: Task, members: Unit[]) {
 
 function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
   t.phase = "onstation";
-  t.timer = dwellFor(t);
   const at = center ?? centroidOf(members);
+  const near = w.nearestVillage(at, 200);
+  const pop = near?.population ?? 0;
+  // A census element only owes the time still needed to finish enrolling the village: a partial
+  // census from an earlier visit (censusProgress) carries over, so a follow-up element resumes and
+  // pays only the remainder instead of starting the half-day over. Other dwells are full-duration.
+  const remaining = t.missionType === "census" ? clamp(1 - (near?.censusProgress ?? 0), 0, 1) : 1;
+  t.timer = dwellFor(t, pop) * remaining;
+  t.dwellEventClock = 0;
   const radius = t.kind === "kle" ? 9 : 14;
   // Set up around the objective by team, each fire team holding a sector.
   holdSecurity(w, byTeam(w, members), at, radius, t);
@@ -413,38 +428,40 @@ function secureHold(w: World, t: Task, members: Unit[], dt: number) {
 function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {
   const here = centroidOf(members);
   const near = w.nearestVillage(here, 70);
+  // The dwell sets the budget every continuous effect amortizes over, so the WHOLE-dwell payoff
+  // (e.g. +8 attitude per shura) stays constant even though the dwell is now hours, not minutes —
+  // raising the duration must NOT secretly multiply the per-second gains.
+  const dwell = Math.max(1, near ? dwellFor(t, near.population) : dwellFor(t));
   if (t.kind === "kle" && near) {
-    near.attitude = clamp(near.attitude + (8 / 360) * dt, -100, 100);
-    near.cooperation = clamp(near.cooperation + (10 / 360) * dt, 0, 100);
+    near.attitude = clamp(near.attitude + (8 / dwell) * dt, -100, 100);
+    near.cooperation = clamp(near.cooperation + (10 / dwell) * dt, 0, 100);
     near.lastVisitedDay = w.day;
     // A shura yields an elder ASK — once per engagement (gated on the village having no pending
     // ask). The follow-through (or a lapsed deadline) swings attitude up or DOWN: the design-
-    // promised broken-promises mechanic. ~once during the 360 s dwell.
-    if (!near.ask && w.rng.chance(0.03 * dt)) {
+    // promised broken-promises mechanic. ~once across the shura's dwell.
+    if (!near.ask && w.rng.chance((4 / dwell) * dt)) {
       w.raiseElderAsk(near);
     }
-    if (w.rng.chance(0.02 * dt)) {
-      w.addIntel({
-        source: "HUMINT",
-        text: `${near.elder} hints outsiders pressure his village and cache weapons up the draw.`,
-        reliability: 0.5 + near.cooperation / 250,
-        cx: near.cx,
-        cy: near.cy,
-      });
-    }
-    w.advanceDirective("kle", (0.5 / 360) * dt);
+    w.advanceDirective("kle", (0.5 / dwell) * dt);
   } else if (near && (t.missionType === "presence" || t.missionType === "cordon")) {
-    near.attitude = clamp(near.attitude + (3 / dwellFor(t)) * dt, -100, 100);
+    near.attitude = clamp(near.attitude + (3 / dwell) * dt, -100, 100);
     near.lastVisitedDay = w.day;
     w.advancePresence();
-    if (t.missionType === "cordon" && w.rng.chance(0.015 * dt) && near.sympathy > 30) {
+    if (t.missionType === "cordon" && w.rng.chance((5 / dwell) * dt) && near.sympathy > 30) {
       near.sympathy = clamp(near.sympathy - 1, 0, 100);
     }
   } else if (t.missionType === "census" && near) {
-    near.censusDone = true;
     near.lastVisitedDay = w.day;
-    w.advanceCensus();
-  } else if (t.missionType === "recon" && w.rng.chance(0.02 * dt)) {
+    // Census is WORK, not a state flip: the element enrolls the population over the dwell, so the
+    // fraction climbs with time-on-station and censusDone trips only when it's actually finished.
+    // A recall before completion leaves censusProgress partial (it persists on the village).
+    near.censusProgress = clamp(near.censusProgress + dt / dwell, 0, 1);
+    if (!near.censusDone && near.censusProgress >= 1) {
+      near.censusDone = true;
+      w.advanceCensus();
+      w.interrupt(`${near.name}: census complete`);
+    }
+  } else if (t.missionType === "recon" && w.rng.chance((1.5 / dwell) * dt)) {
     w.addIntel({
       source: "PATROL",
       text: `Patrol reports trail use and fresh tracks in the ${w.bearingDesc(here)} valley.`,
@@ -452,5 +469,31 @@ function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {
       cx: Math.round(here.x / w.terrain.cellSize),
       cy: Math.round(here.y / w.terrain.cellSize),
     });
+  }
+  rollDwellEvent(w, t, near, dt);
+}
+
+/**
+ * The patient hours made fun: on a throttled clock, roll for a moment that surfaces a decision —
+ * a search find, a biometric hit, a grievance (the Restrepo "Cow Incident"), an FET gap, a
+ * squirter. Each becomes a PendingEvent, which the store treats as a hard stop: it PAUSES the
+ * clock and yanks the warping player back the instant something matters. Only the human-texture
+ * dwells roll (census/cordon/KLE), never while another modal is already up.
+ */
+function rollDwellEvent(w: World, t: Task, near: VillageState | null, dt: number) {
+  if (!near) return;
+  const eligible = t.kind === "kle" || t.missionType === "census" || t.missionType === "cordon";
+  if (!eligible || w.pendingEvent) return;
+  t.dwellEventClock = (t.dwellEventClock ?? 0) + dt;
+  if (t.dwellEventClock < DWELL_EVENT_THROTTLE) return;
+  t.dwellEventClock = 0;
+  if (!w.rng.chance(DWELL_EVENT_CHANCE)) return;
+  // Never fire the same kind back-to-back on one dwell — keeps a long census from drawing the
+  // same grievance five times and reading as a bug rather than texture.
+  const ev = makeDwellEvent(w, t, near, t.lastDwellEventKind);
+  if (ev) {
+    t.lastDwellEventKind = ev.kind;
+    w.pendingEvent = ev;
+    w.interrupt(ev.title);
   }
 }

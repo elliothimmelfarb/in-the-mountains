@@ -48,6 +48,12 @@ export interface VillageState {
   elder: string;
   lastVisitedDay: number;
   censusDone: boolean;
+  /** Progressive census/enrollment fraction 0..1 — the share of the village's fighting-age
+   *  population an element has biometrically enrolled. Census is WORK, not a state flip: it
+   *  advances only while a census element holds the village, and a partial census on early
+   *  recall persists here, so a follow-up visit resumes instead of starting over. censusDone
+   *  flips to true only when this reaches 1. Persisted — loadWorld defaults it from censusDone. */
+  censusProgress: number;
   wants: string; // what would win them over (a project type)
   /** An outstanding elder ASK from the last shura (null = none pending). Persisted —
    *  loadWorld defaults it to null for pre-v6 saves. */

@@ -107,6 +107,14 @@ export interface Task {
   rallyPt?: Vec2; // break-contact / casualty-collection rally point
   threatPt?: Vec2; // the squad's current threat centroid (for the map's base-of-fire/maneuver overlay)
   lastSmokeClock?: number; // world clock of the squad's last smoke pop (throttle)
+  /** Throttle clock (seconds) for the on-station dwell event-roll. A long realistic dwell is
+   *  patient hours the player WARPS through; this rolls occasionally for a moment that pulls him
+   *  back — a cache find, a biometric hit, a grievance, a squirter. Persisted so a save mid-dwell
+   *  doesn't reset the cadence. */
+  dwellEventClock?: number;
+  /** The kind of the last dwell event fired on this dwell, so the roll never repeats it
+   *  back-to-back (a long census drawing the same grievance twice reads as a bug). */
+  lastDwellEventKind?: string;
   /** Objective waypoints (world meters), not counting the return leg. */
   route: Vec2[];
   legIndex: number;

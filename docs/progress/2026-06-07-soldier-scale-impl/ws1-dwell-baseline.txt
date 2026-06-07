@@ -1,0 +1,15 @@
+WS1 dwell baseline — HEAD (commit 7dedade), npx tsx scripts/dwell-probe.ts
+Enemy tempo suppressed (heat 0, nextActivityAt far) — clean on-station dwell.
+
+mission     | pop | dwell(s) | dwell    | censusFlip | note
+------------|-----|----------|----------|------------|-----------------
+presence    | 172 |      180 |    0.05h |          - |
+recon       | 224 |      150 |    0.04h |          - |
+ambush      | 148 |     1100 |    0.31h |          - |
+census      | 112 |      300 |    0.08h |          0 | INSTANT (bug)
+cordon      |  77 |      300 |    0.08h |          - |
+overwatch   | 280 |      900 |    0.25h |          - |
+kle         | 282 |      360 |    0.10h |          - |
+
+Reading: every dwell is minutes (150-1100s), 12-70x shorter than doctrine.
+censusFlip=0 => census effect fires the tick the squad arrives (instant, not progressive).

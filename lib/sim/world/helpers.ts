@@ -26,22 +26,39 @@ export function clampMap(t: Terrain, p: Vec2): Vec2 {
   return { x: clamp(p.x, 5, t.worldSize - 5), y: clamp(p.y, 5, t.worldSize - 5) };
 }
 
-/** How long an element holds on its objective, by task/mission. */
-export function dwellFor(t: Task): number {
-  if (t.kind === "kle") return 360;
+/**
+ * How long an element works on its objective, by task/mission, in GAME-seconds — raised from
+ * the old minutes-long constants to the hours real operations take (FM 3-06.11, CALL biometrics,
+ * Restrepo/Outpost accounts). The player WARPS through the patient hours; the dwell event-roll
+ * (onStationEffects) pulls him back the instant something matters, so long-but-real reads as
+ * tension, not a progress bar.
+ *
+ *   census / cordon — a half-day cordon-and-search, scaled by the village's `population`
+ *                     (biometric enrollment is up to 30 min PER fighting-age person): ~2–8 h.
+ *   KLE / shura     — 1–2 h per meeting (the real lever is the cumulative weekly cadence).
+ *   overwatch       — a multi-hour OP (well under the 24 h patrol-base cap).
+ *   ambush          — hours of waiting for a contact that lasts seconds.
+ *   recon           — ≥ 1 h.
+ *   presence        — ~1 h showing the flag (the COIN gold standard is 3×/day saturation,
+ *                     many short patrols, not one long sit — kept modest on purpose).
+ */
+export function dwellFor(t: Task, population = 0): number {
+  // census/cordon enrollment time scales with population, clamped to the 2–8 h band.
+  const searchTime = clamp(population * 100, 2 * 3600, 8 * 3600);
+  if (t.kind === "kle") return clamp(3600 + population * 8, 1 * 3600, 2 * 3600);
   switch (t.missionType) {
     case "census":
-      return 300;
+      return searchTime;
     case "cordon":
-      return 300;
+      return searchTime;
     case "overwatch":
-      return 900;
+      return 5 * 3600;
     case "ambush":
-      return 1100;
+      return 4 * 3600;
     case "recon":
-      return 150;
+      return 4500; // 1.25 h
     default:
-      return 180;
+      return 3600; // presence — ~1 h
   }
 }
 
