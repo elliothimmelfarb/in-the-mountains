@@ -408,3 +408,65 @@ the sun + weather → burn supplies → rest/fatigue/morale → progress **tasks
 progress **projects** → resolve **resupplies** → roll weather/intel → run the **enemy director** →
 surface **events** → recompute **metrics** → `sim.tick(dt)` → reconcile casualties → cull escaped
 fighters → check tour end. The store steps this in fixed 0.1 s slices, scaled by speed/warp.
+
+## Civilian diurnal rhythm & the calm-before tell (`ai/civilian.ts`)
+
+The valley keeps a **day**. `World.refreshLight()` writes `sim.light` (ambient 0..1) every tick from
+the solar clock × weather; `civilianBrain` reads it to drive an outdoor **occupancy** that is a pure
+function of light: full pattern-of-life at midday, a *home-pull* that grows as light falls (children
+and elders lean home earlier), and **indoors at night**. The night-home drive **pre-empts the
+Wary/Clear-road reactions** (a villager merely wary of a distant armed man at 02:00 still wants to be
+inside) but yields to a real **Flee**. Measured by hour (`scripts/atmospherics-probe.ts diurnal`):
+night outdoor ≈ 0 % on a quiet seed, ~12–15 % of population on a hot seed (the residual is civilians
+correctly fleeing **night infiltrators**, not stranded logic); midday ≥ 60–90 %; a rising edge at
+dawn and a falling edge at dusk. The design keys occupancy to light *magnitude* (symmetric across
+dawn/dusk) so the brain never needs a dawn-vs-dusk discriminator — and adds **no persisted field**, so
+`serialize()` stays bit-identical (the snapped-home arrival test uses the same
+`reachablePoint→civSafePoint` snap `civMoveTo` applies, computed lazily/memoized so it costs nothing
+in daylight).
+
+**The calm before (the flagship COIN tell).** In the same one-pass armed scan, the brain flags
+**staged** insurgents — an ambush cell holding fire (`brainState==="ambush"`) or a concealed
+infiltrator (`"patrolling"`+`technique==="concealed"`), both alive but **not yet firing** — out to a
+150 m sensing radius. When sensed, the villager quietly **melts away** home (children first, walking
+not sprinting), departures **staggered** by a seeded `rng.chance` so the fields *thin* over a few
+seconds. An alert player reads the **absence** before the first shot — exactly the signal the tutorial
+teaches. Headless proof (`… melt <seed>`): the threatened cohort closes ~50 % of its distance home
+within the window while a control cohort barely moves, **no shot is fired**, and children lead — all
+fully replay-deterministic (same seed → identical civilian positions).
+
+## Procedural audio (`lib/audio/`)
+
+Battle audio is a **render-side observer** — exactly like `lib/render/combat-fx.ts`. It *reads*
+sim state and plays sound; it **never** writes back into `lib/sim`, and `lib/sim` has zero audio
+imports (Law 7 — a seed reproduces outcomes; audio is a pure spectator). Every sound is
+**synthesized procedurally** (Web Audio: oscillators + filtered-noise buffers + envelopes) — no
+binary assets, no npm audio dependency.
+
+**Two halves, strict split:**
+- **`mapper.ts` (PURE, headless)** — `CueMapper.collect({effects, log, fireMissions, inContact})`
+  walks the three sim streams against monotonic high-water marks (the dedup pattern from
+  `combat-fx.ts` `noteCombatEffects`) and emits an ordered `AudioCue[]`: every new `Effect` id →
+  exactly one cue (`blood` → none, by design); contact-relevant log lines → a radio bed; fire-mission
+  status transitions → `shot` / `splash` / a danger-close klaxon; the TIC rising edge → the contact
+  sting. Per-cue variation is a **pure hash of the source id** (`RNG.hashString`, mirroring the
+  per-civ trait hash), so the same event always sounds the same — no wall-clock, no PRNG stream.
+- **`synth.ts` + `player.ts` (BROWSER only)** — the `AudioEngine` owns the `AudioContext`
+  (created/resumed on the **first user gesture** per the browser autoplay policy), the master
+  volume/mute bus, a 24-voice polyphony cap, and the spatial mix: distance attenuation, a low-pass
+  on far sounds (air absorption), stereo pan, **zoom-scaled** audible radius, and a
+  **speed-of-sound delay** that splits a distant shot into the bright *crack* then the low *thump*
+  — the genre's "you see the flash, then hear it" signature. The US-vs-insurgent and MG-vs-rifle
+  timbres are the maximum fidelity the `Effect` carries (faction + `size≥1.5`); there is no
+  `weaponId` on the effect and we deliberately do not add one (it would touch the save/determinism
+  contract for a marginal gain).
+
+**Seam:** `state/store.ts` `frame()` calls `audio.tick(world.sim-streams, {running,paused,warp,inContact})`
+after `world.tick`, always advancing the mapper's marks (so resume never dumps a backlog) but
+**scheduling sound only when live** — silenced during pause/warp. `WorldView.tsx` pushes the camera
+pose each RAF (the listener) and wires the unlock-on-gesture. Volume/mute live in the
+`itm-ui-v1` UI-layout localStorage (a per-device preference), **never** the campaign save.
+
+The headless determinism + purity proof is `scripts/audio-probe.ts` (`AUDIO OK`): 1:1 event→cue
+mapping with no double-fire, byte-identical cue streams from a replayed recording, and a static
+grep that `lib/sim` imports no audio and the pure mapper touches no browser global.
