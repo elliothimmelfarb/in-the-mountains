@@ -32,11 +32,16 @@ Generation is resolution-independent (landform frequencies are expressed per-met
    grass, holly scrub, forest, scree, **boulder fields**, rock, **cliffs**, walled **compounds**
    and **compound walls**, **cemeteries**, roads, trails, **footbridges**, **fords**, and the COP's
    **HESCO** barriers, **structures** and **gravel** pads.
-6. **Villages** placed on benches, stamped with walled qalats (interior + perimeter wall),
-   surrounding orchards/terraces, and an occasional cemetery.
+6. **Villages** placed on benches and stamped as a **hamlet** — a ring of **2–6 discrete walled
+   qalats** (interior + perimeter wall) around an open courtyard, orchards/terraces filling the benches
+   between them, and an occasional cemetery on the edge. The cluster layout is deterministic from the
+   village id (`villageHamlet`), so the renderer paints the same hamlet; the qalats are spaced so the
+   alleys stay walkable (a patrol can thread or skirt the village without trapping). (issue 014)
 7. **The COP** scored onto a commanding bench/low spur near the valley (prominent, a few tens of
    metres above the floor, close enough to be supplied by road — not an alpine perch), then built out
-   as a real fortified position (see below).
+   as a real fortified position at **platoon-OP scale — a ~120 m position** (a single `copRadiusCells()`
+   shared by siting and build keeps the reserved footprint and the stamped wire in lock-step), not a
+   brigade FOB (see below).
 8. **Road & path network** — a tiered, connected network (`carveRoadsAndTrails`):
    - the valley-floor **Road** (MSR) just off the river;
    - a graded secondary **Track** (`Land.Track`) tying every village to the MSR, plus a village

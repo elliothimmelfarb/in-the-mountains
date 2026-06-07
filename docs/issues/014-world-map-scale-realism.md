@@ -1,6 +1,6 @@
 # 014 — World-map scale realism: soldiers/COP/villages drawn the wrong size
 
-**Status: 🟢 Bucket 1 (REPRESENTATION) RESOLVED 2026-06-07; Bucket 2 (SIM SCALE) + R3 (village cluster) deferred.**
+**Status: 🟢 FULLY RESOLVED 2026-06-07 — Bucket 1 (R1/R2) + R3/R4 render + Bucket 2 (S1/S2/S3/S4) sim all landed and verified.**
 Full write-up + charts + annotated screenshots: `docs/progress/2026-06-06-world-scale-realism/report.html`.
 Agent-ready fix spec (priority-ordered, with `file:line`, params, seams, metrics):
 `docs/progress/2026-06-06-world-scale-realism/AGENT-BRIEF.md`.
@@ -22,6 +22,57 @@ The loud, felt half of the problem is fixed (render-only, zero sim risk). See
 - **Deferred (logged):** R3 village sub-compound cluster (smallest slice), and all of **Bucket 2** (valley
   shape, weapons-squad 3→9, COP geometry) — sim/terrain is sensitive and 014 rates the relief/peaks already
   authentic; a deliberate realism-vs-playability call left for a measured future pass.
+
+## Resolution — Bucket 2 (sim scale) + R3/R4, 2026-06-07 (the deferred work, now done)
+
+The remaining items shipped as 6 atomic commits (`e4c28fb` S1 · `e8b1ebf` S3 · `e460857` R4 ·
+`e365c33` S2+S4 · `41d22ef` R3 · `8c24bdc` hamlet stall-fix). All standing checks green
+(tsc · build · lint · `smoke.ts` SMOKE OK · `balance.ts` 0 stranded). A 7-agent adversarial
+verification pass (0 blockers, 0 majors) plus the dynamic balance harness gated each change.
+
+- **S1 — weapons squad 3 → 9 (`entities.ts`).** Built a real 9-man weapons squad (WSL + two M240
+  gun teams + two ammo bearers + grenadier + marksman) from existing roles. **Platoon 35 → 41**
+  (verified `playerUnits().length===41`, weapons sqd `memberIds.length===9`). `rng.fork("platoon")`
+  isolates the roster shift from terrain/weather/enemy strength (proven: parent rng unchanged by
+  child draw-count), so the valley is unaffected.
+- **S3 — floor gradient (`terrain.ts`). BRIEF CORRECTION:** the gradient was **NOT inverted**. Reading
+  the y→compass mapping (`North is -y`, terrain.ts:145), the generation lerp already put the LOW end
+  (1550) at the **north** mouth — the valley already drained north into the Pech, matching reality.
+  Only the field *names* (`floorSouth`/`floorNorth`) and the `lerp` arg order were transposed, so the
+  code *read* inverted. Fixed with a compensating double-swap (values + arg order) → **bit-identical
+  terrain** (sha256 of the elev/slope/land/centerX arrays identical to the parent commit; elev
+  1531/2899/1368 unchanged), honest names. The "narrow the floor to 0.5–1 km" half was **not** done:
+  the *flat* floor already measures **median 420 m / p90 940 m** (<20° grade) — a real slot — and the
+  ~2.2 km pathfinding-navigable width is steep-but-climbable mountainside that the issue-010
+  anti-stranding work depends on. Narrowing it would re-break a logged win (restraint logged).
+- **S2 — COP 170 m → 120 m (`terrain.ts`).** Wire radius routed through one `copRadiusCells()` shared
+  by siting (R0) and build (R) — fixed a latent sited-for-85/built-at-60 transposition. **Diameter
+  170 → 120 m** (a platoon OP, not a FOB). Verified: cop-render **0 sealed pockets**, copaudit clean
+  over 60 seeds incl. the held-out tail (vil∩ 0, vilGap positive, 0 unreachable garrison posts),
+  copstuck ≤ baseline grind.
+- **S4 — villages: monolith → hamlet (`terrain.ts`).** New deterministic `villageHamlet(v)` (FNV
+  hash of `v.id`, no rng) stamps a **ring of 2–6 discrete walled qalats** around an open courtyard;
+  village radius 4–8 → 6–10 cells (**hamlet extent ~70–90 m**, was a single ~40 m box). First cut
+  scattered overlapping compounds that fused into a wall maze and trapped a returning patrol
+  (bal-6, 1/12 stall — caught by the dynamic balance harness, *missed* by the static audit); rebuilt
+  as the spaced ring → **stall gone (0/12)**. Structural connectivity **preserved: 98% (203/207, 40
+  seeds) vs 99% baseline** — no hamlet seals a village; the misses are terrain-isolated benches.
+- **R3 — render villages as the cluster (`WorldView.tsx`).** Paints one qalat sprite per `villageHamlet`
+  compound — the **same** layout the worldgen stamped (one source of truth), so sprites sit over the
+  real compounds. A village now reads as a hamlet of buildings.
+- **R4 — monotonic LOD bands (`draw.ts`, `WorldView.tsx`).** Retimed the COP pin (0.35→0.7) so it
+  retires as the built COP resolves (was double-drawing over finished barracks); crossfaded the
+  garrison reveal (0.42→0.62) instead of a hard pop at ppm 0.5; deleted a dead role-glyph block.
+
+**Re-baseline note (determinism contract).** S2/S4 reshape worldgen, so the single seeded RNG stream
+ripples downstream — equivalent-but-reshuffled valleys. On the fixed seed sets this shows as a patrol-
+march reach of 66→48% and balance WIA 4.9→7.5 (KIA ~1.0 flat); an A/B (same seeds, one variable) plus
+98% structural connectivity confirm this is a reshuffle, not a sealed-village or logic regression.
+**Restraint:** did not fork dedicated rngs for buildCop/village-stamp to zero out the ripple — a larger
+determinism change with no correctness payoff once connectivity is preserved.
+
+Full write-up + before/after framings: `docs/progress/2026-06-06-world-scale-realism/` and the published
+report in `public/manual/archive/`.
 
 ## What's wrong
 
