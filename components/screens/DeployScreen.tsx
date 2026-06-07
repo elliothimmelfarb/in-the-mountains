@@ -163,7 +163,7 @@ export default function DeployScreen() {
   const toggleWarp = useGame((s) => s.toggleWarp);
   const setFireSupport = useGame((s) => s.setFireSupport);
   const setPlanning = useGame((s) => s.setPlanning);
-  const hasDirectives = useGame((s) => !!s.world && s.world.state.directives.some((d) => d.status === "active"));
+  const hasDirectives = useGame((s) => !!s.world && s.world.state.directives.length > 0);
   useGame((s) => s.tick);
 
   useEffect(() => {
@@ -175,12 +175,19 @@ export default function DeployScreen() {
         return;
       }
       const k = e.key.toUpperCase();
+      // Call-for-fire hotkeys — only while a request is pending. F clears hot (the urgent ✓),
+      // X denies. Hotkeys make the time-critical approve/deny lever fast under TIC's 1× clock.
+      if (useGame.getState().world?.state.fireRequest) {
+        if (k === "F") { e.preventDefault(); useGame.getState().approveFires(); return; }
+        if (k === "X") { e.preventDefault(); useGame.getState().denyFires(); return; }
+      }
       if (e.key === "1") setSpeed(1);
       if (e.key === "2") setSpeed(2);
       if (e.key === "3") setSpeed(4);
       if (e.key === "4") setSpeed(8);
       if (e.key === "5") setSpeed(16);
       if (k === "T") toggleWarp();
+      if (k === "M") useGame.getState().toggleAudioMute(); // M = mute/unmute the procedural audio
       if (k === "R") setPlanning(!useGame.getState().planning); // R = draw/route mode for the active squad
       if (e.key === "Escape") {
         setFireSupport(null);
@@ -228,6 +235,12 @@ function CommandBar() {
   const setSpeed = useGame((s) => s.setSpeed);
   const toggleWarp = useGame((s) => s.toggleWarp);
   const gotoMenu = useGame((s) => s.gotoMenu);
+  const audioMuted = useGame((s) => s.audioMuted);
+  const audioVolume = useGame((s) => s.audioVolume);
+  const setAudioVolume = useGame((s) => s.setAudioVolume);
+  const toggleAudioMute = useGame((s) => s.toggleAudioMute);
+  const autoPauseOnFire = useGame((s) => s.autoPauseOnFire);
+  const toggleAutoPauseOnFire = useGame((s) => s.toggleAutoPauseOnFire);
   useGame((s) => s.tick);
 
   const m = world.state.metrics;
@@ -283,6 +296,24 @@ function CommandBar() {
           );
         })}
         <button disabled={inContact} className={`tac-btn px-2 py-1 ${warp ? "active" : ""}`} onClick={toggleWarp} title="Skip to next event (T)">⏩</button>
+        {/* Auto-pause on a new call-for-fire: the urgency cue. On = the clock stops so you read the
+            call (clear hot [F] / deny [X]). Never auto-restores speed — TIC owns that one-way drop. */}
+        <button className={`tac-btn px-2 py-1 ${autoPauseOnFire ? "active" : ""}`} onClick={toggleAutoPauseOnFire} title="Auto-pause on a new call-for-fire">⏸▲</button>
+      </div>
+      {/* audio — master mute + volume (persisted in itm-ui-v1, NOT the campaign save) */}
+      <div className="flex items-center px-2 gap-1 border-l border-line">
+        <button className={`tac-btn px-2 py-1 ${audioMuted ? "active" : ""}`} onClick={toggleAudioMute} title="Mute (M)">{audioMuted ? "🔇" : "🔊"}</button>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={audioVolume}
+          onChange={(e) => setAudioVolume(+e.target.value)}
+          disabled={audioMuted}
+          className="w-16 accent-amber"
+          title="Volume"
+        />
       </div>
       <button className="tac-btn rounded-none border-y-0 border-r-0 px-3" onClick={gotoMenu}>☰</button>
     </div>
@@ -303,7 +334,7 @@ function TasksBody() {
           <div key={t.id} className="bg-bg border border-line p-1.5 flex items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="text-ink text-[11px] font-semibold truncate">{t.label}</div>
-              <div className="text-inkdim text-[9px] font-mono">{t.memberIds.length} pax · {t.phase}{t.phase === "assembling" ? ` ${Math.ceil(t.timer)}s` : ""} · {t.technique}</div>
+              <div className="text-inkdim text-[9px] font-mono">{t.memberIds.length} pax · {t.kind === "secure" && t.phase === "onstation" ? "securing" : t.phase}{t.phase === "assembling" ? ` ${Math.ceil(t.timer)}s` : ""} · {t.technique}</div>
             </div>
             <button className="tac-btn text-[9px] px-1.5 py-0.5 shrink-0" onClick={() => recallTask(t.id)}>recall</button>
           </div>
@@ -313,26 +344,65 @@ function TasksBody() {
   );
 }
 
+// Short tag for each directive kind — the FRAGO "type" the player reads at a glance.
+const DIRECTIVE_KIND_TAG: Record<string, string> = {
+  presence: "PRESENCE", kle: "KLE", census: "CENSUS", interdict: "INTERDICT",
+  construct: "CERP", hold: "HOLD", casualty: "PROTECT POP",
+};
+
+// The Battalion Directives feed: every FRAGO from Higher with its kind, deadline, live progress,
+// and status. Active ones are driveable; COMPLETE earns Higher's confidence; FAILED costs it —
+// the player FEELS the pressure from above (reward/penalty are surfaced, not hidden).
 function DirectivesBody() {
   const world = useGame((s) => s.world)!;
   useGame((s) => s.tick);
-  const active = world.state.directives.filter((d) => d.status === "active");
-  if (active.length === 0) return null;
+  const dirs = world.state.directives;
+  if (dirs.length === 0) return null;
+  // Sort: active first (soonest deadline up top), then the resolved ones (newest id last → recent
+  // failures/completions sit just under the live ones, so the player sees the consequence).
+  const active = dirs.filter((d) => d.status === "active").sort((a, b) => a.deadlineDay - b.deadlineDay);
+  const resolved = dirs.filter((d) => d.status !== "active").slice(-4);
+  const day = world.day;
   return (
     <div className="p-2">
       <div className="flex flex-col gap-1.5">
-        {active.map((d) => (
-          <div key={d.id} className="bg-bg border border-line p-1.5">
-            <div className="flex justify-between items-baseline">
-              <span className="text-ink text-[11px] font-semibold">{d.title}</span>
-              <span className="text-inkdim font-mono text-[9px]">D{d.deadlineDay}</span>
+        {active.map((d) => {
+          const left = d.deadlineDay - day;
+          const urgent = left <= 3; // deadline pressure — colour the countdown when it bites
+          return (
+            <div key={d.id} className="bg-bg border border-line p-1.5">
+              <div className="flex justify-between items-baseline gap-2">
+                <span className="text-ink text-[11px] font-semibold truncate inline-flex items-center gap-1.5">
+                  <span className="stencil text-[8px] text-amber bg-panel2 px-1 border border-line shrink-0">{DIRECTIVE_KIND_TAG[d.kind] ?? d.kind}</span>
+                  {d.title}
+                </span>
+                <span className={`font-mono text-[9px] shrink-0 ${urgent ? "text-rust blink" : "text-inkdim"}`}>
+                  {left >= 0 ? `${left}d` : "OVERDUE"} · D{d.deadlineDay}
+                </span>
+              </div>
+              <div className="text-inkdim text-[10px] leading-snug mt-0.5">{d.desc}</div>
+              <div className="h-1 bg-panel2 mt-1 border border-line">
+                <div className="h-full bg-olive" style={{ width: `${Math.round(d.progress * 100)}%` }} />
+              </div>
             </div>
-            <div className="text-inkdim text-[10px] leading-snug mt-0.5">{d.desc}</div>
-            <div className="h-1 bg-panel2 mt-1 border border-line">
-              <div className="h-full bg-olive" style={{ width: `${d.progress * 100}%` }} />
+          );
+        })}
+        {resolved.map((d) => {
+          const done = d.status === "complete";
+          return (
+            <div key={d.id} className={`bg-bg border p-1.5 opacity-90 ${done ? "border-good" : "border-rust"}`}>
+              <div className="flex justify-between items-baseline gap-2">
+                <span className="text-inkdim text-[10px] truncate inline-flex items-center gap-1.5">
+                  <span className="stencil text-[8px] text-inkdim bg-panel2 px-1 border border-line shrink-0">{DIRECTIVE_KIND_TAG[d.kind] ?? d.kind}</span>
+                  {d.title}
+                </span>
+                <span className={`stencil text-[9px] shrink-0 ${done ? "text-good" : "text-rust"}`}>
+                  {done ? `✓ COMPLETE +${d.reward}` : `✕ FAILED −${d.penalty}`}
+                </span>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -464,12 +534,12 @@ function OrderBar() {
         {/* ZONE 2 — call-for-fire + fire support + medevac */}
         <div className="flex items-stretch gap-3 border-l border-line pl-3">
           {fr && (
-            <div className="border-l border-rust pl-3 animate-pulse">
-              <div className="stencil text-[9px] text-rust mb-1">▲ Call for Fire — {fr.label}</div>
-              <div className="font-mono text-[10px] text-ink max-w-[200px] mb-1">{fr.reason}. Requesting <span className="text-amber">{getWeapon(fr.weaponId).short}</span> on grid {String(fr.cx).padStart(3, "0")}–{String(fr.cy).padStart(3, "0")}.</div>
-              <div className="flex gap-1">
-                <button className="tac-btn tac-btn-danger active flex-1 text-[10px]" onClick={approveFires}>✓ CLEARED HOT</button>
-                <button className="tac-btn flex-1 text-[10px]" onClick={denyFires}>✕ DENY</button>
+            <div className="border-2 border-rust bg-rust/10 px-2.5 py-1.5 animate-pulse rounded-sm">
+              <div className="stencil text-[11px] text-rust mb-1 blink">▲ CALL FOR FIRE — {fr.label}</div>
+              <div className="font-mono text-[10px] text-ink max-w-[220px] mb-1.5">{fr.reason}. Requesting <span className="text-amber">{getWeapon(fr.weaponId).short}</span> on grid {String(fr.cx).padStart(3, "0")}–{String(fr.cy).padStart(3, "0")}.</div>
+              <div className="flex gap-1.5">
+                <button className="tac-btn tac-btn-danger active flex-1 text-[12px] py-1.5 font-bold" onClick={approveFires}>✓ CLEARED HOT <span className="text-[9px] opacity-70 font-normal">[F]</span></button>
+                <button className="tac-btn flex-1 text-[11px] py-1.5" onClick={denyFires}>✕ DENY <span className="text-[9px] opacity-70">[X]</span></button>
               </div>
             </div>
           )}
@@ -732,6 +802,7 @@ function VillagePanel({ villageId }: { villageId: string }) {
   const world = useGame((s) => s.world)!;
   const conductKLE = useGame((s) => s.conductKLE);
   const fundProject = useGame((s) => s.fundProject);
+  const secureBuild = useGame((s) => s.secureBuild);
   const selectVillage = useGame((s) => s.selectVillage);
   const activeSquadId = useGame((s) => s.activeSquadId);
   const patrolIds = useGame((s) => s.patrolIds);
@@ -741,7 +812,12 @@ function VillagePanel({ villageId }: { villageId: string }) {
   const v = world.state.villages.find((x) => x.id === villageId);
   if (!v) return null;
   const attColor = v.attitude > 20 ? "#6fae54" : v.attitude < -20 ? "#c0392b" : "#e0a72b";
+  // The in-flight project (not yet complete). A funded project sits at "building"/"securing" until
+  // an element holds the site for the full build; otherwise the enemy SABOTAGES it.
   const proj = world.state.projects.find((p) => p.villageId === v.id && p.stage !== "complete");
+  // Is an element already SECURING this site? (a secure task bound to this village, en route or holding)
+  const securing = world.state.tasks.some((t) => t.kind === "secure" && t.secureVillageId === v.id && t.phase !== "complete");
+  const canSecure = !!proj && proj.stage !== "sabotaged";
   return (
     <div className="border-b border-line p-2 flex-1 min-h-0 overflow-y-auto">
       <div className="flex justify-between items-center mb-2">
@@ -755,28 +831,63 @@ function VillagePanel({ villageId }: { villageId: string }) {
         <Bar label="Coop." value={v.cooperation} color="#5b9bd8" />
         <Bar label="ACM Symp." value={v.sympathy} color="#c0392b" />
       </div>
+      {/* Elder's ASK — the promise the player can keep or break. Surfacing it lets a human DRIVE
+          the kept-promise mechanic (the headless harness can't align the build to the ask). */}
+      {v.ask && !v.ask.fulfilled && (
+        <div className="bg-bg border border-amber p-1.5 mb-2 text-[10px] font-mono">
+          <div className="text-amber stencil text-[9px]">Elder Request · by D{v.ask.deadlineDay}</div>
+          <div className="text-ink mt-0.5 leading-snug normal-case">{v.ask.desc}</div>
+          {v.ask.kind === "project" && v.ask.projectType && <div className="text-inkdim mt-0.5">— build the {v.ask.projectType} below to keep this promise</div>}
+        </div>
+      )}
+      {(v.keptPromises > 0 || v.brokenPromises > 0) && (
+        <div className="text-[9px] text-inkdim mb-2 font-mono">promises kept <span className="text-good">{v.keptPromises}</span> · broken <span className="text-rust">{v.brokenPromises}</span></div>
+      )}
       {v.projects.length > 0 && <div className="text-[10px] text-inkdim mb-2 font-mono">Built: <span className="text-us">{v.projects.join(", ")}</span></div>}
       {proj && (
         <div className="bg-bg border border-line p-1.5 mb-2 text-[10px] font-mono">
-          <div className="text-ink">{proj.type} — <span className={proj.stage === "building" ? "text-us" : proj.stage === "sabotaged" ? "text-rust" : "text-amber"}>{proj.stage.replace(/_/g, " ")}</span></div>
+          <div className="text-ink">{proj.type} — <span className={proj.stage === "building" ? "text-us" : proj.stage === "sabotaged" ? "text-rust" : "text-amber"}>{securing && proj.stage !== "sabotaged" ? "securing" : proj.stage.replace(/_/g, " ")}</span></div>
           {proj.stage === "building" && <div className="h-1 bg-panel2 mt-1 border border-line"><div className="h-full bg-us" style={{ width: `${proj.progress * 100}%` }} /></div>}
-          {proj.stage === "building" && <div className="text-inkdim mt-0.5">needs a squad securing the site to progress</div>}
+          {proj.stage !== "sabotaged" && (
+            <div className={`mt-0.5 ${securing ? "text-good" : "text-rust"}`}>{securing ? "● an element is securing the site — the work proceeds" : "⚠ unsecured — assign a squad to hold the site or it will be SABOTAGED"}</div>
+          )}
+          {proj.stage === "sabotaged" && <div className="text-rust mt-0.5">sabotaged — the elders saw you could not protect it</div>}
         </div>
+      )}
+      {/* SECURE-BUILD order (TARGET 1): assign the active squad to garrison the project site. Routes
+          via the normal patrol machinery (no map gesture). Disabled with a reason when not driveable. */}
+      {canSecure && (
+        <button className={`tac-btn w-full mb-2 ${securing ? "active" : ""}`} disabled={securing} onClick={() => secureBuild(v.id)}>
+          🛡 {securing ? "Site being secured" : `Secure the Build Site${klePax ? ` — ${kleSquad?.name ?? "squad"}` : " — HQ element"}`}
+        </button>
       )}
       <button className="tac-btn w-full mb-2" onClick={() => conductKLE(v.id)}>
         ☕ Send for Shura (KLE){klePax ? ` — ${kleSquad?.name ?? "squad"}` : " — HQ element"}
       </button>
-      <div className="stencil text-[10px] text-amber mb-1">CERP Projects <span className="text-inkdim normal-case">(${world.state.cerp.toLocaleString()} · $5k ea)</span></div>
+      <div className="stencil text-[10px] text-amber mb-1">CERP Projects <span className="text-inkdim normal-case">(${world.state.cerp.toLocaleString()} · $5k ea){cerpNextHint(world)}</span></div>
       <div className="flex flex-wrap gap-1">
-        {CERP_PROJECTS.map((p) => (
-          <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
-            <Icon name={cerpIcon(p)} size={12} />{v.projects.includes(p) ? "✓ " : ""}{p}
-          </button>
-        ))}
+        {CERP_PROJECTS.map((p) => {
+          const asked = v.ask?.kind === "project" && v.ask.projectType === p; // the elder specifically asked for this one
+          return (
+            <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${asked ? "border-amber tac-btn-danger" : v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
+              <Icon name={cerpIcon(p)} size={12} />{v.projects.includes(p) ? "✓ " : ""}{asked ? "★ " : ""}{p}
+            </button>
+          );
+        })}
       </div>
-      <div className="text-inkdim text-[9px] mt-1 font-mono">Projects need materials trucked in, a contractor, and security on the site for days.</div>
+      <div className="text-inkdim text-[9px] mt-1 font-mono">Projects need materials trucked in, a contractor, and a squad SECURING the site for days — fund it, then secure it. ★ = the elder asked for it.</div>
     </div>
   );
+}
+
+// CERP is a two-way budget now: a battalion stipend lands on a cadence (income) and a delivered
+// project earns a partial refund. Surface the next disbursement so the player reads it as managed
+// money, not a one-way drain. (DAY = 86400 s; this is a UI display calc only, no sim state.)
+function cerpNextHint(world: NonNullable<ReturnType<typeof useGame.getState>["world"]>): string {
+  const next = world.state.nextCerpStipendAt;
+  if (typeof next !== "number") return "";
+  const days = Math.max(0, Math.ceil((next - world.state.clock) / 86400));
+  return ` · next stipend ~${days}d`;
 }
 
 const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: number; icon: string }[] = [
@@ -829,7 +940,8 @@ function LogisticsBody() {
           return <Bar key={row.key} label={<><Icon name={row.icon} size={11} className="text-inkdim" />{row.label}</>} value={val} max={row.max} suffix="" color={low ? "#c0392b" : "#6b7a3a"} />;
         })}
       </div>
-      <div className="text-[10px] text-inkdim mt-2 font-mono">CERP funds: <span className="text-amber">${world.state.cerp.toLocaleString()}</span></div>
+      <div className="text-[10px] text-inkdim mt-2 font-mono">CERP funds: <span className="text-amber">${world.state.cerp.toLocaleString()}</span>{cerpNextHint(world)}</div>
+      <div className="text-[9px] text-inkdim/70 font-mono">Battalion disburses a stipend on a cadence; delivered projects earn a partial refund.</div>
     </div>
   );
 }

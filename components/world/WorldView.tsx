@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useGame } from "@/state/store";
+import { useGame, getAudio } from "@/state/store";
 import { Land } from "@/lib/sim/terrain";
-import { Camera, drawTerrain, drawGrid, worldToScreen, screenToWorld } from "@/lib/render/topo";
-import { drawUnit, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop } from "@/lib/render/draw";
-import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects } from "@/lib/render/combat-fx";
+import { Camera, drawTerrain, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
+import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
+import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
 import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
@@ -79,6 +79,11 @@ export default function WorldView() {
   const dragRef = useRef<{ sx: number; sy: number; x: number; y: number; box: boolean; pan: boolean } | null>(null);
   const hoverRef = useRef<{ wx: number; wy: number } | null>(null);
   const initCam = useRef(false);
+  // camera-punch game-feel: a transient shake (applied as a draw-time transform offset, NEVER
+  // a write to cx/cy) + a danger-close rust edge-flash that decays. Set by noteShakeEvents.
+  const shakeRef = useRef({ mag: 0, until: 0, durS: 0.35, edge: 0, edgeUntil: 0 });
+  // TIC-onset cue: wall-clock of the last frame we saw contact, to debounce a one-shot nudge.
+  const contactRef = useRef(-999);
 
   // Rasterize the authored SVG asset library once on mount (bake-once / blit-many).
   // The loading screen normally pre-warms this; the guard skips a redundant re-raster on
@@ -90,6 +95,48 @@ export default function WorldView() {
       camRef.current.cx = x;
       camRef.current.cy = y;
       if (ppm) camRef.current.ppm = ppm;
+    };
+    // AUDIO: the AudioContext must be created/resumed inside a USER GESTURE (browser autoplay
+    // policy + Next 16 client rules). The first existing gesture — Deploy / Step Off / canvas
+    // click / any keydown — unlocks it, then we sync the persisted mute/volume into the engine
+    // (it has no context to set before unlock). once:true => self-removes after firing.
+    const unlock = () => {
+      const a = getAudio();
+      a.unlock();
+      const st = useGame.getState();
+      a.setMasterVolume(st.audioVolume);
+      a.setMuted(st.audioMuted);
+    };
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
+    // expose the engine for the live audio-verification harness (debug ring buffer).
+    (window as unknown as { __audio?: ReturnType<typeof getAudio> }).__audio = getAudio();
+
+    // JUMP-TO-CONTACT: a persistent (NOT once) keydown so the player can snap the camera to
+    // an active firefight on the 2.56 km map. Bound to 'c' (contact) ONLY — NOT Space, which the
+    // HUD owns as the pause key (DeployScreen onKey); binding both here double-fired pause+jump.
+    // Reuses the exact in-contact predicate the off-screen pointer / contact marker use. This is a
+    // SEPARATE listener from the one-shot audio unlock above — do not merge; the unlock self-removes.
+    const jumpToContact = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() !== "c") return;
+      // don't hijack typing in inputs/textareas
+      const tgt = e.target as HTMLElement | null;
+      if (tgt && (tgt.tagName === "INPUT" || tgt.tagName === "TEXTAREA" || tgt.isContentEditable)) return;
+      const w = useGame.getState().world;
+      if (!w) return;
+      const c = getContactCentroid(w.sim.playerUnits());
+      if (!c) return;
+      e.preventDefault();
+      camRef.current.cx = c.x;
+      camRef.current.cy = c.y;
+      camRef.current.ppm = Math.max(camRef.current.ppm, 1.2); // zoom in enough to fight it
+    };
+    window.addEventListener("keydown", jumpToContact);
+
+    return () => {
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
+      window.removeEventListener("keydown", jumpToContact);
     };
   }, []);
 
@@ -122,10 +169,20 @@ export default function WorldView() {
           canvas.style.height = ch + "px";
         }
         const ctx = canvas.getContext("2d")!;
-        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        // CAMERA-PUNCH: apply the transient shake as a draw-time TRANSFORM offset, not a
+        // write to cx/cy — so it can't fight pan / __setCam / the audio listener pose. A
+        // restrained, decaying jitter; zero offset when no impulse is live.
+        const sh = shakeRef.current;
+        const nowSr = now / 1000;
+        const decay = sh.until > nowSr ? (sh.until - nowSr) / sh.durS : 0;
+        const ox = decay > 0 ? Math.sin(now * 0.06) * sh.mag * decay : 0;
+        const oy = decay > 0 ? Math.cos(now * 0.051) * sh.mag * decay : 0;
+        ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
         camRef.current.vw = cw;
         camRef.current.vh = ch;
-        draw(ctx, camRef.current);
+        draw(ctx, camRef.current, now);
+        // feed the audio listener pose (positional pan + distance + zoom-scaled radius).
+        getAudio().setCamera(camRef.current);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -133,7 +190,7 @@ export default function WorldView() {
     return () => cancelAnimationFrame(raf);
   }, []);
 
-  function draw(ctx: CanvasRenderingContext2D, cam: Camera) {
+  function draw(ctx: CanvasRenderingContext2D, cam: Camera, nowMs = 0) {
     const st = useGame.getState();
     const w = st.world;
     if (!w) return;
@@ -145,7 +202,18 @@ export default function WorldView() {
     drawDecoration(ctx, terrain, cam); // scattered trees/rocks fade in at tactical zoom
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
-    drawSmoke(ctx, cam, sim.smoke);
+    // weather as atmosphere — over the relief/decoration, under the tactical layer, so it
+    // never hides the fight. Reads world.state.weather + the live wind drift (sim.weather).
+    const wx = w.state.weather;
+    drawWeather(ctx, cam, {
+      label: wx.label, precip: wx.precip, visibilityM: wx.visibilityM, wind: wx.wind,
+      windX: sim.weather.windX ?? 0, windY: sim.weather.windY ?? 0,
+      minElev: terrain.minElev, elevRange: terrain.maxElev - terrain.minElev,
+      elevAt: (ex, ey) => terrain.elevAt(ex, ey),
+    }, night);
+
+    const windV = { x: sim.weather.windX ?? 0, y: sim.weather.windY ?? 0 };
+    drawSmoke(ctx, cam, sim.smoke, windV);
 
     // named features — milspec terrain glyphs + label
     ctx.textAlign = "center";
@@ -344,11 +412,45 @@ export default function WorldView() {
     }
     // suspected-shooter pinpoints (hidden enemies revealed by their muzzle flash)
     drawFogReveals(ctx, cam);
-    // friendlies on top
-    for (const u of sim.units) {
-      if ((u.faction === "us" || u.faction === "ana") && u.alive && !inGarrison(u)) {
+    // friendlies on top — LOD: below tactical zoom (FIG_FADE0) a squad is ONE unit icon at
+    // its centroid (you track elements, not men); at/above it the individuals resolve so the
+    // real 5.5 m dispersion becomes visible. Crossfade so the icon→figures swap doesn't pop.
+    const liveFriendlies = sim.units.filter(
+      (u) => (u.faction === "us" || u.faction === "ana") && u.alive && !inGarrison(u)
+    );
+    const iconA = 1 - lodAlpha(cam.ppm, FIG_FADE0 - 0.4, FIG_FADE0); // 1 below band, 0 above
+    if (iconA > 0.02) {
+      // group by squadId (the real element: hq/sq1/sq2/sq3/wpn), centroid each, one icon.
+      const groups = new Map<string, Unit[]>();
+      for (const u of liveFriendlies) {
+        const key = u.squadId ?? (u.faction === "ana" ? "ana" : "us");
+        let g = groups.get(key);
+        if (!g) { g = []; groups.set(key, g); }
+        g.push(u);
+      }
+      for (const [key, men] of groups) {
+        const c = unitsCentroid(men);
+        const sqName = w.platoon.squads.find((s) => s.id === key)?.name ?? (men[0].faction === "ana" ? "ANA" : key.toUpperCase());
+        const engaged = men.some((m) => m.suppression > 0.12 || m.visibleEnemyIds.length > 0);
+        drawSquadIcon(ctx, cam, c, {
+          count: men.length,
+          label: sqName.replace(/\s*Squad$/i, "").replace(/\s*Sqd$/i, ""),
+          faction: men[0].faction,
+          selected: men.some((m) => selSet.has(m.id)),
+          engaged,
+          alpha: iconA,
+        });
+      }
+    }
+    if (iconA < 0.98) {
+      // individuals fade IN exactly as the squad icon fades OUT (no pop at the swap zoom).
+      const figFadeIn = 1 - iconA;
+      ctx.save();
+      if (figFadeIn < 0.999) ctx.globalAlpha *= figFadeIn;
+      for (const u of liveFriendlies) {
         drawUnit(ctx, cam, u, { selected: selSet.has(u.id), showLabel: cam.ppm > 2.5 });
       }
+      ctx.restore();
     }
 
     // squad intent banners — read each tasked squad's drill straight off the map (the
@@ -442,10 +544,47 @@ export default function WorldView() {
     drawSuppressionCues(ctx, cam, sim.playerUnits());
     // arterial-bleed pools + buddy-aid links (the wounds-not-kills medical read)
     drawCasualtyCues(ctx, cam, sim.playerUnits());
-    // LOD aggregation: below tactical zoom, small-arms fire collapses to a warm haze
-    drawCombatHaze(ctx, cam, sim.projectiles, sim.effects);
+    // LOD aggregation: below tactical zoom, small-arms fire collapses to a warm haze (drifts downwind)
+    drawCombatHaze(ctx, cam, sim.projectiles, sim.effects, windV);
+    // NIGHT LIGHT: at night, muzzle flashes / tracers / blasts emit additive light into the
+    // dark so a firefight is dramatic and readable (drawn over units — light spills over them).
+    drawNightLights(ctx, cam, sim.effects, sim.projectiles, night);
     // contact-onset (TIC) starburst + zoomed-out aggregate marker
     drawContactMarker(ctx, cam, sim.playerUnits());
+    // off-screen contact pointer — never lose your own fight on the 2.56 km map
+    drawOffscreenContactPointer(ctx, cam, sim.playerUnits());
+
+    // CAMERA-PUNCH game-feel: detect a fresh big detonation (deduped by Effect.id) and feed
+    // a proximity/size-scaled impulse into the shake + danger-close edge-flash. Restrained,
+    // decaying; NOT the reverted recoil-jolt / shockwave-ring.
+    {
+      const imp = noteShakeEvents(sim.effects, { x: cam.cx, y: cam.cy }, cam.ppm);
+      if (imp.mag > 0) {
+        const nowSr = nowMs / 1000;
+        const cur = shakeRef.current;
+        // take the stronger of the still-live shake and the new impulse (don't stack to nausea)
+        const liveMag = cur.until > nowSr ? cur.mag * ((cur.until - nowSr) / cur.durS) : 0;
+        if (imp.mag >= liveMag) {
+          cur.mag = imp.mag;
+          cur.durS = imp.durS;
+          cur.until = nowSr + imp.durS;
+        }
+        if (imp.edge > cur.edge || cur.edgeUntil <= nowSr) { cur.edge = imp.edge; cur.edgeUntil = nowSr + 0.4; }
+      }
+
+      // TIC-ONSET NUDGE: a gentle one-shot shake when a fight kicks off after a lull, so the
+      // player FEELS contact begin (pairs with combat-fx's contact-onset starburst). Detected
+      // from the same in-contact centroid; debounced by a >4 s gap (mirrors drawContactMarker).
+      const onset = getContactCentroid(sim.playerUnits());
+      const nowSr2 = nowMs / 1000;
+      if (onset) {
+        if (nowSr2 - contactRef.current > 4) {
+          const cur = shakeRef.current;
+          if (cur.until < nowSr2) { cur.mag = 2.2; cur.durS = 0.28; cur.until = nowSr2 + 0.28; }
+        }
+        contactRef.current = nowSr2;
+      }
+    }
 
     // planning route
     if (st.planning && st.planRoute.length > 0) {
@@ -533,6 +672,17 @@ export default function WorldView() {
 
 
     drawHud(ctx, cam);
+
+    // danger-close edge-flash — a brief rust inner-vignette on a near detonation, drawn LAST
+    // (over the HUD) so the felt-weight read frames the whole screen. Decays over ~0.4 s.
+    {
+      const cur = shakeRef.current;
+      const nowSr = nowMs / 1000;
+      if (cur.edgeUntil > nowSr && cur.edge > 0.01) {
+        const k = (cur.edgeUntil - nowSr) / 0.4;
+        drawEdgeFlash(ctx, cam, cur.edge * k);
+      }
+    }
   }
 
   // Cartographic HUD: compass rose (top-right) + an accurate, zoom-aware scale bar.
