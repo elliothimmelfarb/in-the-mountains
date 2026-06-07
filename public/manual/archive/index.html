@@ -104,6 +104,7 @@
   <div class="navhdr">Act III · Jun 7 · Cinema &amp; polish</div>
   <a href="#c-2026-06-07-atmospherics">Weather &amp; night-light</a>
   <a href="#c-2026-06-07-soundscape">A canyon that echoes</a>
+  <a href="#c-2026-06-07-world-scale-complete">World scale, finished</a>
 
   <div class="navhdr">The method itself</div>
   <a href="#c-methodology">How this AI was aimed</a>
@@ -168,6 +169,7 @@
     <a class="rep" href="reports/2026-06-06-deploy-loading-screen/report.html"><span class="rd">2026-06-06</span><span class="rt">The deploy loading screen</span><span class="rs">Profiling the 6.5-second frozen button, then staging the work behind real feedback.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-06-fivex-campaign/report.html"><span class="rd">2026-06-06</span><span class="rt">The 5× campaign</span><span class="rs">Five file-disjoint waves — combat, audio, game-feel, COIN, scale — verified across deployments.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-07-soundscape/report.html"><span class="rd">2026-06-07</span><span class="rt">Soundscape — 20× immersion</span><span class="rs">From mono-and-silent to a living canyon: reverb, ambient bed, occlusion, 5-layer gunfire. Playable A/B audio.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-07-world-scale-complete/report.html"><span class="rd">2026-06-07</span><span class="rt">World scale, finished</span><span class="rs">The audit's deferred half, shipped: COP 170→120 m, platoon 35→41, villages monolith→hamlet, honest gradient — adversarially verified, with the stall hunt the static pass missed.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -752,6 +754,34 @@
       </div>
       <p class="quote">100% procedural — Web Audio only, zero audio assets, the reverb impulse is generated noise — and deterministic.</p>
       <a class="readmore" href="reports/2026-06-07-soundscape/report.html">Read the full report (with playable A/B audio) →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-07-world-scale-complete">
+    <div class="shot">
+      <a href="reports/2026-06-07-world-scale-complete/report.html"><img src="assets/2026-06-07-world-scale-complete.png" alt="A village rendered as a ring of distinct walled qalats in orchards" loading="lazy"></a>
+      <div class="cap">Landigal as a hamlet of distinct qalats. Opens the full completion report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-07</span></div>
+      <h3>World scale, finished: the outpost, the platoon, the villages, the valley</h3>
+      <div class="tags"><span class="tag">Worldgen</span><span class="tag">Realism</span><span class="tag">Render</span></div>
+      <p>The June 6 audit proved the soldiers were painted <em>36× too big</em> — a render lie over an
+      already-authentic sim — and shipped the loud render fix that day. The riskier <em>sim-scale</em> half
+      was deferred behind the determinism contract. This pass finished it: a platoon-scale outpost, a
+      full-strength roster, a north-draining gradient with honest names, and villages that read as hamlets.</p>
+      <p class="shape"><b>The shape:</b> six atomic commits (one careful writer on the determinism-critical
+      terrain), a 7-agent adversarial verification fan-out (0 blockers) — then the <em>dynamic</em> balance
+      harness caught a stall the static pass couldn't see: a returning patrol frozen in an overlapping-compound
+      wall maze, fixed by spacing the hamlet into discrete qalats.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">COP diameter</span><span class="b">170 m (FOB)</span><span class="ar">→</span><span class="a">120 m (platoon OP)</span></span>
+        <span class="m"><span class="lbl">platoon / weapons squad</span><span class="b">35 / 3</span><span class="ar">→</span><span class="a">41 / 9</span></span>
+        <span class="m"><span class="lbl">village footprint</span><span class="b">1 monolithic box</span><span class="ar">→</span><span class="a">2–6-qalat hamlet</span></span>
+        <span class="m"><span class="lbl">stranded patrols / 12</span><span class="b">1 (stall)</span><span class="ar">→</span><span class="a">0</span></span>
+      </div>
+      <p class="quote">The brief said the gradient was inverted; the code said it already drained north — only the names lied. Code is ground truth; a spec is a hypothesis.</p>
+      <a class="readmore" href="reports/2026-06-07-world-scale-complete/report.html">Read the full report →</a>
     </div>
   </article>
 
