@@ -195,6 +195,23 @@ body {
   user-select: none !important;
 }
 
+/* ── Legibility floor (type scale) ─────────────────────────────────────
+   The command UI was built on an 8–11px mono ramp — dense, but below the
+   12px readability floor (262 sub-12px text nodes measured at baseline).
+   This remaps the dense ramp UP to a tightened >=12px scale in ONE place,
+   preserving density and the relative hierarchy (carried by colour, weight
+   and stencil-caps, not by a 1px size step). Canvas map labels are NOT
+   affected — they size in ctx.font, keeping their own tactical ramp.
+   Unlayered, so these win over Tailwind v4's layered arbitrary utilities. */
+.text-\[8px\] { font-size: 12px; }
+.text-\[9px\] { font-size: 12px; }
+.text-\[10px\] { font-size: 12px; }
+.text-\[11px\] { font-size: 13px; }
+/* the smallest stencil badges shed a little tracking so the size bump
+   doesn't blow out fixed-width rows (directive tags, panel headers) */
+.stencil.text-\[8px\],
+.stencil.text-\[9px\] { letter-spacing: 0.08em; }
+
 /* ── Accessibility foundations ─────────────────────────────────────────
    The command UI is fully keyboard-operable, but styled controls (.tac-btn,
    dock headers, the segmented SOP rows) suppress the faint UA focus ring —
