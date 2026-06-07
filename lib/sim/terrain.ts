@@ -75,16 +75,26 @@ export function villageHamlet(v: { id: string; size: number; population: number 
     h ^= h << 5; h >>>= 0;
     return h / 4294967296;
   };
-  // ~one compound per 30 people, 3–9 qalats — a hamlet, bounded so it never walls the valley.
-  const n = Math.max(3, Math.min(9, Math.round(v.population / 30)));
-  const out: HamletCompound[] = [{ dx: 0, dy: 0, r: Math.max(2, Math.round(v.size * 0.42)) }];
-  for (let k = 1; k < n; k++) {
-    const ang = rnd() * Math.PI * 2;
-    const rad = (0.45 + 0.5 * rnd()) * v.size; // scattered out toward the hamlet edge
+  // DISCRETE walled qalats ringing an open central courtyard — NOT a merged wall maze.
+  // A dense OVERLAPPING cluster fused its walls into a labyrinth with 1-cell slots that
+  // trapped a returning patrol in a path-vs-steering oscillation (issue-010 class —
+  // bal-6 / Loy Kalay). Compounds are spaced EVENLY on a ring (even angular spacing +
+  // small jitter), and the count is capped by the ring's circumference so every alley
+  // between neighbours is ≥~2 cells (10 m) — wide enough for movement to thread/skirt the
+  // hamlet. Leaving the centre open also puts the patrol's village objective on clear
+  // ground. Deterministic from v.id; bounded inside v.size so it never reaches the wire.
+  const ringRad = 0.72 * v.size;
+  const want = Math.max(2, Math.min(6, Math.round(v.population / 38)));
+  const n = Math.max(2, Math.min(want, Math.floor((2 * Math.PI * ringRad) / 8))); // ≥8-cell arc/qalat
+  const out: HamletCompound[] = [];
+  const base = rnd() * Math.PI * 2;
+  for (let k = 0; k < n; k++) {
+    const ang = base + (k + (rnd() - 0.5) * 0.35) * ((2 * Math.PI) / n);
+    const rad = ringRad * (0.82 + 0.36 * rnd());
     out.push({
       dx: Math.round(Math.cos(ang) * rad),
       dy: Math.round(Math.sin(ang) * rad),
-      r: 2 + Math.round(rnd() * 1.4), // 2–3 cells (10–17 m family qalat)
+      r: 2 + Math.round(rnd()), // 2–3 cells (10–15 m family qalat)
     });
   }
   return out;
