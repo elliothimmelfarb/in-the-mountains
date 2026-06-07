@@ -45,8 +45,49 @@ export interface Village {
   name: string;
   cx: number;
   cy: number; // cell coords of village center
-  size: number; // rough radius in cells
+  size: number; // rough radius in cells — the HAMLET extent (its compounds spread out to here)
   population: number;
+}
+
+/** A single qalat in a village hamlet: cell offset from the village center + radius in cells. */
+export interface HamletCompound {
+  dx: number;
+  dy: number;
+  r: number;
+}
+
+/**
+ * Deterministic multi-compound layout for a village — a real Korengal village is a
+ * CLUSTER of stacked qalats, not one monolith (issue 014 / 007). Returns the sub-compound
+ * centers (as CELL offsets from the village center) purely as a function of `v.id`, so the
+ * worldgen STAMP (terrain) and the RENDERER (WorldView R3) reproduce the SAME hamlet with no
+ * shared/persisted state — one source of truth. Uses an FNV-1a hash of the id to seed a tiny
+ * xorshift PRNG; never touches the terrain rng (so render can recompute it offline).
+ * Compounds stay within `v.size` (the hamlet radius), which is exactly the footprint COP
+ * siting reserves clearance against — so a hamlet can never grow into the wire.
+ */
+export function villageHamlet(v: { id: string; size: number; population: number }): HamletCompound[] {
+  let h = 2166136261 >>> 0;
+  for (let k = 0; k < v.id.length; k++) h = Math.imul(h ^ v.id.charCodeAt(k), 16777619) >>> 0;
+  const rnd = () => {
+    h ^= h << 13; h >>>= 0;
+    h ^= h >>> 17;
+    h ^= h << 5; h >>>= 0;
+    return h / 4294967296;
+  };
+  // ~one compound per 30 people, 3–9 qalats — a hamlet, bounded so it never walls the valley.
+  const n = Math.max(3, Math.min(9, Math.round(v.population / 30)));
+  const out: HamletCompound[] = [{ dx: 0, dy: 0, r: Math.max(2, Math.round(v.size * 0.42)) }];
+  for (let k = 1; k < n; k++) {
+    const ang = rnd() * Math.PI * 2;
+    const rad = (0.45 + 0.5 * rnd()) * v.size; // scattered out toward the hamlet edge
+    out.push({
+      dx: Math.round(Math.cos(ang) * rad),
+      dy: Math.round(Math.sin(ang) * rad),
+      r: 2 + Math.round(rnd() * 1.4), // 2–3 cells (10–17 m family qalat)
+    });
+  }
+  return out;
 }
 
 export interface NamedFeature {
@@ -581,6 +622,18 @@ export class Terrain {
     return lerp(this.config.floorNorth, this.config.floorSouth, ty);
   }
 
+  /**
+   * The COP perimeter (wire) radius in CELLS — the SINGLE source of truth shared by
+   * COP siting (R0, which reserves the footprint + clearance from villages) and the
+   * actual build (buildCop's R). They MUST agree: if siting reserves a bigger circle
+   * than buildCop stamps, the outpost is sited as if larger (over-clearing villages);
+   * if smaller, a village can intersect the wire. ~60 m → a 120 m platoon-OP position
+   * (was 85 m / 170 m — a FOB). Clamped to a sane platoon-OP band at any cell size.
+   */
+  copRadiusCells(): number {
+    return clamp(Math.round(60 / this.cellSize), 11, 16);
+  }
+
   /** Valley-floor centerline x (cells) at a given row — the river's track. */
   centerXAt(y: number): number {
     return this.centerX[clamp(Math.round(y), 0, this.size - 1)] ?? this.size / 2;
@@ -618,7 +671,11 @@ export class Terrain {
       if (this.slope[i] > 0.5) continue; // need a bench, not a cliff
       if (this.land[i] === Land.River || this.land[i] === Land.Rock || this.land[i] === Land.Cliff) continue;
       if (placed.some((p) => Math.hypot(p.cx - x, p.cy - y) < minSpacing)) continue;
-      const sizeR = rng.int(4, 8); // qalats cover more cells at 5 m
+      // Hamlet RADIUS in cells (30–50 m → a 60–100 m village of clustered qalats, vs the
+      // old single 20–40 m compound). Bounded by the 2.56 km map + ~333 m village spacing +
+      // 120 m COP; a real Korengal village spans 150–400 m, but this segment can't fit that
+      // without overlap — a clear cluster is the honest improvement at this map scale.
+      const sizeR = rng.int(6, 10);
       placed.push({
         id: `vil-${placed.length}`,
         name: chosen[placed.length % chosen.length],
@@ -629,33 +686,48 @@ export class Terrain {
       });
     }
     this.villages = placed;
-    // Stamp village landcover: walled compounds, perimeter walls, surrounding
-    // orchards/terraces, and the occasional walled cemetery on the edge.
+    // Stamp village landcover as a HAMLET (issue 014 / 007): a CLUSTER of walled qalats,
+    // orchards/terraces filling the benches between them, and a walled cemetery on the edge
+    // — not one monolithic compound. The sub-compound layout is deterministic from the
+    // village id (villageHamlet), so the renderer (R3) paints the SAME cluster, and every
+    // qalat stays within vil.size, the footprint COP siting reserves clearance against.
     for (const vil of placed) {
+      const ext = vil.size; // hamlet radius (cells)
       const cem = {
-        x: vil.cx + rng.int(-vil.size - 2, vil.size + 2),
-        y: vil.cy + rng.int(-vil.size - 2, vil.size + 2),
+        x: vil.cx + rng.int(-ext - 2, ext + 2),
+        y: vil.cy + rng.int(-ext - 2, ext + 2),
         r: rng.int(1, 2),
       };
-      for (let dy = -vil.size - 4; dy <= vil.size + 4; dy++) {
-        for (let dx = -vil.size - 4; dx <= vil.size + 4; dx++) {
+      // 1) Orchards / terraces fill the whole hamlet footprint (qalats overwrite below).
+      for (let dy = -ext - 4; dy <= ext + 4; dy++)
+        for (let dx = -ext - 4; dx <= ext + 4; dx++) {
           const x = vil.cx + dx;
           const y = vil.cy + dy;
           if (!this.inBounds(x, y)) continue;
           const d = Math.hypot(dx, dy);
           const i = this.idx(x, y);
           if (this.land[i] === Land.River || this.slope[i] > 0.7) continue;
-          if (d <= vil.size) {
-            // compound interior with a walled perimeter ring
-            this.land[i] = d > vil.size - 1.1 ? Land.CompoundWall : Land.Compound;
-            // interior courtyards / alleys
-            if (this.land[i] === Land.Compound && rng.chance(0.22)) this.land[i] = Land.Grass;
-          } else if (d <= vil.size + 4 && this.slope[i] < 0.35) {
-            this.land[i] = rng.chance(0.55) ? Land.Orchard : Land.Terrace;
-          }
+          if (d <= ext + 4 && this.slope[i] < 0.35) this.land[i] = rng.chance(0.55) ? Land.Orchard : Land.Terrace;
         }
+      // 2) Stamp each qalat in the cluster (walled perimeter + interior courtyards),
+      //    leaving the orchard alleys between them passable — the hamlet never seals the
+      //    valley (ensureNetworkConnectivity + reachability verify this).
+      for (const cmp of villageHamlet(vil)) {
+        for (let dy = -cmp.r - 1; dy <= cmp.r + 1; dy++)
+          for (let dx = -cmp.r - 1; dx <= cmp.r + 1; dx++) {
+            const x = vil.cx + cmp.dx + dx;
+            const y = vil.cy + cmp.dy + dy;
+            if (!this.inBounds(x, y)) continue;
+            const d = Math.hypot(dx, dy);
+            const i = this.idx(x, y);
+            if (this.land[i] === Land.River || this.slope[i] > 0.7) continue;
+            if (d <= cmp.r) {
+              this.land[i] = d > cmp.r - 1.1 ? Land.CompoundWall : Land.Compound;
+              if (this.land[i] === Land.Compound && rng.chance(0.22)) this.land[i] = Land.Grass;
+            }
+          }
       }
-      // cemetery
+      // 3) cemetery on the edge
       for (let dy = -cem.r; dy <= cem.r; dy++)
         for (let dx = -cem.r; dx <= cem.r; dx++) {
           const x = cem.x + dx;
@@ -674,9 +746,9 @@ export class Terrain {
     // rewards local prominence (commanding terrain) and a MODERATE rise above the
     // floor — high enough to overwatch, low and close enough that the outpost can
     // actually be resupplied by road — while penalizing steep ground and distance.
-    // The perimeter radius the COP will use (kept in sync with buildCop) so siting
-    // can evaluate the actual apron the wire and its ring-road will occupy.
-    const R0 = clamp(Math.round(85 / this.cellSize), 12, 20);
+    // The perimeter radius the COP will use (the SAME copRadiusCells() buildCop stamps,
+    // so siting evaluates the actual apron the wire and its ring-road will occupy).
+    const R0 = this.copRadiusCells();
     // HARD COP↔village footprint separation (item 1 / movement RC#3): the outpost
     // footprint is the wire radius R0 plus a clearance band (ring road + apron); a
     // village footprint is its compound radius v.size (+ cemetery a touch beyond). If
@@ -748,7 +820,15 @@ export class Terrain {
    */
   private buildCop(rng: RNG) {
     const c = this.copCell;
-    const R = clamp(Math.round(85 / this.cellSize), 12, 20); // ~85 m perimeter radius
+    // Perimeter radius sized to a real platoon OP, not a brigade FOB (copRadiusCells:
+    // ~60 m → a 120 m position, was 85 m / 170 m). A small Korengal-era outpost
+    // (Restrepo, the KOP's core) was a ~100–130 m position conforming to a single bench;
+    // Wanat's VPB Kahler was 300×100 m at the big end. The interior layout, ring road,
+    // ECP apron and fighting positions are all fractions of R, so the camp scales
+    // self-similarly; spaceCopBuildings + ensureInteriorConnectivity still guarantee
+    // walkable streets at the tighter size (verified: cop-render 0 sealed pockets,
+    // copstuck ~0 grind, copaudit clean). MUST equal the siting R0 above.
+    const R = this.copRadiusCells();
     const baseE = this.elev[this.idx(c.cx, c.cy)];
 
     // Gate direction: SCORE all 8 compass headings instead of blindly facing the
