@@ -5,12 +5,15 @@ import { Platoon, Unit, MoveTechnique } from "../entities";
 import { CombatSim, CombatInit } from "../combat";
 import {
   VillageState,
+  VillageAsk,
   IntelReport,
   Directive,
+  DirectiveKind,
   rollWeather,
   weatherLightMult,
   attitudeToMetric,
 } from "../campaign";
+import { DIRECTIVE_SPECS, advanceLiveDirectives } from "./directives";
 import {
   WorldState,
   Task,
@@ -79,7 +82,7 @@ export class World {
   serialize() {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null }));
     return {
-      v: 5,
+      v: 6,
       rngState: this.rng.getState(),
       state: this.state,
       units,
@@ -207,6 +210,12 @@ export class World {
     runDirector(this, dt);
     this.tickEvents();
     this.tickMetrics(dt);
+    // Strategic COIN economy / pressure (dt-exact integrators): the CERP stipend, directive
+    // issuance + deadline enforcement, and elder-promise lapse — run after metrics so they read
+    // the fresh attitude/enemy/confidence figures.
+    this.tickCerp();
+    this.tickDirectives();
+    this.tickPromises();
 
     this.sim.tick(dt);
 
@@ -419,6 +428,17 @@ export class World {
       }
       this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + str, 0, 80); // mobilization (cap matches tickInsurgency)
       this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - conf, 0, 100);
+      // The strategic civcas ledger (drives the tour score's heaviest penalty). Count a fresh
+      // casualty only — never the wound→kill escalation delta, which is the same body twice.
+      if (!delta) this.state.civCasualties++;
+      // A civilian casualty FAILS an active "protect the population" directive immediately.
+      const cd = this.state.directives.find((x) => x.kind === "casualty" && x.status === "active");
+      if (cd) {
+        cd.status = "failed";
+        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - cd.penalty, 0, 100);
+        this.log(`Directive FAILED: "${cd.title}" — a civilian casualty. −${cd.penalty} higher confidence.`, "casualty");
+        this.interrupt(`directive FAILED: ${cd.title}`);
+      }
       this.log(
         delta
           ? `A wounded civilian${vil ? ` near ${vil.name}` : ""} has died of wounds attributed to our fires.`
@@ -470,12 +490,32 @@ export class World {
   }
 
   // ---------------------------------------------------------------- tour end
+  /** Relief-of-command is a SUSTAINED-failure trigger, not a single bad day. Battalion relieves a
+   *  commander over a TREND (a formal performance review), not one catastrophic firefight — and a
+   *  coarse strategic step can over-march a patrol into a one-tick spike of casualties that the next
+   *  day's stipend / completed directive / rising attitude recovers from. So confidence falling to
+   *  the critical floor opens a REVIEW WATCH; relief fires only if it stays under continuously for
+   *  the review window. Any recovery above the floor clears the watch. (FM 6-22: relief follows a
+   *  documented pattern of lost trust, not an isolated event.) */
+  private static readonly RELIEF_FLOOR = 5; // confidence at/under this opens the review watch
+  private static readonly RELIEF_WINDOW = 3 * DAY; // must stay under continuously this long to relieve
   private checkTourEnd() {
     if (this.state.ended) return;
     if (this.day > this.state.totalDays) {
       this.endTour("Relief in place complete. The tour is over — time to go home.");
-    } else if (this.state.metrics.higherConfidence <= 0) {
-      this.endTour("You have been relieved of command. Battalion has lost confidence in your leadership.");
+      return;
+    }
+    const conf = this.state.metrics.higherConfidence;
+    if (conf <= World.RELIEF_FLOOR) {
+      if (this.state.reliefWatchClock < 0) {
+        this.state.reliefWatchClock = this.state.clock; // open the watch on first dip
+        this.log("Battalion signals it is reviewing your command. Turn this around.", "casualty");
+        this.interrupt("Battalion is reviewing your command");
+      } else if (this.state.clock - this.state.reliefWatchClock >= World.RELIEF_WINDOW) {
+        this.endTour("You have been relieved of command. Battalion has lost confidence in your leadership.");
+      }
+    } else if (this.state.reliefWatchClock >= 0) {
+      this.state.reliefWatchClock = -1; // confidence recovered — review closed
     }
   }
   private endTour(reason: string) {
@@ -484,11 +524,52 @@ export class World {
     this.state.tourScore = this.computeTourScore();
     this.log(reason, "objective");
   }
+  /**
+   * The end-of-tour score — and the COIN bar. "You can win every firefight and still lose the
+   * valley," so enemy attrition is a SMALL term; the village heart (attitude), stability and
+   * Higher's confidence dominate, with delivered projects / directives / kept promises as direct
+   * rewards and civcas / broken promises / failed directives / KIA as heavy penalties. Body-count
+   * play drives attrition (a weak lever here) while tanking attitude, civcas and confidence — so
+   * careful COIN scores far higher. (Weights tuned empirically in scripts/campaign-loop.ts.)
+   */
   computeTourScore(): number {
     const m = this.state.metrics;
     const kia = this.platoon.members.filter((x) => !x.alive).length;
-    const base = m.stability * 0.3 + m.attitude * 0.25 + (100 - m.enemyStrength) * 0.2 + m.higherConfidence * 0.25;
-    return Math.round(clamp(base - kia * 4, 0, 100));
+    const projComplete = this.state.projects.filter((p) => p.stage === "complete").length;
+    const dirComplete = this.state.directives.filter((d) => d.status === "complete").length;
+    const dirFailed = this.state.directives.filter((d) => d.status === "failed").length;
+    const kept = this.state.villages.reduce((a, v) => a + (v.keptPromises ?? 0), 0);
+    const broken = this.state.villages.reduce((a, v) => a + (v.brokenPromises ?? 0), 0);
+    const civcas = this.state.civCasualties ?? 0;
+    // The valley's heart, measured DIRECTLY from raw village attitude (−100..100), not only the
+    // compressed m.attitude = (avg+100)/2 metric that halves the signal. "You can win every firefight
+    // and still lose the valley": a tour that wins the villages over (mean attitude rising toward/past
+    // 0) must out-score one that leaves them hostile, even at equal kill counts. This direct term gives
+    // the village swing real range around the operating point — the single biggest COIN lever (FM 3-24).
+    const meanVillageAtt = this.state.villages.length
+      ? this.state.villages.reduce((a, v) => a + v.attitude, 0) / this.state.villages.length
+      : 0;
+    const wonOver = this.state.villages.filter((v) => v.attitude > 0).length;
+    const base =
+      m.attitude * 0.20 + // the compressed metric still carries weight…
+      meanVillageAtt * 0.30 + // …but the RAW village swing is the dominant lever
+      m.stability * 0.20 +
+      m.higherConfidence * 0.26 +
+      (100 - m.enemyStrength) * 0.06; // attrition matters LITTLE on its own
+    // Delivered COIN is the heart of the score: a completed CERP project (a clinic, a school, a
+    // micro-hydro the population uses daily) and a village won over to our side are the central acts
+    // of counterinsurgency (FM 3-24) — they must out-weigh the kill count decisively. A careful tour
+    // that builds 2–3 projects and turns villages positive earns ~25–35 points HERE that a body-count
+    // tour (0 projects, villages left hostile) cannot, which is what makes "COIN is the real game"
+    // true in the score, not just the fiction.
+    const coin = projComplete * 11 + dirComplete * 4 + kept * 3 + wonOver * 3;
+    // KIA is NOT double-counted: every KIA already docks higherConfidence by 3 (reconcileCasualties),
+    // which the higherConfidence base weight carries, and a catastrophic loss ends the tour outright (relief of
+    // command). The direct term is therefore light — a per-man acknowledgement of permanent loss, not
+    // a second full combat penalty — so a tour that did real COIN work isn't zeroed by attrition the
+    // confidence term already reflects. (Civcas stays the heaviest line — a strategic defeat.)
+    const penalties = kia * 1.5 + civcas * 8 + broken * 5 + dirFailed * 4;
+    return Math.round(clamp(base + coin - penalties, 0, 100));
   }
 
   // ===========================================================================
@@ -573,6 +654,45 @@ export class World {
     this.state.projects.push(p);
     this.log(`CERP ${type} funded at ${v.name}. Materials and a contractor are inbound — it'll need security to build.`, "support");
     return p;
+  }
+
+  /**
+   * Assign an element to SECURE a CERP project site: route there using the normal patrol
+   * machinery (reachability-aware, no beeline), then hold an all-round overwatch on the village
+   * so the build crew can work. This is the player+harness-drivable answer to "garrison this
+   * build" — tickProjects' security gate counts a held secure element. The hold is open-ended (no
+   * dwell timer): the element stays until recalled or the project completes/sabotages.
+   */
+  secureBuild(memberIds: string[], villageId: string, technique: MoveTechnique, sop?: SquadSOP): Task | null {
+    const v = this.state.villages.find((x) => x.id === villageId);
+    if (!v) return null;
+    const ids = this.readyIds(memberIds);
+    if (ids.length === 0) return null;
+    this.freeMembers(ids);
+    const finalSop: SquadSOP = sop ?? { movement: "patrol", contact: "hold", roe: "tight" };
+    const proj = this.state.projects.find(
+      (p) => p.villageId === villageId && p.stage !== "complete" && p.stage !== "sabotaged"
+    );
+    const t: Task = {
+      id: Ids.task++,
+      kind: "secure",
+      label: `Secure — ${v.name}`,
+      memberIds: ids,
+      technique: sop ? sopTechnique(sop.movement) : technique,
+      sop: finalSop,
+      route: [this.terrain.cellCenter(v.cx, v.cy)],
+      secureVillageId: villageId,
+      projectId: proj?.id,
+      missionType: "cordon", // reuse cordon move/posture defaults (tight, hold); the on-station hold ignores the dwell timer
+      legIndex: 0,
+      phase: "assembling",
+      timer: clamp(60 + ids.length * 6, 70, 240),
+      startedClock: this.state.clock,
+    };
+    this.markAssembling(ids);
+    this.state.tasks.push(t);
+    this.log(`Element ordered to secure the ${proj?.type ?? "project"} site at ${v.name}.`, "radio");
+    return t;
   }
 
   requestResupply(kind: "convoy" | "air"): boolean {
@@ -812,5 +932,136 @@ export class World {
     this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence + d.reward, 0, 100);
     this.log(`Directive COMPLETE: "${d.title}". +${d.reward} higher confidence.`, "objective");
     this.interrupt(`directive complete: ${d.title}`);
+  }
+
+  // ---------------------------------------------------------------- CERP economy
+  /** Battalion disburses a CERP stipend on a steady cadence (the managed-budget income side),
+   *  scaled mildly by higher confidence — a commander Higher trusts gets more discretionary funds. */
+  private tickCerp() {
+    if (this.state.clock < this.state.nextCerpStipendAt) return;
+    this.state.nextCerpStipendAt = this.state.clock + this.rng.range(6, 8) * DAY;
+    const conf = this.state.metrics.higherConfidence;
+    const stipend = Math.round(5000 + conf * 60); // 5k..11k per ~week
+    this.state.cerp += stipend;
+    this.log(`Battalion disburses $${stipend.toLocaleString()} in CERP funds.`, "support");
+    this.interrupt("CERP stipend received");
+  }
+
+  // ---------------------------------------------------------------- directive lifecycle
+  /** Directives are real: a steady issuance cadence AND deadline enforcement. A directive whose
+   *  deadline elapses while still active FAILS — applying its penalty to higherConfidence, so
+   *  neglect costs the player Higher's trust (the design-promised pressure from Higher). */
+  private tickDirectives() {
+    // advance the live progress of the metric-driven kinds every tick (cheap)
+    this.advancePresence();
+    this.advanceCensus();
+    advanceLiveDirectives(this); // interdict / hold / casualty
+    // (kle / construct are advanced by their producers — onStationEffects / tickProjects)
+
+    // enforce deadlines
+    for (const d of this.state.directives) {
+      if (d.status !== "active") continue;
+      if (this.day > d.deadlineDay) {
+        d.status = "failed";
+        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - d.penalty, 0, 100);
+        this.log(`Directive FAILED: "${d.title}". Battalion is not pleased. −${d.penalty} higher confidence.`, "casualty");
+        this.interrupt(`directive FAILED: ${d.title}`);
+      }
+    }
+
+    // issuance cadence (~1 / 6–9 days), drawn from the AO state
+    if (this.state.clock >= this.state.nextDirectiveAt) {
+      this.state.nextDirectiveAt = this.state.clock + this.rng.range(6, 9) * DAY;
+      this.issueDirective();
+    }
+  }
+
+  /** Issue a fresh directive drawn from the current AO: enemy high → interdict; hostile village →
+   *  hold; cash on hand → construct; always rotate census/presence/kle/casualty. Skips kinds
+   *  already active so the player never has duplicate taskings of the same type. */
+  private issueDirective() {
+    const active = new Set(this.state.directives.filter((d) => d.status === "active").map((d) => d.kind));
+    const pool: DirectiveKind[] = [];
+    if (this.state.enemyStrengthAbs > 30 && !active.has("interdict")) pool.push("interdict");
+    if (this.state.villages.some((v) => !v.censusDone) && !active.has("census")) pool.push("census");
+    if (this.state.villages.some((v) => v.attitude < 0) && !active.has("hold")) pool.push("hold");
+    if (this.state.cerp >= 5000 && !active.has("construct")) pool.push("construct");
+    if (!active.has("kle")) pool.push("kle");
+    if (!active.has("presence")) pool.push("presence");
+    if (!active.has("casualty")) pool.push("casualty");
+    if (pool.length === 0) return;
+    const kind = this.rng.pick(pool);
+    const day = this.day;
+    const spec = DIRECTIVE_SPECS[kind](this);
+    this.state.directives.push({
+      id: Ids.dir++,
+      kind,
+      title: spec.title,
+      desc: spec.desc,
+      reward: spec.reward,
+      penalty: spec.penalty,
+      issuedDay: day,
+      deadlineDay: day + spec.days,
+      status: "active",
+      progress: 0,
+      startMetric: kind === "interdict" ? this.state.enemyStrengthAbs : undefined,
+    });
+    this.log(`New directive from Battalion: "${spec.title}" (by D${day + spec.days}).`, "objective");
+    this.interrupt(`new directive: ${spec.title}`);
+  }
+
+  // ---------------------------------------------------------------- KLE asks / promises
+  /** A shura yields an elder ASK — a concrete request the player can fulfill (or break). The
+   *  follow-through (or a lapsed deadline) swings attitude up or DOWN: the broken-promises mechanic. */
+  raiseElderAsk(v: VillageState) {
+    if (v.ask) return;
+    const kinds: VillageAsk["kind"][] = ["project", "security", "restraint", "prisoner"];
+    const kind = this.rng.pick(kinds);
+    const day = this.day;
+    const deadlineDay = day + this.rng.int(5, 10);
+    let desc = "";
+    let projectType: string | undefined;
+    if (kind === "project") {
+      projectType = v.wants;
+      desc = `${v.elder} asks you to build a ${projectType}.`;
+    } else if (kind === "security") {
+      desc = `${v.elder} asks for a security presence to keep the fighters out.`;
+    } else if (kind === "restraint") {
+      desc = `${v.elder} asks that patrols stop kicking in doors in his village.`;
+    } else {
+      desc = `${v.elder} asks you to release a detained kinsman.`;
+    }
+    v.ask = { kind, desc, projectType, issuedDay: day, deadlineDay, fulfilled: false };
+    this.log(`At the shura, ${desc}`, "radio");
+    this.interrupt(`${v.name}: elder makes a request`);
+  }
+
+  /** Mark a village's outstanding ask fulfilled — a kept promise (attitude up, cooperation up). */
+  fulfillAsk(v: VillageState, reason: string) {
+    if (!v.ask || v.ask.fulfilled) return;
+    v.ask.fulfilled = true;
+    v.keptPromises++;
+    v.attitude = clamp(v.attitude + 10, -100, 100);
+    v.cooperation = clamp(v.cooperation + 8, 0, 100);
+    v.sympathy = clamp(v.sympathy - 5, 0, 100);
+    this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence + 1, 0, 100);
+    this.log(`Promise kept at ${v.name}: ${reason}. The elder will remember it.`, "objective");
+    v.ask = null;
+  }
+
+  /** Lapsed-promise enforcement: an unfulfilled ask past its deadline is a BROKEN promise —
+   *  attitude down (more than a kept one helps), sympathy up. Neglect bites. */
+  private tickPromises() {
+    for (const v of this.state.villages) {
+      if (v.ask && !v.ask.fulfilled && this.day > v.ask.deadlineDay) {
+        v.brokenPromises++;
+        v.attitude = clamp(v.attitude - 12, -100, 100); // broken hurts MORE than kept helps
+        v.sympathy = clamp(v.sympathy + 8, 0, 100);
+        v.cooperation = clamp(v.cooperation - 6, 0, 100);
+        this.log(`Promise BROKEN at ${v.name}: ${v.ask.desc} The elder feels betrayed.`, "casualty");
+        this.interrupt(`${v.name}: broken promise`);
+        v.ask = null;
+      }
+    }
   }
 }

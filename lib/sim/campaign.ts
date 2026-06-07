@@ -23,6 +23,18 @@ export interface Supplies {
   construction: number; // building materials (HESCO, lumber, rebar, cement) for CERP work
 }
 
+/** What an elder asks for at a shura — the promise the player keeps or breaks. */
+export type AskKind = "project" | "security" | "restraint" | "prisoner";
+
+export interface VillageAsk {
+  kind: AskKind;
+  desc: string; // human text for the HUD / log
+  projectType?: string; // for kind "project": the specific CERP type the elder wants
+  issuedDay: number;
+  deadlineDay: number; // the promise lapses (broken) after this day
+  fulfilled: boolean;
+}
+
 export interface VillageState {
   id: string;
   name: string;
@@ -37,6 +49,11 @@ export interface VillageState {
   lastVisitedDay: number;
   censusDone: boolean;
   wants: string; // what would win them over (a project type)
+  /** An outstanding elder ASK from the last shura (null = none pending). Persisted —
+   *  loadWorld defaults it to null for pre-v6 saves. */
+  ask?: VillageAsk | null;
+  brokenPromises: number; // asks let lapse past their deadline (drives distrust)
+  keptPromises: number; // asks fulfilled (drives trust)
 }
 
 export interface IntelReport {
@@ -70,6 +87,10 @@ export interface Directive {
   progress: number; // 0..1
   reward: number; // higher-confidence delta
   penalty: number;
+  /** Snapshot of the driving metric at issuance, for kinds whose progress is measured as a
+   *  reduction from a baseline (interdict: enemyStrengthAbs at issue). Optional — undefined on
+   *  pre-v6 saves and for kinds that don't need it. */
+  startMetric?: number;
 }
 
 export interface Metrics {
@@ -168,3 +189,22 @@ export const CERP_PROJECTS = [
   "footbridge",
   "mosque repair",
 ];
+
+/**
+ * Base attitude payoff for a COMPLETED CERP project, by type. A wanted-project bonus is
+ * applied on top in projects.ts (build what they NEED, not what's easy). Clinics, hydro and
+ * schools are the high-value hearts-and-minds wins; walls and culverts are utility. (FM 3-24:
+ * the visible services the population uses daily move attitude most.) Keys must be drawn from
+ * CERP_PROJECTS; unknown types fall back to PROJECT_PAYOFF_DEFAULT. */
+export const PROJECT_PAYOFF: Record<string, number> = {
+  well: 10,
+  school: 12,
+  clinic: 13,
+  "road repair": 9,
+  "micro-hydro": 14,
+  "retaining wall": 7,
+  culvert: 6,
+  footbridge: 8,
+  "mosque repair": 11,
+};
+export const PROJECT_PAYOFF_DEFAULT = 8;

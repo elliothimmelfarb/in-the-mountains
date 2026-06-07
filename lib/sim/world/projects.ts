@@ -1,6 +1,6 @@
 import { clamp, clamp01 } from "../rng";
 import { dist } from "../vec";
-import { Supplies, VillageState } from "../campaign";
+import { Supplies, VillageState, PROJECT_PAYOFF, PROJECT_PAYOFF_DEFAULT } from "../campaign";
 import type { World } from "./world";
 import { spawnRoadAmbush } from "./director";
 
@@ -42,11 +42,28 @@ export function tickProjects(w: World, dt: number) {
         if (p.progress >= 1) {
           p.stage = "complete";
           v.projects.push(p.type);
-          v.attitude = clamp(v.attitude + 14, -100, 100);
-          v.sympathy = clamp(v.sympathy - 8, 0, 100);
-          v.cooperation = clamp(v.cooperation + 6, 0, 100);
+          // Per-type payoff, amplified if this was what the village WANTED (or the elder asked
+          // for), damped if it's off-want (you built a wall when they wanted a clinic). FM 3-24:
+          // deliver what they need, not what's easy.
+          const base = PROJECT_PAYOFF[p.type] ?? PROJECT_PAYOFF_DEFAULT;
+          const wanted = v.wants === p.type || (v.ask?.kind === "project" && v.ask.projectType === p.type);
+          const gain = base * (wanted ? 1.6 : 0.6);
+          v.attitude = clamp(v.attitude + gain, -100, 100);
+          v.sympathy = clamp(v.sympathy - gain * 0.6, 0, 100);
+          v.cooperation = clamp(v.cooperation + gain * 0.5, 0, 100);
+          // A completed project that fulfills an outstanding project ASK = a kept promise (A6).
+          if (v.ask && !v.ask.fulfilled && v.ask.kind === "project" && (v.ask.projectType === p.type || !v.ask.projectType)) {
+            w.fulfillAsk(v, `the promised ${p.type}`);
+          }
+          // The battalion partially reimburses a delivered project — the second CERP income path
+          // (A4), tying spend → delivery → budget so CERP is a managed economy, not a countdown.
+          w.state.cerp += 1500;
           w.advanceDirective("construct", 1);
-          w.log(`The ${p.type} at ${v.name} is finished. The valley will notice who built it.`, "objective");
+          w.state.metrics.higherConfidence = clamp(w.state.metrics.higherConfidence + 2, 0, 100);
+          w.log(
+            `The ${p.type} at ${v.name} is finished${wanted ? " — exactly what they asked for" : ""}. The valley will notice who built it.`,
+            "objective"
+          );
           w.interrupt(`${v.name} ${p.type} complete`);
         }
       } else {
@@ -65,6 +82,20 @@ export function tickProjects(w: World, dt: number) {
 
 function securityAt(w: World, v: VillageState, radius: number): boolean {
   const c = w.terrain.cellCenter(v.cx, v.cy);
+  // A dedicated secure-build element holding this village's site counts as security — it's an
+  // all-round perimeter ON the site, so we use a more generous radius (it may still be filing in).
+  const secure = w.state.tasks.find(
+    (t) => t.kind === "secure" && t.secureVillageId === v.id && t.phase !== "complete" && t.phase !== "returning"
+  );
+  if (secure) {
+    let onSite = 0;
+    for (const id of secure.memberIds) {
+      const u = w.sim.unit(id);
+      if (u && u.alive && !u.evac && dist(u.pos, c) < radius * 1.6) onSite++;
+      if (onSite >= 2) return true;
+    }
+  }
+  // Fallback: any 2 friendlies within the tight radius (a patrol passing through / holding it).
   let n = 0;
   for (const u of w.sim.units) {
     if ((u.faction === "us" || u.faction === "ana") && u.alive && !u.evac && dist(u.pos, c) < radius) n++;

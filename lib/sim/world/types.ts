@@ -81,7 +81,7 @@ export function defaultSOP(mission: MissionType | undefined): SquadSOP {
   }
 }
 
-export type TaskKind = "patrol" | "kle" | "project" | "return" | "standto";
+export type TaskKind = "patrol" | "kle" | "project" | "secure" | "return" | "standto";
 
 export interface Task {
   id: number;
@@ -95,6 +95,8 @@ export interface Task {
   missionType?: MissionType;
   villageId?: string;
   projectId?: number;
+  /** A "secure" task: the village whose CERP project site this element holds. */
+  secureVillageId?: string;
   /** Squad-combat coordinator state (transient combat bookkeeping; persisted so a
    *  firefight survives a save/load mid-contact). Set/cleared by ai/squad-combat.ts. */
   squadState?: string; // react | suppress_hold | assault | break_contact | go_firm
@@ -214,6 +216,18 @@ export interface WorldState {
   nextIntelAt: number;
   nextEventAt: number;
   lastContactClock: number;
+  // COIN strategic clock (v6): the next battalion CERP disbursement, the next directive
+  // issuance, and the running civilian-casualty count attributed to our fires. All three are
+  // persisted by serialize() (it dumps `state` whole) and defaulted in loadWorld for old saves.
+  nextCerpStipendAt: number;
+  nextDirectiveAt: number;
+  civCasualties: number;
+  // Relief-of-command is a SUSTAINED-failure trigger, not a single bad day: a battalion relieves
+  // a commander over a trend (a formal review), not one catastrophic firefight. This is the clock
+  // at which higherConfidence first fell to/under the critical floor; relief fires only if it
+  // stays under continuously through the review window. -1 = confidence is healthy (no watch).
+  // Persisted by serialize() (dumps `state` whole); defaulted to -1 in loadWorld for old saves.
+  reliefWatchClock: number;
   // platoon org (members live on the sim units)
   platoon: { callsign: string; squads: { id: string; name: string; memberIds: string[] }[] };
 }
