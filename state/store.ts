@@ -30,6 +30,21 @@ export interface LoadProgress {
 
 export const SPEEDS = [1, 2, 4, 8, 16];
 
+// ---- transient command feedback (toasts) ----
+// A severity-typed, auto-expiring acknowledgement for every player command — so an
+// action like a $5k CERP grant or a resupply call reads as DONE, not a dead click.
+// Pure UI state (never touches the campaign save). Aged off in frame() by _nowMs.
+export type ToastSev = "good" | "info" | "warn" | "crit";
+export interface Toast {
+  id: number;
+  text: string;
+  sev: ToastSev;
+  born: number; // _nowMs at creation
+}
+const TOAST_TTL_MS = 4500;
+const TOAST_MAX = 4;
+let _toastId = 0;
+
 const DEFAULT_SOP: SquadSOP = { movement: "patrol", contact: "hold", roe: "tight" };
 
 interface GameStore {
@@ -58,6 +73,9 @@ interface GameStore {
   tick: number;
   selectedVillage: string | null;
   banner: string | null;
+  toasts: Toast[];
+  pushToast: (text: string, sev?: ToastSev) => void;
+  dismissToast: (id: number) => void;
   jacketId: string | null;
   loadProgress: LoadProgress | null; // non-null while the deploy/loading screen is up
 
@@ -344,6 +362,10 @@ export const useGame = create<GameStore>((set, get) => ({
   tick: 0,
   selectedVillage: null,
   banner: null,
+  toasts: [],
+  pushToast: (text, sev = "info") =>
+    set((s) => ({ toasts: [...s.toasts, { id: ++_toastId, text, sev, born: _nowMs }].slice(-TOAST_MAX) })),
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   jacketId: null,
   loadProgress: null,
   layout: loadLayout(),
@@ -485,6 +507,12 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!w) return;
     _nowMs += realDt * 1000;
 
+    // age off expired toasts (only write state when the set actually shrinks → no churn)
+    if (st.toasts.length) {
+      const live = st.toasts.filter((t) => _nowMs - t.born < TOAST_TTL_MS);
+      if (live.length !== st.toasts.length) set({ toasts: live });
+    }
+
     if (w.state.ended) {
       clearSaveOnDisk();
       set({ screen: "tourend", savedExists: false, paused: true });
@@ -539,8 +567,12 @@ export const useGame = create<GameStore>((set, get) => ({
         }
         const ints = w.drainInterrupts();
         if (ints.length) {
-          const urgent = ints.find((r) => r.includes("CONTACT") || r.includes("ATTACK") || r.includes("KIA"));
-          set({ banner: urgent ?? ints[0] });
+          // each sim interrupt becomes a severity-typed toast (they stack, newest on top,
+          // and no longer stomp one another the way the single banner string did)
+          for (const r of ints) {
+            const crit = r.includes("CONTACT") || r.includes("ATTACK") || r.includes("KIA") || r.includes("WIA");
+            get().pushToast(r, crit ? "crit" : "info");
+          }
         }
         // Reaching this branch with warp still set means we're in contact (warp can't
         // run during a firefight) — clear it so the warp toggle never sticks "on".
@@ -640,7 +672,8 @@ export const useGame = create<GameStore>((set, get) => ({
       // RUN — leaving it paused made the game look frozen ("I gave the order and nothing happened").
       // We only un-pause; we never touch speed/warp here (TIC's one-way latch and the player's
       // speed choice are owned elsewhere). Re-pausing later is still the player's call (Space).
-      set({ paused: false, planRoute: [], planning: false, banner: `${task.label} ordered`, tick: get().tick + 1 });
+      set({ paused: false, planRoute: [], planning: false, tick: get().tick + 1 });
+      get().pushToast(`${task.label} — stepping off`, "info");
       get().saveCampaign();
     }
   },
@@ -654,7 +687,8 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!sq) return;
     const task = world.state.tasks.find((t) => sq.memberIds.some((id) => t.memberIds.includes(id)));
     if (task && world.reroute(task.id, planRoute)) {
-      set({ planRoute: [], planning: false, banner: `${task.label} re-routed`, tick: get().tick + 1 });
+      set({ planRoute: [], planning: false, tick: get().tick + 1 });
+      get().pushToast(`${task.label} re-routed`, "info");
       get().saveCampaign();
     }
   },
@@ -681,18 +715,24 @@ export const useGame = create<GameStore>((set, get) => ({
     const sel = get().patrolIds(); // busy-aware; empty if the active squad is already deployed
     const ids = sel.length ? sel : world.platoon.squads.find((s) => s.id === "hq")?.memberIds.filter(readyFree) ?? [];
     if (ids.length === 0) {
-      set({ banner: "No element free for a key-leader engagement." });
+      get().pushToast("No element free for a key-leader engagement.", "warn");
       return;
     }
     const t = world.conductKLE(ids, villageId, "patrol");
-    if (t) set({ banner: t.label, tick: get().tick + 1 });
+    if (t) { set({ tick: get().tick + 1 }); get().pushToast(`☕ ${t.label}`, "good"); }
     get().saveCampaign();
   },
   fundProject: (villageId, type) => {
     const { world } = get();
     if (!world) return;
+    const v = world.state.villages.find((x) => x.id === villageId);
     const p = world.startProject(villageId, type);
-    if (p) set({ tick: get().tick + 1 });
+    if (p) {
+      set({ tick: get().tick + 1 });
+      get().pushToast(`CERP approved — ${type} at ${v?.name ?? "village"} ($5k). Secure the site.`, "good");
+    } else {
+      get().pushToast(`Can't fund ${type} — check CERP balance or an active project.`, "warn");
+    }
     get().saveCampaign();
   },
   // Assign the active squad to SECURE a project site (the patrol-level "garrison this build"
@@ -704,11 +744,11 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!world) return;
     const ids = get().patrolIds(); // busy-aware ready members of the active squad (+officers if attached)
     if (ids.length === 0) {
-      set({ banner: "No element free to secure the site." });
+      get().pushToast("No element free to secure the site.", "warn");
       return;
     }
     const t = world.secureBuild(ids, villageId, "tactical", get().planSOP);
-    if (t) set({ paused: false, banner: t.label, tick: get().tick + 1 });
+    if (t) { set({ paused: false, tick: get().tick + 1 }); get().pushToast(`🛡 ${t.label}`, "good"); }
     get().saveCampaign();
   },
   requestResupply: (kind) => {
@@ -716,6 +756,7 @@ export const useGame = create<GameStore>((set, get) => ({
     if (!world) return;
     world.requestResupply(kind);
     set({ tick: get().tick + 1 });
+    get().pushToast(`${kind === "air" ? "Air" : "Convoy"} resupply requested — inbound.`, "info");
   },
   recallTask: (taskId) => {
     const { world } = get();
@@ -774,13 +815,14 @@ export const useGame = create<GameStore>((set, get) => ({
   approveFires: () => {
     const { world } = get();
     if (!world) return;
-    if (world.approveFireRequest()) set({ banner: "Cleared hot — rounds inbound.", tick: get().tick + 1 });
+    if (world.approveFireRequest()) { set({ tick: get().tick + 1 }); get().pushToast("✓ Cleared hot — rounds inbound.", "crit"); }
   },
   denyFires: () => {
     const { world } = get();
     if (!world) return;
     world.denyFireRequest();
     set({ tick: get().tick + 1 });
+    get().pushToast("✕ Fire mission denied.", "info");
   },
   fireAtWorld: (x, y) => {
     const { world, fireSupport } = get();
@@ -792,6 +834,7 @@ export const useGame = create<GameStore>((set, get) => ({
       world.requestFireMission(fireSupport.weaponId, point, fireSupport.rounds);
     }
     set({ fireSupport: null, tick: get().tick + 1 });
+    get().pushToast(`▲ ${fireSupport.label} — shot, on the way.`, "crit");
   },
   // Command-level 9-line: under hands-off combat the AI surfaces a CASUALTY callout and
   // the player calls the bird for whoever is down in the field (no individual selection).
@@ -805,7 +848,8 @@ export const useGame = create<GameStore>((set, get) => ({
         any = true;
       }
     }
-    if (any) set({ banner: "MEDEVAC requested", tick: get().tick + 1 });
+    if (any) { set({ tick: get().tick + 1 }); get().pushToast("✚ 9-LINE MEDEVAC requested — bird inbound.", "crit"); }
+    else get().pushToast("No casualty in the field to evacuate.", "warn");
   },
 
   // ------------------------------------------------------------------ events

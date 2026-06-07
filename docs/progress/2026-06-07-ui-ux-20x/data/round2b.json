@@ -1,0 +1,155 @@
+{
+  "ts": "2026-06-07T23:07:14.040Z",
+  "grandTotal": 1,
+  "totalsByCategory": {
+    "contrast": 0,
+    "tinyText": 0,
+    "subEleven": 0,
+    "unlabeled": 0,
+    "tinyTarget": 1,
+    "noFocusRing": 0,
+    "reducedMotion": 0
+  },
+  "states": [
+    {
+      "state": "menu",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 0,
+        "subEleven": 0,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 0,
+      "counts": {
+        "textNodes": 15,
+        "interactives": 9,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "diagnostics": {
+        "overflowClipped": 0,
+        "overflowSamples": []
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    },
+    {
+      "state": "hud",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 0,
+        "subEleven": 0,
+        "unlabeled": 0,
+        "tinyTarget": 1,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 1,
+      "counts": {
+        "textNodes": 160,
+        "interactives": 62,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "diagnostics": {
+        "overflowClipped": 0,
+        "overflowSamples": []
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [],
+        "unlabeled": [],
+        "tinyTarget": [
+          {
+            "tag": "INPUT",
+            "w": 16,
+            "h": 16,
+            "name": "Send officers (HQ: PL · ",
+            "state": "hud"
+          }
+        ]
+      }
+    },
+    {
+      "state": "village",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 0,
+        "subEleven": 0,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 0,
+      "counts": {
+        "textNodes": 111,
+        "interactives": 39,
+        "animated": 0
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "diagnostics": {
+        "overflowClipped": 0,
+        "overflowSamples": []
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    },
+    {
+      "state": "jacket",
+      "defects": {
+        "contrast": 0,
+        "tinyText": 0,
+        "subEleven": 0,
+        "unlabeled": 0,
+        "tinyTarget": 0,
+        "noFocusRing": 0,
+        "reducedMotion": 0
+      },
+      "total": 0,
+      "counts": {
+        "textNodes": 134,
+        "interactives": 40,
+        "animated": 1
+      },
+      "flags": {
+        "hasFocusVisibleRule": true,
+        "hasReducedMotionBlock": true
+      },
+      "diagnostics": {
+        "overflowClipped": 0,
+        "overflowSamples": []
+      },
+      "samples": {
+        "contrast": [],
+        "tinyText": [],
+        "unlabeled": [],
+        "tinyTarget": []
+      }
+    }
+  ],
+  "flags": {
+    "hasFocusVisibleRule": true,
+    "hasReducedMotionBlock": true
+  }
+}

@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { useGame, SPEEDS } from "@/state/store";
+import { useGame, SPEEDS, type ToastSev } from "@/state/store";
 import WorldView from "@/components/world/WorldView";
 import { getWeapon } from "@/lib/sim/weapons";
 import { Unit, ROE } from "@/lib/sim/entities";
@@ -240,6 +240,7 @@ export default function DeployScreen() {
           <WorldView />
           <MapControls />
           <BannerOverlay />
+          <ToastStack />
           <OrderBar />
         </div>
         <RightColumn />
@@ -517,6 +518,36 @@ function MapControls() {
           <button className="tac-btn tac-btn-danger" onClick={clearRoute}>Clear</button>
         </>
       )}
+    </div>
+  );
+}
+
+// Severity-typed command-feedback toasts — every order, fund, fire and combat
+// interrupt acknowledged so nothing reads as a dead click. Stacks newest-on-top,
+// auto-expires (store frame loop), click to dismiss, announced to screen readers.
+const TOAST_SEV_BORDER: Record<ToastSev, string> = {
+  good: "border-l-good",
+  info: "border-l-us",
+  warn: "border-l-amber",
+  crit: "border-l-rust",
+};
+function ToastStack() {
+  const toasts = useGame((s) => s.toasts);
+  const dismiss = useGame((s) => s.dismissToast);
+  if (!toasts.length) return null;
+  return (
+    <div className="absolute top-2 right-2 z-40 flex flex-col gap-1.5 w-[290px] pointer-events-none" aria-live="polite" aria-atomic="false">
+      {toasts.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => dismiss(t.id)}
+          title="Dismiss"
+          aria-label={`Notification: ${t.text}. Click to dismiss.`}
+          className={`pointer-events-auto text-left panel border-l-[3px] ${TOAST_SEV_BORDER[t.sev]} px-2.5 py-1.5 fade-in shadow-lg shadow-black/40`}
+        >
+          <span className="font-mono text-[11px] text-ink leading-snug block normal-case">{t.text}</span>
+        </button>
+      ))}
     </div>
   );
 }
