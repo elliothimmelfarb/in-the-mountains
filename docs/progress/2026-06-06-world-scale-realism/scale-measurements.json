@@ -1,0 +1,215 @@
+{
+  "seed": "korengal",
+  "viewport": {
+    "w": 1440,
+    "h": 900
+  },
+  "geometry": {
+    "cellSize": 5,
+    "gridSize": 512,
+    "worldSize": 2560,
+    "elev": {
+      "min": 1531,
+      "max": 2899,
+      "relief": 1368
+    },
+    "cop": {
+      "x": 1227.5,
+      "y": 1917.5,
+      "cx": 245,
+      "cy": 383,
+      "radiusCells": 17,
+      "radiusM": 85,
+      "diameterM": 170,
+      "gate": {
+        "x": 1337.5,
+        "y": 1917.5
+      },
+      "gateDir": {
+        "x": 1,
+        "y": 0
+      }
+    },
+    "villages": [
+      {
+        "name": "Babiyal",
+        "cx": 229,
+        "cy": 148,
+        "sizeCells": 4,
+        "radiusM": 20,
+        "population": 190,
+        "x": 1147.5,
+        "y": 742.5
+      },
+      {
+        "name": "Marastanau",
+        "cx": 170,
+        "cy": 338,
+        "sizeCells": 4,
+        "radiusM": 20,
+        "population": 40,
+        "x": 852.5,
+        "y": 1692.5
+      },
+      {
+        "name": "Landigal",
+        "cx": 281,
+        "cy": 404,
+        "sizeCells": 6,
+        "radiusM": 30,
+        "population": 52,
+        "x": 1407.5,
+        "y": 2022.5
+      },
+      {
+        "name": "Kandlay",
+        "cx": 189,
+        "cy": 202,
+        "sizeCells": 5,
+        "radiusM": 25,
+        "population": 96,
+        "x": 947.5,
+        "y": 1012.5
+      }
+    ],
+    "copVillDist": [
+      {
+        "name": "Landigal",
+        "m": 208
+      },
+      {
+        "name": "Marastanau",
+        "m": 437
+      },
+      {
+        "name": "Kandlay",
+        "m": 947
+      },
+      {
+        "name": "Babiyal",
+        "m": 1178
+      }
+    ],
+    "villageGap": {
+      "minM": 336,
+      "maxM": 1306
+    },
+    "garrison": {
+      "count": 35,
+      "nnMeanM": 4.65
+    }
+  },
+  "constants": {
+    "SOLDIER_TRUE_M": 0.6,
+    "SQUAD_N": 9,
+    "DISPERSION_M": 5.5,
+    "realSoldierVsCopFraction": 0.00353
+  },
+  "projection": [
+    {
+      "ppm": 0.3,
+      "figurePx": 15,
+      "figureGroundM": 50,
+      "figureVsTrue": "83x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 30,
+      "trueSoldierPx": 0.18,
+      "copDiameterPx": 51,
+      "soldierFigVsCop": 0.294,
+      "squadSpanPx": 13,
+      "squadFiguresWidthPx": 135,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "4800x3000"
+    },
+    {
+      "ppm": 0.5,
+      "figurePx": 15,
+      "figureGroundM": 30,
+      "figureVsTrue": "50x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 18,
+      "trueSoldierPx": 0.3,
+      "copDiameterPx": 85,
+      "soldierFigVsCop": 0.176,
+      "squadSpanPx": 22,
+      "squadFiguresWidthPx": 135,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "2880x1800"
+    },
+    {
+      "ppm": 0.7,
+      "figurePx": 15,
+      "figureGroundM": 21.4,
+      "figureVsTrue": "36x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 12.9,
+      "trueSoldierPx": 0.42,
+      "copDiameterPx": 119,
+      "soldierFigVsCop": 0.126,
+      "squadSpanPx": 31,
+      "squadFiguresWidthPx": 135,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "2057x1286"
+    },
+    {
+      "ppm": 1,
+      "figurePx": 15,
+      "figureGroundM": 15,
+      "figureVsTrue": "25x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 9,
+      "trueSoldierPx": 0.6,
+      "copDiameterPx": 170,
+      "soldierFigVsCop": 0.088,
+      "squadSpanPx": 44,
+      "squadFiguresWidthPx": 135,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "1440x900"
+    },
+    {
+      "ppm": 2,
+      "figurePx": 15,
+      "figureGroundM": 7.5,
+      "figureVsTrue": "13x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 4.5,
+      "trueSoldierPx": 1.2,
+      "copDiameterPx": 340,
+      "soldierFigVsCop": 0.044,
+      "squadSpanPx": 88,
+      "squadFiguresWidthPx": 135,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "720x450"
+    },
+    {
+      "ppm": 4,
+      "figurePx": 28,
+      "figureGroundM": 7,
+      "figureVsTrue": "12x oversized",
+      "dotDiamPx": 9,
+      "dotGroundM": 2.3,
+      "trueSoldierPx": 2.4,
+      "copDiameterPx": 680,
+      "soldierFigVsCop": 0.041,
+      "squadSpanPx": 176,
+      "squadFiguresWidthPx": 252,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "360x225"
+    },
+    {
+      "ppm": 8,
+      "figurePx": 40,
+      "figureGroundM": 5,
+      "figureVsTrue": "8x oversized",
+      "dotDiamPx": 15.2,
+      "dotGroundM": 1.9,
+      "trueSoldierPx": 4.8,
+      "copDiameterPx": 1360,
+      "soldierFigVsCop": 0.029,
+      "squadSpanPx": 352,
+      "squadFiguresWidthPx": 360,
+      "squadFiguresOverlap": true,
+      "screenCoverM": "180x113"
+    }
+  ]
+}
