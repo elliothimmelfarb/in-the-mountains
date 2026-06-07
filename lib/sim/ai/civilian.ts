@@ -52,6 +52,11 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   let armedCount = 0;
   let firingThreat: Unit | null = null;
   let fd = Infinity;
+  // The "calm before": staged hostiles that have moved into the area but NOT yet opened fire
+  // (ambushers holding their volley, infiltrators slipping through the draws). The director spawns
+  // them a window BEFORE the shooting — that gap is the tell. Villagers sense "something is wrong
+  // nearby" and quietly clear the open ground; an alert player reads the ABSENCE. (DESIGN §3.6.)
+  let stagedThreat = 0; // 0..1, nearest staged-hostile proximity (1 = right on top)
   for (const o of sim.units) {
     if (!o.alive || !ARMED.has(o.faction)) continue;
     const d = dist(o.pos, u.pos);
@@ -67,6 +72,21 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
       if (d < fd) {
         fd = d;
         firingThreat = o;
+      }
+    }
+    // Staged (not-yet-firing) insurgent: ambush cell holding, OR an infiltrator moving concealed.
+    // director.ts spawns ambushers with brainState "ambush" and infiltrators "patrolling"+concealed,
+    // both faction "insurgent", and lays them at REALISTIC ambush stand-off (firingPositions 80-260 m
+    // from the focus). They are ALIVE but have not fired (hasFired stays false until the volley). We
+    // sense them out to STAGE_R = 150 m — well beyond the 45 m armed-proximity ring (which drives the
+    // they're-on-top-of-us WARY/CLEAR/FLEE reaction) so the gentler MELT fires FIRST, at the mid
+    // distance a village reads as "armed strangers have moved into the valley", before any shot. This
+    // layering is the whole point: the tell is the absence at range, not a panic when a man is at 30 m.
+    if (o.faction === "insurgent" && !o.hasFired) {
+      const staged = o.brainState === "ambush" || (o.brainState === "patrolling" && o.technique === "concealed");
+      if (staged) {
+        const STAGE_R = 150; // m — sensing radius for the "calm before"
+        if (d < STAGE_R) stagedThreat = Math.max(stagedThreat, 1 - d / STAGE_R);
       }
     }
   }
@@ -92,6 +112,45 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   const isChild = u.role === "child";
   const isElder = u.role === "elder";
 
+  // --- diurnal context (deterministic ambient light the World writes each tick) ---
+  // Hoisted above the reaction tiers because the NIGHT-home drive must pre-empt the gentler WARY /
+  // CLEAR-ROAD reactions: a villager who is merely wary of a distant armed man at 02:00 still wants
+  // to be inside, not frozen in the open field. The home he settles at is the village center SNAPPED
+  // off the wire / onto reachable ground (the same snap civMoveTo applies) so "am I home?" matches
+  // where he really stops — checking the raw center reads as never-home and re-fires the path every
+  // tick (the issue-010 thrash). Only an actual FLEE (tier 3) overrides the walk home.
+  const light = sim.light;
+  const NIGHT = light < 0.2;
+  const DAY = light >= 0.85;
+  const HOME_R = 16;
+  // Lazy + memoized: civHome() does two terrain snaps, so compute the snapped home (and the at-home
+  // test) AT MOST ONCE per tick and ONLY on the branches that read it — in broad daylight with no
+  // threat the diurnal logic never needs it, so we don't pay the snap every civilian every tick.
+  let _home: { x: number; y: number } | null = null;
+  const getHome = () => (_home ??= civHome(sim, u));
+  const isAtHome = () => dist(getHome(), u.pos) < HOME_R;
+
+  // ---------------------------------------------------------------- MELT AWAY (the calm before)
+  // Precedence: FLEE (tier 3, real gunfire) > MELT > CLEAR-ROAD > WARY > diurnal OBLIVIOUS.
+  // Gated to tier < 3 so it never overrides an actual flee — once the shooting starts the FLEE
+  // branch owns the villager. Staged hostiles nearby but no rounds yet: people quietly leave the
+  // open ground and go home, children first, NOT the panicked sprint. The sim.rng.chance stagger
+  // means they don't all depart on one tick — the fields THIN over a few seconds (the readable
+  // "melting"), so the absence reads as a deliberate, legible signal rather than a teleport.
+  if (stagedThreat > 0.18 && tier < 3) {
+    const urgency = stagedThreat * (isChild ? 1.5 : isElder ? 1.1 : 1.0);
+    if (sim.rng.chance(clamp01(0.25 + urgency))) {
+      sim.civMoveTo(u, homePoint(sim, u));
+      u.technique = isChild && urgency > 0.8 ? "rush" : "patrol"; // a kid may scamper; adults walk
+      u.paceScale = 1;
+      u.stance = "stand";
+      u.faceLock = null;
+      return;
+    }
+    // not departing this tick (the stagger) — fall through to the normal day/night behaviour so a
+    // still-present villager keeps acting natural until his number comes up.
+  }
+
   // ---------------------------------------------------------------- FLEE
   if (tier >= 3) {
     const threatU = firingThreat ?? nearArmed;
@@ -108,6 +167,26 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     u.paceScale = 1;
     u.stance = "stand";
     u.faceLock = null;
+    return;
+  }
+
+  // ---------------------------------------------------------------- NIGHT HOME (pre-empts WARY/CLEAR)
+  // At night a wary or road-clearing villager withdraws home rather than freezing in the open or
+  // sidestepping to a field edge — being inside after dark is the stronger drive. FLEE (tier 3) above
+  // already owns a real threat; this only catches the calmer tiers 1-2. Re-issue home when not already
+  // headed there: path empty, OR the current goal is a daytime ERRAND (not near home) — so a villager
+  // who was mid-errand when dusk fell turns around at once instead of finishing the trip out. The
+  // pathGoal-near-home guard means we don't re-path every tick once he's genuinely homebound (issue-010).
+  if (NIGHT && tier < 3 && !isAtHome()) {
+    const home = getHome();
+    const headingHome = u.pathGoal && dist(u.pathGoal, home) < HOME_R + 10;
+    if (u.path.length === 0 || !headingHome) {
+      const far = dist(home, u.pos) > 160;
+      sim.civMoveTo(u, home, far ? 0.4 : 0);
+      u.technique = "patrol";
+      u.paceScale = isElder ? 0.4 : 0.6;
+      u.faceLock = null;
+    }
     return;
   }
 
@@ -163,16 +242,52 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   const pb = trait(u.id, "pace");
   u.paceScale = isChild ? 0.62 + 0.3 * pb : isElder ? 0.42 + 0.18 * pb : 0.55 + 0.37 * pb;
 
+  // --- DIURNAL PATTERN OF LIFE (light/NIGHT/DAY/home/atHome hoisted above the tiers) ---
+  // The OCCUPANCY curve (how many are out) is what the player and probe read; it is governed by a
+  // home-pull that is a pure function of light — identical whether light is rising (dawn) or falling
+  // (dusk), so we never need to name the two apart.
+  //   light >= 0.85  → full day (07-17h): normal pattern of life, everyone working the fields.
+  //   0.2..0.85      → dawn/dusk ramp: bias toward home; children/elders lean home earlier.
+  //   light < 0.2    → night: the NIGHT-HOME override above already walked him in; here he idles home.
+  // A still-out night villager was handled by the override; reaching here at night means he IS home.
+
+  // Home-pull grows smoothly as light falls below full day; children/elders bias home earlier.
+  // 0 at full day → ~1 near night. This is the curve that produces "out early, drifting home as the
+  // sun drops" WITHOUT needing to name dawn vs dusk (Law 4: model what's measured, the occupancy).
+  const homePull = DAY ? 0 : clamp01((0.85 - light) / 0.65);
+  const childBias = isChild ? 0.35 : isElder ? 0.15 : 0;
+  const goHome = clamp01(homePull + childBias);
+
   if (u.path.length === 0) {
     // Dwell at a node — work a field, water animals, chat — for a per-person spell, then
-    // amble to the next errand (longer hops prefer the track network).
+    // amble to the next errand (longer hops prefer the track network). At night, suppress all new
+    // errands so a villager who has reached home stays in (no 2% repick sending him back out).
     u.brainTimer = (u.brainTimer ?? 0) - dt;
-    if (u.brainTimer <= 0 && u.routine && u.routine.length > 0 && sim.rng.chance(0.02)) {
-      const node = sim.rng.pick(u.routine);
-      const far = dist(node.target, u.pos) > 160;
-      sim.civMoveTo(u, node.target, far ? 0.4 : 0);
-      const dwell = isElder ? 18 + 28 * trait(u.id, "dwell") : isChild ? 4 + 10 * trait(u.id, "dwell") : 10 + 22 * trait(u.id, "dwell");
-      u.brainTimer = dwell;
+    if (!NIGHT && u.brainTimer <= 0 && u.routine && u.routine.length > 0 && sim.rng.chance(0.02)) {
+      // As light drops, bias the next destination toward home (deterministic, seeded). People don't
+      // start a fresh long-haul trip to the next bazaar at dusk, so when goHome is high we also
+      // reject far "market" errands and stay local / head in.
+      if (sim.rng.chance(goHome)) {
+        // Drawn toward home. If already in, STAY in (home is a sink whose depth tracks the light) —
+        // this is what makes the outdoor OCCUPANCY ride the diurnal curve: at dawn/dusk a fraction
+        // ~goHome of villagers sit at home each repick, so the count sits below the midday peak, and
+        // collapses to ~0 as light → night. If still out, head in.
+        if (!isAtHome()) {
+          sim.civMoveTo(u, getHome());
+          u.paceScale = isElder ? 0.45 : 0.6;
+        } else {
+          u.stance = "stand";
+          u.moving = false;
+        }
+        u.brainTimer = isElder ? 16 + 24 * trait(u.id, "dwell") : 10 + 18 * trait(u.id, "dwell");
+      } else {
+        let node = sim.rng.pick(u.routine);
+        if (goHome > 0.4 && node.activity === "market") node = sim.rng.pick(u.routine); // re-roll the long-haul
+        const far = dist(node.target, u.pos) > 160;
+        sim.civMoveTo(u, node.target, far ? 0.4 : 0);
+        const dwell = isElder ? 18 + 28 * trait(u.id, "dwell") : isChild ? 4 + 10 * trait(u.id, "dwell") : 10 + 22 * trait(u.id, "dwell");
+        u.brainTimer = dwell;
+      }
     } else {
       // standing idle: a slow look-around so a villager isn't a frozen statue
       u.stance = "stand";
@@ -187,4 +302,18 @@ function homePoint(sim: CombatSim, u: Unit): { x: number; y: number } {
   const vil = sim.terrain.villages.find((v) => v.id === u.villageId) ?? sim.terrain.villages[0];
   if (vil) return sim.terrain.cellCenter(vil.cx, vil.cy);
   return { x: u.pos.x, y: u.pos.y };
+}
+
+/**
+ * The point a villager actually settles at when sent "home": the village center snapped off the COP
+ * wire and onto reachable ground — the SAME reachablePoint→civSafePoint snap civMoveTo applies. Used
+ * by the diurnal logic so the "am I home?" arrival test matches where they really stop (the raw
+ * center can be 20-60 m from the snapped home; testing the raw center reads as never-home and
+ * re-fires the path every tick — the issue-010 stall). Deterministic (pure terrain snap), so the
+ * occupancy curve is replay-stable.
+ */
+function civHome(sim: CombatSim, u: Unit): { x: number; y: number } {
+  const c = homePoint(sim, u);
+  const r = sim.terrain.reachablePoint(c.x, c.y);
+  return sim.terrain.civSafePoint(r.x, r.y);
 }
