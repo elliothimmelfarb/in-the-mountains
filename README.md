@@ -64,9 +64,14 @@ Two read-anytime documents are served statically:
   squad leader runs the firefight (base-of-fire/maneuver, bound, break contact) and raises a
   **call-for-fire** like a real forward observer — only onto a PID'd, observed enemy and never inside
   its own danger-close radius — for you to approve or deny.
-- **COIN** — village attitudes, shuras (KLE), CERP projects with real logistics, SIGINT/HUMINT
-  intel, battalion directives, decision events, resupply (convoy vs. air), and an end-of-tour
-  assessment. You can win every firefight and still lose the valley.
+- **COIN — the real game.** Village attitudes you actually *move*: show up (presence), hold shuras
+  (KLE) where elders make **asks** you keep or break (broken promises hurt more than kept ones
+  help), and **secure a CERP project to completion** (a clinic they asked for moves a village far
+  more than a culvert nobody wanted). **CERP is a managed two-way budget** (battalion stipend +
+  project refunds, not a countdown). **Battalion directives** arrive on a cadence with deadlines —
+  miss one and Higher's confidence drops; a civilian casualty fails *protect-the-population* on the
+  spot. The end-of-tour score grades **counterinsurgency, not body count**. You can win every
+  firefight and still lose the valley.
 
 ## Project structure
 
@@ -88,7 +93,8 @@ lib/sim/            Pure simulation engine (no React)
     types.ts        WorldState, Task, Project, MissionType, ids
     create.ts       createWorld / loadWorld factories
     director.ts     Enemy activity director (ambush / infiltrate / harass / attack)
-    tasks.ts        Strategic tasks (patrol / KLE / project security)
+    directives.ts   Battalion directive specs + live-metric completion logic
+    tasks.ts        Strategic tasks (patrol / KLE / secure-build / project security)
     projects.ts     CERP project logistics + resupply
     events.ts       Decision events
     helpers.ts      Shared free functions
@@ -96,6 +102,9 @@ lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD syst
   sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
   draw.ts           Units (symbol→figure LOD), COP structures, effects
   decoration.ts     Stable-hash vegetation/rock scatter by landcover
+lib/audio/          Procedural battle audio (render-side observer; no assets, no deps)
+  mapper.ts         PURE: sim events (effects/log/fire-missions/TIC) → AudioCue[] (headless)
+  synth.ts/player.ts BROWSER: Web-Audio synthesis (osc + filtered noise + envelopes) + 3D mix
 state/store.ts      Zustand store bridging React <-> the World (the real-time frame loop)
 components/
   world/WorldView.tsx     The single live map (terrain + units + orders + planning)

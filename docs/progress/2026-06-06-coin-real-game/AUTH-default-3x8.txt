@@ -1,0 +1,36 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:9
+  TOUR SCORE:    60.0   (per-seed: 71, 40, 69)
+  final metrics: stab 61  att 50  enemy 41  cbtPwr 93  higher 58
+  enemyStrAbs:   min 30  mean 37  max 51   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -0.2   (Δ 7.7)
+  directives:    issued 2.3  complete 0.3  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 17000 → end 25500   ever-rose: yes
+  projects:      funded 3.0  complete 1.3   patrols issued 8  KLEs issued 8
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:9
+  TOUR SCORE:    29.7   (per-seed: 40, 8, 41)
+  final metrics: stab 57  att 46  enemy 43  cbtPwr 88  higher 42
+  enemyStrAbs:   min 30  mean 38  max 52   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -7.8   (Δ 0.1)
+  directives:    issued 2.3  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 37520   ever-rose: yes
+  projects:      funded 0.0  complete 0.0   patrols issued 22  KLEs issued 0
+
+=== VERDICT ===
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  [PASS] score DISCRIMINATES (>25)  careful 60.0 − bodycount 29.7 = SPREAD 30.3  
+  [PASS] COIN moves attitude        careful Δatt 7.7 vs bodycount Δatt 0.1  (careful projects complete 1.3)
+  [PASS] directives fully live      complete 0.3/2.3; failure/penalty path n/a at this horizon (needs ≥13d; verified live under neglect) (deadlines elapsed on neglect: 0.0/tour)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 30  
+  [PASS] projects COMPLETE (secured) careful completes 1.3 projects/tour (was 0 — all sabotaged)
+  [PASS] directive cadence live     2.3 directives issued/tour (was 2 fixed)
+
+INTERPRETATION: the strategy layer is ALIVE and discriminating — careful COIN beats body-count on the COIN levers (attitude, projects, Higher's trust), not the kill count.
+

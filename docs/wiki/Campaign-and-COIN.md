@@ -47,7 +47,13 @@ Strategic orders are `Task`s that progress on the clock:
 - **KLE** — `conductKLE(ids, village, technique, sop?)`: send a squad to a village to hold a shura;
   attitude/cooperation and intel accrue over the dwell. As with patrols a supplied `sop` is
   authoritative and drives the movement technique; without one a KLE goes in friendly by default —
-  patrol tempo, hold on contact, weapons tight.
+  patrol tempo, hold on contact, weapons tight. A shura also yields an **elder ASK** (see *Asks &
+  promises* below).
+- **Secure-build** — `secureBuild(ids, village, technique, sop?)`: assign an element to **garrison a
+  CERP project site**. It routes to the village via the normal reachability-aware pathing (no
+  beeline), then holds an **open-ended all-round overwatch** — no dwell timer; it returns only when
+  the project it's securing **completes or is sabotaged**, or you recall it. This is the order that
+  drives a project to completion: `tickProjects`' security gate counts a held secure element.
 - Elements can be **recalled** at any time.
 
 ## Projects — logistics & patience (`projects.ts`)
@@ -55,10 +61,32 @@ Strategic orders are `Task`s that progress on the clock:
 `startProject(village, type)` spends CERP up front, then a `Project` runs through stages on the
 clock: **awaiting materials** (construction supplies must be trucked in — short stocks delay it) →
 **awaiting contractor** (local labor brought on) → **building**. Building only progresses while a
-friendly element is **securing the site** (≥2 soldiers within ~80 m); leave it unsecured and the
-insurgents intimidate the crew — the work **stalls and can be sabotaged**, regressing progress and
-hardening the village. Finishing wins a big attitude swing and feeds the construct directive. A well
-or clinic is days of secured work, not a purchase.
+friendly element is **securing the site** — a dedicated **secure-build** element holding the village,
+or any ≥2 soldiers within ~80 m. Leave it unsecured and the insurgents intimidate the crew — the work
+**stalls and can be sabotaged**, regressing progress and hardening the village. Finishing wins an
+attitude swing that **depends on the project type and whether the village wanted it** (`PROJECT_PAYOFF`
+× 1.6 for a wanted/asked-for type, × 0.6 off-want — FM 3-24: deliver what they *need*), partially
+**reimburses CERP** (+$1,500), nudges higher confidence, and feeds the construct directive. A clinic
+the elder asked for moves a village far more than a culvert nobody wanted. A well or clinic is days of
+secured work, not a purchase.
+
+## CERP — a managed budget, not a countdown
+
+CERP is **two-way**. It drains when you fund projects (−$5,000) and pay solatia/informants, and it
+**refills** from two income paths: a **battalion stipend** on a steady ~weekly cadence (`tickCerp`,
+$5,000–$11,000, scaled by higher confidence — a commander Higher trusts gets more discretionary
+funds), and a **+$1,500 reimbursement** for each delivered project. So CERP is a budget to manage
+across the tour, not a one-way meter that runs dry.
+
+## Asks & promises (the broken-promises mechanic)
+
+A shura can produce an **elder ask** (`raiseElderAsk`): a concrete request — a specific **project**,
+a **security** presence, patrol **restraint**, or a **prisoner** release — with a deadline a few days
+out. Follow through and it's a **kept promise** (`fulfillAsk`: attitude +10, cooperation +8, a little
+higher confidence). Let the deadline lapse and it's a **broken promise** (`tickPromises`: attitude
+−12, sympathy +8) — deliberately **asymmetric**, because a broken promise costs more trust than a kept
+one buys. Building the asked-for project or holding a secure element on the village for ~an hour
+fulfills the matching ask automatically.
 
 ## Resupply
 
@@ -90,13 +118,31 @@ a single civcas (an order of magnitude larger), but disciplined patrols that eat
 risk the qalat are how you actually buy the valley's trust. You set ROE in the squad SOP before
 step-off; it locks once the squad is in contact.
 
+## Directives — pressure from Higher (`directives.ts`)
+
+Battalion **tasks you on a deadline**. Two directives are issued at deploy (presence, KLE), then a
+**steady cadence** (`tickDirectives`/`issueDirective`, ~1 per 6–9 days) draws fresh ones from the AO:
+**interdict** when the enemy is strong, **hold** when a village is hostile, **construct** when CERP is
+on hand, plus a rotation of **census / presence / KLE / casualty** (protect-the-population). Each
+carries a **reward** (higher confidence if delivered) and a **penalty** (if its deadline elapses while
+still active — `status → "failed"`, confidence docked). Completion is real for every kind: presence by
+visiting all villages, census by 3, KLE/construct by their producers, **interdict** by driving
+`enemyStrengthAbs` down from its issue-time snapshot, **hold** by clearing all hostile villages,
+**casualty** by reaching the deadline with **no civilian casualty since issue** (one civcas fails it
+immediately). Neglecting the valley to chase body count now **costs you Higher's trust**.
+
 ## Metrics & scoring
 
 Five 0–100 metrics: **Stability** (a slow blend of attitudes, enemy strength, and combat power),
 **Attitude** (mean village disposition), **Enemy Strength** (the pool; attrition lowers it),
 **Combat Power** (ready troops + ammo), **Higher Confidence** (battalion's faith — zero relieves you
-of command). The tour ends when the clock passes the tour length (or confidence hits zero);
-`computeTourScore` grades it with a heavy penalty per soldier killed.
+of command). The tour ends when the clock passes the tour length (or confidence hits zero).
+
+`computeTourScore` grades **COIN, not kills**: attitude, stability and higher confidence dominate the
+base, **enemy attrition is a small term** (you can win every firefight and still lose the valley);
+delivered **projects**, completed **directives** and **kept promises** are direct rewards; **civilian
+casualties** (the heaviest), **broken promises**, **failed directives** and **KIA** are penalties. A
+patient hearts-and-minds tour and a reckless body-count tour produce **meaningfully different scores**.
 
 ## Events (`events.ts`)
 

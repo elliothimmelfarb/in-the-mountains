@@ -1,9 +1,27 @@
 # 014 — World-map scale realism: soldiers/COP/villages drawn the wrong size
 
-**Status: 🟡 OPEN — audited & specified 2026-06-06, fix not yet applied.**
+**Status: 🟢 Bucket 1 (REPRESENTATION) RESOLVED 2026-06-07; Bucket 2 (SIM SCALE) + R3 (village cluster) deferred.**
 Full write-up + charts + annotated screenshots: `docs/progress/2026-06-06-world-scale-realism/report.html`.
 Agent-ready fix spec (priority-ordered, with `file:line`, params, seams, metrics):
 `docs/progress/2026-06-06-world-scale-realism/AGENT-BRIEF.md`.
+
+## Resolution — Bucket 1 (render scale), 2026-06-07
+
+The loud, felt half of the problem is fixed (render-only, zero sim risk). See
+`docs/progress/2026-06-06-fivex-campaign/results-wave-e.md` for the full numbers.
+- **R1 figure tracks footprint:** `figurePx` `max(15,min(40,ppm*7))` → `max(7,min(26,ppm*1.6))`
+  (1.6 m kit footprint, 7 px legibility floor); `dotR` shrunk; LOD fade bands pushed to ppm 2.5/3.5.
+- **R2 per-squad aggregation:** new `drawSquadIcon()` + WorldView groups friendlies by squadId below
+  tactical zoom into one NATO icon each (echelon dot + `1st ×9` badge), 0.4-ppm crossfade.
+- **combat-fx sync:** combat-fx now imports `figurePx`/`dotR` from draw.ts (one source of truth) so the
+  suppression crescent / bleed pool / danger-close halo stay glued to the resized figures.
+- **Verified (`scale-probe.mjs` korengal):** figVsTrue at default zoom 36×→**17×**, at tactical 12×→**3×**;
+  soldier-as-%-of-COP 0.126→0.059→**~0.010** (≈ realistic ~1%); **`squadFiguresOverlap` true→false at EVERY
+  zoom**. tsc/build/smoke green. Live re-capture: a squad now reads as spaced named individuals (tactical) or
+  one squad icon (strategic), not a 21 m blob.
+- **Deferred (logged):** R3 village sub-compound cluster (smallest slice), and all of **Bucket 2** (valley
+  shape, weapons-squad 3→9, COP geometry) — sim/terrain is sensitive and 014 rates the relief/peaks already
+  authentic; a deliberate realism-vs-playability call left for a measured future pass.
 
 ## What's wrong
 

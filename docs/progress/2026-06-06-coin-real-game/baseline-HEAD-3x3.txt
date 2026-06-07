@@ -1,0 +1,6 @@
+HEAD baseline — npx tsx scripts/campaign-loop.ts (3 seeds x 3 days):
+
+POLICY A careful: TOUR SCORE 39.0 (31,28,58); att -7.9->-7.8 (d0.1); dir issued 2 complete 0 failed 0 penalty no; CERP 30000->23333 ever-rose NO; proj funded 1.3 complete 0
+POLICY B body: TOUR SCORE 10.7 (0,17,15); att d0.1; CERP 30000 flat; proj 0/0
+
+VERDICT: PASS loop · PASS score>25 (28.3, but driven by KIA->higherConf not COIN) · FAIL COIN-moves-attitude · FAIL directives-live · FAIL CERP-two-way · PASS enemy-dynamic

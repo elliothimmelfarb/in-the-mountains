@@ -48,22 +48,48 @@ villages (skill/aggression scale with valley "heat").
 
 Unarmed, and meant to read as a **lived-in valley**, not particles. Each civilian reacts to armed men
 in **four graduated tiers** (a continuous read of threat proximity + count + gunfire fear, with
-rise-instant / fall-slow hysteresis), not a single panic switch:
+rise-instant / fall-slow hysteresis) — plus a **fifth, pre-contact** branch and a **diurnal rhythm**:
 
 - **Oblivious** — no armed men close: go about the day.
+- **Melt-away** (the *calm before*) — a staged hostile is nearby but **no shot has been fired yet**:
+  the villager quietly leaves the open ground and goes home — children first, walking not sprinting —
+  so the fields *thin* over a few seconds and an alert player can **read the absence**. See below.
 - **Wary** — armed men in the middle distance: stop, look up, watch them.
 - **Clear-road** — a patrol bears down: step off its line to the field edge and let it pass.
 - **Flee** — gunfire, a blast, or armed men right on top of them: bolt for home / dead ground.
 
 **Role flavour** splits the crowd into people: a curious child drifts *in* for a look (never into the
-flee band); an elder withdraws toward his compound; farmers/villagers stand aside and watch. **Pattern
-of life** gives each civilian a stable per-person amble pace (~0.75–1.4 m/s, child/elder skewed), a
-dwell at each routine node (work/chat for 10–40 s), and a slow idle look-around — no more uniform
-2 m/s shuffle. Every trait is derived from a pure hash of the unit id, so the world stays
-**replay-deterministic**. Their sudden absence is still the oldest tell in the valley; from the
+flee band); an elder withdraws toward his compound; farmers/villagers stand aside and watch.
+
+**Diurnal pattern of life.** The valley now keeps a day. The brain reads `sim.light` (the World's
+deterministic ambient, written each tick from the solar clock) and an outdoor **occupancy** that is a
+pure function of that light:
+- **Full day** (light ≥ 0.85): everyone works the fields/market — full pattern of life.
+- **Dawn / dusk ramp** (0.2–0.85): a *home-pull* grows smoothly as light falls; villagers drift home,
+  **children and elders lean home earlier**. The occupancy rides the light, so the count is high at
+  midday, climbs through dawn, and falls through dusk — *without* the brain ever having to tell a dawn
+  apart from a dusk (the curve is symmetric in light; we model the occupancy, not the event).
+- **Night** (light < 0.2): **indoors.** A still-out villager walks home (a far-caught one routes the
+  track network back). The night-home drive **pre-empts Wary/Clear-road** — a villager merely wary of
+  a distant armed man at 02:00 still wants to be inside, not frozen in a field — but yields to a real
+  **Flee** (active danger wins). The residual handful still out at night are civilians correctly
+  fleeing/clearing **infiltrators moving through the draws after dark**, not stranded by the logic.
+
+**The melt-away tell (`#calm-before`).** In the *same* O(units) armed scan, the brain also flags
+**staged** insurgents — an ambush cell holding (`brainState==="ambush"`) or an infiltrator moving
+concealed (`"patrolling"`+`technique==="concealed"`), both alive but **not yet firing** — out to a
+150 m sensing radius (wider than the 45 m armed-proximity ring, so the gentle melt fires at the
+mid-distance *before* the they're-on-top Wary/Flee). Departures are **staggered** by a seeded
+`rng.chance`, so the fields thin rather than teleport. This is the flagship COIN tell the tutorial
+teaches; the engine now produces it. Verify with `scripts/atmospherics-probe.ts melt <seed>`.
+
+Every trait/decision is derived from a pure hash of the unit id or the seeded RNG and the
+deterministic `sim.light`, so the world stays **replay-deterministic** and `serialize()` is unchanged
+(no new persisted fields). Their sudden absence is still the oldest tell in the valley; from the
 friendly side a patrol **eases its pace (escalation of force)** to let a villager on the track clear
 rather than barging through. All of it complicates fire and risks the COIN catastrophe of civilian
-casualties.
+casualties. Headless metric: `scripts/atmospherics-probe.ts diurnal <seed>` (outdoor occupancy by hour)
+and `… melt <seed>` (pre-contact drop).
 
 ## Friendly per-man brain (`friendly.ts`)
 

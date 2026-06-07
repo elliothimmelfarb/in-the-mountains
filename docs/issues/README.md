@@ -39,6 +39,9 @@ The original issue text is preserved below each file with a **Resolution** secti
 | [011](011-deploy-relief-bake-cost.md) | Deploy-time relief bake (4096² sheet) is the dominant load cost (~seconds) | Low–Medium | 🟡 **Open (restraint-logged 2026-06-06)** — now *covered* by the staged loading screen + progressive bake; speed is a future measured perf pass |
 | [012](012-cop-interior-connectivity.md) | A squad gets stuck on buildings in the COP (terrain-gen + a `copaudit` metric blind spot) | **High** | ✅ **Resolved 2026-06-06** — see `docs/progress/2026-06-06-cop-interior/` |
 | [013](013-call-for-fire-danger-close-and-aimpoint.md) | Squad called mortar missions on itself / nowhere near the enemy (centroid-averaging + no danger-close gate → real fratricide) | **High** | ✅ **Resolved 2026-06-06** — densest-cluster PID aimpoint + danger-close withhold + FDC check-fire; `fire-mission-probe`: dangerClose 3–4%→0%, fratricide 1→0, offLive 0% (held-out confirmed) |
+| [014](014-world-map-scale-realism.md) | World-map scale doesn't feel true to life: soldiers drawn ~36× too big (render clamp) → squads blob; villages drawn as one building not a hamlet; valley is a short square slice; platoon 35 vs 39–42 | **Medium** | 🟢 **Bucket 1 (render scale) RESOLVED 2026-06-07** — footprint-tracking figure size + per-squad icon LOD; `scale-probe`: figVsTrue 36×→17× default / 12×→3× tactical, squadFiguresOverlap true→**false** at every zoom. Bucket 2 (sim/terrain) + R3 (village cluster) deferred. See `docs/progress/2026-06-06-fivex-campaign/results-wave-e.md` |
+| [015](015-coin-strategic-layer-inert.md) | The COIN strategic layer was mechanically DEAD — attitude flat, projects sabotaged-not-completed, CERP one-way, directives never failed/penalized, no secure-build order, score barely discriminating | **High** (design pillar) | ✅ **Largely resolved 2026-06-06** — secure-build order + per-type/wanted project payoff + two-way CERP + live directives (cadence/deadline/penalty/5 dead kinds) + KLE asks/broken-promises + COIN-weighted score. See `docs/progress/2026-06-06-coin-real-game/` |
+| [016](016-civilian-diurnal-and-calm-before.md) | Valley was diurnally FLAT (civilians out 24/7) and the flagship COIN tell — civilians MELTING AWAY before an ambush (the tutorial teaches it) — did not exist | **Medium** (soul/realism) | ✅ **Resolved 2026-06-06** — `sim.light`-keyed diurnal occupancy (home-by-dusk, indoors at night, night-home pre-empts wary/clear) + pre-contact melt-away off staged-ambush/infiltrator sensing. New probe `atmospherics-probe.ts`: outdoor 100%-flat→night ~0% (tuned)/~13% (hot, real flee-residual), midday ≥62%, rising/falling edges; melt cohort closes ~50% distance-home before any shot while control stays flat, kids first. Held-out + determinism confirmed |
 
 **2026-06-06 (river navigation overhaul):** a fast static structural audit (**`terrain-audit.ts`**)
 showed the river was a cliff-walled chasm with **zero crossings** that **split the valley in 28% of
@@ -57,6 +60,28 @@ danger-close gate** (one run produced a real US fratricide). Fixed with a denses
 aimpoint + a danger-close withhold + an FDC check-fire. dangerClose 3–4%→0%, fratricide 1→0,
 off-target-vs-living-enemy 0% (held-out confirmed). See [013] and
 `docs/progress/2026-06-06-firemission-realism/`.
+
+**2026-06-06 (world-map scale realism audit):** a player report ("the scale of things on the map
+doesn't feel true to life") metricized with a new probe (**`scale-probe.mjs`** — drives the live app,
+applies the renderer's exact clamp formulas per zoom) and a cited 13-agent real-world research pass
+(Korengal geography, US outposts, villages/qalats, FM/ATP 3-21.8 doctrine; adversarially verified).
+The loud cause is **representation, not simulation**: `figurePx = clamp(ppm*7,15,40)` paints a soldier
+**≈21 m wide (36×) at the default zoom** and a 9-man squad at correct 5.5 m spacing fuses into a blob;
+villages render as one building. The sim's vertical scale, relief, ridge heights, engagement ranges,
+squad size and dispersion are already authentic. Audited & specified (render-first), not yet fixed —
+see [014] and `docs/progress/2026-06-06-world-scale-realism/`.
+
+**2026-06-06 (civilian atmospherics — diurnal + the calm-before tell):** the valley was diurnally
+flat (civilians out 24/7) and the flagship COIN tell — civilians **melting away before an ambush**,
+which the tutorial explicitly teaches — **did not exist**. Both built in `ai/civilian.ts` keyed to
+data the sim already computes (`sim.light` for the daily rhythm; staged-ambush/concealed-infiltrator
+markers the brain already sees in its one armed-scan), **deterministic and with no new persisted
+field**. New probe **`atmospherics-probe.ts`** (mover-faithful: ground-truth time from
+`world.secondsOfDay`, "home" = the snapped point the mover walks to): diurnal outdoor 100%-flat →
+night ~0% (tuned) / ~13% (hot seed — a *real* residual of civilians fleeing night infiltrators),
+midday ≥62%, rising/falling edges present; melt-away cohort closes ~50% of its distance home **before
+any shot** while a control cohort stays flat, **children first**. Held-out (`survey-43`) + same-seed
+determinism confirmed. See [016] and `docs/progress/2026-06-06-atmospherics/`.
 
 New harnesses from this pass: **`copaudit.ts`** (one table for issues 001–005 + the wire-pin bug) and
 **`reachability.ts`** (the fair all-villages movement metric — see 006).
