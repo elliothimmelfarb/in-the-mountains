@@ -416,14 +416,32 @@ export function makePlatoon(rng: RNG, baseExperience = 0.4): Platoon {
     squads.push({ id: sid, name: `${s}${ordinal(s)} Squad`, memberIds: sqMembers });
   }
 
-  // Weapons squad: 240 team + marksman
+  // Weapons squad (FM/ATP 3-21.8): a weapons-squad leader, two M240 medium-MG
+  // teams (gunner + assistant gunner), two ammo bearers, a grenadier (the squad's
+  // HE/anti-armor punch) and the platoon marksman — 9 men. Built from existing
+  // roles so every man has a real sprite + weapon. This restores the organic
+  // weapons squad the platoon was missing (it was a 3-man stub), bringing the
+  // platoon to ~41 (5 HQ + 27 rifle + 9 weapons), inside the doctrinal 39–42 band.
+  // DETERMINISM NOTE: adding members advances the seeded ROSTER rng, so soldier
+  // names/stats shift for a given seed — intended; terrain is seeded separately
+  // and is unaffected. Re-baseline campaign expectations, not the valley.
   const wsid = "wpn";
   const ws: string[] = [];
-  const gun1 = makeSoldier(rng, "machinegunner", origin, wsid, baseExperience + 0.2);
-  const gun2 = makeSoldier(rng, "machinegunner", origin, wsid, baseExperience + 0.1);
-  const mk = makeSoldier(rng, "marksman", origin, wsid, baseExperience + 0.25);
-  members.push(gun1, gun2, mk);
-  ws.push(gun1.id, gun2.id, mk.id);
+  const wsl = makeSoldier(rng, "squad_leader", origin, wsid, baseExperience + 0.25);
+  members.push(wsl);
+  ws.push(wsl.id);
+  const wpnRoles: Role[] = [
+    "machinegunner", "rifleman", // M240 gun team A: gunner + assistant gunner
+    "machinegunner", "rifleman", // M240 gun team B: gunner + assistant gunner
+    "rifleman", "rifleman", //       two ammo bearers
+    "grenadier", //                  HE / anti-armor
+    "marksman", //                   platoon marksman (M110)
+  ];
+  for (const r of wpnRoles) {
+    const sol = makeSoldier(rng, r, origin, wsid, baseExperience + (r === "machinegunner" ? 0.15 : r === "marksman" ? 0.25 : 0));
+    members.push(sol);
+    ws.push(sol.id);
+  }
   squads.push({ id: wsid, name: "Weapons Sqd", memberIds: ws });
 
   return { callsign, members, squads };
