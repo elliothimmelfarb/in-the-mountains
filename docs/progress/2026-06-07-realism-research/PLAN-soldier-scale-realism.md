@@ -113,8 +113,8 @@ without re-baking the whole 512² world. Items 1 and 2 are smaller, self-contain
   - *Light contact* (heat 0.30): the squad stays **holding ~92%** of contact time; while fixed, a mean of **~3 of 9** men
     move (median 2) — individual cover-seeks / buddy-aid, **not** a maneuver element. (This IS the owner's "sit + a couple
     shuffle" regime.)
-  - *Hot contact* (heat 0.62–0.86): the break-safety dominates — **~77%** of contact time is spent **breaking contact**
-    (≈6 of 8 moving rearward). The squad runs, it doesn't close.
+  - *Hot contact* (heat 0.62–0.86): the break-safety dominates — **~60–77%** of contact time is spent **breaking
+    contact** (mean ≈6 men moving rearward at once). The squad runs, it doesn't close.
   - The chosen SOP (Hold/Suppress/Assault) is **nearly cosmetic** — behaviour is near-identical because the break-safety
     overrides it; the squad **never autonomously flank-assaults** in any setting.
 - **Target:** the squad-leader AI **autonomously commits a maneuver fire team when fire superiority is achievable and a
