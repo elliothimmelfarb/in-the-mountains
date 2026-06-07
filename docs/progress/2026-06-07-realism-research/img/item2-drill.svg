@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="600" viewBox="0 0 980 600" font-family="Georgia, serif">
+  <rect width="980" height="600" fill="#14110d"/>
+  <defs>
+    <marker id="ar" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#3fd2e6"/></marker>
+    <marker id="arS" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#9fd0a6"/></marker>
+  </defs>
+  <text x="34" y="40" fill="#e9e0cf" font-size="23" font-weight="bold">On contact, the squad fixes in place — it only flanks if you pick “Assault”</text>
+
+  <!-- ============ LEFT: current default ============ -->
+  <text x="40" y="80" fill="#e0a39a" font-size="18" font-weight="bold">NOW · default SOP = Hold / Suppress</text>
+  <text x="40" y="100" fill="#9b9484" font-size="12">stampBaseOfFire() on ALL members → the whole squad holds</text>
+  <rect x="40" y="112" width="430" height="372" rx="6" fill="#1c1812" stroke="#3a352b"/>
+
+  <!-- enemy up top -->
+  <g transform="translate(255,150)">
+    <circle r="9" fill="#d24b3a"/><circle cx="22" cy="6" r="9" fill="#d24b3a"/><circle cx="-20" cy="8" r="9" fill="#d24b3a"/>
+    <text x="0" y="-16" fill="#e6a59a" font-size="12" text-anchor="middle">enemy</text>
+  </g>
+  <!-- squad line near bottom, all firing up -->
+  <g fill="#6fa9d6">
+    <circle cx="120" cy="420" r="8"/><circle cx="170" cy="424" r="8"/><circle cx="220" cy="418" r="8"/><circle cx="270" cy="424" r="8"/>
+    <circle cx="320" cy="420" r="8"/><circle cx="370" cy="424" r="8"/><circle cx="155" cy="446" r="8"/><circle cx="335" cy="446" r="8"/>
+  </g>
+  <!-- fire lines (everyone shoots straight up) -->
+  <g stroke="#c9683f" stroke-width="1.4" stroke-opacity="0.5">
+    <line x1="120" y1="412" x2="245" y2="165"/><line x1="220" y1="410" x2="255" y2="165"/>
+    <line x1="320" y1="412" x2="270" y2="165"/><line x1="370" y1="416" x2="277" y2="165"/>
+  </g>
+  <!-- the ONE man creeping forward (seekCover reposition, NOT a maneuver element) -->
+  <circle cx="245" cy="350" r="8" fill="#f0d24a"/>
+  <path d="M245,415 L245,362" stroke="#f0d24a" stroke-width="2" stroke-dasharray="4 3" marker-end="url(#ar)"/>
+  <text x="255" y="356" fill="#f0d24a" font-size="11">lone man edges up…</text>
+  <text x="255" y="370" fill="#9a8f70" font-size="10">(cover-seeking, not a flank)</text>
+  <text x="60" y="474" fill="#cabfa9" font-size="12.5" font-style="italic">“The whole squad sits on a base of fire; one guy moves.”</text>
+
+  <!-- ============ RIGHT: doctrine ============ -->
+  <text x="540" y="80" fill="#9fd0a6" font-size="18" font-weight="bold">DOCTRINE · Find – Fix – Flank – Finish</text>
+  <text x="540" y="100" fill="#9b9484" font-size="12">base-of-fire FIXES · a whole fire team FLANKS via covered ground</text>
+  <rect x="510" y="112" width="430" height="372" rx="6" fill="#1c1812" stroke="#3a352b"/>
+
+  <!-- enemy -->
+  <g transform="translate(690,158)">
+    <circle r="9" fill="#d24b3a"/><circle cx="22" cy="6" r="9" fill="#d24b3a"/><circle cx="-20" cy="8" r="9" fill="#d24b3a"/>
+    <text x="0" y="-16" fill="#e6a59a" font-size="12" text-anchor="middle">enemy</text>
+  </g>
+  <!-- base of fire team (left, holds + suppresses) -->
+  <g fill="#6fa9d6">
+    <circle cx="560" cy="430" r="8"/><circle cx="600" cy="436" r="8"/><circle cx="585" cy="408" r="8"/><circle cx="625" cy="414" r="8"/>
+  </g>
+  <text x="540" y="462" fill="#9bc3e6" font-size="12">BASE OF FIRE (fix)</text>
+  <g stroke="#c9683f" stroke-width="1.5" stroke-opacity="0.6">
+    <line x1="585" y1="402" x2="678" y2="172"/><line x1="625" y1="408" x2="690" y2="172"/>
+  </g>
+  <!-- smoke screen between -->
+  <g fill="#6b6b66" fill-opacity="0.45"><circle cx="660" cy="300" r="16"/><circle cx="678" cy="288" r="14"/><circle cx="648" cy="286" r="13"/><circle cx="668" cy="316" r="12"/></g>
+  <text x="612" y="300" fill="#9a958a" font-size="10">smoke</text>
+  <!-- maneuver team bounds wide right, then assaults the flank -->
+  <g fill="#7fd08a">
+    <circle cx="840" cy="436" r="8"/><circle cx="868" cy="430" r="8"/><circle cx="852" cy="412" r="8"/><circle cx="884" cy="408" r="8"/>
+  </g>
+  <text x="800" y="462" fill="#9fd0a6" font-size="12">MANEUVER TEAM (flank)</text>
+  <path d="M650,440 C760,470 905,440 895,360 C888,300 820,250 740,196" fill="none" stroke="#9fd0a6" stroke-width="2.5" stroke-dasharray="6 4" marker-end="url(#arS)"/>
+  <text x="780" y="350" fill="#9fd0a6" font-size="11" transform="rotate(-58 780 350)">covered/concealed bound → assault the flank</text>
+  <text x="540" y="476" fill="#cabfa9" font-size="12.5" font-style="italic">a fire team (≈4), never one man — and the flank, never the front</text>
+
+  <!-- caption strip -->
+  <rect x="40" y="500" width="900" height="86" rx="6" fill="#1c1812" stroke="#3a352b"/>
+  <text x="58" y="528" fill="#d8cdb6" font-size="13.5"><tspan font-weight="bold" fill="#e0a39a">Two gaps. </tspan>(1) The DEFAULT contact drill for census/presence/cordon is <tspan font-family="monospace" fill="#cabfa9">contact:"hold"</tspan> (overwatch/ambush = <tspan font-family="monospace" fill="#cabfa9">"suppress"</tspan>) — both stamp a base of fire on</text>
+  <text x="58" y="550" fill="#d8cdb6" font-size="13.5">EVERY man, so the squad only maneuvers if you explicitly select “Assault.” (2) Even then, the maneuver element beelines at the enemy <tspan font-style="italic">centroid</tspan> —</text>
+  <text x="58" y="572" fill="#d8cdb6" font-size="13.5">a frontal rush, not a covered flank. <tspan fill="#9fd0a6">Battle drills trigger WITHOUT an order; the squad-leader AI should default to flank-if-able, hold/break if not.</tspan></text>
+</svg>

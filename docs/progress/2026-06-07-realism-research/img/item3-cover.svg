@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="600" viewBox="0 0 980 600" font-family="Georgia, serif">
+  <rect width="980" height="600" fill="#14110d"/>
+  <text x="34" y="40" fill="#e9e0cf" font-size="23" font-weight="bold">At the soldier scale, a 5 m cover raster erases the rock he’d hide behind</text>
+
+  <!-- ============ LEFT: 5m raster + cosmetic deco ============ -->
+  <text x="40" y="80" fill="#e0a39a" font-size="18" font-weight="bold">NOW · 5 m cover raster + cosmetic décor</text>
+  <text x="40" y="100" fill="#9b9484" font-size="12">cover is one averaged number per 5×5 m cell; rocks/trees are render-only</text>
+  <rect x="40" y="112" width="430" height="400" rx="6" fill="#1c1812" stroke="#3a352b"/>
+  <!-- 5m grid -->
+  <g stroke="#33302a" stroke-width="1">
+    <line x1="70" y1="150" x2="70" y2="480"/><line x1="130" y1="150" x2="130" y2="480"/><line x1="190" y1="150" x2="190" y2="480"/>
+    <line x1="250" y1="150" x2="250" y2="480"/><line x1="310" y1="150" x2="310" y2="480"/><line x1="370" y1="150" x2="370" y2="480"/><line x1="430" y1="150" x2="430" y2="480"/>
+    <line x1="70" y1="150" x2="430" y2="150"/><line x1="70" y1="210" x2="430" y2="210"/><line x1="70" y1="270" x2="430" y2="270"/>
+    <line x1="70" y1="330" x2="430" y2="330"/><line x1="70" y1="390" x2="430" y2="390"/><line x1="70" y1="450" x2="430" y2="450"/>
+  </g>
+  <text x="100" y="498" fill="#6f6a5e" font-size="11">←  5 m  →</text>
+  <line x1="70" y1="490" x2="130" y2="490" stroke="#6f6a5e" stroke-width="1"/>
+  <!-- a "Boulders" cell = uniform blob cover 0.66 -->
+  <rect x="190" y="270" width="60" height="60" fill="#7a6a4a" fill-opacity="0.6"/>
+  <text x="220" y="304" fill="#d8cdb6" font-size="10" text-anchor="middle">cover</text>
+  <text x="220" y="316" fill="#d8cdb6" font-size="10" text-anchor="middle">0.66</text>
+  <text x="220" y="262" fill="#b09a6a" font-size="10" text-anchor="middle">“Boulders” cell</text>
+  <!-- cosmetic rock sprite elsewhere, decoupled -->
+  <g transform="translate(330,360)">
+    <ellipse cx="0" cy="6" rx="16" ry="9" fill="#8c8475"/><ellipse cx="-4" cy="0" rx="10" ry="8" fill="#9c9486"/>
+    <text x="0" y="30" fill="#9a958a" font-size="10" text-anchor="middle">rendered rock</text>
+    <text x="0" y="42" fill="#c98" font-size="9.5" text-anchor="middle" font-style="italic">décor only — no cover</text>
+  </g>
+  <!-- soldier exposed standing "in" the boulder cell -->
+  <g transform="translate(218,300)">
+    <circle cx="0" cy="-2" r="6" fill="#6fa9d6"/><rect x="-3" y="3" width="6" height="12" rx="2" fill="#6fa9d6"/>
+  </g>
+  <text x="60" y="476" fill="#cabfa9" font-size="12" font-style="italic">He’s “in a cover cell,” but there’s no rock to get</text>
+  <text x="60" y="492" fill="#cabfa9" font-size="12" font-style="italic">behind — and the drawn one isn’t the cover.</text>
+
+  <!-- ============ RIGHT: 1m relief + discrete objects ============ -->
+  <text x="540" y="80" fill="#9fd0a6" font-size="18" font-weight="bold">FIX · ~1 m relief + discrete cover objects</text>
+  <text x="540" y="100" fill="#9b9484" font-size="12">walls/rocks/sangars as placed objects (frontage·height·material), posture-aware</text>
+  <rect x="510" y="112" width="430" height="400" rx="6" fill="#1c1812" stroke="#3a352b"/>
+
+  <!-- low wall (linear object) with prone soldier full cover -->
+  <rect x="560" y="190" width="150" height="12" rx="2" fill="#9a8158"/>
+  <text x="635" y="182" fill="#cbb98a" font-size="10.5" text-anchor="middle">low wall · h 0.9 m · stops 7.62</text>
+  <g transform="translate(600,214)"><ellipse cx="0" cy="0" rx="12" ry="5" fill="#7fd08a"/></g>
+  <text x="600" y="234" fill="#9fd0a6" font-size="10" text-anchor="middle">prone → full cover</text>
+
+  <!-- boulder (point object), soldier behind partial -->
+  <g transform="translate(610,330)">
+    <ellipse cx="0" cy="8" rx="22" ry="13" fill="#8c8475"/><ellipse cx="-7" cy="-2" rx="14" ry="12" fill="#9c9486"/>
+    <circle cx="22" cy="2" r="6" fill="#7fd08a"/><rect x="19" y="7" width="6" height="11" rx="2" fill="#7fd08a"/>
+  </g>
+  <text x="610" y="368" fill="#9fd0a6" font-size="10.5" text-anchor="middle">boulder · partial standing / full prone</text>
+
+  <!-- dead ground / defilade in a re-entrant -->
+  <path d="M770,420 Q820,360 880,420 L880,470 L770,470 Z" fill="#2a2620"/>
+  <path d="M770,420 Q820,360 880,420" fill="none" stroke="#5a5240" stroke-width="1.5"/>
+  <g transform="translate(825,440)"><circle cx="0" cy="-2" r="6" fill="#7fd08a"/><rect x="-3" y="3" width="6" height="11" rx="2" fill="#7fd08a"/></g>
+  <text x="825" y="466" fill="#9fd0a6" font-size="10.5" text-anchor="middle">dead ground (defilade)</text>
+  <text x="770" y="408" fill="#8aa06a" font-size="10" font-style="italic">re-entrant / draw</text>
+
+  <!-- terrace riser -->
+  <path d="M545,440 L700,440 L700,452 L545,452 Z" fill="#6e5a3e"/>
+  <path d="M545,440 L700,440" stroke="#9a8158" stroke-width="2"/>
+  <text x="620" y="474" fill="#cbb98a" font-size="10.5" text-anchor="middle">terrace riser · linear hard cover</text>
+
+  <text x="540" y="500" fill="#cabfa9" font-size="12" font-style="italic">Each object carries frontage, height &amp; material — the AI snaps to the nearest one.</text>
+
+  <!-- caption strip -->
+  <rect x="40" y="528" width="900" height="58" rx="6" fill="#1c1812" stroke="#3a352b"/>
+  <text x="58" y="554" fill="#d8cdb6" font-size="13.5"><tspan font-weight="bold" fill="#e0a39a">A rock is ~0.5 m; a 5 m cell is 100× its footprint.</tspan>&#160;The features that decide a Korengal firefight (the one wall that couldn’t get hit) live</text>
+  <text x="58" y="574" fill="#d8cdb6" font-size="13.5">below one cell, so they average out. <tspan fill="#9fd0a6">The serious-game answer (Combat Mission, VBS): a discrete cover-object layer over a finer relief grid.</tspan></text>
+</svg>

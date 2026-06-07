@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Soldier-Scale Realism — research &amp; recommendations · In the Mountains</title>
+<style>
+  :root{
+    --bg:#100e0a; --panel:#1a1610; --panel2:#211c14; --ink:#e8dfce; --dim:#a9a08d;
+    --faint:#7c7363; --line:#37312700; --rule:#3a342a; --amber:#d9a441; --red:#d65a47;
+    --green:#7fb487; --cyan:#52c4d6; --blue:#7fa9d6;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:Georgia,"Iowan Old Style",serif;line-height:1.62;font-size:17px}
+  .wrap{max-width:880px;margin:0 auto;padding:0 26px 120px}
+  header.top{padding:64px 0 30px;border-bottom:1px solid var(--rule);margin-bottom:34px}
+  .kicker{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--amber)}
+  h1{font-size:38px;line-height:1.12;margin:.32em 0 .2em;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--dim);font-size:18.5px;max-width:660px}
+  .meta{margin-top:18px;font-family:ui-monospace,Menlo,monospace;font-size:12.5px;color:var(--faint)}
+  .banner{margin:22px 0 0;padding:12px 16px;border:1px solid #5a4a2a;border-radius:7px;
+    background:#1d1808;color:#e6cf95;font-size:14.5px}
+  h2{font-size:27px;margin:62px 0 4px;letter-spacing:-.01em;scroll-margin-top:20px}
+  h2 .n{font-family:ui-monospace,Menlo,monospace;color:var(--amber);font-size:18px;margin-right:12px}
+  h3{font-size:19.5px;margin:30px 0 6px;color:#efe7d6}
+  .lead{color:var(--dim);font-size:18px;margin-top:2px}
+  p{margin:14px 0}
+  a{color:var(--cyan);text-decoration:none;border-bottom:1px solid #2c4a50}
+  a:hover{color:#86dcea}
+  code,.mono{font-family:ui-monospace,Menlo,monospace;font-size:14px;background:#241f16;
+    padding:1px 6px;border-radius:4px;color:#e7cf9a}
+  figure{margin:26px 0;padding:0}
+  figure img{width:100%;display:block;border-radius:8px;border:1px solid var(--rule);background:#0c0a07}
+  figcaption{color:var(--faint);font-size:13.5px;margin-top:9px;font-style:italic;line-height:1.5}
+  .symptom{border-left:3px solid var(--amber);padding:6px 0 6px 18px;margin:16px 0;color:#e9dcc0;
+    font-size:18px;font-style:italic}
+  .symptom .who{display:block;font-style:normal;font-size:12.5px;color:var(--faint);margin-top:6px;
+    font-family:ui-monospace,Menlo,monospace;letter-spacing:.04em}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:22px 0}
+  .card{background:var(--panel);border:1px solid var(--rule);border-radius:9px;padding:16px 18px}
+  .card h4{margin:0 0 8px;font-size:13px;letter-spacing:.1em;text-transform:uppercase;
+    font-family:ui-monospace,Menlo,monospace}
+  .card.now h4{color:var(--red)} .card.fix h4{color:var(--green)}
+  .card p{margin:8px 0;font-size:15px;color:#ddd3bf}
+  .num{background:var(--panel2);border:1px solid var(--rule);border-radius:9px;padding:18px 20px;margin:22px 0}
+  .num .big{font-size:34px;color:var(--red);font-weight:700;font-family:ui-monospace,Menlo,monospace;line-height:1}
+  .num .big.g{color:var(--green)}
+  .num .lab{color:var(--dim);font-size:14.5px;margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14.5px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--rule)}
+  th{color:var(--amber);font-family:ui-monospace,Menlo,monospace;font-size:12px;
+    letter-spacing:.06em;text-transform:uppercase;font-weight:400}
+  td.r,th.r{text-align:right;font-family:ui-monospace,Menlo,monospace}
+  .rec{background:#15190f;border:1px solid #34401f;border-radius:9px;padding:16px 20px;margin:22px 0}
+  .rec h4{margin:0 0 8px;color:var(--green);font-size:13px;letter-spacing:.1em;
+    text-transform:uppercase;font-family:ui-monospace,Menlo,monospace}
+  .rec ul{margin:8px 0 0;padding-left:20px} .rec li{margin:7px 0;font-size:15.5px;color:#dde6cf}
+  .src{color:var(--faint);font-size:13px;font-style:italic;border-top:1px dotted var(--rule);
+    padding-top:10px;margin-top:18px}
+  .toc{background:var(--panel);border:1px solid var(--rule);border-radius:9px;padding:14px 22px;margin:30px 0}
+  .toc ol{margin:6px 0;padding-left:22px} .toc li{margin:5px 0}
+  .insight{background:#0f1612;border:1px solid #2c4031;border-radius:9px;padding:14px 20px;margin:22px 0;
+    font-size:15.5px;color:#cfe2cf}
+  .insight b{color:var(--green)}
+  hr.soft{border:0;border-top:1px solid var(--rule);margin:44px 0}
+  .foot{margin-top:70px;border-top:1px solid var(--rule);padding-top:22px;color:var(--faint);font-size:13.5px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}h1{font-size:30px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">In the Mountains · field report</div>
+  <h1>Soldier-Scale Realism</h1>
+  <div class="sub">Four things that “don’t feel quite right” — diagnosed in the code, measured headless,
+    and checked against the field manuals. A brief for the next campaign.</div>
+  <div class="meta">2026-06-07 · research only · companion plan: <code>PLAN-soldier-scale-realism.md</code></div>
+  <div class="banner"><b>No code was changed.</b> A parallel scale campaign owns the working tree. This report and its
+    plan are preparation: every claim is pinned to a <code>file:line</code>, a measured number, or a cited manual.</div>
+</header>
+
+<p class="lead">The owner flagged four complaints while watching the game at close zoom. Read together, they aren’t four
+bugs — they’re one story.</p>
+
+<div class="insight">
+  <b>The thesis: a resolution mismatch.</b> The simulation is tuned for the <i>operational</i> scale — a 2.56&nbsp;km
+  valley, multi-hour patrols, 5&nbsp;m terrain cells. But the player now <i>watches at the soldier scale</i>, and at that
+  scale the seams alias: a 5-minute census (temporal), a squad that can’t use a rock or switchback a slope (spatial), and
+  an on-contact drill that only ever fixes or runs (doctrinal). Fix the resolution — in time, in space, and in the AI’s
+  tactical vocabulary — and all four resolve.
+</div>
+
+<div class="toc">
+  <b>The four items</b>
+  <ol>
+    <li><a href="#i1">Village dwell is ~70× too short — and the census is instant</a></li>
+    <li><a href="#i2">The squad fixes in place or runs — it never flanks</a></li>
+    <li><a href="#i3">A 5&nbsp;m cover raster erases the rock he’d hide behind</a></li>
+    <li><a href="#i4">Squads ring the spur instead of climbing the mountain</a></li>
+    <li><a href="#synth">Synthesis — the two-tier terrain, and a sequence</a></li>
+  </ol>
+</div>
+
+<p><b>How this was verified.</b> Three independent passes, kept separate so they could disagree: (1) a close read of the
+engine with every mechanism quoted at its <code>file:line</code>; (2) purpose-built <i>headless probes</i> that turn each
+complaint into a number on the real, deterministic sim; (3) doctrine research against the US Army field manuals and
+first-hand Korengal accounts. Where the probe contradicted the hypothesis, the probe won — see item&nbsp;2.</p>
+
+<hr class="soft"/>
+
+<!-- ===================== ITEM 1 ===================== -->
+<h2 id="i1"><span class="n">01</span>Village dwell is ~70× too short</h2>
+<div class="symptom">“Squads show up at a village, do a census, stick around a very short time, then leave. The
+  time they spend doesn’t feel right — and what other activities are too quick?”
+  <span class="who">— owner, on watching a census</span></div>
+
+<p><b>The mechanism.</b> Every on-station hold reads one function, <code>dwellFor()</code> in
+<code>lib/sim/world/helpers.ts:30</code>. It is a flat table of <i>game</i>-seconds:</p>
+
+<table>
+  <tr><th>Activity</th><th class="r">coded dwell</th><th class="r">= game-min</th><th class="r">on screen @4×</th><th>realistic</th></tr>
+  <tr><td>Census / cordon-search</td><td class="r">300 s</td><td class="r">5</td><td class="r">75 s</td><td>4–10 h</td></tr>
+  <tr><td>KLE / shura</td><td class="r">360 s</td><td class="r">6</td><td class="r">90 s</td><td>1–3 h (cumulative)</td></tr>
+  <tr><td>Establish OP / overwatch</td><td class="r">900 s</td><td class="r">15</td><td class="r">225 s</td><td>3–8 h (24 h cap)</td></tr>
+  <tr><td>Ambush</td><td class="r">1100 s</td><td class="r">18</td><td class="r">275 s</td><td>hours (8 h rotate)</td></tr>
+  <tr><td>Recon</td><td class="r">150 s</td><td class="r">2.5</td><td class="r">38 s</td><td>≥ 1 h</td></tr>
+  <tr><td>Presence (default)</td><td class="r">180 s</td><td class="r">3</td><td class="r">45 s</td><td>hours · 3×/day</td></tr>
+</table>
+
+<p>At the default <b>4×</b> speed (<code>state/store.ts:341</code>; speeds are <code>[1,2,4,8,16]</code>) a 5-minute
+census is gone in <b>75 real seconds</b>; at 16× in ~19&nbsp;s. Worse, the census <i>effect</i> is
+<b>instantaneous</b>: the moment the squad is near the village, <code>tasks.ts:443</code> flips
+<code>censusDone = true</code> and calls <code>advanceCensus()</code> — the dwell that follows is a static wait, not
+work being done.</p>
+
+<figure>
+  <img src="img/item1-dwell.svg" alt="Dwell vs reality chart"/>
+  <figcaption>Coded dwell (red) vs. realistic duration (green), log time axis. Every activity is one to two orders of
+    magnitude short. The ratios on the right are how much longer reality takes.</figcaption>
+</figure>
+
+<p><b>What reality says.</b> A cordon-and-search is a half-to-full-day operation built from a four-element task
+organisation (cordon / search / support / command), worked qalat-by-qalat — and biometric enrollment alone runs
+<b>up to 30&nbsp;minutes per person</b> (CALL <i>Commander’s Guide to Biometrics</i>). A shura is 1–3 hours, but its real
+power is <i>cumulative</i> across a weekly cadence over months — one cup of tea changes nothing. An ambush is mostly
+patient hours of waiting (8-hour rotation), with contact measured in seconds. The classic disappointment to model is
+Restrepo’s “Cow Incident”: the long-awaited elder-initiated shura turned out to be a demand for compensation for a cow
+killed in the wire.</p>
+
+<div class="rec">
+  <h4>Recommendation</h4>
+  <ul>
+    <li><b>Raise dwell toward reality, driven by population</b> — census ≈ 2–8&nbsp;h scaled by fighting-age residents
+      (the enrollment clock), KLE ≈ 1–2&nbsp;h, OP ≈ 3–8&nbsp;h, recon ≥ 1&nbsp;h.</li>
+    <li><b>Make the census progressive, not instant</b> — <code>censusDone</code> flips only after each compound is
+      worked / each person enrolled; an early recall yields a partial census.</li>
+    <li><b>Add a dwell event-roll</b> so a long, realistic hold surfaces <i>decisions</i> — a find, a biometric hit, a
+      tip, an elder grievance, a med moment, an FET gap, a squirter — reusing the existing <code>PendingEvent</code>.</li>
+    <li><b>Let warp be the way you pass it</b> — skip-to-event already stops on what matters; long dwell becomes
+      tension, not tedium. The fix is <i>longer + meaningful + warp-through</i>, never just bigger numbers.</li>
+  </ul>
+</div>
+<div class="src">Sources: FM 3-06.11 Ch.14 (cordon-and-search); CALL <i>Commander’s Guide to Biometrics in Afghanistan</i>
+  (≤30 min/person); FM 7-8 / ATP 3-21.8 (24 h patrol-base cap, 8 h ambush rotation); Junger/Hetherington <i>Restrepo</i>
+  (Cow Incident). Code: <code>helpers.ts:30</code>, <code>tasks.ts:443</code>, <code>store.ts:341</code>.</div>
+
+<hr class="soft"/>
+
+<!-- ===================== ITEM 2 ===================== -->
+<h2 id="i2"><span class="n">02</span>The squad fixes in place or runs — it never flanks</h2>
+<div class="symptom">“In the firefights I’ve seen, the whole squad sits back and sets up a base of fire, and one
+  squad member moves forward. That’s immersion-breaking — it’s not how squad tactics work.”
+  <span class="who">— owner, on watching a contact</span></div>
+
+<p><b>The mechanism.</b> A squad’s on-contact behaviour is set by its SOP. The defaults
+(<code>types.ts:67</code>) are <code>contact:"hold"</code> for census/presence/cordon and <code>"suppress"</code> for
+overwatch/ambush — <b>never <code>"assault"</code></b>. Both <code>hold</code> and <code>suppress</code> route to
+<code>stampBaseOfFire()</code> (<code>squad-combat.ts:145</code>), which puts <i>every</i> man on a base of fire. A
+maneuver element is split off <b>only</b> in the assault path (<code>assignElements</code>,
+<code>squad-combat.ts:357</code>) — so the squad flanks <i>only if the player hand-picks “Assault.”</i> And even then it
+beelines at the threat <i>centroid</i> (<code>orderTarget = threat</code>, <code>squad-combat.ts:178</code>) — a frontal
+rush, not a covered flank.</p>
+
+<figure>
+  <img src="img/item2-drill.svg" alt="Squad drill: current vs doctrine"/>
+  <figcaption>Left: the default. The squad holds a base of fire; the lone forward movement is an individual
+    <i>cover-seek</i> (<code>seekCover</code>, ±18 m), not a maneuver element. Right: the doctrinal answer — a base-of-fire
+    team fixes while a whole fire team flanks along covered ground (Find–Fix–Flank–Finish).</figcaption>
+</figure>
+
+<p><b>What the probe found — and where it corrected me.</b> I drove squads into contact and sampled, every half-second,
+how many men were maneuvering — at two tempos. The first surprise: the chosen SOP <b>barely matters</b>. Hold, Suppress,
+and Assault produced <i>nearly identical</i> behaviour, because an automatic break-contact safety
+(<code>squad-combat.ts:72</code>) overrides the SOP whenever the squad is overmatched. The squad has effectively
+<b>two modes — fix-in-place and run — and no offensive middle.</b></p>
+
+<div class="grid">
+  <div class="card now"><h4>Light contact · the owner’s regime</h4>
+    <p>The squad stays <b>holding 92%</b> of contact time. While fixed, a mean of <b>~3 of 9 men</b> move (median 2) — and
+      those are individual cover-seeks and buddy-aid, <i>not</i> a maneuver element. The rest hold a base of fire. This is
+      precisely “the whole squad sits, a couple shuffle.”</p></div>
+  <div class="card now"><h4>Hot contact · overmatched</h4>
+    <p>The break-safety fires: the squad spends <b>~60–77%</b> of contact time <i>breaking contact</i> — everyone
+      leapfrogging rearward (mean ~6 of 8 moving). It runs; it doesn’t close.</p></div>
+</div>
+
+<p>So the owner’s “one man moving” is real — it lives in the light-contact regime, where <code>stampBaseOfFire</code> roots
+everyone and only <code>seekCover</code> shuffles individuals. But the deeper finding is what’s missing from <i>both</i>
+regimes, and from all three SOP settings: an autonomous <b>flank assault</b>. The squad either sits or runs. It never
+fixes-with-one-team-and-maneuvers-with-the-other — the one thing a rifle squad is built to do.</p>
+
+<p><b>What reality says.</b> A rifle squad is built as two fire teams precisely so one suppresses while the other moves.
+The maneuver element is a <b>whole fire team (~4 men), never a lone rifleman</b>; it moves to a <b>vulnerable flank via a
+covered route</b> (often peeling back first, then swinging wide) and closes by 3–5-second buddy-team rushes as the base of
+fire shifts. A frontal rush at the centroid is doctrinally wrong. And crucially, <b>battle drills trigger without an
+order</b> — a squad that only ever holds until told to maneuver has failed the most basic infantry standard.</p>
+
+<div class="rec">
+  <h4>Recommendation</h4>
+  <ul>
+    <li><b>Give the squad-leader AI the maneuver decision</b> as one gate in <code>squadFight</code>: react → assess fire
+      superiority → <i>if achievable and a covered flank exists, assault via the flank; else hold/suppress; else break</i>.
+      The player’s SOP becomes guidance/permission, not the on/off switch for maneuvering. (This <i>is</i> the design soul:
+      “combat is 100% AI; the hardest part of command is watching.”)</li>
+    <li><b>Route the maneuver team to a flank, not the centroid</b> — reuse the engine’s cover/conceal-biased
+      <code>findPath</code> to the enemy’s flank.</li>
+    <li><b>Model bounding overwatch</b> — split the maneuver team into buddy pairs; only one moves at a time (3–5 s
+      rushes); smoke screens each bound (already modeled).</li>
+    <li><b>Don’t add soldier-level micro</b> — the player still only sets SOP and approves fires. Keep the frontal assault
+      as the fallback when no covered flank exists.</li>
+  </ul>
+</div>
+<div class="src">Sources: ATP/FM 3-21.8 Battle Drills 2A (squad assault) &amp; 3 (break contact); FM 7-8 Ch.4. Code:
+  <code>types.ts:67</code>, <code>squad-combat.ts:72,145,178,357</code>. Probe:
+  <code>tools/gen-combat-movers.ts</code>.</div>
+
+<hr class="soft"/>
+
+<!-- ===================== ITEM 3 ===================== -->
+<h2 id="i3"><span class="n">03</span>A 5&nbsp;m cover raster erases the rock he’d hide behind</h2>
+<div class="symptom">“Down at the size of a soldier it’s hard to tell what’s going on. I’d like to see a man go
+  behind a rock, or a low wall, or a small berm — micro-terrain that soldiers use, especially in combat.”
+  <span class="who">— owner, on close-zoom terrain</span></div>
+
+<p><b>The mechanism.</b> Cover and concealment are a <i>single averaged number per 5&nbsp;m cell</i>
+(<code>COVER_CONCEAL</code>, <code>terrain.ts:2614</code>; sampled by <code>coverAt</code>, <code>:2480</code>). The Land
+enum already <i>names</i> the right features — <code>TerraceWall</code>, <code>Boulders</code>, <code>DryWash</code>,
+<code>CompoundWall</code> — but only as 5×5&nbsp;m blobs. Meanwhile the rocks and trees you <i>see</i> are, by their own
+file’s admission, a “<b>Pure render overlay (no sim impact)</b>” (<code>lib/render/decoration.ts:13</code>): the drawn
+rock is <b>decoupled</b> from the cover field, so a soldier can’t actually get behind <i>that</i> rock. A real rock is
+~0.5&nbsp;m; a 5&nbsp;m cell is 100× its footprint — the features that decide a firefight are sub-cell and average out.</p>
+
+<figure>
+  <img src="img/item3-cover.svg" alt="Cover resolution: raster vs discrete objects"/>
+  <figcaption>Left: today — a uniform cover value over a 5 m cell, with the rendered rock decoupled from it. Right: the
+    serious-game answer — discrete cover objects (wall, boulder, sangar, terrace riser) plus ~1 m dead-ground relief, with
+    posture-dependent protection and AI that snaps to the nearest one.</figcaption>
+</figure>
+
+<p><b>What reality says.</b> Cover (stops bullets) and concealment (blocks sight) are different things, and “even the
+smallest depression or fold in the ground can give some cover” (FM 21-75). The Korengal was fought from terrace walls,
+sangars, rock outcrops, and the draws — at COP Restrepo the crew arranged their cots against the one wall “that couldn’t
+get hit.” Every serious wargame solves this the same way: <b>model discrete cover objects, not a cover raster.</b> Combat
+Mission uses walls and foxholes as <i>objects</i> with <b>posture-dependent</b> cover (a low wall is partial standing,
+full cover prone); VBS uses placed “biotopes” with round penetration. The elevation grid carries terrain <i>form</i>;
+cover lives in a separate <i>object</i> layer.</p>
+
+<div class="rec">
+  <h4>Recommendation</h4>
+  <ul>
+    <li><b>Add a discrete cover-object layer</b> — boulders, low rock/terrace walls, qalat walls, sangars, berms, fighting
+      positions — each with frontage, height, and a material→stop-probability. Generate them deterministically from the
+      landcover (stable-hash scatter, like the decoration layer).</li>
+    <li><b>Make cover posture-dependent</b> — partial standing, full prone behind a low wall; behind a boulder ≈
+      foxhole-grade; open ground stays exposed. Wire into the existing <code>stance</code> behaviour.</li>
+    <li><b>Have the combat AI snap to the nearest cover object</b> on contact (<code>seekCover</code>/<code>findCover</code>
+      query objects, not just the raster), and <b>render the object the engine actually uses</b> — no more cosmetic
+      decoupling.</li>
+  </ul>
+</div>
+<div class="src">Sources: FM 21-75 (cover vs concealment); ATP 3-21.8 (defilade/dead space); Combat Mission (action spots +
+  wall/foxhole objects, exposure %); VBS biotopes. Code: <code>terrain.ts:2480,2614</code>,
+  <code>decoration.ts:13</code>.</div>
+
+<hr class="soft"/>
+
+<!-- ===================== ITEM 4 ===================== -->
+<h2 id="i4"><span class="n">04</span>Squads ring the spur instead of climbing the mountain</h2>
+<div class="symptom">“I told a squad to establish an OP up the nearby mountain. I expected them to go straight up —
+  slowly, zigzagging if they had to. Instead they took the road all the way around the spur and went up the shallowest
+  ridge on the far side of a draw. That feels wrong.”
+  <span class="who">— owner, on an Establish-OP order</span></div>
+
+<p><b>The mechanism, with a number.</b> Foot-movement cost is <b>isotropic</b>:
+<code>moveCostAt = clamp(landMult · (1 − slope·0.62) …)</code> (<code>terrain.ts:2586</code>) reads only the cell’s slope
+<i>magnitude</i> — identical in every heading. So a switchback only adds distance and never pays off. And
+<code>slope &gt; 1.25</code> (≈51°) is <b>hard-impassable</b> (<code>terrain.ts:2581</code>), while slope is a
+forward-difference over 5&nbsp;m — so procedural roughness scatters “cliff” cells across a climbable face, fragmenting it
+into <b>fake cliffs</b>. The planner’s only cheap option is the long way around.</p>
+
+<p>I rendered the planner’s <i>actual</i> output for an “Establish OP” order against the real generated terrain
+(<code>tools/gen-oproute.ts</code>, seed <code>korengal-2</code>):</p>
+
+<figure>
+  <img src="img/item4-oproute-korengal-2.png" alt="Real OP route ringing the spur"/>
+  <figcaption>The COP gate (yellow) and the OP objective (green) are <b>443 m apart</b> in a straight line (white dashed).
+    The planner’s route (cyan) is a <b>3,060 m horseshoe</b> around the whole massif — because the dark-red band (cells the
+    model calls “impassable cliff,” slope&nbsp;&gt;&nbsp;1.25) walls off the direct climb. A soldier would walk straight up
+    that 46° face slowly; the model says it’s a vertical cliff and sends them around.</figcaption>
+</figure>
+
+<div class="num">
+  <div class="big">443&nbsp;m → 3,060&nbsp;m <span style="color:var(--faint);font-size:18px">= ×6.91 detour</span></div>
+  <div class="lab"><b>46%</b> of the straight-line ascent is flagged impassable (mean slope 1.04 rise/run). And the road
+    discount is <b>nearly irrelevant</b> — the <code>roadBias 0.55</code> and <code>roadBias 0</code> routes are essentially
+    identical, so the detour is driven by the <i>slope cutoff + isotropic cost</i>, not road preference.</div>
+</div>
+
+<table>
+  <tr><th>seed</th><th class="r">climb</th><th class="r">crow</th><th class="r">route</th><th class="r">detour</th><th class="r">ascent impassable</th></tr>
+  <tr><td>korengal-2</td><td class="r">353 m</td><td class="r">443 m</td><td class="r">3060 m</td><td class="r">×6.91</td><td class="r">46%</td></tr>
+  <tr><td>ridgeline</td><td class="r">109 m</td><td class="r">570 m</td><td class="r">826 m</td><td class="r">×1.45</td><td class="r">58%</td></tr>
+  <tr><td>restrepo</td><td class="r">308 m</td><td class="r">514 m</td><td class="r">631 m</td><td class="r">×1.23</td><td class="r">41%</td></tr>
+  <tr><td>korengal (default)</td><td class="r">223 m</td><td class="r">477 m</td><td class="r">489 m</td><td class="r">×1.03</td><td class="r">0%</td></tr>
+</table>
+
+<p>(The default <code>korengal</code> seed has only a gentle 223&nbsp;m peak nearby — 0% blocked — so it barely shows the
+problem. Pick a steep objective and the detour explodes.)</p>
+
+<figure>
+  <img src="img/item4-cost.svg" alt="Isotropic vs anisotropic cost"/>
+  <figcaption>Why it happens — and the fix. An isotropic per-cell cost charges the same for any heading across a steep
+    cell, so a switchback never pays; a signed-grade (anisotropic) cost makes a diagonal traverse genuinely cheaper, and
+    switchbacks emerge above ~25% grade.</figcaption>
+</figure>
+
+<p><b>What reality says.</b> Human walking speed and energy depend on the <i>signed grade along the direction of
+travel</i> — Naismith’s rule, <b>Tobler’s hiking function</b> <code>W = 6·e^(−3.5·|S+0.05|)</code>, Minetti’s metabolic
+curve — so cost is intrinsically <b>anisotropic</b>. The GIS literature is explicit: an isotropic per-cell cost
+<i>mathematically cannot</i> produce switchbacks (a diagonal traverse “buys nothing”), while an anisotropic cost makes the
+diagonal cheaper and switchbacks emerge above a <b>~25% critical slope</b>. Mountain doctrine (ATTP 3-21.50) ascends steep
+ground by diagonal traverse / switchback and <b>avoids the canalized road</b> — the predictable, observed approach, exactly
+where the Korengal ambushes were sprung. The game does the doctrinally-wrong thing (the road) for the wrong reason (a cost
+model that can’t zigzag).</p>
+
+<div class="rec">
+  <h4>Recommendation</h4>
+  <ul>
+    <li><b>Replace the isotropic cost with a Tobler-based, signed-grade (anisotropic) step cost</b> in the A* edge
+      evaluation (<code>path.ts:309</code>) — the single change that makes switchbacks emerge.</li>
+    <li><b>Soften the foot impassability cutoff</b> — infantry climb steeper than 51°, slowly; add a climbable-but-very-slow
+      band so a steep face has a through-line, and compute/smooth slope at the tactical resolution so 5 m roughness stops
+      faking cliffs.</li>
+    <li><b>Plan tactical legs on a finer, better-connected grid</b> (~5 m or finer, ≥16-direction or any-angle Theta*) so a
+      shallow traverse is representable, with a <b>turn penalty</b> so switchbacks are few-bend, not jitter.</li>
+    <li><b>Target:</b> the worst-case detour drops from ×6.91 toward ≈ ×1.2–1.6, with a visible zigzag climb — proven on
+      held-out seeds, without regressing cross-valley routing.</li>
+  </ul>
+</div>
+<div class="src">Sources: Tobler’s hiking function; Naismith’s rule; Minetti et&nbsp;al. 2002; Herzog (critical slope ~25%);
+  Crowe/NPS (grid-heading limits on switchbacks); ATTP 3-21.50 (mountain movement). Code: <code>terrain.ts:2581,2586</code>,
+  <code>path.ts:309,355</code>, <code>formation.ts:90</code>. Probe: <code>tools/gen-oproute.ts</code>.</div>
+
+<hr class="soft"/>
+
+<!-- ===================== SYNTHESIS ===================== -->
+<h2 id="synth"><span class="n">★</span>Synthesis — one foundation, a clear sequence</h2>
+
+<p>Items 3 and 4 share the <i>same</i> cheapest fix, so they should be built on one foundation rather than as two
+unrelated efforts:</p>
+
+<div class="grid">
+  <div class="card now"><h4>Don’t</h4>
+    <p>Raise the whole 512² valley to 1 m resolution. That’s 25× the cells (6.5&nbsp;million), a memory and determinism
+      budget blow-out, for detail you only need where soldiers actually are.</p></div>
+  <div class="card fix"><h4>Do — two-tier terrain</h4>
+    <p>Keep the 5 m grid as the <b>operational</b> layer (strategic map, cross-valley routing). Instantiate a <b>~1 m
+      tactical patch</b> — discrete cover objects + anisotropic cost — <i>only around active units</i>. Build it once;
+      items 3 and 4 both consume it.</p></div>
+</div>
+
+<p><b>Recommended sequence.</b> <b>(1)</b> Item&nbsp;1 first — small, no architecture, high felt-impact. <b>(2)</b>
+Item&nbsp;2 — AI-only, the squad-leader maneuver gate. <b>(3)</b> The two-tier terrain foundation. <b>(4)</b> Items&nbsp;3
+and 4 on top of it. Hold items 3 and 4 until the in-flight scale campaign lands — they depend on the final cell size and
+elevation field. Full task breakdown, with per-workstream Definitions-of-Done and verification harnesses, is in
+<code>PLAN-soldier-scale-realism.md</code>.</p>
+
+<div class="insight">
+  <b>The bar this aims at:</b> a soldier reading a field manual watches a squad take contact, fix the enemy with one team,
+  flank with the other along a covered draw, tuck behind a terrace wall, and — when ordered to the high ground —
+  switchback up the face instead of strolling the road around it… and says <i>“holy shit, an AI built this.”</i>
+</div>
+
+<div class="foot">
+  <p><b>Reproduce.</b> <code>tools/gen-oproute.ts &lt;seed&gt;</code> (item 4 detour render + metrics) ·
+    <code>tools/gen-combat-movers.ts &lt;seeds&gt; &lt;min&gt; &lt;heat&gt;</code> (item 2 maneuver counts) ·
+    <code>tools/svgrender.mjs &lt;in.svg&gt; &lt;out.png&gt;</code> (diagrams). Worst item-4 seeds: <code>korengal-2</code>,
+    <code>ridgeline</code>, <code>restrepo</code>.</p>
+  <p>In the Mountains · soldier-scale realism research · 2026-06-07 · research only, no code changed.</p>
+</div>
+
+</div>
+</body>
+</html>
