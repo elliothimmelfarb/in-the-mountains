@@ -11,6 +11,7 @@ import {
 } from "@/lib/sim/world";
 import { Supplies, CERP_PROJECTS } from "@/lib/sim/campaign";
 import { Icon } from "@/components/Icon";
+import { Modal } from "@/components/Modal";
 
 // map a CERP project label → its authored icon id
 function cerpIcon(p: string): string {
@@ -214,6 +215,7 @@ export default function DeployScreen() {
       if (k === "T") toggleWarp();
       if (k === "M") useGame.getState().toggleAudioMute(); // M = mute/unmute the procedural audio
       if (k === "R") setPlanning(!useGame.getState().planning); // R = draw/route mode for the active squad
+      if (k === "H" || e.key === "?") { e.preventDefault(); useGame.getState().toggleHelp(); } // H / ? = controls reference
       if (e.key === "Escape") {
         setFireSupport(null);
         if (useGame.getState().planning) setPlanning(false);
@@ -247,6 +249,7 @@ export default function DeployScreen() {
       </div>
       <EventModal />
       <SoldierJacket />
+      <HelpOverlay />
     </div>
   );
 }
@@ -345,6 +348,7 @@ function CommandBar() {
           aria-label="Master volume"
         />
       </div>
+      <button className="tac-btn rounded-none border-y-0 px-3" onClick={() => useGame.getState().toggleHelp()} aria-label="Controls & shortcuts reference" title="Controls & shortcuts (H or ?)">?</button>
       <button className="tac-btn rounded-none border-y-0 border-r-0 px-3" onClick={gotoMenu} aria-label="Menu — return to main menu" title="Menu">☰</button>
     </div>
   );
@@ -549,6 +553,88 @@ function ToastStack() {
         </button>
       ))}
     </div>
+  );
+}
+
+// Controls & shortcuts reference + a live map legend — so the LIVE surface teaches its own
+// controls (the time-critical F=clear-hot lever was previously discoverable only in source).
+// Reachable from the CommandBar "?" and the H / ? keys; built on the shared accessible Modal.
+function Kbd({ children }: { children: ReactNode }) {
+  return <kbd className="inline-block min-w-[20px] text-center bg-bg border border-line rounded-[2px] px-1.5 py-0.5 font-mono text-[11px] text-amber">{children}</kbd>;
+}
+function HelpRow({ keys, desc }: { keys: ReactNode; desc: string }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="flex gap-1 shrink-0 w-[112px]">{keys}</span>
+      <span className="text-inkdim text-[12px]">{desc}</span>
+    </div>
+  );
+}
+function LegendSwatch({ color, shape = "dot", label }: { color: string; shape?: "dot" | "ring"; label: string }) {
+  return (
+    <div className="flex items-center gap-2 py-0.5">
+      <span className="shrink-0 w-4 inline-flex justify-center">
+        <span className="w-3 h-3" style={shape === "ring" ? { border: `2px solid ${color}`, borderRadius: 9999 } : { background: color, borderRadius: 9999 }} />
+      </span>
+      <span className="text-inkdim text-[12px]">{label}</span>
+    </div>
+  );
+}
+function HelpOverlay() {
+  const helpOpen = useGame((s) => s.helpOpen);
+  const toggleHelp = useGame((s) => s.toggleHelp);
+  if (!helpOpen) return null;
+  return (
+    <Modal onClose={() => toggleHelp(false)} labelledBy="help-title" width="w-[620px]">
+      <div className="flex justify-between items-start mb-3">
+        <div>
+          <div className="stencil text-[10px] text-amber">Field Reference</div>
+          <h2 id="help-title" className="text-ink text-xl font-bold leading-tight">Controls &amp; Map Legend</h2>
+        </div>
+        <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => toggleHelp(false)} aria-label="Close controls reference">✕</button>
+      </div>
+      <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+        <div>
+          <div className="stencil text-[10px] text-amber mb-1">Time</div>
+          <HelpRow keys={<Kbd>Space</Kbd>} desc="Pause / resume the clock" />
+          <HelpRow keys={<><Kbd>1</Kbd><Kbd>…</Kbd><Kbd>5</Kbd></>} desc="Speed 1× · 2× · 4× · 8× · 16×" />
+          <HelpRow keys={<Kbd>T</Kbd>} desc="Skip to the next event" />
+        </div>
+        <div>
+          <div className="stencil text-[10px] text-rust mb-1">Combat</div>
+          <HelpRow keys={<Kbd>F</Kbd>} desc="Clear hot — approve fires" />
+          <HelpRow keys={<Kbd>X</Kbd>} desc="Deny the fire request" />
+          <HelpRow keys={<Kbd>C</Kbd>} desc="Jump camera to contact" />
+        </div>
+        <div>
+          <div className="stencil text-[10px] text-amber mb-1">Command</div>
+          <HelpRow keys={<Kbd>R</Kbd>} desc="Draw / route the active squad" />
+          <HelpRow keys={<span className="text-inkdim text-[11px]">click</span>} desc="Select a squad / open a village" />
+          <HelpRow keys={<span className="text-inkdim text-[11px]">drag</span>} desc="Pan map · scroll to zoom" />
+        </div>
+        <div>
+          <div className="stencil text-[10px] text-amber mb-1">Interface</div>
+          <HelpRow keys={<Kbd>M</Kbd>} desc="Mute / unmute audio" />
+          <HelpRow keys={<><Kbd>H</Kbd><Kbd>?</Kbd></>} desc="This reference" />
+          <HelpRow keys={<Kbd>Esc</Kbd>} desc="Cancel targeting / close" />
+        </div>
+      </div>
+      <div className="divider my-3" />
+      <div className="stencil text-[10px] text-amber mb-1">Map Legend</div>
+      <div className="grid grid-cols-2 gap-x-6">
+        <div>
+          <LegendSwatch color="var(--us)" label="Friendly element (you)" />
+          <LegendSwatch color="var(--enemy)" label="Enemy — confirmed sighting" />
+          <LegendSwatch color="color-mix(in srgb, var(--enemy) 45%, #000)" label="Enemy — suspected (going stale)" />
+        </div>
+        <div>
+          <LegendSwatch color="var(--civ)" label="Civilian (protected)" />
+          <LegendSwatch color="var(--amber)" shape="ring" label="ROE no-fire ring — hold fire here" />
+          <LegendSwatch color="var(--good)" label="Cooperative village · ✓ visited" />
+        </div>
+      </div>
+      <div className="text-inkdim/70 text-[11px] mt-3 font-mono">The hardest part of command is watching. Set the SOP, then read the net.</div>
+    </Modal>
   );
 }
 
@@ -1029,15 +1115,14 @@ function SoldierJacket() {
   const sq = world.platoon.squads.find((s) => s.memberIds.includes(jacketId));
   const statusColor = m.status === "ready" ? "#6fae54" : m.status === "wounded" ? "#c0392b" : m.status === "kia" ? "#777" : "#e0a72b";
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 fade-in" onClick={() => setJacket(null)}>
-      <div className="panel w-[460px] max-w-[92vw] p-5" onClick={(e) => e.stopPropagation()}>
+    <Modal onClose={() => setJacket(null)} labelledBy="jacket-title" width="w-[460px]">
         <div className="flex justify-between items-start mb-1">
           <div>
             <div className="stencil text-[10px] text-amber">Service Record</div>
-            <h2 className="text-ink text-xl font-bold leading-tight">{m.rank} {m.name}</h2>
+            <h2 id="jacket-title" className="text-ink text-xl font-bold leading-tight">{m.rank} {m.name}</h2>
             {m.nickname && <div className="text-tan text-sm italic">&ldquo;{m.nickname}&rdquo;</div>}
           </div>
-          <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => setJacket(null)}>✕</button>
+          <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => setJacket(null)} aria-label="Close service record">✕</button>
         </div>
         <div className="flex gap-3 text-[11px] font-mono text-inkdim mb-3 flex-wrap">
           <span>{roleAbbr(m.role)} · <span className="text-ink">{m.role.replace(/_/g, " ")}</span></span>
@@ -1063,8 +1148,7 @@ function SoldierJacket() {
         </div>
         {m.status === "wounded" && <div className="text-rust text-[11px] font-mono">WIA — est. {Math.ceil(m.daysToRecover)} day(s) to return.{m.wounds.length ? ` Wounds: ${m.wounds.map((w) => w.region).join(", ")}.` : ""}</div>}
         {m.status === "kia" && <div className="text-rust text-[12px]">Killed in action. Rest easy, {m.name.split(" ").pop()}.</div>}
-      </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -1074,11 +1158,12 @@ function EventModal() {
   useGame((s) => s.tick);
   const ev = world.pendingEvent;
   if (!ev) return null;
+  // decision-forcing: focus is trapped + labelled, but Escape/backdrop do NOT dismiss —
+  // the commander must choose. (Modal swallows Escape so the global handler stays inert.)
   return (
-    <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 fade-in">
-      <div className="panel w-[520px] max-w-[92vw] p-5">
+    <Modal onClose={() => {}} dismissable={false} labelledBy="event-title" width="w-[520px]">
         <div className="stencil text-amber text-xs mb-1">Situation · {ev.kind.replace(/^dwell_/, "").replace(/_/g, " ")} · {world.clockLabel()}</div>
-        <h2 className="text-ink text-xl font-bold mb-2">{ev.title}</h2>
+        <h2 id="event-title" className="text-ink text-xl font-bold mb-2">{ev.title}</h2>
         <p className="text-inkdim text-sm leading-relaxed mb-4">{ev.body}</p>
         <div className="flex flex-col gap-2">
           {ev.choices.map((c) => (
@@ -1088,7 +1173,6 @@ function EventModal() {
             </button>
           ))}
         </div>
-      </div>
-    </div>
+    </Modal>
   );
 }

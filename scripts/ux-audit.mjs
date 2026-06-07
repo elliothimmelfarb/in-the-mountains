@@ -316,6 +316,15 @@ async function auditState(name, setupExpr) {
     // 4) SOLDIER JACKET — open a service record modal
     states.push(await auditState("jacket", `(()=>{const st=window.__ITM.getState();const m=st.world.platoon.members[0];if(m)st.setJacket(m.id);return 'jacket'})()`));
 
+    // optional: capture the Help overlay for the report
+    if (SHOTS_DIR && DEMO) {
+      await evalJS(`window.__ITM.getState().toggleHelp(true)`);
+      await sleep(500);
+      const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+      writeFileSync(`${SHOTS_DIR}/help.png`, Buffer.from(shot.data, "base64"));
+      await evalJS(`window.__ITM.getState().toggleHelp(false)`);
+    }
+
     // ---- aggregate ----
     const cats = ["contrast", "tinyText", "subEleven", "unlabeled", "tinyTarget", "noFocusRing", "reducedMotion"];
     const totals = Object.fromEntries(cats.map((c) => [c, 0]));
