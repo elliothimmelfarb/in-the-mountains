@@ -6,11 +6,11 @@
   --panel-2: #1b1e15;
   --line: #2c3022;
   --ink: #d8d6c4;
-  --ink-dim: #9a9a82;
+  --ink-dim: #aaaa90; /* nudged brighter so secondary mono text clears WCAG AA on the darkest panel (was #9a9a82 → 3.7:1) */
   --olive: #6b7a3a;
   --tan: #c2a878;
   --amber: #e0a72b;
-  --rust: #b5532a;
+  --rust: #c75f33; /* brightened so warning/danger TEXT clears AA at 10px (was #b5532a → 3.9:1); borders/accents read the same */
   --blood: #9c2c20;
   --us: #4a86c6;
   --enemy: #c0392b;
@@ -86,9 +86,10 @@ body {
   border: 1px solid #2c3022;
   color: #d8d6c4;
   padding: 6px 10px;
+  min-height: 24px; /* WCAG 2.5.8 pointer-target floor — dense buttons stay readable but clickable */
   font-size: 12px;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
   font-family: var(--font-mono);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -192,4 +193,46 @@ body {
 .dock-dragging,
 .dock-dragging * {
   user-select: none !important;
+}
+
+/* ── Accessibility foundations ─────────────────────────────────────────
+   The command UI is fully keyboard-operable, but styled controls (.tac-btn,
+   dock headers, the segmented SOP rows) suppress the faint UA focus ring —
+   so a keyboard commander had NO visible focus at all. One high-contrast
+   amber ring, shown ONLY for keyboard focus (:focus-visible), fixes every
+   interactive element at once. The canvas is excluded (it has its own cues). */
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 2px;
+  border-radius: 1px;
+}
+canvas:focus-visible {
+  outline: none;
+}
+/* a slightly inset ring for inputs/range so the offset ring doesn't clip */
+input:focus-visible,
+select:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Honour the OS "reduce motion" preference — vestibular & photosensitivity
+   safety. The blinking rust TIC / call-for-fire cues are the highest risk;
+   under reduce-motion they hold STEADY (still coloured, just not flashing),
+   and every spinner / fade / pulse / scanline shimmer is stilled. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .blink {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .scanlines::after {
+    animation: none !important;
+  }
 }

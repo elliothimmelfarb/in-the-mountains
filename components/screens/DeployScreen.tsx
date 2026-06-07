@@ -107,7 +107,8 @@ function DockPanel({
       <div className="dock-header w-full flex items-center justify-between px-2 h-7 shrink-0 border-b border-line bg-panel select-none">
         <button
           onClick={() => togglePanel(id)}
-          className="flex items-center gap-1.5 min-w-0 flex-1 text-left hover:text-amber"
+          aria-expanded={!collapsed}
+          className="flex items-center gap-1.5 min-w-0 flex-1 text-left hover:text-amber h-full"
         >
           <span className="text-inkdim text-[9px] transition-transform" style={{ transform: collapsed ? "rotate(-90deg)" : "none" }}>▾</span>
           <span className={`stencil text-[10px] text-${accent}`}>{title}</span>
@@ -150,6 +151,7 @@ function ResizeHandle({ id, defaultHeight }: { id: string; defaultHeight: number
   };
   return (
     <div className="dock-handle" data-active="false" role="separator" aria-orientation="horizontal"
+      aria-label="Drag to resize panel (double-click to reset)"
       onPointerDown={onDown} onDoubleClick={() => { setPanelHeight(id, defaultHeight); persist(); }}>
       <i />
     </div>
@@ -311,11 +313,12 @@ function CommandBar() {
           value={audioVolume}
           onChange={(e) => setAudioVolume(+e.target.value)}
           disabled={audioMuted}
-          className="w-16 accent-amber"
+          className="w-16 h-6 accent-amber"
           title="Volume"
+          aria-label="Master volume"
         />
       </div>
-      <button className="tac-btn rounded-none border-y-0 border-r-0 px-3" onClick={gotoMenu}>☰</button>
+      <button className="tac-btn rounded-none border-y-0 border-r-0 px-3" onClick={gotoMenu} aria-label="Menu — return to main menu" title="Menu">☰</button>
     </div>
   );
 }
@@ -740,7 +743,7 @@ function SquadOrdersBody() {
           {!activeTask && !hasMedic && <div className="text-rust text-[10px] mb-1 font-mono">⚠ NO MEDIC — attach officers (HQ) for the doc, or expect bleed-outs.</div>}
           {!activeTask && (
             <label className="flex items-center gap-1.5 text-[10px] font-mono text-inkdim mb-1.5 cursor-pointer">
-              <input type="checkbox" checked={attachOfficers} onChange={toggleOfficers} className="accent-amber" />
+              <input type="checkbox" checked={attachOfficers} onChange={toggleOfficers} className="accent-amber w-4 h-4" />
               Send officers (HQ: PL · medic · RTO · JTAC)
             </label>
           )}
@@ -786,7 +789,7 @@ function TaskOrgBody() {
                     <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
                     <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
                     <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
-                    <button title="Service record" onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber px-1 shrink-0">ⓘ</button>
+                    <button title="Service record" aria-label={`Service record — ${mm.rank} ${mm.name}`} onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber shrink-0 inline-flex items-center justify-center w-6 h-6">ⓘ</button>
                   </div>
                 ))}
               </div>
