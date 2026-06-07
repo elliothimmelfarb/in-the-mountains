@@ -343,10 +343,13 @@ export default function WorldView() {
       }
     }
 
-    // COP marker — fortified-base pin, fading out at high zoom where the built COP shows
+    // COP marker — fortified-base pin at strategic zoom, handing off to the BUILT COP.
+    // drawCop's building sprites fade IN over 0.32→0.7, so the pin must retire across the
+    // SAME band: the old 1.3→2.4 fade left a full pin floating on top of finished barracks
+    // for the whole default-zoom (0.7) range — two representations of the base at once.
     const cop = w.copWorld();
     const [cx, cy] = worldToScreen(cam, cop.x, cop.y);
-    const copPinA = 1 - lodAlpha(cam.ppm, 1.3, 2.4);
+    const copPinA = 1 - lodAlpha(cam.ppm, 0.35, 0.7);
     const drewCop = copPinA > 0.02 && hasSprite("cop-pin") && drawScreenSprite(ctx, "cop-pin", cx, cy, 34, { alpha: copPinA });
     if (!drewCop && copPinA > 0.02) {
       ctx.save();
@@ -383,15 +386,22 @@ export default function WorldView() {
     }
 
     // At STRATEGIC zoom the COP garrison collapses into the cop-pin (per the LOD policy),
-    // so the sheet shows a clean base icon, not a pile of mil-symbols. Field patrols stay.
+    // so the sheet shows a clean base icon, not a pile of mil-symbols — but it CROSSFADES
+    // back in over 0.42→0.62 instead of snapping on at a hard 0.5 gate (the old pop, where
+    // ~5 garrison squad icons appeared at full strength in a single zoom step). Field
+    // patrols outside the wire always show at full strength.
     const copR2 = (terrain.cop ? (terrain.cop.radius + 6) * terrain.cellSize : 0);
     const copR2sq = copR2 * copR2;
-    const inGarrison = (u: Unit) => cam.ppm < 0.5 && copR2 > 0 && (u.pos.x - cop.x) ** 2 + (u.pos.y - cop.y) ** 2 < copR2sq;
+    const inGarrisonRegion = (u: Unit) => copR2 > 0 && (u.pos.x - cop.x) ** 2 + (u.pos.y - cop.y) ** 2 < copR2sq;
+    const GARR_FADE0 = 0.42, GARR_FADE1 = 0.62;
+    const garrisonRevealA = lodAlpha(cam.ppm, GARR_FADE0, GARR_FADE1); // 0 below .42 → 1 above .62
+    // dead bodies / civilians inside the wire stay collapsed into the pin until the reveal
+    const hideGarrison = (u: Unit) => cam.ppm < GARR_FADE1 && inGarrisonRegion(u);
 
     // dead bodies (under living)
-    for (const u of sim.units) if (!u.alive && u.faction !== "civilian" && !inGarrison(u)) drawUnit(ctx, cam, u, {});
+    for (const u of sim.units) if (!u.alive && u.faction !== "civilian" && !hideGarrison(u)) drawUnit(ctx, cam, u, {});
     // civilians (if visible)
-    for (const u of sim.units) if (u.faction === "civilian" && u.alive && sim.isVisibleToPlayer(u) && !inGarrison(u)) drawUnit(ctx, cam, u, {});
+    for (const u of sim.units) if (u.faction === "civilian" && u.alive && sim.isVisibleToPlayer(u) && !hideGarrison(u)) drawUnit(ctx, cam, u, {});
     // enemies via fog of war — confirmed sightings are solid; a SUSPECTED ghost (last
     // known position) fades as the intel goes stale toward the 25 s cull, so the player
     // reads "this is where he WAS, a while ago" not "he is here now."
@@ -416,7 +426,7 @@ export default function WorldView() {
     // its centroid (you track elements, not men); at/above it the individuals resolve so the
     // real 5.5 m dispersion becomes visible. Crossfade so the icon→figures swap doesn't pop.
     const liveFriendlies = sim.units.filter(
-      (u) => (u.faction === "us" || u.faction === "ana") && u.alive && !inGarrison(u)
+      (u) => (u.faction === "us" || u.faction === "ana") && u.alive
     );
     const iconA = 1 - lodAlpha(cam.ppm, FIG_FADE0 - 0.4, FIG_FADE0); // 1 below band, 0 above
     if (iconA > 0.02) {
@@ -432,13 +442,16 @@ export default function WorldView() {
         const c = unitsCentroid(men);
         const sqName = w.platoon.squads.find((s) => s.id === key)?.name ?? (men[0].faction === "ana" ? "ANA" : key.toUpperCase());
         const engaged = men.some((m) => m.suppression > 0.12 || m.visibleEnemyIds.length > 0);
+        // a squad still inside the wire fades in with the garrison reveal (0.42→0.62);
+        // a patrol outside it shows at full icon strength — no pop at the 0.5 boundary.
+        const garrisoned = men.filter(inGarrisonRegion).length > men.length / 2;
         drawSquadIcon(ctx, cam, c, {
           count: men.length,
           label: sqName.replace(/\s*Squad$/i, "").replace(/\s*Sqd$/i, ""),
           faction: men[0].faction,
           selected: men.some((m) => selSet.has(m.id)),
           engaged,
-          alpha: iconA,
+          alpha: garrisoned ? iconA * garrisonRevealA : iconA,
         });
       }
     }
