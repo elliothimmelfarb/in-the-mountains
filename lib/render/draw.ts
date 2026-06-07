@@ -14,10 +14,27 @@ const FAC_COLOR: Record<string, string> = {
 };
 
 // ---- figure-sprite LOD: symbol below FIG_FADE0, sprite above FIG_FADE1, crossfade between ----
-const FIG_FADE0 = 0.5;
-const FIG_FADE1 = 0.9;
-function figurePx(ppm: number): number {
-  return Math.max(15, Math.min(40, ppm * 7));
+// Pushed to genuinely TACTICAL zoom: below FIG_FADE0 a man is drawn as one small NATO dot
+// (and his SQUAD as a single icon — see drawSquadIcon / WorldView), above FIG_FADE1 he's a
+// detailed figure at near-true footprint. The default ppm 0.7 now sits firmly in the
+// dot/squad-icon band, not mid-crossfade.
+export const FIG_FADE0 = 2.5;
+export const FIG_FADE1 = 3.5;
+// A soldier occupies ~0.5–0.7 m top-down; we draw a generous shoulder-to-shoulder kit
+// footprint of 1.6 m so the figure tracks reality with only a SMALL legibility floor (7 px),
+// instead of the old fixed 15 px floor that painted a man 5–50 m wide on the ground.
+// IMPORTANT: combat-fx.ts mirrors this exactly (figurePx there imports SOLDIER_FOOTPRINT_M /
+// the same clamp) so the suppression crescent / bleed pool / casualty cues stay hugged to the
+// figure base ring. Change one → change the other. (See lib/render/combat-fx.ts figurePx.)
+export const SOLDIER_FOOTPRINT_M = 1.6;
+export const FIG_FLOOR_PX = 7;
+export const FIG_CAP_PX = 26;
+export function figurePx(ppm: number): number {
+  return Math.max(FIG_FLOOR_PX, Math.min(FIG_CAP_PX, ppm * SOLDIER_FOOTPRINT_M));
+}
+/** NATO symbol radius — smaller floor than before so a clustered garrison doesn't smear. */
+export function dotR(ppm: number): number {
+  return Math.max(3, Math.min(9, 0.7 * ppm));
 }
 
 const US_ROLE_SPRITE: Record<string, string> = {
@@ -93,7 +110,7 @@ export function drawUnit(
   const [sx, sy] = worldToScreen(cam, u.pos.x, u.pos.y);
   if (sx < -40 || sy < -40 || sx > cam.vw + 40 || sy > cam.vh + 40) return;
   const color = FAC_COLOR[u.faction] ?? "#aaa";
-  const r = Math.max(4.5, Math.min(13, 0.95 * cam.ppm));
+  const r = dotR(cam.ppm);
   const dead = !u.alive;
   const down = u.alive && !u.conscious;
 
@@ -248,6 +265,79 @@ export function drawUnit(
     ctx.fillText(name, sx, ly);
     ctx.restore();
   }
+}
+
+/**
+ * One NATO unit symbol for a whole squad/element at its centroid — drawn BELOW tactical
+ * zoom (cam.ppm < FIG_FADE0) IN PLACE OF the 9 individual men, so a zoomed-out COP reads as
+ * a handful of unit icons instead of a swarm of oversized dots. This generalizes the
+ * existing garrison-hide LOD instinct in WorldView: at operational zoom you track UNITS, not
+ * individuals (NATO APP-6 / MIL-STD-2525 convention).
+ *
+ * A friendly element = a rectangle (filled, dark keyline) with the squad-echelon tick (a
+ * single centered dot = squad) and a small count + name label. Crossfades OUT (alpha) as the
+ * individual figures crossfade IN above FIG_FADE0, so the dot→icon→figure progression is
+ * smooth and nothing pops.
+ */
+export function drawSquadIcon(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  centroid: { x: number; y: number },
+  opts: { count: number; label: string; faction: Faction; selected?: boolean; alpha?: number; engaged?: boolean }
+) {
+  const [sx, sy] = worldToScreen(cam, centroid.x, centroid.y);
+  if (sx < -60 || sy < -40 || sx > cam.vw + 60 || sy > cam.vh + 40) return;
+  const a = opts.alpha ?? 1;
+  if (a <= 0.02) return;
+  const color = FAC_COLOR[opts.faction] ?? "#5b9bd8";
+  // a fixed-size screen glyph — a unit symbol does NOT scale with the ground footprint
+  const hw = 11, hh = 7; // half-width / half-height of the rectangle
+  ctx.save();
+  ctx.globalAlpha *= a;
+  ctx.translate(sx, sy);
+
+  if (opts.selected) {
+    ctx.strokeStyle = "#e0a72b";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, hw + 5, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // body rectangle (rectangle = friendly per mil symbology)
+  ctx.fillStyle = color;
+  ctx.strokeStyle = "#0c0d0a";
+  ctx.lineWidth = 1.4;
+  roundRect(ctx, -hw, -hh, hw * 2, hh * 2, 2);
+  ctx.fill();
+  ctx.stroke();
+  // echelon tick: a single dot above the rectangle = squad
+  ctx.fillStyle = "#e8e5d4";
+  ctx.beginPath();
+  ctx.arc(0, -hh - 4, 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  // a contact tint so an engaged element stands out on the sheet
+  if (opts.engaged) {
+    ctx.strokeStyle = "rgba(224,80,40,0.9)";
+    ctx.lineWidth = 1.4;
+    roundRect(ctx, -hw - 2, -hh - 2, (hw + 2) * 2, (hh + 2) * 2, 3);
+    ctx.stroke();
+  }
+
+  // label + strength under the icon (e.g. "1st ×9") — only once the icons aren't tiny
+  if (cam.ppm > 0.42) {
+    const txt = `${opts.label} ×${opts.count}`;
+    ctx.font = "bold 8px var(--font-mono, monospace)";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    const tw = ctx.measureText(txt).width;
+    ctx.fillStyle = "rgba(12,13,10,0.7)";
+    roundRect(ctx, -tw / 2 - 3, hh + 3, tw + 6, 11, 2);
+    ctx.fill();
+    ctx.fillStyle = opts.selected ? "#f0e4c0" : "rgba(216,214,196,0.9)";
+    ctx.fillText(txt, 0, hh + 9);
+  }
+  ctx.restore();
 }
 
 function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
@@ -642,17 +732,54 @@ function star(ctx: CanvasRenderingContext2D, x: number, y: number, r: number, po
   ctx.fill();
 }
 
-export function drawSmoke(ctx: CanvasRenderingContext2D, cam: Camera, smoke: SmokeScreen[]) {
+/**
+ * Smoke screens, now WIND-AWARE. The sim owns the screen's position/radius/density (and its
+ * LOS effect); this is the purely-visual drift: each disc's painted center is nudged
+ * DOWNWIND and the gradient is stretched into an ellipse along the wind axis, so a screen
+ * visibly leans the way the wind is blowing instead of sitting as a static radial puff.
+ * `wind` is the live sim wind vector (m/s). We never mutate sim.smoke — this is render-only.
+ */
+export function drawSmoke(ctx: CanvasRenderingContext2D, cam: Camera, smoke: SmokeScreen[], wind: { x: number; y: number } = { x: 0, y: 0 }) {
+  const wmag = Math.hypot(wind.x, wind.y);
+  const wux = wmag > 1e-3 ? wind.x / wmag : 0;
+  const wuy = wmag > 1e-3 ? wind.y / wmag : 0;
   for (const s of smoke) {
-    const [sx, sy] = worldToScreen(cam, s.x, s.y);
     const R = s.radius * cam.ppm;
-    const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+    // bounded downwind drift of the painted center: ~min(0.4·radius, wind·k) in metres → px.
+    const driftM = Math.min(s.radius * 0.4, wmag * 3.5);
+    const cxw = s.x + wux * driftM;
+    const cyw = s.y + wuy * driftM;
+    const [sx, sy] = worldToScreen(cam, cxw, cyw);
+    if (wmag < 0.4) {
+      // calm air: the original symmetric radial puff
+      const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, R);
+      grad.addColorStop(0, `rgba(190,190,185,${s.density})`);
+      grad.addColorStop(1, "rgba(190,190,185,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(sx, sy, R, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+    // windy: an elliptical puff stretched along the wind axis (a downwind tail). We draw in
+    // a rotated frame so the gradient + ellipse share one wind-aligned axis.
+    const ang = Math.atan2(wuy, wux);
+    const stretch = 1 + Math.min(0.9, wmag * 0.12); // longer tail in stronger wind
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(ang);
+    // offset the gradient origin slightly UPWIND so the dense head sits at the source and
+    // the thin tail trails off downwind.
+    const headOff = -R * 0.18 * stretch;
+    const grad = ctx.createRadialGradient(headOff, 0, 0, 0, 0, R * stretch);
     grad.addColorStop(0, `rgba(190,190,185,${s.density})`);
+    grad.addColorStop(0.55, `rgba(190,190,185,${(s.density * 0.5).toFixed(3)})`);
     grad.addColorStop(1, "rgba(190,190,185,0)");
     ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(sx, sy, R, 0, Math.PI * 2);
+    ctx.ellipse(0, 0, R * stretch, R / Math.sqrt(stretch), 0, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
   }
 }
 
