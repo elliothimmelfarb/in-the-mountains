@@ -49,6 +49,7 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
       elder: elderName(rng),
       lastVisitedDay: -1,
       censusDone: false,
+      censusProgress: 0,
       wants: rng.pick(CERP_PROJECTS),
       ask: null,
       brokenPromises: 0,
@@ -194,7 +195,12 @@ export function loadWorld(data: {
     if (v.ask === undefined) v.ask = null;
     if (v.brokenPromises === undefined) v.brokenPromises = 0;
     if (v.keptPromises === undefined) v.keptPromises = 0;
+    // v7: progressive census. A pre-v7 save only knew censusDone; map it to the new fraction so
+    // an already-censused village stays complete and an un-censused one starts fresh.
+    if (v.censusProgress === undefined) v.censusProgress = v.censusDone ? 1 : 0;
   }
+  // v7: dwell-event throttle clock on tasks (defaults to 0 = roll-ready).
+  for (const t of state.tasks) if (t.dwellEventClock === undefined) t.dwellEventClock = 0;
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);
