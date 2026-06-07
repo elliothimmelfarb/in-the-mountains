@@ -1,0 +1,1078 @@
+[
+  {
+    "axis": "gunfire-synthesis",
+    "techniques": [
+      {
+        "name": "Five-layer gunshot stack (Kilborn model) replacing flat single-burst",
+        "howItWorks": "Pro FPS gunshots are not one sound; they are 5 simultaneous sub-mixes time-aligned to the same trigger: (1) TRANSIENT — the <5ms attack click that gives the ear its 'is it close/loud' cue; (2) BODY — the broadband 1-4kHz report that carries weapon identity; (3) SUB/LFE — a 30-120Hz sine thump for chest-punch; (4) MECHANICAL — the bolt/action clack 8-25ms AFTER the report; (5) TAIL — the environment decay. Each layer is independently EQ'd/decayed so they read as one event but are individually shapeable per weapon and per distance. This is the canonical AAA gunshot architecture (Mark Kilborn, Call of Duty audio director).",
+        "webAudioMapping": "Per-shot: build all five as offset sub-graphs into the per-cue gain. TRANSIENT = noiseBurst(highpass 6kHz, Q0.5, dur 0.004, exponential decay). BODY = noiseBurst(bandpass center 2.5kHz, Q1.5) layered with a peaking noiseBurst at the weapon's formant. SUB = sub() sine 120->60Hz, dur 0.05. MECHANICAL = noiseBurst(bandpass ~3kHz metallic, Q4, peak 0.15) scheduled at crack+0.012..0.025. TAIL = a wet ConvolverNode send (see tail technique). The repo's noiseBurst/sub/tone primitives already exist in lib/audio/synth.ts — this is restructuring each muzzle_* case into 5 named layers, not new primitives.",
+        "applicability": "high",
+        "source": "How to Sound Design FPS Gunshots — Mark Kilborn (Pro Sound Effects) https://blog.prosoundeffects.com/how-to-sound-design-first-person-shooter-gunshot-sound-effects-with-mark-kilborn ; corroborated by Splice weapon-design guide & Springer physically-motivated model",
+        "confidence": 0.92
+      },
+      {
+        "name": "True supersonic N-wave crack as a separate physical layer (not just bright noise)",
+        "howItWorks": "The 'crack' is NOT the muzzle report — it is the ballistic shock wave: a Mach cone the bullet drags. Its acoustic signature is an N-wave: a near-instant pressure rise, a linear ramp-down through zero, total duration only ~150-300 microseconds for a rifle round (longer = bigger caliber, longer = greater miss distance). That sub-millisecond N-wave is why a passing round is a sharp 'snap/whipcrack' with energy biased very high (its short period maps to multi-kHz content), perceptually distinct from the lower, diffuse muzzle thump. Caliber sets the N-wave PERIOD: 7.62 (longer/heavier bullet) gives a slightly longer, lower-pitched crack than 5.56. This is the highest-leverage realism cue for incoming fire in a CO-IN sim.",
+        "webAudioMapping": "Model the N-wave shape explicitly, don't approximate with filtered noise: synthesize a 0.3-0.5ms 'click' = a single short noiseBurst(highpass ~4-6kHz, Q0.3, dur 0.0004-0.0008, attack 0.00005) — the ultra-short envelope IS the N-wave period. Bias the period by caliber: 5.56 dur 0.00035 + highpass 5kHz (brighter); 7.62 dur 0.0006 + highpass 3.5kHz (woodier). Schedule it at crackAt (the speed-of-sound-corrected arrival of the round at the camera), with the muzzle report layer at thumpAt. Only fire it for rounds that pass NEAR the listener (the repo's nearmiss cue is the seam — upgrade its bandpass-0.02s burst to this true short N-wave).",
+        "applicability": "high",
+        "source": "Crack & Thump method (Max Velocity Tactical) https://maxvelocitytactical.com/crack-thump/ ; The ballistic wave physics (HAL hal-01103309) ; CDC auditory N-wave study; Springer/Farnell shockwave model",
+        "confidence": 0.85
+      },
+      {
+        "name": "Crack-thump speed-of-sound split as a ranging cue (already seeded, extend it)",
+        "howItWorks": "For supersonic incoming, the shock crack arrives FIRST (it travels with the bullet at >Mach 1), then the muzzle 'thump' follows at the speed of sound (~343 m/s). The gap is a learnable range cue: ~0.5s at 300m, ~1.0s at 600m, near-zero under 100m. The crack comes from overhead/the bullet's flight line; the thump comes from the actual shooter direction — so they can even pan differently. Reproducing this gap turns 'enemy is shooting' into 'enemy is ~500m, up that ridgeline' — exactly the field-manual literacy the bar demands.",
+        "webAudioMapping": "The repo ALREADY has Spatial.crackAt / Spatial.thumpAt / split in synth.ts — the mechanism exists. Extensions: (1) compute thumpAt = crackAt + dist/343 (player.ts), clamp to perceptible only when split=true; (2) pan the crack toward the round's flight bearing and the thump toward the shooter's map bearing (StereoPannerNode pan computed separately for the two layers); (3) make the muzzle_insurgent/muzzle_us report (BODY+SUB) play at thumpAt while the N-wave crack plays at crackAt, instead of both at crack. No new nodes — re-wire which layer uses which offset.",
+        "applicability": "high",
+        "source": "Crack & Thump (Max Velocity Tactical) https://maxvelocitytactical.com/crack-thump/ ; existing lib/audio/synth.ts Spatial interface",
+        "confidence": 0.9
+      },
+      {
+        "name": "Procedural convolution-reverb tail (decaying-noise IR) for the 'rolling thunder' valley",
+        "howItWorks": "A reverb tail is just a decaying-noise impulse response convolved with the dry sound — noise has 'no eigenfrequencies and infinitely high density,' so an exp-decaying noise buffer IS a near-perfect reverb tail. For a Korengal valley you want a LONG, bright-to-dull tail: the gunshot's energy bounces off ridgelines giving 0.5-3s of decay with discrete slap-echoes. This is what makes distant fire read as 'pop... then rolling thunder' rather than a dry click. A ConvolverNode with a procedurally generated IR delivers this with ZERO audio-file assets — fully within the no-samples constraint.",
+        "webAudioMapping": "Build ONE ConvolverNode at init with a procedurally generated IR: a stereo AudioBuffer ~1.8-2.6s long filled with white noise * exp-decay envelope (e^(-t/tau), tau≈0.6s), then progressively lowpass the buffer over its length (highs die first = air absorption in the tail). For valley character, ADD 3-5 discrete slap taps into the IR at 0.15/0.4/0.8/1.4s (ridge reflections, Mountains create multi-second decays with 0.5-3s echo spacing). Route every gunshot's BODY layer through a wet send: dry->master AND dry->sendGain->convolver->master, with sendGain scaled UP with distance (far shots = more tail, less direct). This is the single biggest missing immersion piece — the system has NO reverb today.",
+        "applicability": "high",
+        "source": "Decaying-noise IR theory (Sweetwater/LiquidSonics convolution IR guides) https://www.sweetwater.com/insync/create-idealized-impulse-responses-convolution-reverbs/ ; canyon-echo timing (Pixflow gunfire guide) https://pixflow.net/blog/gun-gunfire-sound-effects/ ; MDN Web Audio ConvolverNode",
+        "confidence": 0.88
+      },
+      {
+        "name": "Distance = transient-softening + lowpass + tail-ratio (the 'pop becomes thunder' curve)",
+        "howItWorks": "Distance does three coupled things, not just lower the volume: (1) air absorption progressively lowpasses highs (the sharp 4kHz crack erodes first); (2) the attack transient SOFTENS — near shots have a sub-5ms snap, far shots have a rounded 'pop' with longer attack and lost crack; (3) the tail/reverb RATIO rises — distant fire is mostly its own reflections. So a near M4 = bright snap+body+almost-dry; a ridge-line M4 at 800m = dull lowpassed pop with a big reverb tail and no audible mechanical layer. Modeling all three (not just gain) is what sells distance.",
+        "webAudioMapping": "Per-cue in player.ts, derive from distance d: cutoff = lerp(18000Hz @0m -> 700Hz @1km) on the air-absorption lowpass (Spatial.cutoff already exists); attack = lerp(0.0005 -> 0.02) passed into noiseBurst; DROP the mechanical+N-wave layers entirely past ~250m (a soldier can't hear an AK's bolt at 600m); reverb sendGain = lerp(0.05 -> 0.6). At max distance, skip BODY's high formant and play mostly SUB + tail. Curves should be smooth functions of d so the sim's continuous geometry maps continuously to timbre.",
+        "applicability": "high",
+        "source": "Pixflow distant-gunfire guide (progressive lowpass, longer attack, boosted reverb ratio) https://pixflow.net/blog/gun-gunfire-sound-effects/ ; Gunshot frequency analysis (low freq travels farther) https://thegunzone.com/what-is-the-frequency-of-a-gunshot/",
+        "confidence": 0.87
+      },
+      {
+        "name": "Caliber timbre via formant frequency + decay length (AK woody vs M4 bright, principled)",
+        "howItWorks": "The 7.62x39 (AK) vs 5.56 (M4) difference is real spectral physics: 7.62 is a larger, lower-pressure-curve round producing a deeper, 'woodier,' longer report with peak energy lower in the 1-4kHz band; 5.56 is higher-pressure and shorter-barreled-typical, giving a brighter, sharper, higher-pitched crack with energy biased toward 3-5kHz. The right knobs are: (a) body bandpass CENTER frequency, (b) report DECAY length (7.62 rings a touch longer), (c) sub fundamental, (d) N-wave period (above). The repo's muzzle_us vs muzzle_insurgent split is already on this axis — the upgrade is making the deltas physically motivated and adding a parametric weapon table.",
+        "webAudioMapping": "Make a per-weapon param record { bodyCenterHz, bodyQ, reportDur, subF0, subF1, nwaveDur, nwaveHP }. M4: body 3500Hz, reportDur 0.05, sub 180->90, nwave 0.00035/5kHz. AK: body 2600Hz, reportDur 0.075, sub 140->68, nwave 0.0006/3.5kHz. SAW(5.56): like M4 but tighter+brighter; PKM(7.62R): like AK but heavier sub + slower bolt. Feed those into the 5-layer stack. This is exactly the parametric-by-caliber approach of the Springer physically-motivated model (params = barrel length, bullet type, muzzle velocity). The repo already encodes RPM (SAW ~850, PKM ~650) in the burst step — extend that table to timbre.",
+        "applicability": "high",
+        "source": "AK vs M4 spectral character (GunZone, DefenceTalk) https://thegunzone.com/what-is-the-frequency-of-a-gunshot/ ; Procedural Synthesis of Gunshot Sounds Based on Physically Motivated Models (Springer) https://link.springer.com/chapter/10.1007/978-3-319-53088-8_4",
+        "confidence": 0.86
+      },
+      {
+        "name": "Mechanical bolt/action layer + brass tinkle (the detail that says 'real gun')",
+        "howItWorks": "Real automatic fire has an audible mechanical rhythm UNDER the report: the bolt-carrier slamming, and (for the firer/very near) brass casings ejecting and pinging on rock. AAA gunshot stacks carry a dedicated 'mechanical' layer (slide/hammer/ejection) precisely because it's the difference between a synth 'pew' and a machine. For an automatic burst this mechanical clack at the cyclic rate gives the gun its mechanical signature even when the report itself is generic.",
+        "webAudioMapping": "MECHANICAL clack = noiseBurst(bandpass ~2.5-3.5kHz metallic, Q4-6, dur 0.006, peak ~0.12) scheduled ~10-20ms after each report in a burst (so it reads as the bolt cycling between rounds, not on top of the shot). BRASS (near only, d<30m): 2-3 tiny noiseBurst(bandpass 4-7kHz, Q8, dur 0.01, peak 0.06) at jittered offsets 80-220ms after the shot, using cue.v for deterministic placement. Keep peaks LOW — this is detail, not a layer that competes with the report. Gate it off past ~60m (you don't hear brass across the valley).",
+        "applicability": "medium",
+        "source": "Kilborn 5-layer model (mechanical layer) https://blog.prosoundeffects.com/how-to-sound-design-first-person-shooter-gunshot-sound-effects-with-mark-kilborn ; Splice weapon-design guide https://splice.com/blog/design-weapon-sound-video-games/",
+        "confidence": 0.8
+      },
+      {
+        "name": "Granular per-shot variation to defeat the machine-gun-repetition artifact (deterministically)",
+        "howItWorks": "Identical retriggered shots fatigue the ear and scream 'fake.' The pro fix is per-shot variation of pitch, filter cutoff, amplitude, decay, and micro-timing — Leonard Paul's granulation insight is that random grain selection makes repeated sounds feel 'organic, like water over rocks,' avoiding 'unnatural repetitiveness.' For a synth (not sample) engine you get this for free by jittering synthesis params per shot. CRITICAL for this repo: the jitter MUST be deterministic (driven by cue.v / event index), never Math.random in the mapper — same seed must reproduce the firefight's exact sound.",
+        "webAudioMapping": "The repo already has the right hook: cue.v is a deterministic 0..1 and the j(lo,hi) helper in synth.ts. Extend it so EACH shot in a burst gets its own deterministic offset: derive per-shot v_i = fract(cue.v*PHI + i*0.61803) (golden-ratio decorrelation, pure function of cue.v and shot index i). Use v_i to jitter: body center +/-8%, peak +/-15%, decay +/-12%, micro-timing +/-4ms, pan +/-0.05. The white-noise BUFFER may use Math.random (it's render-side per CLAUDE.md), but the PARAM choices must come from v_i so the audible result is seed-reproducible.",
+        "applicability": "high",
+        "source": "Granulation of Sound in Video Games — Leonard J. Paul, AES 41st (2011) https://videogameaudio.com/AES-Feb2011/AES41-04Feb11-GranulationOfSoundInVideoGames-LeonardJPaul.pdf ; KVR avoiding-machine-gun-effect thread",
+        "confidence": 0.88
+      },
+      {
+        "name": "WaveShaper soft-clip on the body for 'felt-in-the-chest' weight (already used for IED, extend to MGs)",
+        "howItWorks": "A muzzle report at real SPL is a clipped/saturated event — the harmonic distortion of soft-clipping adds upper harmonics that read as loudness and 'bite' even at safe playback levels, the perceptual trick that makes a -20dBFS sample feel like a 160dB gun. The repo already does this for the IED (tanh waveshaper). Applying a gentler soft-clip to the BODY layer of near gunfire (especially the SAW/PKM rips) adds the aggressive crunch that distinguishes a belt-fed weapon's authority from a single rifle.",
+        "webAudioMapping": "Reuse the existing WaveShaperNode tanh-curve pattern from the 'ied' case in synth.ts, but milder: curve[i] = tanh(x * 1.4) for near body layers; tanh(x*2.2) stays for IED. Route only the BODY+SUB through the shaper (NOT the tail/reverb send — you want the dry shot to bite, the reflections to stay clean). Scale the drive amount UP with proximity and DOWN with distance (far shots aren't clipping at the listener). Follow with a shared DynamicsCompressorNode on the master gunfire bus to glue overlapping shots and prevent clipping when many fire at once.",
+        "applicability": "medium",
+        "source": "Web Audio WaveShaperNode distortion (MDN/Noisehack) https://noisehack.com/generate-noise-web-audio-api/ ; existing 'ied' recipe in lib/audio/synth.ts; Splice weapon-design (saturation for weight)",
+        "confidence": 0.82
+      },
+      {
+        "name": "Exponential-decay envelope discipline (percussive shape, ~20ms time constant)",
+        "howItWorks": "Gunshots are percussive: the muzzle blast envelope is a near-instant attack then an EXPONENTIAL decay (real-world detection systems model the muzzle-blast decay with a ~20ms time constant; the body 'within milliseconds'). Linear ramps sound synthetic/buzzy; exponential decay is what gives a natural percussive 'thwack.' The shape per layer differs: transient ~3-5ms total, body ~20-50ms, sub ~50-80ms, tail seconds. Getting the decay SHAPE right matters more than the spectrum for 'realness.'",
+        "webAudioMapping": "The repo's noiseBurst/tone already use g.gain.exponentialRampToValueAtTime — keep that, it's correct. Tune time constants per layer to the physics: transient dur 0.004, body dur 0.03-0.05 (M4) / 0.05-0.075 (AK), sub dur 0.06-0.08. For an even more natural curve consider gain.setTargetAtTime(0, at, tau) with tau≈0.02 (the documented muzzle-blast time constant) instead of a hard exponentialRampTo endpoint, since setTargetAtTime gives a true RC-decay. Avoid linearRampToValueAtTime for any gunshot amplitude.",
+        "applicability": "high",
+        "source": "Gunshot detection envelope (20ms decay time constant) https://thegunzone.com/what-is-the-frequency-of-a-gunshot/ ; MDN Advanced Techniques (exponential percussive decay) https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Advanced_techniques",
+        "confidence": 0.85
+      },
+      {
+        "name": "Farnell layered-blast architecture for HE (shockwave + blast + fireball + pressure-wave)",
+        "howItWorks": "Andy Farnell's canonical explosion (Designing Sound) decomposes a blast into 4 timed layers that map directly onto the repo's blast_small/large/ied/RPG cues: (1) SHOCKWAVE — sharp 10ms attack transient (the crack); (2) BLAST — noise through a cutoff sweeping UP to ~7kHz, soft-clipped, with a long decay (up to seconds); (3) FIREBALL — noise bandpassed ~70Hz, triggered ~100ms LATE for warmth; (4) PRESSURE-WAVE — a feedback-delay low rumble (10Hz-10kHz band) sustaining seconds. The key insight is the staggered TIMING (shock immediate, fireball +100ms, rumble trailing) — that delay structure is what makes a blast feel huge rather than like a single noise pop.",
+        "webAudioMapping": "Restructure blast_large/ied as 4 staggered layers: SHOCKWAVE = noiseBurst(highpass, dur 0.006, sharp). BLAST = a noise source whose filter freq exponentialRampToValueAtTime sweeps 200->7000Hz over ~0.2s through a tanh shaper. FIREBALL = noiseBurst(bandpass 70Hz, Q1, dur 0.4) scheduled at crack+0.1. PRESSURE-WAVE = sub() sine 55->22Hz long + a DelayNode feedback loop (gain 0.85, lowpass 10kHz) for the trailing rumble, or route through the valley convolver for the rolling echo. The repo's IED already approximates this but flat-in-time — adding the +100ms fireball and trailing rumble is the upgrade.",
+        "applicability": "medium",
+        "source": "Andy Farnell, Designing Sound — Practical 31 Explosions https://aspress.co.uk/sd/practical31.html ; existing blast_* recipes in lib/audio/synth.ts",
+        "confidence": 0.83
+      },
+      {
+        "name": "Automatic-fire as ramp-up / loop / ramp-down with first-shot emphasis",
+        "howItWorks": "Game-audio convention for automatic weapons is a 3-stage model: a distinct FIRST shot (loudest, fullest, gets the transient+tail), a LOOP of cyclic shots (slightly reduced, varied), and a TAIL-OFF (last shot gets an extra-long tail as the gun stops). The first-shot emphasis matters because the opening round of a burst is the one the brain locks onto; making every shot identical loses that. The repo already bursts N shots with falling gain — adding genuine first-shot fullness + a final long tail completes the arc.",
+        "webAudioMapping": "In the mg_us/mg_insurgent loops: give shot i=0 the full 5-layer stack INCLUDING a tail send; shots 1..n-2 a lighter stack (drop mechanical-detail/brass, reduce tail send, apply the v_i jitter); the LAST shot n-1 gets a long reverb send (big tail as fire ceases). Keep the existing deterministic step (RPM) and falling-gain envelope. This is pure scheduling logic over the primitives already present — no new node types.",
+        "applicability": "medium",
+        "source": "Macprovideo/game-audio automatic-fire 3-stage (ramp-up/loop/ramp-down) https://macprovideo.com/article/game-audio/game-audio-creating-a-realistic-rate-of-fire-for-automatic-weapons-using-logic ; existing mg_* recipes",
+        "confidence": 0.78
+      }
+    ],
+    "keyInsights": [
+      "The repo already has the RIGHT bones for a 20x leap: shared noise buffer, exponential-decay noiseBurst/tone/sub primitives, deterministic cue.v jitter, and a Spatial interface with crackAt/thumpAt/split/cutoff. The work is RESTRUCTURING flat single-burst recipes into proper layered stacks and ADDING a reverb tail — not a ground-up rewrite. (lib/audio/synth.ts)",
+      "The single biggest missing immersion piece is REVERB: there is no tail today. A ConvolverNode with a procedurally-generated decaying-noise IR (1.8-2.6s, exp decay, progressive lowpass, plus 3-5 discrete ridge-slap taps at 0.15/0.4/0.8/1.4s) delivers the 'pop... then rolling thunder' of a Korengal valley with ZERO audio-file assets — fully inside the no-samples constraint.",
+      "A gunshot is FIVE time-aligned layers (transient / body / sub / mechanical / tail), and a passing round is a SEPARATE physical event (the supersonic N-wave: a sub-millisecond ~0.3-0.5ms snap) distinct from the muzzle report. Treating crack and report as the same sound is the core current limitation; splitting them by speed-of-sound (crackAt vs thumpAt, both already in the Spatial interface) is the highest-realism, lowest-cost win.",
+      "Distance is THREE coupled transforms, not just gain: progressive lowpass (air absorption, highs die first), transient softening (sharp snap -> rounded pop, drop N-wave/mechanical/brass past ~250m), and rising tail-to-direct ratio. Mapping the sim's continuous geometry to these continuous timbre curves is what makes a ridgeline AK at 800m read as distance, not just quietness — and crack-thump gap (~0.5s@300m, ~1s@600m) becomes a real in-fiction ranging cue a soldier would recognize.",
+      "AK-vs-M4 (and SAW-vs-PKM) timbre is physically principled, not vibes: 7.62 = lower body-formant (~2.6kHz), longer report decay, deeper sub, longer N-wave period (woodier); 5.56 = higher formant (~3.5kHz), shorter sharper report, shorter N-wave (brighter). Drive it from a per-weapon param table {bodyCenterHz, reportDur, subF0/F1, nwaveDur, nwaveHP}, extending the RPM table the repo already has.",
+      "All per-shot variation MUST be deterministic (golden-ratio decorrelation of cue.v + shot-index), never Math.random in the mapper — the white-noise buffer may use Math.random because it's render-side, but param CHOICES feeding audible timbre must be a pure function so a seed reproduces the firefight's exact sound (determinism contract)."
+    ],
+    "pitfalls": [
+      "DETERMINISM BREAK: putting Math.random() in param selection (pitch/filter/timing jitter) instead of deriving from cue.v + shot index. CLAUDE.md is explicit — only the render-side noise BUFFER may use Math.random; the event->cue mapping and all audible param choices must be pure. A same-seed firefight that sounds different IS the bug.",
+      "ARCADE-Y FEEL: over-bright, over-compressed, sample-game 'pew-pew.' This game's soul is 'the readable silence of the calm-before' and Restrepo/The Outpost restraint. Keep peaks low, let the TAIL and the crack-thump GAP carry weight, never let every shot be a max-loudness transient. Restraint is a literal success criterion here.",
+      "PERF: one ConvolverNode reused for ALL gunfire via wet sends is fine; spinning up a NEW ConvolverNode per shot (or rebuilding the IR per shot) will tank a busy firefight. Build the IR ONCE at init. Likewise share the single white-noise AudioBuffer (already done) and put a single DynamicsCompressorNode on the gunfire master bus to handle polyphony glue rather than clipping.",
+      "POLYPHONY/CLIPPING: a heavy TIC can schedule dozens of overlapping 5-layer voices; without a master limiter/compressor on the gunfire bus the sum clips into digital crackle (which ironically sounds arcade-y). Cap simultaneous voices and/or thin distant shots to fewer layers.",
+      "MIX MUD: stacking sub layers from many simultaneous shots piles up 40-120Hz energy into boom. High-pass the reverb send, drop the SUB layer on distant shots, and don't give every shot in a burst a full sub — reserve fullness for first-shot emphasis.",
+      "OVER-MODELING THE N-WAVE: the supersonic crack is real but ~0.3-0.5ms — do NOT try to model the full Whitham N-wave waveform sample-by-sample; a single ultra-short high-passed noise burst with caliber-tuned duration captures the perceptual snap. Conversely, don't fire the crack layer for shots NOT passing near the listener (only near-miss/incoming geometry).",
+      "STALE BASELINE: per CLAUDE.md Law 1/5, capture a before recording (a headless render of representative cues to a buffer, or a live capture via scripts/shoot.mjs) BEFORE editing synth.ts, so the 20x claim is provable as a delta and not vibes. There is no numeric audio harness today — building one (render cues offline, dump spectral/RMS/peak) is core work, not a detour."
+    ],
+    "sources": [
+      {
+        "title": "How to Sound Design FPS Gunshot Sound Effects — Mark Kilborn (Pro Sound Effects)",
+        "url": "https://blog.prosoundeffects.com/how-to-sound-design-first-person-shooter-gunshot-sound-effects-with-mark-kilborn"
+      },
+      {
+        "title": "Procedural Synthesis of Gunshot Sounds Based on Physically Motivated Models (Springer)",
+        "url": "https://link.springer.com/chapter/10.1007/978-3-319-53088-8_4"
+      },
+      {
+        "title": "How to design a weapon sound for video games (Splice)",
+        "url": "https://splice.com/blog/design-weapon-sound-video-games/"
+      },
+      {
+        "title": "Crack & Thump — auditory ranging method (Max Velocity Tactical)",
+        "url": "https://maxvelocitytactical.com/crack-thump/"
+      },
+      {
+        "title": "The ballistic wave, from rifle bullet to Apollo command module (HAL)",
+        "url": "https://hal.science/hal-01103309/document"
+      },
+      {
+        "title": "Auditory risk of exposure to ballistic N-waves from bullets (CDC)",
+        "url": "https://stacks.cdc.gov/view/cdc/217132/cdc_217132_DS1.pdf"
+      },
+      {
+        "title": "Gunshot Audio: Muzzle Blast, Shock Waves, and Health Impact (Biology Insights)",
+        "url": "https://biologyinsights.com/gunshot-audio-muzzle-blast-shock-waves-and-health-impact/"
+      },
+      {
+        "title": "What is the frequency of a gunshot? (The Gun Zone)",
+        "url": "https://thegunzone.com/what-is-the-frequency-of-a-gunshot/"
+      },
+      {
+        "title": "Granulation of Sound in Video Games — Leonard J. Paul, AES 41st Intl Conf (2011)",
+        "url": "https://videogameaudio.com/AES-Feb2011/AES41-04Feb11-GranulationOfSoundInVideoGames-LeonardJPaul.pdf"
+      },
+      {
+        "title": "Andy Farnell, Designing Sound — Practical 31: Explosions (ASPress)",
+        "url": "https://aspress.co.uk/sd/practical31.html"
+      },
+      {
+        "title": "Procedural Audio: Interview with Andy Farnell (DesigningSound.org)",
+        "url": "https://designingsound.org/2012/01/18/procedural-audio-interview-with-andy-farnell/"
+      },
+      {
+        "title": "Gun & Gunfire Sound Effects: Complete Filmmaking Guide (Pixflow) — distant fire, canyon echo timing",
+        "url": "https://pixflow.net/blog/gun-gunfire-sound-effects/"
+      },
+      {
+        "title": "Create Idealized Impulse Responses for Convolution Reverbs (Sweetwater)",
+        "url": "https://www.sweetwater.com/insync/create-idealized-impulse-responses-convolution-reverbs/"
+      },
+      {
+        "title": "Web Audio API: Advanced techniques — Creating and sequencing audio (MDN)",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Advanced_techniques"
+      },
+      {
+        "title": "How to Generate Noise with the Web Audio API (Noisehack) — WaveShaper/distortion",
+        "url": "https://noisehack.com/generate-noise-web-audio-api/"
+      },
+      {
+        "title": "Game Audio: Realistic Rate of Fire for Automatic Weapons (Macprovideo) — ramp-up/loop/ramp-down",
+        "url": "https://macprovideo.com/article/game-audio/game-audio-creating-a-realistic-rate-of-fire-for-automatic-weapons-using-logic"
+      },
+      {
+        "title": "Two Sources of Sound When You Shoot: Subsonics vs Supersonics (GunsAmerica)",
+        "url": "https://gunsamerica.com/digest/two-sources-of-sound-when-you-shoot-subsonics-vs-supersonics/"
+      },
+      {
+        "title": "Procedural audio using the Web Audio API (AES)",
+        "url": "https://aes.digitellinc.com/p/s/procedural-audio-using-the-web-audio-api-2413"
+      }
+    ]
+  },
+  {
+    "axis": "canyon-reverb",
+    "techniques": [
+      {
+        "name": "Shared convolution-reverb send bus with a procedurally-generated decaying-noise IR (the canyon tail)",
+        "howItWorks": "Build ONE ConvolverNode whose IR is exponentially-decaying filtered noise: for each sample j, ir[j] = (noise in [-1,1]) * decayBase^j, where decayBase = (1/1000)^(1/(RT60*sampleRate)) so amplitude hits -60 dB exactly at RT60 (Moorer's result: exp-decaying white noise is a surprisingly good reverb tail). Add a short linear fade-in (5-15 ms) to soften the onset, and a gradual lowpass swept from ~bright to ~dull across the tail so highs die faster than lows (air + wall absorption). Every cue's gain node taps a parallel send into this single shared bus; the dry path is unchanged. This is the cheapest 20x: one convolver processes the whole 30-man firefight, not per voice.",
+        "webAudioMapping": "Generate IR once at unlock via OfflineAudioContext or a plain AudioBuffer fill: `const N=Math.round(RT60*sr*1.5); buf=ctx.createBuffer(2,N,sr); for(ch){d=buf.getChannelData(ch); base=Math.pow(1/1000,1/(RT60*sr)); for(j) d[j]=(Math.random()*2-1)*Math.pow(base,j);}` then optionally re-render through an OfflineAudioContext BiquadFilter(lowpass) whose .frequency ramps lpStart->lpEnd. Node graph: build a persistent `reverbBus = ctx.createGain()` -> `convolver(buf)` -> `wetGain` -> master. In schedule(), after the existing `cueGain -> lp -> pan -> master`, add one branch `cueGain.connect(reverbSend); reverbSend.connect(reverbBus)` where reverbSend.gain encodes the per-cue wet amount. RT60 ~1.6-2.2 s for a tight Korengal draw, lpStart~6kHz, lpEnd~700Hz. Cost: one convolver + one gain per voice (the send), vs one whole convolver per voice.",
+        "applicability": "high",
+        "source": "reverbGen (adelespinasse) src/lib/index.ts generateReverb() — decayBase=(1/1000)^(1/decaySampleFrames), Moorer 'About This Reverberation Business'; gskinner 'Making Reverb with the Web Audio API'; MDN ConvolverNode",
+        "confidence": 0.95
+      },
+      {
+        "name": "Distance-driven wet/dry (direct-to-reverberant ratio) + pre-delay as the primary distance cue",
+        "howItWorks": "The dominant perceptual cue for source distance is the direct-to-reverberant ratio (DRR): close sources are mostly dry, far sources are heard mostly through their reflections. So instead of (or alongside) the current pure attenuation, scale the reverb-send level UP with distance while the dry level falls — at the edge of audibility a shot is almost all tail. Pre-delay (gap between dry hit and first reflection) should also grow with distance: a far source's reflections arrive relatively sooner after its already-delayed dry sound, but the canyon-wall bounce adds a real geometric pre-delay. This single ratio change does more for 'it's across the valley' than any EQ trick.",
+        "webAudioMapping": "Compute in the existing spatial() using `norm = distM/AUDIBLE_M` already there. dryGain = atten (current behavior). wetSend = clamp(0.15 + 0.85*norm, 0, 1) * cue.gain — near 0.15, far ~1.0. Insert a per-cue (or per-distance-bucket) `DelayNode` of preDelay = clamp(0.02 + norm*0.12, 0.02, 0.18) s on the send path: `cueGain -> sendGain -> preDelay -> reverbBus`. Optionally also lowpass the SEND (not just the dry) harder with distance since the tail of a distant event is duller. This reuses the camera-as-listener distance already computed; no sim change, deterministic mapper untouched.",
+        "applicability": "high",
+        "source": "Audiokinetic 'A Wwise Approach to Spatial Audio Part 1 — Distance Modeling'; arXiv P-Reverb (Perceptual characterization of early/late reflections); zleague Gray Zone Warfare gunfire-reverb postmortem",
+        "confidence": 0.9
+      },
+      {
+        "name": "Discrete canyon slap-back taps (multi-tap DelayNode) for rolling mountain echoes — the Restrepo signature",
+        "howItWorks": "Real valley firefights are NOT a smooth tail — you hear discrete cracks rolling away as the report bounces off named cliff faces. Physics: a wall at distance D returns a slap at t = 2D/343 s (a wall 170 m off = 1.0 s; 340 m = 2.0 s). Two perceptibly-separate echoes need >~0.1 s (~17 m) of path difference. Model 2-4 discrete taps at canyon-scale delays with decreasing gain and increasing lowpass (each bounce loses highs), placed at slightly different pans (the echo comes from a different wall than the source). This is what makes it read as MOUNTAINS, not a room. Feed these taps INTO the convolution bus to also seed the diffuse tail (early reflections increase the late echo density) — discrete slaps up front, smooth tail behind.",
+        "webAudioMapping": "A parallel 'canyon' send: `cueGain -> canyonSend -> [tap1, tap2, tap3]`. Each tap = `DelayNode(delayTime=Ti) -> BiquadFilter(lowpass, freq=Fi) -> StereoPanner(panOffset_i) -> tapGain_i -> master AND -> reverbBus`. Use deterministic geometric-ish taps, e.g. T=[0.18, 0.42, 0.85] s (scaled to a per-valley 'wall distance' parameter), tapGain=[0.5,0.3,0.16], lowpass F=[4000,2200,1200] Hz. For louder events (ied/blast_large/mg) raise tap gains and add a 4th long tap (~1.4 s) for the 'thunder rolling out' beat; for tiny events (impact/ricochet) skip taps entirely. ONE shared multi-tap rig can serve all voices (taps are linear) — only the per-cue canyonSend.gain varies. Pure: tap delays/gains are constants or a pure function of cue.kind, no PRNG.",
+        "applicability": "high",
+        "source": "CK-12 / canyon echo physics (t=2D/c, 17 m min separation); Valhalla DSP 'Schroeder Reverbs: the forgotten algorithm' (slap/echo density); Gearspace 'simulating outdoor spaces' (multi-tap exterior slaps); Restrepo soldier accounts (gunfire echoing from below the post)",
+        "confidence": 0.88
+      },
+      {
+        "name": "Per-event reverb CHARACTER, not just one global verb (event-keyed RT60 / wet amount)",
+        "howItWorks": "Different events excite the valley differently and need different verbs: a rifle crack throws a short bright tail; a 120mm/IED blast throws a long, low, slow rolling tail that physically dominates the valley for seconds; a near MG burst smears into a continuous wash. Rather than one IR, key the wet-send amount and (optionally) tail length to cue.kind: small arms get modest wet + short taps; HE gets heavy wet + the long 4th tap; radio/dangerclose/tic_sting get ZERO reverb (they're 'in your headset', non-positional — keep them dry and present). This preserves the restrained mix: only the world-positional weapons bloom into the canyon.",
+        "webAudioMapping": "Add a `KIND_WET: Record<CueKind,number>` table beside the existing KIND_TRIM in player.ts: e.g. muzzle_*: 0.35, mg_*: 0.45, blast_small: 0.6, blast_large/ied: 0.85, impact/ricochet: 0.15, splash: 0.7, smoke_pop/flare: 0.1, radio/dangerclose/tic_sting/shot: 0.0. The send gain = wetSend(distance) * KIND_WET[kind]. Optionally maintain TWO shared convolver buses (a 'short' RT60~1.2 s and a 'long' RT60~2.8 s) and route HE to the long one, small arms to the short — still only 2 convolvers total. Mirrors the existing KIND_TRIM pattern exactly; an exhaustive Record makes the compiler force every new CueKind to declare its wetness.",
+        "applicability": "high",
+        "source": "pixflow gun-sound guide (environment-dependent gunfire resonance); Audiokinetic Wwise reverb zones; existing player.ts KIND_TRIM pattern (lib/audio/player.ts:22)",
+        "confidence": 0.85
+      },
+      {
+        "name": "Algorithmic Schroeder/Freeverb tail (comb+allpass) as a CONVOLVER-FREE fallback / modulated alternative",
+        "howItWorks": "If you want a hand-tunable, zero-buffer tail (no IR pre-render, parameters changeable live), build a Freeverb-style reverb from native nodes: 8 parallel lowpass-feedback comb filters summed, then 4 allpass filters in series. Freeverb's tuned comb delays (samples @44.1k) are {1116,1188,1277,1356,1422,1491,1557,1617} and allpass delays {556,441,341,225}; right channel adds a stereospread of 23 samples. The comb feedback g sets RT60 via g = 10^(-3*delaySec/RT60); the in-comb lowpass 'damping' makes highs decay faster (the mountain air-absorption). Modulating the comb delay times slowly (a tiny LFO) removes the metallic ring and is a known trick for natural tails. FDN (4-8 mutually-prime delay lines + a Householder/Hadamard feedback matrix, g_i = 10^(-3*Mi/(fs*RT60))) is the higher-quality cousin if the combs ring.",
+        "webAudioMapping": "Comb = `input -> DelayNode(d) -> BiquadFilter(lowpass=damp) -> fbGain(g) -> back to the DelayNode input (createGain loop)`, output tapped after the delay. Build 8 in parallel into a summing gain, then chain 4 allpass = `DelayNode + feedforward/feedback gains (0.5)` in series. Web Audio has no native allpass-delay, so realize each as the 2-gain lattice around a DelayNode. Convert Freeverb sample delays to seconds: 1116/44100=0.0253 s, etc. Slowly modulate each comb delayTime with an OscillatorNode->gain->delay.delayTime (depth ~0.3 ms, rate ~0.1-0.5 Hz). Heavier CPU than a convolver (≈20+ nodes in feedback) but fully live-tweakable and needs no pre-render; keep it as ONE shared bus, never per-voice.",
+        "applicability": "medium",
+        "source": "Freeverb tuning (thestk/stk FreeVerb.cpp; ccrma.stanford.edu/~jos/pasp/Freeverb.html); Valhalla DSP Schroeder article; dsprelated.com FDN Reverberation (g_i=10^(-3 Mi T/t60), Householder/Hadamard, mutually-prime delays)",
+        "confidence": 0.82
+      },
+      {
+        "name": "Elevation / high-ground cue via the terrain elevation field (the gun from the ridge)",
+        "howItWorks": "Today there is NO elevation cue, yet in the Korengal the defining tactical fact is who holds the high ground — the PKM 'from above' should sound different. A source far above the valley floor has a longer, less-obstructed reflection path and reaches the listener with more open-air slap and less ground-coupled low-end; a source down in a draw is muffled and gets a tighter, darker tail. Use the render-accessible terrain elevation (Terrain.elev / minElev / floor elevations) to derive a relative-height term and bend the wet amount, tap delays, and dry lowpass with it — purely render-side, sim untouched.",
+        "webAudioMapping": "In player.spatial(), sample `dz = terrain.elev[idx(cue.pos)] - terrain.elev[idx(camCenter)]` (terrain is already on the render side via the World). For sources above the listener (dz>0): raise wetSend slightly and brighten the first canyon tap (open-air path) — `tap1 lowpass += dz*scale`, and shorten its pre-delay a touch. For sources below (dz<0, down in a draw): darken the dry lowpass (extra -Hz) and reduce high-frequency tap content (terrain occlusion proxy). Keep it a gentle continuous mapping, not a switch. This is an additive multiplier on the same send/tap nodes from the techniques above — no new bus.",
+        "applicability": "medium",
+        "source": "Terrain elevation API in repo (lib/sim/terrain.ts: elev Float32Array, minElev, floorSouth/floorNorth); Restrepo/The Outpost high-ground tactical accounts; general acoustic elevation/occlusion modeling (Wwise spatial audio)",
+        "confidence": 0.7
+      },
+      {
+        "name": "Bake early reflections into the IR (discrete pre-tail taps inside the convolver buffer)",
+        "howItWorks": "Instead of a separate multi-tap rig, you can encode the discrete canyon slaps DIRECTLY into the procedurally-generated IR by writing impulse spikes at the slap-back sample offsets before the diffuse decaying-noise tail. The IR then becomes: a few sparse, decreasing-amplitude impulses (the named cliff walls) followed by the exp-decay noise floor (the diffuse valley wash). One convolver then produces both the rolling discrete echoes AND the smooth tail in a single pass — the most efficient possible realization. Trade-off: the slap delays are then fixed per-IR (can't follow per-source wall geometry), so it's best when the valley has a characteristic acoustic you set per-deployment.",
+        "webAudioMapping": "When filling the IR buffer: first write the noise*decay tail as in technique 1, then ADD spikes: `for each wall {k=Math.round(Tk*sr); ir[k]+=ampK; ir[k+1]+=ampK*0.5;}` with Tk=[0.18,0.42,0.85] s and ampK=[0.6,0.35,0.2], optionally panned by writing different amplitudes into L vs R channels. Result: one `convolver(buf)` shared bus does discrete + diffuse. Regenerate a small set of IRs (e.g. 'tight draw', 'open valley', 'wadi') at unlock and switch the convolver.buffer per deployment/zone. Determinism preserved: IR generation is render-side noise (allowed), the choice of IR is a pure function of the deployment seed/zone.",
+        "applicability": "medium",
+        "source": "Audiokinetic Wwise (early reflections fed into late reverb to increase echo density); Moorer early-reflection + diffuse-tail model; reverbGen IR fill loop",
+        "confidence": 0.8
+      }
+    ],
+    "keyInsights": [
+      "Use a SHARED reverb send bus, never per-voice convolution. Wwise explicitly applies reflection/reverb per-emitter on an Auxiliary Bus because per-voice 'would be too heavy' — for a 30-man firefight one ConvolverNode (or one Freeverb rig) processes every source via a cheap per-cue send gain. This is the single most important architectural decision and it fits the existing per-cue `cueGain -> lp -> pan -> master` chain by adding one parallel `cueGain -> sendGain -> reverbBus` branch.",
+      "The procedural IR is a one-liner of math, not a mystery: ir[j] = noise * ((1/1000)^(1/(RT60*sr)))^j gives an exact -60 dB-at-RT60 exp-decay tail (Moorer). Add a short fade-in and a tail-swept lowpass. No audio file needed — fully satisfies the no-binary-assets constraint, and the noise is render-side only so determinism (Law 7) holds.",
+      "Distance is carried by the wet/dry ratio (DRR), not just attenuation. Today the sim only attenuates + lowpasses with distance; bloom the reverb SEND up as the source recedes (near ~0.15 wet, far ~1.0 wet) and grow pre-delay — that's what makes a shot read as 'across the valley' rather than just 'quiet'. The distance term is already computed in player.spatial().",
+      "Canyon character = DISCRETE rolling slap-backs in front of a diffuse tail, not a single smooth verb. Physics gives the timing for free: a cliff wall at distance D slaps at t=2D/343 s, so Korengal-scale walls (170-340 m) produce 1-2 s echoes that must be perceptibly separate (>0.1 s apart). Model 2-4 multi-tap DelayNodes (decreasing gain, increasing lowpass, slightly different pans) and let them also seed the convolver tail.",
+      "Key the wet amount to cue.kind via an exhaustive Record (mirroring the existing KIND_TRIM): small arms get modest short tails, HE/IED get heavy long rolling tails, and radio/dangerclose/tic_sting get ZERO reverb (they're 'in your headset'). This keeps the restrained 'readable silence' mix — only world-positional weapons bloom into the valley.",
+      "Two free, on-theme upgrades the current system entirely lacks: an ELEVATION cue (the terrain elev field is render-accessible — the gun from the high ground sounds more open, the draw sounds muffled) and per-deployment valley acoustics (regenerate 'tight draw' vs 'open valley' IRs at unlock). Both are render-side only and need no sim/determinism changes."
+    ],
+    "pitfalls": [
+      "Per-voice ConvolverNodes will tank performance — a convolver is expensive and instantiating one per cue in a 30-man TIC (MAX_VOICES=24) is the classic mistake. Always tap a SHARED reverb bus; the per-cue cost is one GainNode send.",
+      "Generating the IR (filling a multi-second noise buffer or running an OfflineAudioContext) is NOT free — do it ONCE at unlock(), cache it like the existing shared `_noise` buffer in synth.ts. Never regenerate per cue or per frame.",
+      "Determinism break risk: the IR uses Math.random() — that is fine ONLY on the render side (synth/player already do this for noiseBuffer). Never let reverb parameters or IR choice flow back into lib/sim or the pure mapper. The cue->sound mapping must stay a pure function (Law 7); reverb lives entirely after the cue is emitted.",
+      "Over-wet = arcade mush, the exact opposite of the brief. The references warn quiet/close sounds should get little-to-no reverb; drowning every rifle crack in tail kills the 'readable silence of the calm-before'. Default wet low and let only distance + HE push it up; keep radio/UI cues bone dry.",
+      "Metallic ringing from comb/allpass (algorithmic) tails — if you go the Freeverb/FDN route, use mutually-prime delay lengths and slowly modulate the comb delay times, or the tail sounds like a flanger/tin can, which reads as cheap/arcade-y. The convolution IR avoids this entirely.",
+      "Clipping/buildup in a sustained firefight: many simultaneous wet sends summing into one bus can pile up and clip the master. Put a DynamicsCompressorNode (gentle, fast) on the reverb bus output, and scale the bus gain down as activeVoices rises (mirror the existing polyphony-cap LOD philosophy).",
+      "Don't let the tail bleed through the pause/warp gate. The existing tick() gate stops scheduling on pause/warp; long reverb tails already in flight will ring out — either keep them (natural) or mute the reverb bus on pause. Pick deliberately so a paused screenshot isn't accidentally noisy.",
+      "Pre-delay + speed-of-sound double-count: the system already delays the 'thump' by distM/343 (crack-thump split). If you ALSO add a big reverb pre-delay scaled by distance you can smear the timing unnaturally. Keep reverb pre-delay modest (~20-180 ms) and let the existing thump delay own the gross speed-of-sound offset."
+    ],
+    "sources": [
+      {
+        "title": "ConvolverNode — MDN Web Docs",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode"
+      },
+      {
+        "title": "reverbGen (adelespinasse) — procedural decaying-noise IR generator, src/lib/index.ts",
+        "url": "https://github.com/adelespinasse/reverbGen"
+      },
+      {
+        "title": "reverbGen generateReverb source (raw)",
+        "url": "https://raw.githubusercontent.com/adelespinasse/reverbGen/master/src/lib/index.ts"
+      },
+      {
+        "title": "Making Reverb with the Web Audio API — gskinner blog",
+        "url": "https://blog.gskinner.com/archives/2019/02/reverb-web-audio-api.html"
+      },
+      {
+        "title": "Convolution Reverb and Web Audio API — ITNEXT (Anton Miselaytes)",
+        "url": "https://itnext.io/convolution-reverb-and-web-audio-api-8ee65108f4ae"
+      },
+      {
+        "title": "Schroeder Reverbs: the forgotten algorithm — Valhalla DSP",
+        "url": "https://valhalladsp.com/2009/05/30/schroeder-reverbs-the-forgotten-algorithm/"
+      },
+      {
+        "title": "Freeverb — Physical Audio Signal Processing (Julius O. Smith, CCRMA)",
+        "url": "https://ccrma.stanford.edu/~jos/pasp/Freeverb.html"
+      },
+      {
+        "title": "FreeVerb.cpp tuning constants — thestk/stk",
+        "url": "https://github.com/thestk/stk/blob/master/src/FreeVerb.cpp"
+      },
+      {
+        "title": "FDN Reverberation (feedback matrix, RT60 gain formula) — Physical Audio Signal Processing",
+        "url": "https://www.dsprelated.com/freebooks/pasp/FDN_Reverberation.html"
+      },
+      {
+        "title": "On Lossless Feedback Delay Networks (arXiv)",
+        "url": "https://arxiv.org/pdf/1606.07729"
+      },
+      {
+        "title": "A Wwise Approach to Spatial Audio Part 1 — Distance Modeling and Early Reflections",
+        "url": "https://www.audiokinetic.com/en/blog/a-wwise-approach-to-spatial-audio-part-1/"
+      },
+      {
+        "title": "A Wwise Approach to Spatial Audio Part 3 — Beyond Early Reflections",
+        "url": "https://www.audiokinetic.com/en/blog/a-wwise-approach-to-spatial-audio-part-3-beyond-early-reflections/"
+      },
+      {
+        "title": "Image Source Approach to Dynamic Early Reflections — Audiokinetic",
+        "url": "https://www.audiokinetic.com/en/blog/image-source-approach-to-dynamic-early-reflections/"
+      },
+      {
+        "title": "P-Reverb: Perceptual Characterization of Early and Late Reflections (arXiv)",
+        "url": "https://arxiv.org/pdf/1902.06880"
+      },
+      {
+        "title": "Gunfire Reverb: Enhancing Immersion in Gray Zone Warfare — zleague",
+        "url": "https://www.zleague.gg/theportal/sound-matters-enhancing-gunfire-reverb-in-gray-zone-warfare-for-ultimate-immersion/"
+      },
+      {
+        "title": "Gun & Gunfire Sound Effects: Complete Filmmaking Guide — pixflow",
+        "url": "https://pixflow.net/blog/gun-gunfire-sound-effects/"
+      },
+      {
+        "title": "Simulating outdoor spaces (multi-tap exterior slaps) — Gearspace forum",
+        "url": "https://gearspace.com/board/post-production-forum/1329848-what-kind-methods-used-post-simulating-outdoor-spaces.html"
+      },
+      {
+        "title": "The Procedural Sounds and Music of ECHO::Canyon (ResearchGate)",
+        "url": "https://www.researchgate.net/publication/266796228_The_Procedural_Sounds_and_Music_of_ECHOCanyon"
+      },
+      {
+        "title": "Canyon echo physics (t = 2D/c, ~17 m minimum separation) — CK-12",
+        "url": "https://www.ck12.org/flexi/physical-science/ultrasound/if-you-shout-into-the-grand-canyon-your-voice-travels-at-the-speed-of-sound-(340-m-by-s)-to-the-bottom-of-the-canyon-and-back-and-you-hear-an-echo-how-deep-is-the-grand-canyon-at-a-spot-where-you-can-hear-your-echo-5-2-seconds-aft/"
+      },
+      {
+        "title": "Restrepo (film) — Korengal Valley firefights, soldier acoustic accounts — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Restrepo_(film)"
+      }
+    ]
+  },
+  {
+    "axis": "ambient-soundscape",
+    "techniques": [
+      {
+        "name": "Three-tier ambient architecture: persistent BED loops + Poisson-scheduled SPOT one-shots + sim-driven DYNAMIC params",
+        "howItWorks": "The canonical game-ambience model splits a soundscape into three roles: (1) a continuous BED of stereo loops (wind, river, generator, room tone) that is always present; (2) discrete SPOT one-shots (a single bird call, a dog bark, a creak, a far gust) edited OUT of the bed and re-injected with randomized timing so no recognizable pattern survives; (3) DYNAMIC parameters (time-of-day, weather, wind speed) that continuously re-mix the bed and re-weight the one-shot pools. Detailed/identifiable events live in the spot layer precisely because a recognizable sound baked into a loop is what the ear catches as repetition. This is the architecture STALKER, Firewatch and RDR all use.",
+        "webAudioMapping": "Mirror the existing PURE/RENDER split. NEW pure module lib/audio/ambient-state.ts (sibling of mapper.ts) is a function of (secondsOfDay, solarLight, weather.label, weather.wind, isNight, camera-vs-COP/village/river distances) → an AmbientMix target: {windGain, riverGain, rainGain, generatorGain, biophonyDensity, anthrophonyEnable, reverbWet}. It emits ONLY deterministic numbers — no noise, no wall-clock. NEW render module lib/audio/ambient.ts owns a persistent voice bank wired ONCE at unlock: each BED voice = noiseBuffer→Biquad chain→GainNode→master (long-lived, never torn down, gains ramped via setTargetAtTime). SPOT one-shots reuse the existing synthCue/one-shot path but are TRIGGERED render-side by a Poisson timer (see technique 6). The existing AudioEngine.tick() gains an ambient.update(mix) call after the cue loop; the bed lives parallel to the 24-voice combat pool so it is never starved by the MAX_VOICES cap.",
+        "applicability": "high",
+        "source": "Game Audio Learning Portal — How To Make Ambiences For Games; STALKER Anomaly Immersive Ambience design (ModDB); RDR audio director interview (designingsound.org)",
+        "confidence": 0.95
+      },
+      {
+        "name": "Procedural valley WIND: parallel bandpass-filter bank on noise, intensity ~1/f, with a lag between gust-envelope and filter-center movement",
+        "howItWorks": "Farnell's canonical wind model (ported widely to Pd/Max/Csound): run continuous noise through a BANK of 10-50 parallel 2nd-order bandpass filters. A slow 1/f-ish (pink) random 'intensity' signal drives overall amplitude (the gusts); the bandpass CENTER frequencies and the high 'whistle' resonators are modulated more sharply but with a deliberate DELAY behind the intensity envelope — the perceptual cue that a gust builds, THEN the pitch rises as it whistles past objects. Low filters (~100-400 Hz) give the valley howl; a couple of high resonant peaks (~1-3 kHz, high Q) give the whistle around the wire/rocks. Crucially: drive overall wind gain AND brightness from the sim's actual wind speed so a Clear-3 m/s day and a Snow-7 m/s night are audibly different and LEARNABLE (the sim already models diurnal anabatic/katabatic flow).",
+        "webAudioMapping": "ONE shared looping AudioBufferSourceNode of brown/pink noise (generate once, like the existing _noise buffer but -6dB/oct shaped). Fan it into 3-5 parallel BiquadFilters (cheap approximation of the 10-50 bank): 2x lowpass/bandpass @ 180 Hz & 350 Hz (Q~0.7) for the howl, 2x bandpass @ 900 Hz & 2200 Hz (Q~6-10) for the whistle. Each filter → its own GainNode → summed into windGain → master. GUSTS: a second slow noise buffer (or 2-3 detuned LFO OscillatorNodes @ 0.05-0.3 Hz summed) drives windGain via a GainNode on its .gain; map sim weather.wind (0-8 m/s) to base windGain AND nudge the whistle filter cutoffs up with speed. LAG: feed the gust signal to the whistle-filter .frequency through a DelayNode (~0.3-0.8 s) so brightness trails loudness. All param moves use setTargetAtTime so wind speed/weather changes glide. windVector() x-component can bias StereoPanner for directional gusts.",
+        "applicability": "high",
+        "source": "Andy Farnell, Designing Sound (MIT Press, wind chapter); Cycling74 'Synthetic Wind' forum (florian1947 summary: 10-50 parallel 2nd-order bandpass, intensity~1/f, delays between intensity & filter movement)",
+        "confidence": 0.9
+      },
+      {
+        "name": "Acoustic-niche frequency partitioning: give every layer its own band so the bed never muds",
+        "howItWorks": "Krause's acoustic niche hypothesis: in a healthy natural soundscape, species/sources partition the spectrum so they don't mask each other. Use it as a MIX DISCIPLINE, not biology: assign each ambient layer a reserved frequency band and bandpass-limit it there. Generator owns the low hum (~50-250 Hz + harmonics), river owns the broadband mid-high hiss (~400 Hz-6 kHz) but is gently notched where birds sing, wind howl owns ~100-400 Hz and whistle owns ~1-3 kHz, insects own a narrow ~4-7 kHz shimmer, birds own ~2-5 kHz transients, the adhan/dogs own the vocal mid (~300 Hz-2 kHz). When two layers must coexist (river + birds), notch the bed so the foreground reads. This is exactly the project's stated 'avoid mix mud' pitfall solved by design rather than by EQ-fighting at runtime, and it keeps the bed legible under the combat layer (the calm-before must stay readable).",
+        "webAudioMapping": "Each persistent BED voice terminates in a band-limiting Biquad before its layer GainNode: generator→lowpass 250 Hz; river→bandpass center ~1.2 kHz wide Q~0.4 PLUS a peaking-filter NOTCH at 3-4 kHz (negative gain) to clear room for birds; wind already split as above. A single shared 'foreground duck': when a high-priority spot (adhan, near dog, or a combat cue) fires, ramp the river/wind GainNodes down ~3-5 dB via setTargetAtTime(target, now, 0.15) and back — reuse the radio-duck pattern already implied by KIND_TRIM. No global compressor needed for separation; the bands do the work.",
+        "applicability": "high",
+        "source": "Bernie Krause, Acoustic Niche Hypothesis (1993); Pijanowski et al., 'Soundscape Ecology', BioScience 2011 (en.wikipedia.org/wiki/Soundscape_ecology)",
+        "confidence": 0.9
+      },
+      {
+        "name": "Non-repetition via UNSYNCHRONIZED loops + irrational loop lengths (no two layers share a period)",
+        "howItWorks": "The core anti-loop-fatigue trick from natural-soundscape design: never let two looping beds share a period or phase. If wind loops every 11.3 s, river every 7.9 s, insects every 13.1 s, and generator every 5.7 s, their combined pattern only truly repeats at the least-common-multiple — effectively never within a session. The ear locks onto coincidences (two loops restarting together), so the fix is deliberately mutually-prime/irrational loop lengths and independent start phases. Combined with continuous LFO modulation on filter cutoffs, the bed 'evolves organically' and never reveals its seams. This is cheaper and more deterministic-friendly than granular and avoids shipping any sample.",
+        "webAudioMapping": "Since every bed source is procedural looping noise, 'loop length' is really the period of the modulators on top of it. Give each layer's gust/shimmer LFO an irrational rate (wind 0.13 Hz, river-swell 0.077 Hz, insect-shimmer 0.19 Hz, generator-wobble 0.043 Hz) and start each at ctx.currentTime + a fixed per-layer phase offset. For the noise buffers themselves, use DIFFERENT buffer lengths per layer (e.g. 2.0 s, 3.1 s, 5.3 s) and loopStart/loopEnd so the underlying texture also de-phases. Determinism note: these rates/phases are CONSTANTS in the render layer (not PRNG), so two same-seed sessions still sound identical — the 'randomness' is the irrational beat pattern, not entropy.",
+        "applicability": "high",
+        "source": "Game Audio Learning Portal (unsynchronized loops never repeat); Splice 'Procedural audio in games' (constant loudness fatigues; introduce quiet)",
+        "confidence": 0.88
+      },
+      {
+        "name": "Time-of-day & weather CROSSFADE via equal-power gain ramps on a fixed voice bank (no source restart)",
+        "howItWorks": "Rather than swapping in new loops at dawn/dusk/weather change (which clicks and needs reload), keep ALL bed voices permanently alive and crossfade their GAINS along an equal-power curve driven by the sim's continuous solarLight (0..1) and weather label. Day biophony (birds, insects) fades up as solarLight rises; night biophony (crickets, the lone dog) fades up as it falls; the river/generator stay roughly constant; rain fades in with weather.precip and pushes a broadband hiss bed up while ducking birds to near-silence. Equal-power (cos/sin) rather than linear crossfade prevents the perceived volume dip when two beds are both at 50%. Because solarLight is already a smooth smoothstep ramp (5-7am, 17-19.5pm), the audio transition is automatically gradual and matches the on-screen night-light render.",
+        "webAudioMapping": "ambient-state.ts emits per-layer target gains as a PURE function of solarLight & weather. ambient.update() applies them with master.gain.setTargetAtTime(target, now, 8.0) — an ~8 s time-constant so weather/dawn glides over tens of seconds, not abruptly. For the day↔night biophony pair use equal-power: dayGain = sin(solarLight*PI/2)*amp, nightGain = cos(solarLight*PI/2)*amp, both applied as targets. Rain bed = filtered-noise voice whose gain target is weather.precip?fullRain:0, with a parallel ramp on birdDensity→0. NO source.start/stop on transitions — only AudioParam ramps, so zero clicks and zero reallocation. Weather.label switch in the pure layer picks the band/gain set; the render side just chases the targets.",
+        "applicability": "high",
+        "source": "Boris Smus, Web Audio API book ch.3 (equal-power crossfade cos/sin); MDN setTargetAtTime (time-constant); RDR ambience respects weather & time of day (designingsound.org)",
+        "confidence": 0.92
+      },
+      {
+        "name": "Biophony as a Poisson SPOT scheduler with a deterministic, seed-stable arrival sequence",
+        "howItWorks": "Birds/insects/dogs/distant-voices must NOT be in the loop — they're sparse one-shots whose magic is irregular timing. Model each pool as a Poisson process: an exponentially-distributed inter-arrival time scaled by a density that the dynamic layer sets (high bird density at dawn, near-zero at night/in rain; high insect density on warm clear days; rare lone dog at night). Each fired one-shot is itself synthesized (a short pitched chirp = a couple of fast frequency-swept sines through a bandpass; a dog bark = a noise+formant burst; a far human voice = filtered formant babble) and SPATIALIZED at a village/COP position so it pans and attenuates correctly. The determinism contract is honored by deriving the arrival schedule and each one-shot's pitch/pan from a PURE hash of (layerId, secondsOfDay-bucket, index) — the same trick cue.ts already uses (cueVar = hash of source id). Same seed + same clock ⇒ same birds.",
+        "webAudioMapping": "ambient-state.ts owns a per-pool 'next-fire clock': nextFire = lastFire + (-ln(hashToUnit(layer,n)) / density) where hashToUnit reuses RNG.hashString (already re-exported through the world barrel for the mapper). When world clock passes nextFire it appends a spot AudioCue {kind:'bird'|'insect'|'dog'|'voice', pos: villageOrRidgePos, v: hash} to the cue stream — flowing through the EXISTING mapper→synth→spatial pipeline (StereoPanner + distance atten + air-absorption lowpass already built). New synthCue recipes: bird = 2-4 quick sine sweeps (e.g. 3.5k→2.8k over 60-120ms) through a bandpass Q~8; cricket = amplitude-gated 4.5 kHz sine pulse train; dog = lowpass noise burst + 300/600 Hz formant tones; distant voice/adhan-snippet = sawtooth through 2-3 peaking formant filters, heavily lowpassed for distance. Density comes from the pure layer; nothing here uses wall-clock or Math.random.",
+        "applicability": "high",
+        "source": "Game Audio Learning Portal (detailed sounds edited out of loops → randomized spot effects); existing lib/audio/cue.ts cueVar determinism pattern (docs/progress/2026-06-06-procedural-audio)",
+        "confidence": 0.85
+      },
+      {
+        "name": "Procedural valley REVERB from a decaying-noise impulse response (place acoustics without a sample)",
+        "howItWorks": "A ConvolverNode's IR can be PROCEDURALLY generated as exponentially-decaying filtered noise — no audio file shipped. This gives the whole soundscape a sense of PLACE: a wide steep-walled valley has a long, dark, slappy tail; a close ravine is short and bright. Convolving the ambient bed (and a wet send of distant gunfire/explosions) through a ~1.5-2.5 s exp-decay IR adds the canyon reverb that the project explicitly lacks today and that every reference game (the crack of a rifle ROLLING down the valley in Restrepo/The Outpost) relies on for authenticity. The IR can be re-shaped by weather (fog/snow = shorter, more absorbed tail; clear = longer) by regenerating it on weather change (offline render, cheap, infrequent).",
+        "webAudioMapping": "Generate IR via OfflineAudioContext(2, sampleRate*reverbTime, sampleRate): fill a stereo buffer with white noise, multiply each sample by an exponential decay (sample[i] *= (1 - i/len)^p, p≈2-4 for a natural exp tail), then band-shape it (highpass ~400 Hz so the tail isn't boomy, lowpass ~5-6 kHz for air absorption / valley darkness) — exactly the gskinner recipe. Wire as a PARALLEL WET SEND, not inline: master split into (a) dry→destination and (b) a reverbSend GainNode→ConvolverNode→destination. Ambient bed and DISTANT combat cues feed a higher wet ratio (the rolling-thunder report); close cues stay mostly dry. reverbWet target comes from the pure layer (distance/weather). Regenerate the IR only on weather.label change. CPU is trivial — one convolver, one IR.",
+        "applicability": "high",
+        "source": "gskinner blog 'Making Reverb with the Web Audio API' (decaying-noise IR + HP500/LP5000 shaping, parallel wet send); adelespinasse/reverbGen; MDN ConvolverNode",
+        "confidence": 0.9
+      },
+      {
+        "name": "Procedural RAIN/RIVER: filtered broadband 'bed' + Poisson droplet/burble grains layered",
+        "howItWorks": "Both water sources use the same two-part recipe: a continuous filtered-noise BED for the mass (the steady river hiss / the rain wash) PLUS sparse synthesized GRAINS for the detail (individual close raindrops, river burbles over rocks). The bed alone sounds like static; the grains alone sound sparse; together they read as water. Audiokinetic's pure-synthesis rain uses exactly this: a noise bed for the downpour plus short pitched-noise droplets triggered with randomized density and pitch. For the river, modulate the bed's bandpass center slowly (the water 'breathing') and add low burble grains; tie river GAIN/brightness to camera distance from the mapped river polyline so walking a patrol toward the stream brings it up — strong sense-of-place payoff.",
+        "webAudioMapping": "RIVER bed: shared noise buffer → bandpass (center ~1.0-1.5 kHz, Q~0.4) → slow LFO (0.05-0.1 Hz) on the bandpass .frequency (±300 Hz) for the breathing → riverGain (set by distance-to-river from the pure layer) → reverb send. River burbles: low-rate Poisson grains = 80-160 Hz sine 'plinks' through a bandpass, panned at the river position. RAIN bed: noise → lowpass ~ shaped by intensity, gain = weather.precip?level:0, ducks birds. Rain droplets (only when close/under cover): Poisson short highpassed noise ticks (reuse the 'impact' recipe family). All grain schedules are the deterministic Poisson-from-hash from technique 6. River position can come from terrain (the river-aware planner already knows the channel); distance→gain via the same camera-distance math spatial() already computes.",
+        "applicability": "medium",
+        "source": "Audiokinetic 'Generating Rain With Pure Synthesis' (noise bed + synthesized droplets, randomized density/pitch); binaura.net WebPd rain/wind experiment (continuous HP-filtered noise wind + ADSR droplet rain)",
+        "confidence": 0.82
+      },
+      {
+        "name": "Anthrophony of place: generator hum (additive harmonics) + scheduled adhan + COP/village emitters",
+        "howItWorks": "The signature of THIS setting is anthrophony: the ever-present diesel generator drone at the COP, the five-times-daily call to prayer drifting up from villages, distant dogs. The generator is additive synthesis — a low fundamental plus odd/even harmonics with a slow amplitude wobble (the engine 'lope') — proven for mains/engine hum. The adhan is a scheduled, NON-random event (it happens at fixed prayer times tied to solarLight/clock, which is doctrinally and emotionally right — it marks time, and a firefight that interrupts it lands hard), synthesized as filtered formant tones (a melismatic vocal line is faked with a sawtooth through vowel-formant peaking filters, heavily lowpassed and reverbed for the distance-across-the-valley quality). These anchor the COP and villages as REAL places and are the single biggest 'sense of place' lever the genre has.",
+        "webAudioMapping": "GENERATOR: persistent voice = OscillatorNode sine @ ~55-65 Hz (fundamental) + 3-5 harmonics (sawtooth or summed sines at 2f,3f,4f, decreasing gain) → lowpass 250 Hz → generatorGain panned/attenuated by camera distance to COP. 'Lope' = a 3-7 Hz LFO at low depth on a gain in the chain. ADHAN: pure layer fires a spot cue at fixed secondsOfDay marks (dawn/noon/etc., derived from solarLight thresholds — deterministic); synth recipe = 2-3 OscillatorNodes (sawtooth) through peaking formant filters (~700/1200/2600 Hz, vowel-like), with a slow programmed pitch contour (setValueCurveAtTime for the melisma), then lowpass ~1.5 kHz + heavy reverb-send for cross-valley distance, panned to the nearest village pos. Dogs/voices via the technique-6 Poisson scheduler. Generator only audible inside ~COP radius (distance gate in spatial()).",
+        "applicability": "high",
+        "source": "meettechniek.info additive synthesis (harmonic stacks); mynoise 50/60Hz hum generator (fundamental+harmonics model); setting reference: Sebastian Junger 'War' / Restrepo / The Outpost (generator, adhan, dogs as the COP soundscape)",
+        "confidence": 0.78
+      },
+      {
+        "name": "The 'readable silence' contract: a calm-before floor that the combat layer ducks, and that surges quiet on a TIC",
+        "howItWorks": "The project's stated soul is 'the readable silence of the calm-before' — so the ambient bed must DROP OUT (not fight) when combat starts, mirroring how STALKER uses sudden silence before a blowout to spike tension. The bed runs at a low, restrained floor; on the TIC rising edge (the existing inContact latch / tic_sting), duck the whole ambient bus hard and fast so the firefight reads against near-silence + the existing low drone, then SLOWLY restore the bed as contact decays — the exhale after the fight. This makes the ambience an active dramatic instrument rather than wallpaper, and directly serves the 'somber, not arcade-y' tone. It also naturally solves CPU/clarity: fewer ambient voices compete during the loudest moments.",
+        "webAudioMapping": "Route ALL ambient voices into a single ambientBus GainNode → master (separate from the combat per-cue chains). The existing AudioFlags.inContact already gates the engine; on inContact rising edge call ambientBus.gain.setTargetAtTime(0.15, now, 0.4) (fast duck) and on falling edge setTargetAtTime(1.0, now, 12.0) (slow exhale, ~12 s). This reuses the exact pattern the tic_sting/radio duck already implies. The pure ambient-state layer can also lower biophony density toward zero while inContact (birds go quiet when shooting starts — true to life). Keep the generator/wind floor slightly present so it's silence-with-texture, not a dead mute.",
+        "applicability": "high",
+        "source": "STALKER sound design — silence-before-blowout tension (mordiomusic.com); project CLAUDE.md 'readable silence of the calm-before'; existing TIC one-way speed latch + tic_sting (lib/audio/synth.ts)",
+        "confidence": 0.9
+      }
+    ],
+    "keyInsights": [
+      "The ambient bed is a CONTINUOUS STATE, not discrete events — so it needs a NEW pure module (ambient-state.ts, sibling of the existing mapper.ts) that maps sim signals → target gains/params, and a NEW render module owning a PERSISTENT voice bank that chases those targets via setTargetAtTime. Do not bolt it onto the one-shot cue pipeline; run it as a parallel ambientBus so MAX_VOICES (combat) never starves the bed.",
+      "Every signal the bed needs ALREADY EXISTS deterministically on World: solarLight() (0..1 smooth dawn/dusk), windVector() (diurnal anabatic/katabatic + synoptic), state.weather (label/wind/windDir/precip/visibilityM), secondsOfDay/day, and COP/village/river positions. The pure ambient layer is a function of these — zero new sim state, zero determinism risk, and it auto-syncs with the on-screen night-light/weather render.",
+      "Two universal anti-repetition laws do the heavy lifting: (1) unsynchronized, mutually-irrational loop/LFO periods so the combined bed effectively never repeats; (2) detailed sounds (birds, dogs, gusts, adhan) live as Poisson-scheduled SPOT one-shots, NOT baked into loops. Determinism is preserved by deriving every arrival time + pitch + pan from a pure hash (RNG.hashString) of (layer, time-bucket, index) — the same cueVar trick already in cue.ts.",
+      "Krause's acoustic-niche hypothesis is the mix-mud cure: pre-assign each layer a reserved frequency band (generator <250 Hz, wind howl 100-400 Hz / whistle 1-3 kHz, river 0.4-6 kHz notched at 3-4 kHz, birds 2-5 kHz, insects 4-7 kHz, voices/adhan 0.3-2 kHz) and band-limit it there. Separation by design, not by runtime EQ fighting — and it keeps the bed legible under the combat layer.",
+      "Two big sense-of-place wins are nearly free in Web Audio: convolution reverb from a procedurally-generated exp-decay noise IR (the canyon roll of a distant report, NO sample shipped) on a parallel wet send; and anthrophony — additive generator hum + scheduled adhan + village dogs — which is THIS setting's signature and the strongest 'real place' lever the genre has.",
+      "The bed must be a dramatic instrument, not wallpaper: it runs at a restrained floor and DUCKS HARD on the inContact rising edge (fast, ~0.4s) then exhales slowly (~12s) — serving the project's literal 'readable silence of the calm-before' soul and reusing the existing TIC latch. Restraint is the brief; an always-loud bed would be the arcade-y failure mode to avoid."
+    ],
+    "pitfalls": [
+      "MIX MUD: stacking broadband noise layers (wind + river + rain) without frequency partitioning turns the bed to grey hiss. Band-limit each layer to its acoustic niche and notch the bed where a foreground layer (birds, adhan) lives. Do NOT rely on a master compressor to fix overlap — it pumps and flattens dynamics.",
+      "DETERMINISM BREAK: any wall-clock or Math.random in the cue/state-mapping layer violates Law 7. The pure ambient-state module must derive ALL variation (Poisson arrivals, pitch, pan) from RNG.hashString of (layer, time-bucket, index). Math.random() is allowed ONLY inside render-side noise-buffer fill (as the existing synth.ts already scopes it).",
+      "ARCADE-Y / TOO-LOUD: an ever-present, full-volume nature bed reads as a theme-park ride, not a somber COP. Keep the floor restrained, let silence breathe (Splice: constant loudness fatigues), and duck hard for combat. The reference is the readable quiet of Restrepo, not a soundscape app.",
+      "AUDIBLE LOOP SEAM: synchronized loop/LFO periods (or two layers restarting in phase) make the ear lock onto the repeat. Use mutually-irrational rates and independent start phases; never share a period across two beds.",
+      "VOICE-POOL STARVATION & LEAKS: the combat path tears down voices via setTimeout and caps at MAX_VOICES=24. Persistent bed voices must live OUTSIDE that pool (built once at unlock, never auto-torn-down) or they'll be culled mid-fight or leak nodes. Crossfade transitions with AudioParam ramps only — never source.start/stop on a weather/time change (that clicks and reallocates).",
+      "PERF: do NOT instantiate the full Farnell 10-50 bandpass bank, nor regenerate the reverb IR per frame. 3-5 parallel biquads approximate the wind bank fine; regenerate the convolver IR only on weather.label change (infrequent, offline render). One shared noise buffer feeds all noise layers (the codebase already does this with _noise).",
+      "PAUSE/WARP GATE: the bed must obey the same gate as cues — silent (or frozen) on pause/warp, and it must not dump a backlog or restart on resume. The existing tick() skip()/gate logic is the template; ambient gains should ramp to 0 on pause, not hard-stop.",
+      "CLICKS ON PARAM JUMPS: stepping any gain/cutoff (especially the combat duck and weather crossfade) clicks. Always use setTargetAtTime / equal-power cos-sin ramps with an appropriate time-constant (fast ~0.15-0.4s for ducks, slow ~8-12s for weather/time-of-day)."
+    ],
+    "sources": [
+      {
+        "title": "How To Make Ambiences For Games — Game Audio Learning Portal",
+        "url": "https://www.gameaudiolearning.com/knowledgebase/how-to-make-ambiences-for-games"
+      },
+      {
+        "title": "Generating Rain With Pure Synthesis — Audiokinetic Blog",
+        "url": "https://www.audiokinetic.com/en/blog/generating-rain-with-pure-synthesis/"
+      },
+      {
+        "title": "How procedural audio brings sounds to life in video games — Splice Blog",
+        "url": "https://splice.com/blog/procedural-audio-video-games/"
+      },
+      {
+        "title": "Synthetic Wind — Cycling '74 Max/MSP Forum (Farnell model summary)",
+        "url": "https://cycling74.com/forums/synthetic-wind"
+      },
+      {
+        "title": "How To Create Wind Sound Effects Using Synths — David Dumais Audio",
+        "url": "https://www.daviddumaisaudio.com/how-to-create-wind-sound-effects-using-synths-2/"
+      },
+      {
+        "title": "Designing Sound — Andy Farnell (MIT Press)",
+        "url": "https://aspress.co.uk/ds/about_book.html"
+      },
+      {
+        "title": "Javascript Procedural Sound Experiments: Rain & Wind (WebPd) — binaura.net",
+        "url": "https://www.binaura.net/stc/fp/?x=entry:entry120124-173444"
+      },
+      {
+        "title": "Soundscape ecology (geophony/biophony/anthrophony, acoustic niche) — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Soundscape_ecology"
+      },
+      {
+        "title": "Biophony / Bernie Krause — Agosto Foundation",
+        "url": "https://agosto-foundation.org/mediateka/acoustic-ecology/bernie-krause-biophony-soundscape-ecology-plunges-us-into-wider-world"
+      },
+      {
+        "title": "Exploring the Sound Design of S.T.A.L.K.E.R. — MORDIO",
+        "url": "https://mordiomusic.com/blog/exploring-the-sound-design-of-stalker"
+      },
+      {
+        "title": "Immersive Ambience Expansion (dynamic weather/event/position sounds) — ModDB",
+        "url": "https://www.moddb.com/mods/stalker-anomaly/addons/immersive-ambience-expansion"
+      },
+      {
+        "title": "Red Dead Redemption — Audio Director interview (region/time/weather ambience) — Designing Sound",
+        "url": "https://designingsound.org/2010/08/20/red-dead-redemption-exclusive-interview-with-audio-director-jeffrey-whitcher/"
+      },
+      {
+        "title": "Firewatch Game Audio Review — The Sound Architect",
+        "url": "https://www.thesoundarchitect.co.uk/firewatch/"
+      },
+      {
+        "title": "Making Reverb with the Web Audio API (decaying-noise IR) — gskinner blog",
+        "url": "https://blog.gskinner.com/archives/2019/02/reverb-web-audio-api.html"
+      },
+      {
+        "title": "reverbGen — JS library for artificial reverb impulse responses",
+        "url": "https://github.com/adelespinasse/reverbGen"
+      },
+      {
+        "title": "ConvolverNode — MDN Web Docs",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode"
+      },
+      {
+        "title": "AudioParam: setTargetAtTime() — MDN Web Docs",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime"
+      },
+      {
+        "title": "Volume and Loudness (equal-power crossfade cos/sin) — Web Audio API book, Boris Smus ch.3",
+        "url": "https://webaudioapi.com/book/Web_Audio_API_Boris_Smus_html/ch03.html"
+      },
+      {
+        "title": "A cheap energy-preserving-ish crossfade — Signalsmith Audio",
+        "url": "https://signalsmith-audio.co.uk/writing/2021/cheap-energy-crossfade/"
+      },
+      {
+        "title": "How to Seamlessly Loop Sound with Web Audio API — codestudy.net",
+        "url": "https://www.codestudy.net/blog/how-to-seamlessly-loop-sound-with-web-audio-api/"
+      },
+      {
+        "title": "Additive synthesis (harmonic stacks for hum/drone) — meettechniek.info",
+        "url": "https://meettechniek.info/additional/additive-synthesis.html"
+      },
+      {
+        "title": "Korangal Valley (setting reference) — Wikipedia",
+        "url": "https://en.wikipedia.org/wiki/Korangal_Valley"
+      }
+    ]
+  },
+  {
+    "axis": "positional-webaudio",
+    "techniques": [
+      {
+        "name": "Persistent spatial bus graph (panners + buses live forever; only sources are one-shot)",
+        "howItWorks": "The expensive, stateful nodes — a per-category submix GainNode, the StereoPanner/PannerNode, the air-absorption lowpass, the reverb ConvolverNode and its send — are built ONCE at unlock and kept alive for the life of the AudioContext. Only the cheap, fire-and-forget primitives (OscillatorNode, AudioBufferSourceNode of the shared noise buffer) are created per cue, started, and self-stop. This is THE correct Web Audio idiom: buffer sources are 'one-time-use-only, fire-and-forget' and cannot be pooled or rewound, but the topology around them can and should be permanent. The current code rebuilds a fresh Gain+StereoPanner+Biquad per cue and tears them down with setTimeout — that churn is the thing to eliminate.",
+        "webAudioMapping": "Build at unlock: masterGain -> compressor(glue) -> destination. Under master, a fixed set of category buses (smallarms, he, atmos, net) each a GainNode. Each bus splits into a DRY path (-> master) and a WET send GainNode -> the single shared ConvolverNode -> master. Per cue, create only osc/noise sources, connect them to a tiny per-cue envelope GainNode, connect THAT to the right bus's input and (scaled) to the bus's wet send. The per-cue env gain is genuinely cheap to create; the panner/convolver/compressor are not. Keep a small free-list of env GainNodes if even that churn shows up in profiling.",
+        "applicability": "high",
+        "source": "padenot 'Web Audio API performance and debugging notes' (GainNode cheap to create; ConvolverNode/HRTF very expensive) https://padenot.github.io/web-audio-perf/ ; W3C/MDN on AudioBufferSourceNode one-shot design",
+        "confidence": 0.95
+      },
+      {
+        "name": "Keep StereoPanner, NOT HRTF PannerNode, for the top-down tactical listener",
+        "howItWorks": "HRTF panningModel runs a continuous convolution against measured head impulse responses per source, and on a MOVING source cross-fades between old/new position — up to four convolvers per stereo voice at once. With a 24-voice firefight cap this is the single most expensive thing you could do, and HRTF buys you front/back + elevation discrimination that a TOP-DOWN map view does not need and cannot honestly portray (there is no 'in front of / behind the player' — the player is a disembodied overhead eye). HRTF also colors/phase-smears badly on loudspeakers (it is tuned for headphones). equalpower PannerNode is 'rather cheap' but still does vector math per source; StereoPanner is cheaper still because you already have the screen-space pan and skip the vector math entirely.",
+        "webAudioMapping": "Keep the existing StereoPannerNode per category bus (or per voice). Compute pan exactly as today: pan = clamp((dx*ppm)/(vw/2), -1, 1). Do NOT switch to PannerNode+HRTF. If you ever want the listener-orientation API for free distance math, use PannerNode with panningModel:'equalpower' and distanceModel handled by the panner — but for a fixed top-down camera the hand-rolled StereoPanner+distance you have is both faster and more controllable. Reserve HRTF only behind an explicit 'headphone mode' toggle if ever desired.",
+        "applicability": "high",
+        "source": "MDN PannerNode.panningModel (HRTF = convolution, higher cost) https://developer.mozilla.org/en-US/docs/Web/API/PannerNode/panningModel ; padenot perf notes (HRTF 'Very expensive', up to 4 convolvers; equalpower cheap; StereoPanner cheapest) https://padenot.github.io/web-audio-perf/",
+        "confidence": 0.92
+      },
+      {
+        "name": "Terrain LOS occlusion: ridge-line blocks high frequencies, not volume (the 'fire from the next draw' muffle)",
+        "howItWorks": "Real combat audio in a Korengal-type valley is dominated by terrain masking: a PKM firing from behind a spur sounds dull and bass-heavy, then snaps bright the instant it has line-of-sight to you. Game audio models this exactly as game engines do — raycast listener->source; if terrain intersects, drive an occlusion factor 0..1 that LOWERS a lowpass cutoff and applies modest volume reduction. You already have the ground truth (terrain.elevAt) to march a profile between camera-center and the cue position and test whether the straight sight-line clears the ridge. This is the highest-immersion-per-line technique available to this specific game because the valley IS the enemy.",
+        "webAudioMapping": "Per positional cue, sample N=~12 points along the segment cam-center -> cue.pos, compute the straight-line sight elevation vs terrain.elevAt at each; occ = fraction of samples where terrain rises above the line (or max penetration depth normalized). Map occ to the per-cue air-absorption BiquadFilter (lowpass) you ALREADY have: cutoff = lerp(currentNearCutoff, 350Hz, occ) and gain *= lerp(1.0, 0.5, occ) (~ -6 dB, less than the -15 dB indoor figure because rock diffraction still passes a lot). Because the mapper must stay pure/deterministic, do the raycast render-side in player.spatial() using the live terrain handle — it's already non-deterministic-safe there (ctx.currentTime lives there too). Smooth occ per source toward target (lerp ~5/s) to avoid pops as the ridge edge crosses.",
+        "applicability": "high",
+        "source": "raduacg game-mechanics-optimizations 112_audio_occlusion (raycast 10-30Hz, cutoff 20k->300Hz, up to -15dB, smooth lerp) https://github.com/raduacg/game-mechanics-optimizations/blob/main/112_audio_occlusion.md ; CryEngine/FMOD occlusion=lowpass+volume mapping; SoundCy/SciAm on terrain scatter softening gunfire https://soundcy.com/article/what-does-shooting-sound-like",
+        "confidence": 0.85
+      },
+      {
+        "name": "Elevation brightness cue: enemy on the high ground reads as BRIGHTER/more present",
+        "howItWorks": "Human elevation perception is driven by spectral peaks/notches above ~4 kHz (most pronounced 6-9 kHz) imposed by the pinna — you literally cannot pan elevation with L/R level. In a top-down view you can't render true elevation HRTF, but you CAN encode the firing-from-above relationship the player needs to FEEL: a gun on the ridge firing down has clear line-of-sight and an unobstructed high-frequency path, so it should be brighter and slightly closer-sounding than a same-distance gun in the valley floor (which is partly terrain-masked). This converts an unrenderable cue (azimuth-of-elevation) into a renderable, doctrinally-correct one (the high gun is the dangerous, present one — 'we're getting shot at from up there').",
+        "webAudioMapping": "Compute relElev = terrain.elevAt(cue.pos) - terrain.elevAt(cam.center). Add a persistent high-shelf BiquadFilter (type:'highshelf', freq ~5000Hz) on the smallarms bus or per cue, gain = clamp(relElev/heightScale, -1, 1) * +/-4 dB (boost when source is above listener, cut when below). Pair with a small distance-perception nudge: when relElev>0, reduce the wet/reverb send a touch (high ground = direct path) and raise the air-absorption cutoff ~15% so the high gun sits forward in the mix. Keep it subtle — 3-4 dB — to stay restrained, not arcade-y.",
+        "applicability": "high",
+        "source": "Nature/Sci Reports 'Spectral Weighting Underlies Perceived Sound Elevation' (elevation = spectral cues >4kHz, 6-9kHz band) https://pmc.ncbi.nlm.nih.gov/articles/PMC6367479/ ; J Neurosci pinna elevation cues https://www.jneurosci.org/content/30/1/194",
+        "confidence": 0.78
+      },
+      {
+        "name": "Procedural valley reverb via decaying-noise ConvolverNode IR (no audio asset)",
+        "howItWorks": "The classic Moorer result is that exponentially-decaying filtered white noise makes a surprisingly convincing reverb impulse response. You render such a buffer ONCE at startup into a ConvolverNode and get the long, ragged tail that defines mountain-valley gunfire — the 'echoes rolling in over seconds' that every Restrepo/Outpost firefight has and that this sim currently completely lacks. This is the single biggest believability jump available, and it is explicitly allowed by the constraints (the IR is procedurally generated, not shipped).",
+        "webAudioMapping": "At unlock, build the IR with OfflineAudioContext(2, sampleRate*T, sampleRate): fill a stereo buffer with noise, apply env e^(-k*t/T) (T~1.6-2.2s for a tight valley; longer = bigger bowl), shape with highpass(~400Hz)+lowpass(~5kHz) so the tail is dark and dirt-like not hissy, add a few discrete early-reflection taps (DelayNodes 30-90ms at -8 to -12 dB) for the first slap off the opposite wall. Load into a single shared ConvolverNode. Wet/dry per source = distance: dryGain ~ atten, wetSend ~ atten * (0.15 + 0.5*norm) so FAR events are proportionally wetter ('loss of HF + more reverb = farther' is the core depth cue). One convolver shared by all 24 voices keeps cost flat — convolution is per-input-block expensive, so never one-convolver-per-voice.",
+        "applicability": "high",
+        "source": "gskinner 'Making Reverb with the Web Audio API' (OfflineAudioContext decaying noise IR, hp500/lp5k, multitap early reflections, wet/dry=distance) https://blog.gskinner.com/archives/2019/02/reverb-web-audio-api.html ; reverbGen / Moorer 'About This Reverberation Business' https://github.com/adelespinasse/reverbGen ; SciAm gunfire echo 'smear' https://www.scientificamerican.com/blog/cocktail-party-physics/a-shot-in-the-dark-the-acoustics-of-gunfire/",
+        "confidence": 0.9
+      },
+      {
+        "name": "Distance = wet/dry depth bus, not just attenuation (loss-of-HF + more reverb)",
+        "howItWorks": "The ear's primary distance cues are (1) loss of high frequency and (2) increased reverb-to-direct ratio — NOT just lower volume. The current system has the HF-loss half (the air-absorption lowpass) but no reverb, so far events read as 'quiet near events' rather than 'distant'. Adding a per-source wet send scaled UP with distance completes the cue and makes the existing crack-thump split land properly (you hear the dry crack pan-located, then the wet thump bloom out of the valley).",
+        "webAudioMapping": "Reuse the existing 0..1 'norm' distance from spatial(). dryGain = atten (as today). wetSend = atten * clamp(0.12 + 0.55*norm, 0, 0.7) into the shared ConvolverNode. Keep the existing air-absorption lowpass as the HF-loss half. For the crack-thump pair specifically, route the bright CRACK mostly dry+panned and the low THUMP with a heavier wet send so the report 'rolls' — this is exactly the perceptual 'flash then thunder' beat.",
+        "applicability": "high",
+        "source": "Sage Audio / gearspace on reverb-as-distance (wetter=farther, HF loss cues distance) https://www.sageaudio.com/blog/mixing/how-to-create-depth-and-width-with-reverb-and-delay.php ; Audiokinetic Reverb Zones https://www.audiokinetic.com/en/blog/fun-with-reverb-zones/",
+        "confidence": 0.83
+      },
+      {
+        "name": "DynamicsCompressorNode glue bus + priority voice-stealing for the 24-cap",
+        "howItWorks": "When 30 men are firing, summing 24 unclamped voices clips hard and turns to mush. A DynamicsCompressorNode on the master sums-and-tames the peaks ('lowers the loudest parts to prevent clipping when multiple sounds multiplex'). Pair it with smarter voice management than the current 'drop whatever arrives after 24': implement priority voice-stealing — an IED/blast or a near, loud cue should steal a slot from a distant rifle crack, not be silently dropped. Game audio voice priority is classically driven by amplitude (post-distance gain) + a per-kind importance weight.",
+        "webAudioMapping": "Insert a DynamicsCompressorNode between master and destination (threshold ~ -10dB, ratio ~4, fast-ish attack ~3ms, release ~120ms) as the glue bus. For voice mgmt: compute each pending cue's priority = KIND_TRIM[kind]*importance + sp.gain (louder/closer/bigger wins). When at MAX_VOICES, if an incoming cue outranks the current quietest active voice, fade-and-reclaim it (short 15-25ms gain ramp to 0 then disconnect) instead of dropping the new one. Track active voices with their priority so stealing is O(1)-ish on a tiny sorted ring.",
+        "applicability": "high",
+        "source": "MDN/W3C DynamicsCompressorNode (prevents clipping when multiplexing many sounds; GainNode summing junction for buses) https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API ; classic game-audio voice-stealing-by-amplitude+priority (Unity/Wwise/FMOD doctrine) https://feedback.unity3d.com/suggestions/increase-audio-voice-polyphony-t",
+        "confidence": 0.82
+      },
+      {
+        "name": "Distance model choice if you ever adopt PannerNode: inverse + rolloffFactor>=2",
+        "howItWorks": "If you migrate distance handling to a PannerNode instead of the hand-rolled pow() falloff, use distanceModel:'inverse' (best approximates the real inverse-square law and never hard-cuts to silence) with rolloffFactor 2-3; linear with the default maxDistance 10000 effectively ignores distance, and inverse/exponential are identical at rolloffFactor 1 so you MUST raise it to get audible falloff. Note your current hand-rolled pow((1-norm),1.6) with a zoom-scaled AUDIBLE_M is actually MORE controllable for a zoom-dependent audible radius than the panner's fixed-meter model, so this is a fallback, not a recommendation to switch.",
+        "webAudioMapping": "Only if switching to PannerNode: panningModel:'equalpower', distanceModel:'inverse', refDistance scaled to your zoom (e.g. halfW), rolloffFactor ~2.5, maxDistance ~ AUDIBLE_M. Otherwise keep the existing hand-rolled atten = pow(max(0,1-norm),1.6) which already gives you zoom-coupled audibility the panner can't easily replicate.",
+        "applicability": "medium",
+        "source": "Kieran Farr 'Understanding Web Audio Positional Audio Distance Models for WebXR' (inverse recommended, rolloff 2-3, linear@default ignores distance, inverse==exp at rolloff 1) https://medium.com/@kfarr/understanding-web-audio-api-positional-audio-distance-models-for-webxr-e77998afcdff ; MDN PannerNode.distanceModel https://developer.mozilla.org/en-US/docs/Web/API/PannerNode/distanceModel",
+        "confidence": 0.8
+      },
+      {
+        "name": "Throttle occlusion/elevation raycasts to ~15-20 Hz, cache per source, cull cheap",
+        "howItWorks": "Terrain raycasts are the one new per-cue cost that could blow the frame budget in a 30-man fight. Engines run occlusion checks at 10-30 Hz (NOT per frame), cache the result, and skip the check entirely for sources below a volume threshold or beyond max distance. Because your cues are mostly transient one-shots (a rifle crack lasts 100ms), most cues only need ONE raycast at schedule time — the expensive case is sustained/repeated fire from a fixed position, which you can key/cache by quantized source position.",
+        "webAudioMapping": "Cull first: if atten<0.02 (already done) skip the raycast entirely. For repeated fire from the same grid cell, cache occ/relElev keyed by floor(pos.x/5),floor(pos.y/5) with a ~50ms TTL so a SAW rip's burst-of-cracks reuses one raycast. Keep the march coarse (8-12 samples) — sub-cell precision is inaudible. This keeps the added cost to a few hundred elevAt() lookups per frame even in a firefight, well within budget since elevAt is a bilinear sample, not a full LOS algorithm.",
+        "applicability": "high",
+        "source": "raduacg audio_occlusion (10-30Hz checks, cache, skip <-40dB / >50m) https://github.com/raduacg/game-mechanics-optimizations/blob/main/112_audio_occlusion.md ; padenot perf notes (avoid per-frame heavy work) https://padenot.github.io/web-audio-perf/",
+        "confidence": 0.83
+      },
+      {
+        "name": "Use modern AudioListener AudioParams (positionX/forwardX), feature-detect for Firefox",
+        "howItWorks": "setPosition()/setOrientation() on AudioListener and PannerNode are deprecated in favor of the .positionX/.forwardX/.upX AudioParams, which additionally support sample-accurate automation (linearRampToValueAtTime) — useful if you ever want the listener to glide with a camera pan rather than jump. Firefox historically only supported the deprecated methods, so feature-detect. This only matters if you adopt PannerNode/AudioListener; with pure StereoPanner the listener is implicit and this is moot.",
+        "webAudioMapping": "If using AudioListener: if ('positionX' in listener) { listener.positionX.value = camX; listener.forwardZ.value = -1; ... } else { listener.setPosition(...); listener.setOrientation(0,0,-1,0,1,0); }. For smooth camera follow, listener.positionX.linearRampToValueAtTime(camX, ctx.currentTime+frameDt). With StereoPanner-only (recommended), skip entirely.",
+        "applicability": "low",
+        "source": "MDN AudioListener (setPosition/setOrientation deprecated -> positionX/forwardX AudioParams; Firefox bug 1283029) https://developer.mozilla.org/en-US/docs/Web/API/AudioListener ; servo/servo#22898",
+        "confidence": 0.88
+      }
+    ],
+    "keyInsights": [
+      "The biggest immersion win on this axis is NOT better panning — it's REVERB. The sim currently has zero reverberation; a procedurally-generated decaying-noise ConvolverNode IR gives the valley its signature 'echoes rolling in over seconds,' which is the one acoustic fingerprint of every Restrepo/Outpost firefight and is explicitly allowed (the IR is generated, no asset shipped).",
+      "For a TOP-DOWN listener, HRTF PannerNode is the wrong tool: it's the most expensive node in Web Audio (up to 4 convolvers per moving stereo voice), it's tuned for headphones and smears on speakers, and it buys front/back+elevation discrimination a disembodied overhead camera can't honestly use. Keep the cheap hand-rolled StereoPanner; spend the saved CPU on reverb + occlusion instead.",
+      "Terrain occlusion is THIS game's killer feature — 'the valley is the enemy' applies to sound too. You already own the ground truth (terrain.elevAt) to ray-march a sight-line and muffle a gun firing from behind a spur (lowpass down to ~350Hz + ~-6dB), then snap it bright the instant it has LOS. No other top-down shooter has terrain-masked audio because most don't have elevation data; you do.",
+      "Distance is wet/dry + HF-loss, not just volume. The current air-absorption lowpass is half the cue; adding a distance-scaled reverb SEND completes it so far events read as 'distant,' not 'quiet near.' This also makes the existing crack-thump split finally land: dry panned crack, then a wet thump that blooms out of the valley.",
+      "The right Web Audio architecture is a PERMANENT bus/panner/convolver/compressor topology with only the cheap osc/noise SOURCES created per cue. The current per-cue Gain+StereoPanner+Biquad churn (and setTimeout teardown) is exactly the allocation pattern padenot warns against; buffer sources are one-shot by design but everything downstream of them should live for the whole session.",
+      "Elevation can't be panned in 2D, so encode the relationship the PLAYER needs instead: a gun on the high ground (relElev>0) reads brighter (high-shelf +3-4dB, less reverb, clear LOS) — doctrinally correct ('getting shot at from up there') and grounded in real elevation perception being a >4kHz spectral cue, not a level cue."
+    ],
+    "pitfalls": [
+      "Do NOT switch all 24 voices to HRTF PannerNode 'for realism' — it's the single most expensive choice in Web Audio (continuous convolution, up to 4 convolvers per moving stereo source) and will starve a 30-man firefight; it also colors badly on loudspeakers. HRTF buys elevation/front-back that a top-down camera cannot use.",
+      "Never instantiate one ConvolverNode (or one HRTF panner) per voice — convolution cost is per-input-block. Use ONE shared convolver fed by per-source wet sends; one shared noise AudioBuffer; persistent panners/buses.",
+      "Determinism trap: any raycast/occlusion/elevation math MUST stay render-side (in player.spatial(), where ctx.currentTime already lives) and never feed back into lib/sim. The mapper/cue layer must remain a pure function — do not read terrain into the cue.",
+      "Don't pop the filters: occlusion and elevation factors must lerp toward their target (~5/s) as the ridge edge crosses the sight-line, or you get audible clicks every time a soldier moves behind cover. Same for voice-stealing — fade out the stolen voice over 15-25ms, never hard-disconnect a sounding node.",
+      "Don't let reverb turn the 'readable silence of the calm-before' into a wash — gate the convolver's contribution to actual events (it already is, since no event = no source), keep T~1.6-2.2s not cathedral-length, and dark-filter the IR (hp400/lp5k) so the tail is dirt/rock, not a concert hall. Over-wet = arcade-y, the exact failure mode to avoid.",
+      "Linear distanceModel with the default maxDistance 10000 effectively ignores distance (sound seems non-positional); inverse==exponential at rolloffFactor 1. If you ever adopt PannerNode you must set inverse + rolloff>=2 — but the existing zoom-coupled hand-rolled falloff is actually better for this game's variable audible radius, so prefer keeping it.",
+      "Don't raycast per-frame per-voice — at 24 voices in a firefight that's a frame-budget hazard. Throttle to 15-20Hz, cache by quantized source cell with a short TTL (so a SAW rip's burst reuses one raycast), and cull before raycasting (the atten<0.02 cull already exists — keep it as the first gate).",
+      "Keep the elevation high-shelf and occlusion attenuation SUBTLE (3-6 dB). Rock diffraction passes a lot of low end even with no LOS, so the indoor -15dB occlusion figure is too aggressive for an open valley; over-muffling makes distant fire vanish unrealistically."
+    ],
+    "sources": [
+      {
+        "title": "Web Audio API performance and debugging notes (padenot)",
+        "url": "https://padenot.github.io/web-audio-perf/"
+      },
+      {
+        "title": "PannerNode: panningModel — MDN",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/PannerNode/panningModel"
+      },
+      {
+        "title": "PannerNode: distanceModel — MDN",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/PannerNode/distanceModel"
+      },
+      {
+        "title": "Web audio spatialization basics — MDN",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API/Web_audio_spatialization_basics"
+      },
+      {
+        "title": "Understanding Web Audio API Positional Audio Distance Models for WebXR (Kieran Lee Farr)",
+        "url": "https://medium.com/@kfarr/understanding-web-audio-api-positional-audio-distance-models-for-webxr-e77998afcdff"
+      },
+      {
+        "title": "Audio Occlusion implementation notes (raduacg/game-mechanics-optimizations)",
+        "url": "https://github.com/raduacg/game-mechanics-optimizations/blob/main/112_audio_occlusion.md"
+      },
+      {
+        "title": "Sound Obstruction/Occlusion — CryEngine 3 Manual",
+        "url": "https://docs.cryengine.com/pages/viewpage.action?pageId=18384659"
+      },
+      {
+        "title": "Spatial Audio Techniques — Advanced FMOD Masters for Game Audio",
+        "url": "https://oboe.com/learn/advanced-fmod-masters-for-game-audio-eancvz/spatial-audio-techniques-4"
+      },
+      {
+        "title": "Making Reverb with the Web Audio API — gskinner blog",
+        "url": "https://blog.gskinner.com/archives/2019/02/reverb-web-audio-api.html"
+      },
+      {
+        "title": "reverbGen — JavaScript artificial reverb IR generator (Moorer-inspired)",
+        "url": "https://github.com/adelespinasse/reverbGen"
+      },
+      {
+        "title": "ConvolverNode — MDN",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode"
+      },
+      {
+        "title": "AudioListener — MDN (positionX/forwardX vs deprecated setPosition/setOrientation)",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/AudioListener"
+      },
+      {
+        "title": "Spectral Weighting Underlies Perceived Sound Elevation — Scientific Reports (PMC)",
+        "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC6367479/"
+      },
+      {
+        "title": "Pinna Cues Determine Orienting Response Modes to Sounds in Elevation — Journal of Neuroscience",
+        "url": "https://www.jneurosci.org/content/30/1/194"
+      },
+      {
+        "title": "The Sonic Boom: Decoding The Unique Sound Of Gunfire — SoundCy",
+        "url": "https://soundcy.com/article/what-does-shooting-sound-like"
+      },
+      {
+        "title": "A Shot in the Dark: The Acoustics of Gunfire — Scientific American",
+        "url": "https://www.scientificamerican.com/blog/cocktail-party-physics/a-shot-in-the-dark-the-acoustics-of-gunfire/"
+      },
+      {
+        "title": "How to Create Depth and Width with Reverb and Delay — Sage Audio",
+        "url": "https://www.sageaudio.com/blog/mixing/how-to-create-depth-and-width-with-reverb-and-delay.php"
+      },
+      {
+        "title": "Fun with Reverb Zones — Audiokinetic Blog",
+        "url": "https://www.audiokinetic.com/en/blog/fun-with-reverb-zones/"
+      },
+      {
+        "title": "Web Audio API — MDN (DynamicsCompressorNode, GainNode summing/bus)",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/Web_Audio_API"
+      },
+      {
+        "title": "Increase audio voice polyphony to avoid voice stealing — Unity Feedback",
+        "url": "https://feedback.unity3d.com/suggestions/increase-audio-voice-polyphony-t"
+      }
+    ]
+  },
+  {
+    "axis": "adaptive-mixing",
+    "techniques": [
+      {
+        "name": "HDR window auto-mixer (compute-side, deterministic)",
+        "howItWorks": "DICE's HDR audio model: every cue carries a notional loudness in dB-SPL-at-listener. A virtual 'window' of fixed Size (e.g. 35-40 dB) floats so its TOP tracks the loudest sound currently audible (an exponential release pulls it back down over ReleaseTime, e.g. 0.5-1.5 s). Anything whose loudness falls below the window BOTTOM is inaudible and is simply not scheduled. The window->output mapping then linearly remaps [bottom,top] dB to the playable amplitude range. Net effect: a near M4 raises the window so distant impacts/footsteps vanish, then as the firing stops the window sinks and the valley's small sounds re-emerge. This is the single mechanism that delivers BOTH legibility ('every sound is important, but not at the same time') and the somber 'readable calm-before' — silence is what the window decays into. Crucially it can run entirely in the pure mapper as a function of cue loudness, keeping it deterministic; only the final gain hits Web Audio.",
+        "webAudioMapping": "No new nodes — it's gain math done before scheduling. Give each CueKind a loudnessDb constant (replace/augment KIND_TRIM, e.g. ied 128, blast_large 120, mg 105, muzzle 100, impact 75, ricochet 70, footstep/ambient 45). Maintain windowTop in the player (or mapper render-state): on each cue windowTop = max(windowTop, loudnessDb); each frame windowTop += (windowBottom_floor - windowTop) * (1 - exp(-dt/releaseTau)). windowBottom = windowTop - SIZE. For each cue: if loudnessDb < windowBottom -> cull (don't allocate the voice — this is also your over-budget pre-filter). Else outGain = pow(10, (loudnessDb - windowTop)/20) folded into the existing cueGain.gain.value (so the loudest sits at 0 dBFS-ref and quiet sounds get pushed down or out). Pairs with the distance attenuation already in spatial(): subtract distance dB from loudnessDb so a far gunshot can fall under the window of a near one.",
+        "applicability": "high",
+        "source": "Anders Clerwall (EA/DICE), 'How High Dynamic Range Audio Makes Battlefield: Bad Company Go BOOM', GDC 2009 — https://www.slideshare.net/aclerwall/how-high-dynamic-range-audio-makes-battlefield-bad-company-go-boom-1292018 ; concept writeup https://designingsound.org/2013/06/21/finding-your-way-with-high-dynamic-range-audio-in-wwise/",
+        "confidence": 0.86
+      },
+      {
+        "name": "DynamicsCompressorNode master limiter (anti-clip safety net)",
+        "howItWorks": "A single DynamicsCompressorNode on the master bus catches the peaks a 30-man firefight inevitably stacks (the current graph sums every voice into one GainNode with NO limiter, so a coincident MG burst + IED can hard-clip). Configured as a brickwall-ish limiter — low threshold, hard knee, high ratio, fast attack — it transparently tames transients so the mix stays legible and never distorts, while the HDR window above does the musical 'who matters' decision. The limiter is the dumb safety net; the HDR window is the smart mix. Watch its read-only .reduction to drive a 'mix is hot' meter or auto-trim.",
+        "webAudioMapping": "Insert ONE node between master and destination: const lim = ctx.createDynamicsCompressor(); lim.threshold.value=-6; lim.knee.value=0; lim.ratio.value=20; lim.attack.value=0.003; lim.release.value=0.25; master.connect(lim).connect(ctx.destination). Defaults are threshold -24/knee 30/ratio 12/attack 0.003/release 0.25 — override threshold/knee/ratio for limiting. Keep master gain so typical peaks sit ~ -6 dBFS to leave the limiter headroom and avoid constant pumping. Note: the WebAudio compressor has makeup/lookahead quirks and can overshoot on very fast transients (IED) — keep its threshold conservative and rely on per-cue HDR gains to do most of the level work, not the limiter.",
+        "applicability": "high",
+        "source": "MDN DynamicsCompressorNode — https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode ; W3C Web Audio 1.1 — https://www.w3.org/TR/webaudio-1.1/",
+        "confidence": 0.95
+      },
+      {
+        "name": "Submix bus architecture (combat / atmos / radio / score)",
+        "howItWorks": "Route every voice through a category bus GainNode before the master, instead of all-to-one. Buses: COMBAT (muzzle/mg/blast/ied/impact/ricochet/nearmiss/splash), ATMOS (smoke_pop/frag_air/flare + any future wind/bird bed), RADIO (radio squelch/beep), SCORE (tic_sting + future music). Buses are the levers that make ducking, mix-states, and per-category loudness trivial — you ramp ONE gain to duck a whole category. They also let you apply category-specific processing (e.g. a bandpass + bitcrush WaveShaper permanently on the RADIO bus for the comms 'small speaker' timbre; a touch of the convolution reverb only on COMBAT for the valley tail). This is the structural prerequisite for every other technique here.",
+        "webAudioMapping": "Replace the single master with: per-bus const combatBus=ctx.createGain(), atmosBus, radioBus, scoreBus; each .connect(master); master.connect(limiter).connect(destination). schedule() routes cueGain.connect(lp).connect(pan).connect(BUS_FOR[cue.kind]) using a Record<CueKind,GainNode> map. Static bus trims set the somber balance: combatBus ~0 dB ref, atmosBus -6, radioBus -3 (under the log line), scoreBus -9. The RADIO bus gets a fixed chain radioBus = gain -> bandpass(center 1.6kHz, Q 1.2) -> waveshaper(mild tanh) -> master for the 'in the handset' color, built once.",
+        "applicability": "high",
+        "source": "DICE HDR talk (bus + priority categories); vndev.wiki 'Balancing a Game's Loudness' — https://vndev.wiki/Guide:Balancing_a_Game's_Loudness",
+        "confidence": 0.9
+      },
+      {
+        "name": "Control-side ducking via setTargetAtTime bus envelopes (sidechain substitute)",
+        "howItWorks": "Web Audio's DynamicsCompressorNode CANNOT be sidechained (no external trigger input) — true audio-rate sidechain needs an AudioWorklet, which would also break determinism and add cost. The correct, cheap, deterministic substitute is CONTROL-side ducking: when a ducking trigger occurs (radio cue scheduled, or a big blast), ramp the TARGET bus's gain down then back up with two setTargetAtTime calls (attack + release time-constants). 'Radio ducks atmos+combat slightly so the squelch reads'; 'an IED ducks EVERYTHING for ~250 ms then recovers over ~1.2 s — the felt-it-in-the-chest pressure-dump.' Because the duck amount and timing are a pure function of which cue fired, it stays deterministic. setTargetAtTime is click-free (exponential approach) and self-chains (next ramp starts from the live value), so overlapping ducks compose cleanly.",
+        "webAudioMapping": "duck(bus, amount, attackTau, releaseTau, now): bus.gain.cancelScheduledValues(now); bus.gain.setTargetAtTime(baseGain*amount, now, attackTau); bus.gain.setTargetAtTime(baseGain, now+holdS, releaseTau). RADIO trigger: duck atmosBus to 0.5 & combatBus to 0.7, attackTau 0.02, hold 0.15, releaseTau 0.25. IED/blast_large trigger: duck atmosBus+radioBus+scoreBus to ~0.25 and combatBus to ~0.5, attackTau 0.004 (near-instant), hold 0.18, releaseTau 0.4-1.2 (the long swell back = the ears 'recovering'). Use time-CONSTANTS not ramps so it never clicks; cancelScheduledValues+anchor avoids fighting a prior duck. Pair the IED duck with a short scoreBus tinnitus tone for the deafened beat (see below).",
+        "applicability": "high",
+        "source": "MDN AudioParam.setTargetAtTime — https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime ; 'Web Audio: the ugly click and the human ear' — http://alemangui.github.io/ramp-to-value ; W3C issue #246 (no native sidechain) — https://github.com/WebAudio/web-audio-api/issues/246 ; soundbank-dipper — https://github.com/mmckegg/soundbank-dipper",
+        "confidence": 0.88
+      },
+      {
+        "name": "Priority-weighted voice stealing (keep nearest+loudest, drop quietest)",
+        "howItWorks": "The current cap drops the NEWEST cue once 24 voices are live ('continue' in the loop) — which can mute the very gunshot the player needs to hear while a stale ricochet keeps playing. Conventional game-audio prioritization instead computes a priority score per pending voice and, when over budget, culls the LOWEST-priority (quietest / most distant / least important) — and may STEAL an already-playing low-priority voice for a high-priority new one. DICE uses discrete classes (None/Low/Medium/High/Permanent); Unity falls back to audibility (louder wins) when class ties. Result: in a 30-man fight you always hear the closest weapons and the IED, and the carpet of distant impacts is what gets sacrificed — exactly the HDR philosophy enforced at the voice-budget layer.",
+        "webAudioMapping": "Before scheduling, sort the frame's cues by priority = classWeight[cue.kind]*1000 + postHDRgain*100 (HDR gain already encodes distance+loudness). classWeight: ied/dangerclose/tic_sting = Permanent(4); blast/mg/splash = High(3); muzzle/radio = Medium(2); impact/ricochet/nearmiss/smoke = Low(1). Fill voices high->low; when activeVoices>=MAX_VOICES, if the new cue outranks the lowest live voice, tear that voice down (its existing setTimeout cleanup + a 5ms gain ramp to 0 to avoid a click) and take its slot; else cull the new cue. Track live voices in an array with {priority, cleanup} instead of just a counter. Raise MAX_VOICES to ~32 (Unity's default) now that HDR pre-culls and the limiter protects the sum.",
+        "applicability": "high",
+        "source": "Unity voice prioritization / gamedevbeginner audio optimization — https://gamedevbeginner.com/unity-audio-optimisation-tips/ ; Audiokinetic 'How to get a hold on your voices' — https://www.audiokinetic.com/en/blog/how-to-get-a-hold-on-your-voices-optimizing-for-cpu-part-1/ ; DICE HDR priority classes",
+        "confidence": 0.88
+      },
+      {
+        "name": "Mix-states by intensity (calm / contact / overwhelm)",
+        "howItWorks": "Drive a small set of named mix states off the sim's own intensity signal (inContact, recent fire density, casualties) and crossfade bus levels + HDR window params between them. CALM: wide window, atmos bus up, long reverb tail audible, near-total silence between events (the 'readable calm-before'). CONTACT: window narrows, combat bus forward, atmos pulled back, radio prioritized. OVERWHELM (heavy TIC / danger-close / IED): window very tight, atmos/score nearly gone, a low sub-floor (the tic_sting drone already exists) sustained — the world shrinks to the threat. States are a handful of target values you setTargetAtTime toward over ~1-3 s when the state changes; the transition itself is the drama. This is the somber-sim version of Battlefield's dynamic mix without any music stems.",
+        "webAudioMapping": "A MixState enum -> {windowSize, releaseTau, atmosGain, combatGain, radioGain, scoreGain, subFloorGain}. Derive state in the mapper from inContact + a decaying fire-rate counter (pure, deterministic). On state change, the player ramps each bus.gain.setTargetAtTime(target, now, 1.5) and updates the HDR SIZE/releaseTau live. OVERWHELM also starts/sustains a 40-45 Hz sine on scoreBus (reuse the tic_sting drone) and shortens combat reverb wet. CALM raises atmosBus and the convolution wet so the valley breathes. No new node types — just scheduled gain targets keyed on a deterministic state signal.",
+        "applicability": "high",
+        "source": "DICE HDR 'dynamic mixing'; designingsound HDR writeup — https://designingsound.org/2013/06/21/finding-your-way-with-high-dynamic-range-audio-in-wwise/ ; existing tic_sting drone in lib/audio/synth.ts",
+        "confidence": 0.78
+      },
+      {
+        "name": "Loudness targets & headroom for a somber war sim (LUFS/true-peak budget)",
+        "howItWorks": "A somber sim wants WIDE dynamic range so the contrast between a held breath and an IED actually lands — chase quiet, broadcast/streaming-style targets, NOT loud-mobile-game targets. Reference points: EBU R128 -23 LUFS, console-game norm ~-24 LUFS (±2), Netflix cinematic -27 LUFS dialog-gated with a wide LRA. Treat the RADIO line as your 'dialog anchor' and mix everything else around it. Keep true-peak ceiling at -1 dBTP (the limiter enforces it). Generous headroom (peaks parked ~-6 dBFS in normal play) is what lets the IED actually feel +20 dB louder instead of just hitting the limiter the same as a rifle. This is the number that turns 'arcade loud' into 'documentary tense.'",
+        "webAudioMapping": "Set DEFAULT_VOLUME so a typical firefight integrates around the equivalent of -24 LUFS at the user's reference and single rifle cracks peak ~-6 dBFS, leaving ~6 dB for blasts before the -1 dBTP limiter. Bus offsets implement the LRA: radioBus is the anchor (0 dB); atmos sits ~12-15 dB below combat in CALM so silence reads. Validate headlessly in scripts/audio-probe.ts by summing scheduled cue gains per frame (an OfflineAudioContext render + peak/RMS scan) and asserting the busiest frame stays under -1 dBTP and the calm/loud RMS spread is wide (>15 dB) — turns 'somber dynamic range' into a checkable number per the no-fix-without-a-number law.",
+        "applicability": "high",
+        "source": "vndev.wiki loudness guide (console -24, TP -1) — https://vndev.wiki/Guide:Balancing_a_Game's_Loudness ; Netflix/EBU cinematic targets — https://auphonic.com/blog/2020/10/08/dialog-loudness-normalization/ ; designingsound loudness ranges — https://designingsound.org/2013/02/20/different-loudness-ranges-for-console-and-mobile-games/",
+        "confidence": 0.82
+      },
+      {
+        "name": "Blast 'deafening' duck + tinnitus tail (HDR window slam, dramatized)",
+        "howItWorks": "When a near IED/large blast fires, momentarily slam the HDR window to its top and hard-duck every non-combat bus, then over ~1.5-3 s let it recover — the auditory equivalent of the over-pressure stun seen in Restrepo/The Outpost. A faint high sine 'ring' (tinnitus) fades in under the duck and out as the world returns. This is a single dramatic instance of the HDR mechanism, not a special case bolted on — it's the same window+duck machinery pushed to its extreme. Use sparingly (only near, large, player-relevant blasts) so it stays a gut-punch, not a gimmick.",
+        "webAudioMapping": "On an ied/blast_large within audible radius: (1) force windowTop = blast loudness immediately (instant attack); (2) duck atmos/radio/score buses to ~0.15 with attackTau 0.004 then release over 1.5-3.0 s; (3) on scoreBus start a sine osc at ~4-6 kHz, gain ramp 0.0001->0.08 over 0.15 s then exponential decay over 2.5 s (tinnitus); (4) optionally drop combat-bus lowpass cutoff to ~1.5 kHz and ramp it back to 14 kHz over the recovery (muffled-then-clears). All deterministic: keyed on the blast cue id + its post-distance loudness threshold. Gate on distance so a far blast does NOT deafen.",
+        "applicability": "medium",
+        "source": "DICE HDR (loudest sound moves window, quiet sounds vanish) — https://www.slideshare.net/aclerwall/how-high-dynamic-range-audio-makes-battlefield-bad-company-go-boom-1292018 ; tone references Restrepo/The Outpost; existing WaveShaper IED recipe in lib/audio/synth.ts",
+        "confidence": 0.7
+      },
+      {
+        "name": "Procedural convolution reverb send per bus (valley tail, no asset)",
+        "howItWorks": "The brief explicitly invites this: a ConvolverNode's impulse response can be PROCEDURALLY GENERATED (a decaying noise buffer), so we get convolution reverb with zero audio assets and no determinism break (the IR is built once render-side from generated noise, exactly like the existing shared noiseBuffer). A short, dark reverb tail on the COMBAT bus gives gunfire the canyon 'slap' that sells the Korengal valley — the single most identity-defining missing cue today (the spec notes 'NO reverb' currently). Keep it a parallel SEND (wet bus) scaled by distance/openness so close indoor-ish sounds stay dry and distant ridge fire blooms — and dial the wet down in CALM, up in CONTACT via the mix-state.",
+        "webAudioMapping": "Build once: convolver = ctx.createConvolver(); convolver.buffer = a generated stereo IR — for i: ir[i] = (rand*2-1) * pow(1 - i/len, decayPow), len ~ 1.8s * sampleRate, decayPow ~2.5 for a dark canyon tail; optionally lowpass the IR samples for darkness. Wire as a SEND: combatBus -> wetSend(gain) -> convolver -> reverbReturn(gain) -> master, in parallel with the dry combatBus->master. Per-cue: scale wetSend contribution by distance (far ridge fire = more wet) — fold into schedule() alongside the existing pan/cutoff. Mix-state ramps reverbReturn.gain (CALM higher/longer-feeling, OVERWHELM lower/tighter). 100% procedural, deterministic IR, no file.",
+        "applicability": "medium",
+        "source": "Web Audio ConvolverNode + procedural IR (brief-sanctioned) — https://www.w3.org/TR/webaudio-1.1/ ; technique standard in Web Audio reverb tutorials — https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode",
+        "confidence": 0.8
+      }
+    ],
+    "keyInsights": [
+      "The whole axis collapses to ONE idea applied at three layers: the HDR auto-mixer. (a) compute-side: cue loudness in dB + a sliding window that the loudest sound raises and silence decays into; (b) voice-budget: priority-weighted stealing keeps nearest+loudest, drops quietest; (c) master: a DynamicsCompressorNode limiter as the dumb safety net. Build the window first — it gives legibility AND the 'readable calm-before' for free, because silence is just what the window decays to.",
+      "True audio-rate sidechain is impossible in vanilla Web Audio (DynamicsCompressorNode has no external trigger). The correct, cheap, DETERMINISTIC substitute is control-side ducking: ramp a BUS GainNode with setTargetAtTime when a trigger cue fires. Duck amount/timing is a pure function of which cue fired, so it stays inside the determinism contract — no AudioWorklet, no PRNG.",
+      "Prerequisite for everything: replace the single master GainNode with a 4-bus submix (combat/atmos/radio/score) -> master -> DynamicsCompressor limiter -> destination. Buses are the levers; without them, ducking and mix-states have nothing to grab. This is a small, surgical refactor of player.ts schedule().",
+      "The current 'drop the newest cue when over 24 voices' is backwards — it can mute the gunshot you need while a stale ricochet plays. Switch to priority-weighted stealing (DICE classes None/Low/Med/High/Permanent, tie-broken by post-HDR loudness) and raise the cap to ~32 now that HDR pre-culls and the limiter protects the sum.",
+      "Target QUIET, cinematic loudness (~-24 LUFS console / lean toward Netflix -27 dialog-gated, -1 dBTP ceiling, >15 dB calm-to-blast RMS spread). Wide dynamic range with generous headroom is the literal number that makes an IED feel +20 dB bigger than a rifle instead of both pinning the limiter — it's what turns 'arcade loud' into 'documentary tense'.",
+      "Two identity-defining gaps the spec flags as missing today are cheaply, asset-free closeable: a procedurally-generated ConvolverNode IR (decaying noise buffer) for the canyon reverb tail on the combat bus, and mix-states (calm/contact/overwhelm) crossfading bus levels + window params off the sim's own deterministic intensity signal."
+    ],
+    "pitfalls": [
+      "Don't try to literally sidechain DynamicsCompressorNode — it has no external trigger input; reaching for an AudioWorklet to fake it adds CPU cost AND breaks determinism (worklet timing is wall-clock). Use control-side setTargetAtTime bus ducking instead.",
+      "Determinism break: any HDR window state / mix-state / duck timing that reads ctx.currentTime or Math.random in the DECISION layer violates Law 7. Keep the decision (loudness, window value, which bus ducks, mix-state) pure in the mapper; only the gain ramp's wall-clock anchor (now) lives in the player. The audio-probe must still get byte-identical cue+gain decisions for a seed.",
+      "Master limiter pumping: a too-aggressive DynamicsCompressorNode (high threshold, slow release) will audibly 'breathe' on every MG burst and flatten the somber dynamics you're trying to protect. Let per-cue HDR gains do the level work; keep the limiter as a conservative brickwall safety net with headroom (~-6 dBFS typical peaks), not the main mixer.",
+      "Arcade-y feel from over-ducking: if every radio squelch slams the whole mix, it reads as a video-game whoosh, not a field radio. Duck atmos a little and combat barely (or not at all) for radio; reserve the full-mix duck for genuine over-pressure (near large blast/IED) and use it RARELY so it stays a gut-punch.",
+      "Click/zipper noise: never step a bus or cue gain — always setTargetAtTime/exponentialRamp (the engine already does this for master; apply the same discipline to bus ducks and to torn-stolen voices via a 5 ms fade-to-0 before disconnect).",
+      "Killing the silence: an always-on ambient bed or a reverb tail that never decays would destroy the 'readable calm-before' that is a stated success criterion. The HDR window must be allowed to sink to near-silence between events; reverb wet and atmos must duck out in CALM, not drone.",
+      "Voice-steal thrash: stealing the lowest-priority voice every frame in a dense fight can cause audible chatter as voices are repeatedly killed mid-tail. Only steal when the incoming cue strictly outranks the live one, and prefer pre-culling at schedule time (HDR window bottom) over post-hoc stealing.",
+      "Mismeasuring success: verify the dynamic range and no-clip claims headlessly via an OfflineAudioContext render in audio-probe (peak/RMS per frame, busiest-frame true-peak < -1 dBTP, calm-vs-loud RMS spread > 15 dB) before declaring it improved — 'feels more immersive' is not a number."
+    ],
+    "sources": [
+      {
+        "title": "How High Dynamic Range Audio Makes Battlefield: Bad Company Go BOOM (Anders Clerwall, EA/DICE, GDC 2009)",
+        "url": "https://www.slideshare.net/aclerwall/how-high-dynamic-range-audio-makes-battlefield-bad-company-go-boom-1292018"
+      },
+      {
+        "title": "How HDR Audio Makes Battlefield: Bad Company Go BOOM (Frostbite/EA)",
+        "url": "https://www.ea.com/frostbite/news/how-hdr-audio-makes-battlefield-bad-company-go-boom"
+      },
+      {
+        "title": "Finding Your Way With High Dynamic Range Audio In Wwise (Designing Sound)",
+        "url": "https://designingsound.org/2013/06/21/finding-your-way-with-high-dynamic-range-audio-in-wwise/"
+      },
+      {
+        "title": "MDN: DynamicsCompressorNode",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/DynamicsCompressorNode"
+      },
+      {
+        "title": "MDN: AudioParam.setTargetAtTime()",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/AudioParam/setTargetAtTime"
+      },
+      {
+        "title": "MDN: ConvolverNode",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode"
+      },
+      {
+        "title": "W3C Web Audio API 1.1 spec",
+        "url": "https://www.w3.org/TR/webaudio-1.1/"
+      },
+      {
+        "title": "DynamicsCompressor node should enable sidechain compression (WebAudio issue #246)",
+        "url": "https://github.com/WebAudio/web-audio-api/issues/246"
+      },
+      {
+        "title": "soundbank-dipper — global sidechain ducker for Web Audio (mmckegg)",
+        "url": "https://github.com/mmckegg/soundbank-dipper"
+      },
+      {
+        "title": "Web Audio: the ugly click and the human ear (ramp-to-value)",
+        "url": "http://alemangui.github.io/ramp-to-value"
+      },
+      {
+        "title": "10 Unity Audio Optimisation Tips (voice limits & prioritization) — Game Dev Beginner",
+        "url": "https://gamedevbeginner.com/unity-audio-optimisation-tips/"
+      },
+      {
+        "title": "How to get a hold on your voices — Optimizing for CPU (Audiokinetic)",
+        "url": "https://www.audiokinetic.com/en/blog/how-to-get-a-hold-on-your-voices-optimizing-for-cpu-part-1/"
+      },
+      {
+        "title": "Guide: Balancing a Game's Loudness (VNDev Wiki)",
+        "url": "https://vndev.wiki/Guide:Balancing_a_Game's_Loudness"
+      },
+      {
+        "title": "Dialog Loudness Normalization for Cinematic Content (Auphonic — Netflix/EBU targets)",
+        "url": "https://auphonic.com/blog/2020/10/08/dialog-loudness-normalization/"
+      },
+      {
+        "title": "Different Loudness Ranges for Console and Mobile Games (Designing Sound)",
+        "url": "https://designingsound.org/2013/02/20/different-loudness-ranges-for-console-and-mobile-games/"
+      },
+      {
+        "title": "How High Dynamic Range Audio Makes Battlefield Bad (slidetodoc transcript)",
+        "url": "https://slidetodoc.com/how-high-dynamic-range-audio-makes-battlefield-bad/"
+      }
+    ]
+  },
+  {
+    "axis": "reference-acoustics",
+    "techniques": [
+      {
+        "name": "Procedural valley reverb tail via ConvolverNode (decaying-noise IR)",
+        "howItWorks": "A gunshot in a valley is a short muzzle blast followed by a long train of reflections off the far valley wall and ground — forensic-acoustics sources say a pop in a 'pristine environment' becomes 'a loud bang with reverberation lasting over a second' once surfaces are present (acoustics.org). James Moorer's classic result is that exponentially-decaying white noise makes a 'surprisingly good' reverb IR, so you can synthesize the entire valley tail with zero audio files. The valley signature is a LONG, BRIGHT-then-dark tail with discrete slap-back from the opposite ridge — not a smooth room. This is the single biggest missing piece: there is no reverb today and it is the #1 thing that will make a skeptic say 'they were there.'",
+        "webAudioMapping": "Add a shared reverb send bus to player.ts (today the graph is cueGain->lp->pan->master with no send). Build the IR once with OfflineAudioContext(2, sampleRate*duration, sampleRate): fill both channels with white noise, multiply by an exp-decay envelope amp=pow(1-t/T, 2.2..3), bandpass-shape it (highpass ~250Hz + lowpass that sweeps from ~6kHz down to ~1.2kHz over the tail to model HF air-absorption of late reflections), and for the valley 'slap' add 1-2 discrete decaying noise bursts at ~0.18s and ~0.45s (path delay to the far wall ~30-80m round trip). Render -> ConvolverNode.buffer. Per-cue: split the wet send so you 'feed only the short snap into convolution' (Audiokinetic/Bungie) — wire the bright crack noiseBurst to convolver but NOT the sub body, so the tail rings without mud. Wet gain scales UP with distance norm (far events are almost all tail; near events are mostly dry). Decoupling the tail by environment/surface and EQ-ing the same source is exactly Bungie's Destiny approach.",
+        "applicability": "high",
+        "source": "Audiokinetic 'Outdoor Impulse Responses' + Bungie GDC 2015 (a decibel of difference recap, adbofdifference.com) + gskinner 'Making Reverb with the Web Audio API' + Moorer 'About This Reverberation Business'; acoustics.org forensic gunshot intro (reverberation 'lasting over a second')",
+        "confidence": 0.9
+      },
+      {
+        "name": "HDR-style importance ducking (loud sounds suppress quiet ones)",
+        "howItWorks": "Wwise HDR: the LOUDEST sounds define a moving window and automatically duck everything below it, so a machine gun 'effectively ducks down the volume of other less important sounds,' and relative levels are preserved to create the illusion of huge dynamic range inside the device's small range. For a SOMBER, restrained sim this is the core mechanism: when an IED goes off, the ambient bed, footsteps, distant pops, and radio all collapse for a beat — that collapse IS the visceral 'felt it' moment, achieved by making everything else quiet rather than the blast louder. It also keeps a 30-man firefight from clipping into arcade mush: only the few loudest events at any instant carry the mix.",
+        "webAudioMapping": "Two compatible options. (A) Cheap/global: a master DynamicsCompressorNode (threshold ~-18dB, ratio ~6, attack 0.003s, release 0.25s, knee 6) so loud transients pull the whole mix down momentarily — preserves relative dynamics, prevents clip. (B) True HDR: a 'duck bus' for ambient+radio+small-arms; on scheduling a high-priority cue (ied/blast_large/dangerclose/tic_sting) call duckBus.gain.setTargetAtTime(0.35, now, 0.02) then setTargetAtTime(1.0, now+0.4, 0.35) — a programmatic sidechain keyed on cue priority rank, not amplitude detection (keeps it deterministic-friendly: the duck schedule is a pure function of the cue kind). Map KIND_TRIM priorities to duck depth. This is the 'silence as a musical thing' from Warfare implemented as gain automation.",
+        "applicability": "high",
+        "source": "Audiokinetic 'Wwise HDR: Overview and Best Practices'; designingsound.org 'Finding Your Way With High Dynamic Range Audio In Wwise'; A24 Warfare mix philosophy (post-super.com, screendaily)",
+        "confidence": 0.85
+      },
+      {
+        "name": "Post-blast subjective tinnitus + muffle (the soldier's-ear POV)",
+        "howItWorks": "The single most iconic war-film audio trope (Saving Private Ryan codified it): after a near explosion, the world drops to a muffled, low-passed roar overlaid with a steady high ringing tone, then slowly recovers. Warfare and All Quiet built their whole subjective approach on 'how each soldier perceived things... their own individual fog of war' and pulling sound 'inside the characters' minds.' For THIS sim the trigger is doctrinally clean: a danger-close fire mission landing, an IED, or a blast within N metres of the camera/friendly squad. Use it sparingly — overuse is 'one of the most overused tropes in film,' so gate it to genuinely close/large HE only, which keeps it grounded not Hollywood.",
+        "webAudioMapping": "A subjective layer inserted on the MASTER chain (post-everything), engaged only on a close large-HE cue. Two parallel actions for a ~3-6s window: (1) a steady tinnitus tone — OscillatorNode sine at ~4-6kHz (+ a faint second at ~8kHz) through a gain that ramps in ~0.05s to a low level then decays over 4-8s; jitter its exact freq by cue.v for determinism. (2) a master 'ear-protect' lowpass — insert a BiquadFilter lowpass on the master bus, frequency.setValueAtTime(700, now) then exponentialRampToValueAtTime(14000, now+4..6) so the muffle lifts gradually; simultaneously duck master gain ~0.4 and ramp back. Optionally add a slow tremolo (gain LFO ~3-5Hz) for the 'underwater' pulse. Deterministic: trigger condition is a pure function of cue kind+distance; only the synth noise/osc is render-side.",
+        "applicability": "high",
+        "source": "No Film School 'Saving Private Ryan' sound story; movieweb (aural-trauma trope); Soundstripe 'All Quiet on the Western Front' (subjective soldier reality); A24 Warfare (individual fog of war, post-super.com)",
+        "confidence": 0.82
+      },
+      {
+        "name": "Crack-thump distance cue — validate & extend (already partly built)",
+        "howItWorks": "The supersonic bullet 'crack' (ballistic N-wave shockwave traveling with the round) arrives before the muzzle 'thump' (blast from the barrel), and the gap grows with distance: measured ~94ms at 50m and ~507ms at 300m — 'a perceptible time delay can give an experienced listener a rough indication of the distance of the firer.' The existing player.ts speed-of-sound split (343 m/s, split>0.08s) is CORRECT and matches the literature (the crack-thump is the most-cited 'sounds real' detail in every soldier account). The extension: the crack is a sharp, very-brief N-wave (high-frequency snap, ~1-2ms, only heard within the supersonic cone, i.e. when the round passes NEAR the listener), distinct from a distant report which is all thump and no crack.",
+        "webAudioMapping": "Keep the existing crackAt/thumpAt scheduling — it's right. Two refinements: (1) The N-wave snap should be a bandpass 'tick' (~2-4kHz, ~12-20ms) only when the round actually passes near the camera (a true nearmiss), and the thump a separate lowpassed sub at the speed-of-sound delay — the current 'nearmiss' recipe and scheduleNearmissTail already model this; tighten the snap to ~2ms-attack/15ms-decay bandpass for the genuine N-wave bite. (2) For shots NOT passing near you (most of a firefight), suppress the crack entirely and play only the distance-delayed, lowpassed thump — distant fire is a soft, round 'pop...pop' with no snap. Gate snap-vs-thump on perpendicular distance from camera to the shot's line of fire, not just range.",
+        "applicability": "high",
+        "source": "Sciencedirect SA80 sound-exposure study & forensic gunshot acoustics (94ms@50m, 507ms@300m; N-wave heard only inside the cone, acoustics.org Beck); SoundCy gunshot-writing guide",
+        "confidence": 0.92
+      },
+      {
+        "name": "Radio comms band-limited voice/squelch chain (proper lo-fi net)",
+        "howItWorks": "Real combat-net traffic is its own emotional channel — Warfare's team built 'radio treatments with 100% accuracy... distortions designed to emulate the technical degradations' of comms, and 'radios flying around' carry the listener between silence and chaos. The recognised radio-effect chain is: steep highpass >500Hz + lowpass ~3kHz (telephone/PRC-148 band), mid-range SOFT saturation (not harsh distortion), heavy compression (e.g. ratio ~14, makeup ~+6dB), bracketed by squelch open/close noise bursts. The current 'radio' cue squelches but does NOT band-limit a voice element; making the net sound like a degraded speaker — even under a UI log line — is a huge presence win and reinforces 'you command, you don't shoot.'",
+        "webAudioMapping": "Build a reusable radioVoice() sub-graph: source (a short formant-ish synth — 2-3 detuned saw/square OscillatorNodes through bandpass 'vowel' filters, OR just the existing squelch+beep) -> highpass BiquadFilter @ 500-600Hz, Q~0.7 -> lowpass @ 3kHz -> WaveShaper with a GENTLE tanh curve (drive ~1.3-1.8, the existing pattern) for grit -> DynamicsCompressor (threshold -30, ratio 12-14, attack 0.003, release 0.1) -> a peaking EQ +6dB @ ~1.5kHz for the 'speaker honk' -> ducked send to master. Top and tail with the existing open/close squelch noiseBursts. Keep KIND_TRIM.radio low so it sits UNDER the log line; route radio through the duck bus so HE collapses it too.",
+        "applicability": "high",
+        "source": "CRI Middleware 'Radio Voice Effect' blog + GameSalad/Cockos community chains (HP>500Hz, LP~3kHz, soft saturation, comp ratio ~14 +6dB); A24 Warfare radio treatment (post-super.com, screendaily)",
+        "confidence": 0.85
+      },
+      {
+        "name": "Calm-before ambient bed + silence-as-contrast (the readable silence)",
+        "howItWorks": "Restrepo/WAR is 'sound and fury broken by moments of unnerving stillness' — '100 miles per hour into a dead hole.' Warfare deliberately mixed non-battle scenes 'as quiet as we could make them without losing any detail,' using the DEPARTURE of an ambient (aircraft leaving, city falling silent) to create dread. Today the sim has NO ambient bed — silence is literally nothing, which reads as 'audio off' rather than 'tense calm.' A barely-there valley wind/insect/distant-stream bed makes silence ACTIVE; then HDR ducking yanks it away the instant contact starts, and its absence is what sells the violence. This is the single cheapest way to make the 'calm-before' a felt experience.",
+        "webAudioMapping": "One persistent, looping ambient voice (NOT per-cue): a long looping AudioBufferSource of generated pink/brown noise -> a slowly-LFO'd lowpass (cutoff wandering 300-900Hz via a 0.05-0.2Hz LFO on frequency) for wind, + an optional faint high bandpass shimmer for insects at day, all at very low gain (~0.04-0.08) on the duck bus. Deterministic-safe: the bed loop is render-side noise, the LFO is wall-clock-free (driven by ctx time), and it emits no cues. On TIC rising edge (already detected in mapper -> tic_sting), ramp the bed gain to near-zero over ~0.3s; restore over several seconds when contact drops (respecting the existing one-way TIC latch caveat). Cross-fade bed character by World time-of-day/weather (wind louder in the existing weather state) for a living valley.",
+        "applicability": "high",
+        "source": "A24 Warfare (silence/ambient departure, post-super.com & televisual); Restrepo reception ('unnerving stillness', '100 mph into a dead hole', 500daysoffilm/IDA); BHD spectromorphology (pulsed desert wind, econtact.ca)",
+        "confidence": 0.8
+      },
+      {
+        "name": "Spectral-reveal of distance (HF roll-off as a continuous distance axis)",
+        "howItWorks": "Black Hawk Down opens with the helicopter 'high frequencies filtered out, then gradually reintroduced' — frequency content over time IS the distance/intimacy cue. Air absorption physically removes highs with distance (the late reverb tail also darkens), so a far PKM on the ridge is a dull thud while the same gun at the wire is a bright hammer. The existing air-absorption lowpass (12kHz near -> 700Hz far) is the right idea but is a single static value per cue; making it a true continuous, per-distance curve — and pairing it with the reverb wet/dry ratio rising with distance — gives one coherent 'how far' axis the listener reads unconsciously.",
+        "webAudioMapping": "Refine the existing spatial() lowpass: keep cutoff = f(norm) but use a steeper perceptual mapping (e.g. cutoff = 14000 * pow(1-norm, 2.0), floor ~500Hz) AND a gentle high-shelf cut for additional darkness, not just one lowpass. Couple it: reverbWetGain = norm (far = mostly tail), dryGain = (1-norm)*0.6+0.4. For the elevation cue this axis is missing today — add a SMALL high-shelf boost for shots from above the camera's terrain elevation (the ridge gun 'rings' more openly) vs a muffled low-shelf for shots from defilade/below; read elevation from the existing 512x512 elevation grid at cue.pos. Subtle (a few dB) — grounded, not gimmicky.",
+        "applicability": "medium",
+        "source": "Black Hawk Down spectromorphology analysis (econtact.ca, Gates/Rudy); standard air-absorption acoustics; Audiokinetic outdoor-IR HF-decay notes",
+        "confidence": 0.7
+      },
+      {
+        "name": "Directional intent — 'every snap is very directional' (tighten panning)",
+        "howItWorks": "Warfare's Ray Mendoza: 'every snap, every round has a purpose... when there's a snap, it's very directional,' and the core dramatic problem of a firefight is 'identifying where fire originates' amid 'confusion.' The gameplay payoff is huge: if the player can HEAR which direction incoming is coming from (left ridge vs right village), the top-down tactical read becomes audible. The current StereoPanner uses screen-x only; that's correct for a top-down camera but can be sharpened and made the deliberate carrier of tactical information (enemy fire panned hard to its bearing; friendly outgoing centered/softer).",
+        "webAudioMapping": "Keep StereoPanner (top-down 2D — full HRTF PannerNode is overkill and CPU-heavy at 24 voices). Sharpen the existing screen-x pan: widen the pan law so off-center events reach |0.7-1.0| sooner (events near screen edge should feel clearly L/R), and slightly REDUCE pan width for friendly/outgoing muzzle cues so YOUR squad feels 'with you' (centered) while ENEMY fire is panned hard to its bearing — leveraging the existing muzzle_us vs muzzle_insurgent split. Add a tiny inter-aural delay (DelayNode 0-0.6ms by sign of pan) for extra directional bite if cheap. This makes bearing-to-threat audible, the tactical-read win.",
+        "applicability": "medium",
+        "source": "SlashFilm A24 Warfare interview (Ray Mendoza, 'very directional', 'where fire originates'); indiewire Warfare sound interview",
+        "confidence": 0.72
+      }
+    ],
+    "keyInsights": [
+      "The #1 gap vs real valley combat is REVERB: a Korengal shot is mostly its tail bouncing off the far ridge. A procedurally-generated decaying-noise impulse response in a ConvolverNode (Moorer's method, zero audio files) is fully allowed and is the highest-leverage single addition. Feed only the bright SNAP into the convolver (not the sub body) to get a ringing valley tail without mud — Bungie's and Audiokinetic's exact technique.",
+      "SOMBER comes from DYNAMICS, not from making things loud. HDR-style ducking — the loudest event momentarily collapses ambient/radio/small-arms — is how Warfare makes an IED 'felt': silence around the blast, not a louder blast. Implement as a deterministic duck bus keyed on cue PRIORITY (pure function of cue kind), plus a gentle master compressor to stop a 30-man fight from clipping into arcade mush.",
+      "The existing crack-thump speed-of-sound split is acoustically CORRECT (literature: ~94ms@50m, ~507ms@300m) and is the most-cited 'this sounds real' detail in every soldier account — don't rebuild it, refine it: a true N-wave snap ONLY when the round passes near the listener, otherwise pure delayed thump for distant fire.",
+      "Make SILENCE active. There is no ambient bed today, so 'calm-before' reads as 'audio off.' A barely-there wind/valley bed (looping generated noise + slow LFO'd lowpass) that HDR-ducks to near-zero on the TIC rising edge turns silence into dread — Restrepo's 'unnerving stillness', Warfare's 'as quiet as we could make them.'",
+      "Subjective player-ear POV (post-blast tinnitus + lifting lowpass muffle on the master bus) is the iconic war-film move and maps cleanly to a deterministic trigger (close large-HE / danger-close only). Gate it tightly — it's 'one of the most overused tropes in film', so rare use keeps it grounded, not Hollywood.",
+      "Architecture seam: today the graph is per-cue gain->lowpass->pan->master with a single bus. Realizing reverb + HDR ducking + the ambient bed needs a few SHARED buses (dry, reverb-send/convolver, duck-bus, subjective master insert). This is additive and stays render-side; the mapper/cue layer remains pure — only synth.ts/player.ts grow. Distance should drive ONE coherent axis: HF roll-off + reverb wet/dry ratio + (subtle) elevation shelf together = 'how far / how high'."
+    ],
+    "pitfalls": [
+      "Reverb mud: feeding the FULL designed shot (sub body + tail) into the convolver smears the low end into a roar. Feed only the short bright snap/spike into the IR (Audiokinetic/Bungie); keep the sub dry. Also cap convolver wet on near events — close shots are mostly dry.",
+      "Hollywood-bombastic overload: do NOT make blasts louder to feel powerful — that's arcade. Power comes from ducking everything ELSE (HDR). Resist constant musical stings; tic_sting is the ONLY musical element and must stay rare and gated to the TIC rising edge.",
+      "Tinnitus trope abuse: triggering the ringing/muffle on every blast is cliché and exhausting ('most overused trope in film'). Gate to genuinely close + large HE / danger-close only, a handful of times per engagement.",
+      "Determinism break: ConvolverNode IRs, ambient bed loops, and tinnitus oscillators MUST live render-side (player.ts/synth.ts) and never feed lib/sim. The duck schedule and tinnitus TRIGGER must be pure functions of cue kind/distance (no amplitude-following analyser, no Math.random in the trigger) so the cue->behavior mapping stays deterministic; only the noise/osc samples themselves are render-side, exactly like the existing noiseBuffer.",
+      "CPU/polyphony: a single ConvolverNode with a 1.5-3s IR shared across all sends is cheap; do NOT create a convolver per cue. Avoid full HRTF PannerNode per voice (overkill for top-down 2D and heavy at the 24-voice cap) — StereoPanner is correct here. Build the IR once via OfflineAudioContext at unlock, not per frame.",
+      "Stale/over-long tails in a sustained firefight: a 3s valley tail on every one of hundreds of rounds will pile up and smear into white noise. Send only a fraction of cues (e.g. the loudest / most distant) to reverb, scale wet by distance, and let the polyphony cap + HDR duck thin it — the goal is the OCCASIONAL ridge-echo, not a wash.",
+      "Don't conflate 'slow/quiet' with 'broken': the readable silence is a FEATURE (no events => no sound is correct). The ambient bed must be barely audible (~0.04-0.08 gain) and must not become a constant drone that erases the calm-vs-contact contrast."
+    ],
+    "sources": [
+      {
+        "title": "Audiokinetic — Outdoor Impulse Responses (BOOM Library): feed short snaps into convolution, mountain/canyon/forest IRs",
+        "url": "https://www.audiokinetic.com/en/blog/outdoor-impulse-responses-boom-library/"
+      },
+      {
+        "title": "Audiokinetic — Wwise HDR: Overview and Best Practices for Game Mixing",
+        "url": "https://www.audiokinetic.com/en/blog/wwise-hdr-overview-and-best-practices-for-game-mixing/"
+      },
+      {
+        "title": "Designing Sound — Finding Your Way With High Dynamic Range Audio In Wwise",
+        "url": "https://designingsound.org/2013/06/21/finding-your-way-with-high-dynamic-range-audio-in-wwise/"
+      },
+      {
+        "title": "GDC 2015 recap (a decibel of difference) — Bungie's reverb-tail-by-environment/surface approach",
+        "url": "http://www.adbofdifference.com/blog/2015/3/17/gdc-2015"
+      },
+      {
+        "title": "gskinner blog — Making Reverb with the Web Audio API (decaying-noise IR via OfflineAudioContext)",
+        "url": "https://blog.gskinner.com/archives/2019/02/reverb-web-audio-api.html"
+      },
+      {
+        "title": "reverbGen — JS library generating artificial reverb impulse responses (Moorer-inspired)",
+        "url": "https://github.com/adelespinasse/reverbGen"
+      },
+      {
+        "title": "MDN — ConvolverNode / createConvolver()",
+        "url": "https://developer.mozilla.org/en-US/docs/Web/API/ConvolverNode"
+      },
+      {
+        "title": "acoustics.org — An Introduction to Forensic Gunshot Acoustics (Beck): muzzle blast ms, N-wave cone, reverb 'over a second'",
+        "url": "https://acoustics.org/pressroom/httpdocs/162nd/Beck_4aSCa3.html"
+      },
+      {
+        "title": "Maher — Modeling and Signal Processing of Acoustic Gunshot Recordings (IEEE): crack vs thump, ground reflections",
+        "url": "https://www.montana.edu/rmaher/publications/maher_ieeedsp_0906_257-261.pdf"
+      },
+      {
+        "title": "ScienceDirect — Factors affecting sound exposure from firing an SA80 high-velocity rifle (crack-thump distance timings)",
+        "url": "https://www.sciencedirect.com/science/article/abs/pii/S0003682X1630010X"
+      },
+      {
+        "title": "SoundCy — Crafting Realistic Gunshot Sounds (crack/thump, distance, reflections)",
+        "url": "https://soundcy.com/article/how-to-write-gunshot-sound"
+      },
+      {
+        "title": "No Film School — The Sound Story of 'Saving Private Ryan' (real-weapon foley, authenticity)",
+        "url": "https://nofilmschool.com/saving-private-ryan-sound-design"
+      },
+      {
+        "title": "MovieWeb — Saving Private Ryan ear-ringing / aural-trauma trope (tinnitus codifier)",
+        "url": "https://movieweb.com/saving-private-ryan-ear-ringing-shot-overused-trope/"
+      },
+      {
+        "title": "SlashFilm — Every Single Sound Matters in A24's Warfare (Ray Mendoza: 'very directional', where fire originates)",
+        "url": "https://www.slashfilm.com/1811386/alex-garland-ray-mendoza-warfare-sound-design/"
+      },
+      {
+        "title": "post-super.com — Creating the Sound on 'Warfare' (silence-as-music, radio degradation, subjective POV, ambient departure)",
+        "url": "https://post-super.com/blog/creating-the-sound-on-warfare-feature"
+      },
+      {
+        "title": "Screen Daily — Glenn Freemantle's 'Warfare' soundscape, aiming to be 100% real",
+        "url": "https://www.screendaily.com/aiming-to-be-100-real-glenn-freemantles-warfare-soundscape-amplifies-a-real-iraq-war-firefight/5211080.article"
+      },
+      {
+        "title": "Televisual — Warfare: the sound story (no music, quiet-vs-loud extremes)",
+        "url": "https://www.televisual.com/news/warfare-the-sound-story/"
+      },
+      {
+        "title": "IndieWire — Warfare Navy SEALs combat recreation sound interview (subjective, individual fog of war)",
+        "url": "https://www.indiewire.com/features/craft/warfare-navy-seals-combat-recreation-sound-interview-1235113864/"
+      },
+      {
+        "title": "eContact! — Spectromorphology Hits Hollywood: Sound Design of 'Black Hawk Down' (HF filtering over time, pulsed wind)",
+        "url": "http://www.econtact.ca/8_3/gates_rudy.html"
+      },
+      {
+        "title": "Soundstripe — Sonic Contrasts of 'All Quiet on the Western Front' (subjective soldier reality over accuracy)",
+        "url": "https://www.soundstripe.com/blogs/all-quiet-on-the-western-front-sound-design"
+      },
+      {
+        "title": "CRI Middleware — Radio Voice Effect (bandpass + saturation + compression chain)",
+        "url": "https://blog.criware.com/index.php/2022/07/07/radio-voice-effect/"
+      },
+      {
+        "title": "Wikipedia — Restrepo (film): no music/narration, first-hand combat experience",
+        "url": "https://en.wikipedia.org/wiki/Restrepo_(film)"
+      },
+      {
+        "title": "International Documentary Association — This Is What War Feels Like: Junger's 'Korengal' (stillness vs fury)",
+        "url": "https://www.documentary.org/online-feature/what-war-feels-sebastian-jungers-korengal"
+      },
+      {
+        "title": "500 Days of Film — Restrepo review ('100 mph into a dead hole', real sound)",
+        "url": "https://www.500daysoffilm.com/restrepodocreview/"
+      }
+    ]
+  }
+]

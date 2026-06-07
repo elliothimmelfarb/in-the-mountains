@@ -28,10 +28,13 @@ Open the app, click **Deploy** for a new tour (or **Guided Tutorial**), and comm
 Time is always running — pause with **Space**, set speed with **1–5**, and press **T** to
 fast-forward through the quiet hours until something needs you.
 
-Two read-anytime documents are served statically:
+Three read-anytime documents are served statically (also linked from the title-screen menu):
 
 - **Field Manual** — `/manual/index.html`
 - **Interactive Tutorial** — `/manual/tutorial.html`
+- **Development Archive** — `/manual/archive/index.html` — the chronological story of how the
+  game was built, with every major rebuild, its before→after numbers, and the full illustrated
+  reports. Ships with the app; transparency is a feature.
 
 ## What's simulated
 
@@ -102,9 +105,13 @@ lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD syst
   sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
   draw.ts           Units (symbol→figure LOD), COP structures, effects
   decoration.ts     Stable-hash vegetation/rock scatter by landcover
-lib/audio/          Procedural battle audio (render-side observer; no assets, no deps)
-  mapper.ts         PURE: sim events (effects/log/fire-missions/TIC) → AudioCue[] (headless)
-  synth.ts/player.ts BROWSER: Web-Audio synthesis (osc + filtered noise + envelopes) + 3D mix
+lib/audio/          Procedural soundscape — combat + living valley (render-side; no assets, no deps)
+  mapper.ts/cue.ts  PURE: sim events (effects/log/fire-missions/TIC) → AudioCue[] (headless)
+  ambient-state.ts  PURE: World signals (sun/wind/weather/contact) → AmbientMix (headless)
+  synth.ts          BROWSER: 5-layer gunfire + blast/IED/radio/indirect recipes
+  reverb.ts         BROWSER: shared valley convolver (procedural decaying-noise IR + ridge slap-taps)
+  ambient.ts        BROWSER: wind/river/generator/birds/dogs/adhan bed, day+weather, contact-ducked
+  player.ts         BROWSER: bus graph + reverb send + HDR mix + ducking + occlusion + limiter
 state/store.ts      Zustand store bridging React <-> the World (the real-time frame loop)
 components/
   world/WorldView.tsx     The single live map (terrain + units + orders + planning)
@@ -114,6 +121,7 @@ components/
 app/                Next.js App Router entry
 docs/visual-overhaul/   Map art bible (ART_BIBLE.md), 160 SVG assets, asset-bible.html
 public/manual/      HTML field manual + tutorial
+public/manual/archive/  Development archive — chronological story + published reports (shipped)
 docs/               Design doc + wiki
 scripts/            Headless smoke & balance harnesses (run with `npx tsx`)
 ```
@@ -132,6 +140,9 @@ npx tsx scripts/balance.ts 12 45  # 12 continuous deployments x 45 game-min; cas
 - `docs/DESIGN.md` — the master design document.
 - `docs/wiki/` — systems, AI, campaign, architecture, and glossary.
 - `public/manual/` — the in-world field manual and tutorial (HTML).
+- `public/manual/archive/` — the **Development Archive**: a chronological, illustrated record of how
+  the game was built (the curated, shipped copy). The raw engineering record lives in `docs/progress/`
+  and the issue ledger in `docs/issues/`.
 
 ## Notes
 
