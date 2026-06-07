@@ -59,7 +59,7 @@ ul{margin:8px 0;padding-left:20px}li{margin:4px 0;color:#cfdaea}
   <div class="s"><b>120&nbsp;m <span class="was">← 170 m</span></b><span>COP diameter</span></div>
   <div class="s"><b>41 <span class="was">← 35</span></b><span>platoon strength</span></div>
   <div class="s"><b>9 <span class="was">← 3</span></b><span>weapons squad</span></div>
-  <div class="s"><b>2–6 <span class="was">← 1</span></b><span>qalats / village</span></div>
+  <div class="s"><b>2–5 <span class="was">← 1</span></b><span>qalats / village</span></div>
   <div class="s"><b>north <span class="was">← "south"</span></b><span>valley drainage (name fix)</span></div>
   <div class="s"><b>0 <span class="was">← 1</span></b><span>stranded patrols / 12</span></div>
 </div>
@@ -74,7 +74,7 @@ ul{margin:8px 0;padding-left:20px}li{margin:4px 0;color:#cfdaea}
 <tr><td><strong>S1</strong> weapons squad</td><td>FM/ATP 3-21.8: HQ + 3×9 rifle + 1×9 weapons ≈ 39–42</td><td>weapons sqd <span class="w">3</span> → <span class="b">9</span>; platoon <span class="w">35</span> → <span class="b">41</span></td><td>roster probe, smoke, balance</td></tr>
 <tr><td><strong>S2</strong> COP footprint</td><td>Restrepo / KOP core ≈ 100–130 m position; Wanat 300×100 m</td><td>170 m circle → <span class="b">120 m platoon OP</span>; <span class="b">0 sealed pockets</span></td><td>cop-render, copaudit ×60</td></tr>
 <tr><td><strong>S3</strong> floor gradient</td><td>the Korengal drains north into the Pech</td><td>names/lerp transposed (read "inverted") → <span class="b">honest, drains north</span>, terrain bit-identical</td><td>sha256 of elev/land arrays</td></tr>
-<tr><td><strong>S4</strong> village shape</td><td>a village is a cluster of stacked qalats, not one box</td><td>1 compound (~40 m) → <span class="b">2–6-qalat hamlet (~70–90 m)</span></td><td>extents probe, connectivity ×40</td></tr>
+<tr><td><strong>S4</strong> village shape</td><td>a village is a cluster of stacked qalats, not one box</td><td>1 compound (~40 m) → <span class="b">2–5-qalat hamlet (~70–90 m)</span></td><td>extents probe, connectivity ×40</td></tr>
 <tr><td><strong>R3</strong> village render</td><td>—</td><td>one sprite → <span class="b">cluster over the real stamped qalats</span></td><td>live capture</td></tr>
 <tr><td><strong>R4</strong> LOD bands</td><td>dot → squad-icon → figure must be monotonic</td><td>pin double-draw + garrison pop → <span class="b">clean handoffs</span></td><td>read-only LOD audit + live</td></tr>
 </tbody>
@@ -91,10 +91,10 @@ ul{margin:8px 0;padding-left:20px}li{margin:4px 0;color:#cfdaea}
 </figure>
 
 <h2>Villages as hamlets</h2>
-<p>A "village" was a single walled box. A real Korengal village — Aliabad, Babiyal — is a cluster of stacked compounds spilling along a terraced bench. <code>villageHamlet(v)</code> now lays out a ring of 2–6 discrete qalats around an open courtyard, the count scaled by population, orchards and terraces filling the benches between them. It is a <strong>pure function of the village id</strong> — no random draws, no saved state — so the simulation's stamped terrain and the renderer's painted sprites compute the identical hamlet and land pixel-for-pixel on top of each other.</p>
+<p>A "village" was a single walled box. A real Korengal village — Aliabad, Babiyal — is a cluster of stacked compounds spilling along a terraced bench. <code>villageHamlet(v)</code> now lays out a ring of 2–5 discrete qalats around an open courtyard, the count scaled by population, orchards and terraces filling the benches between them. It is a <strong>pure function of the village id</strong> — no random draws, no saved state — so the simulation's stamped terrain and the renderer's painted sprites compute the identical hamlet and land pixel-for-pixel on top of each other.</p>
 <figure>
   <img src="village-hamlet.png" alt="Landigal rendered as a ring of distinct walled compounds in orchards">
-  <figcaption>Landigal at tactical zoom — discrete walled qalats ringing an open centre, set in orchards and terraces. The compounds are deliberately <em>spaced</em> (≥ a 2-cell alley), not merged — see the stall hunt below for why that spacing is load-bearing, not cosmetic.</figcaption>
+  <figcaption>Landigal at tactical zoom — discrete walled qalats ringing an open centre, set in orchards and terraces. The compounds are deliberately <em>spread</em> on a ring with an open, skirtable exterior, not piled into one footprint — see the stall hunt below for why that topology is load-bearing, not cosmetic.</figcaption>
 </figure>
 
 <h2>The platoon, at strength</h2>
@@ -113,7 +113,7 @@ ul{margin:8px 0;padding-left:20px}li{margin:4px 0;color:#cfdaea}
 
 <div class="card rd">
 <h3>The stall the static audit couldn't see</h3>
-<p>A 7-agent adversarial verification pass — each agent assigned one commit and told to <em>refute</em> it — read every diff, ran <code>copaudit</code>, sha256'd the terrain, and returned <strong>zero blockers</strong>. But static structural checks can't watch a patrol <em>walk</em>. The dynamic balance harness caught what they missed: on seed <code>bal-6</code>, a squad <em>returning</em> from Loy Kalay froze — a valid 28-cell path, but oscillating between two cells at 2.5 m per 90 seconds. The first hamlet had scattered <em>overlapping</em> compounds whose walls fused into a labyrinth of 1-cell slots; the path planner threaded it, the local steering refused, and the element deadlocked (an issue-010-class trap). The fix made the hamlet a ring of <em>discrete</em> qalats with guaranteed ≥2-cell alleys — wide enough to thread or skirt. Stall count over all 12 deployment seeds: <strong>1 → 0</strong>. The lesson: a green static pass is necessary, not sufficient — drive the thing.</p>
+<p>A 7-agent adversarial verification pass — each agent assigned one commit and told to <em>refute</em> it — read every diff, ran <code>copaudit</code>, sha256'd the terrain, and returned <strong>zero blockers</strong>. But static structural checks can't watch a patrol <em>walk</em>. The dynamic balance harness caught what they missed: on seed <code>bal-6</code>, a squad <em>returning</em> from Loy Kalay froze — a valid 28-cell path, but oscillating between two cells at 2.5 m per 90 seconds. The first hamlet had scattered <em>overlapping</em> compounds whose walls fused into a labyrinth of 1-cell slots; the path planner threaded it, the local steering refused, and the element deadlocked (an issue-010-class trap). The fix made the hamlet a ring of <em>discrete</em> qalats around an open courtyard — spread out with a skirtable exterior instead of filling the footprint, so a route can always walk <em>around</em> it (the jitter still lets the odd pair sit close, but the trap was the fill, not the gap). Stall count over all 12 deployment seeds: <strong>1 → 0</strong>. The lesson: a green static pass is necessary, not sufficient — drive the thing.</p>
 </div>
 
 <h2>Honest about the cost</h2>
