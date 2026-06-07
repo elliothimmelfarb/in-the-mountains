@@ -12,6 +12,7 @@ import {
   resolveDirectHit,
   applyDamage,
   blastDamageAt,
+  silhouetteRadius,
 } from "./ballistics";
 import { insurgentBrain } from "./ai/insurgent";
 import { civilianBrain } from "./ai/civilian";
@@ -415,8 +416,9 @@ export class CombatSim {
     if (u.fireCooldown > 0) u.fireCooldown -= dt;
     if (u.roundTimer > 0) u.roundTimer -= dt;
 
-    // suppression decays
-    if (u.suppression > 0) u.suppression = Math.max(0, u.suppression - dt * 0.28);
+    // suppression decays — softened (0.28 -> 0.16) so it ACCUMULATES under sustained
+    // fire and LINGERS a beat after the last crack (real men stay down a few seconds).
+    if (u.suppression > 0) u.suppression = Math.max(0, u.suppression - dt * 0.16);
     // acute buddy-down shock fades over a few seconds
     if (u.shaken && u.shaken > 0) u.shaken = Math.max(0, u.shaken - dt);
 
@@ -966,7 +968,33 @@ export class CombatSim {
             this.addEffect("impact", p.aimpoint, 0.35, { faction: p.faction });
           }
         } else {
-          this.addEffect("impact", p.aimpoint, 0.3, { faction: p.faction });
+          // Area/grazing round (suppressive MG, or a missed/dead aimpoint): the beaten
+          // zone still bites. Sweep a NARROW terminal corridor for a hostile body the
+          // round passes through — keeps area fire primarily a suppression tool, but
+          // stops it being literally harmless to a fighter standing in the beaten zone.
+          const owner = this.unit(p.ownerId);
+          let struck: Unit | null = null;
+          const grazeR = p.damageType === "ball" ? 1.1 : 0;
+          if (owner && grazeR > 0) {
+            for (const u of this.units) {
+              if (!u.alive || u.evac || u.faction === "civilian" || !this.isHostile(owner, u)) continue;
+              if (segDist(u.pos, p.origin, p.aimpoint) <= grazeR + silhouetteRadius(u, 0.6)) { struck = u; break; }
+            }
+          }
+          if (struck && owner) {
+            const los = this.los(owner, struck);
+            const cover = this.coverFor(struck, p.origin);
+            const outcome = resolveDirectHit(p, struck, los, cover, this.rng);
+            if (outcome.hit) {
+              p.hit = true;
+              this.addEffect("blood", struck.pos, 0.5, { faction: struck.faction });
+              this.onHit(owner, struck, outcome.killed);
+            } else {
+              this.addEffect("impact", p.aimpoint, 0.35, { faction: p.faction });
+            }
+          } else {
+            this.addEffect("impact", p.aimpoint, 0.3, { faction: p.faction });
+          }
         }
         // explosive direct rounds (RPG/AT4) detonate on arrival
         if (p.blastRadius > 0) this.detonate(p, p.aimpoint);
@@ -1020,25 +1048,36 @@ export class CombatSim {
   }
 
   private suppressAlong(p: Projectile, from: number, to: number) {
-    // sample a couple of points along this step and suppress nearby enemies of shooter
+    // A supersonic round cracking past suppresses everyone near its FLIGHT PATH, not
+    // just men within the bare bullet radius of two sparse points. We credit each unit
+    // ONCE per step by its closest approach (perpendicular distance) to the segment the
+    // round traversed this tick — geometrically exact (the crack is loudest at closest
+    // approach), with no multi-count and no throttle-by-sample-count.
+    //   Old model: samples=2 over an ~88 m M4 step (points ~44 m apart) gated at the 4 m
+    //   bullet radius → almost the whole element got nothing. This catches the bow-wave.
     const owner = this.unit(p.ownerId);
-    const samples = 2;
-    for (let i = 0; i < samples; i++) {
-      const t = from + ((to - from) * (i + 0.5)) / samples;
-      const pt = add(p.origin, scale(norm(p.vel), t));
-      for (const u of this.units) {
-        if (!u.alive || u.evac || u.faction === "civilian") continue;
-        if (owner && !this.isHostile(owner, u)) continue;
-        const d = dist(u.pos, pt);
-        if (d < p.suppressionRadius) {
-          this.addSuppression(u, p.suppression * (1 - d / p.suppressionRadius) * 0.5, p.origin);
-        }
+    const dir = norm(p.vel);
+    const a = add(p.origin, scale(dir, from)); // segment start this step
+    const b = add(p.origin, scale(dir, to)); // segment end this step
+    // Crack-thump zone: the bow-wave is felt well beyond the wound radius. Floor it so
+    // even a tight-radius rifle round (M4 supp radius 4) throws a real corridor.
+    const crackR = Math.max(7, p.suppressionRadius * 2.2);
+    for (const u of this.units) {
+      if (!u.alive || u.evac || u.faction === "civilian") continue;
+      if (owner && !this.isHostile(owner, u)) continue;
+      const d = segDist(u.pos, a, b); // closest approach of THIS round to this man this step
+      if (d < crackR) {
+        // Near-miss credits more than a far crack (linear falloff to the crack radius).
+        this.addSuppression(u, p.suppression * (1 - d / crackR), p.origin);
       }
     }
   }
 
   addSuppression(u: Unit, amount: number, fromPos: Vec2) {
-    u.suppression = clamp01(u.suppression + amount * 0.12);
+    // Intake is meaningful per round (0.12 -> 0.35) but a single near-miss event is
+    // capped (0.13) so ONE round is a flinch, and it takes SUSTAINED volume to pin a
+    // man — a passing burst RAMPS suppression over ~1-2 s instead of pinning in one tick.
+    u.suppression = clamp01(u.suppression + Math.min(0.13, amount * 0.35));
     u.threatDir = norm(sub(fromPos, u.pos));
   }
 

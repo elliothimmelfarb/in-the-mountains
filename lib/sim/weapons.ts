@@ -53,19 +53,19 @@ export const WEAPONS: Record<string, Weapon> = {
   m4: {
     id: "m4", name: "M4A1 Carbine", short: "M4", cls: "carbine", caliber: "5.56×45mm", faction: "us",
     muzzleVel: 880, effRange: 500, maxRange: 3600, dispersionMOA: 4, cyclicRPM: 850, magSize: 30,
-    burst: [3, 6], auto: true, damage: 34, damageType: "ball", penetration: 0.35,
+    burst: [3, 6], auto: true, damage: 42, damageType: "ball", penetration: 0.35,
     suppressionRadius: 4, suppression: 0.9, reload: 3.2, roundWeight: 0.012, aimTime: 0.8, opticRange: 700,
   },
   m16: {
     id: "m16", name: "M16A4 Rifle", short: "M16", cls: "rifle", caliber: "5.56×45mm", faction: "us",
     muzzleVel: 920, effRange: 550, maxRange: 3600, dispersionMOA: 3.4, cyclicRPM: 800, magSize: 30,
-    burst: [3, 3], auto: false, damage: 35, damageType: "ball", penetration: 0.36,
+    burst: [3, 3], auto: false, damage: 43, damageType: "ball", penetration: 0.36,
     suppressionRadius: 4, suppression: 0.9, reload: 3.2, roundWeight: 0.012, aimTime: 0.9, opticRange: 750,
   },
   m249: {
     id: "m249", name: "M249 SAW", short: "SAW", cls: "lmg", caliber: "5.56×45mm", faction: "us",
     muzzleVel: 915, effRange: 800, maxRange: 3600, dispersionMOA: 7, cyclicRPM: 850, magSize: 200,
-    burst: [6, 12], auto: true, damage: 34, damageType: "ball", penetration: 0.35,
+    burst: [6, 12], auto: true, damage: 42, damageType: "ball", penetration: 0.35,
     suppressionRadius: 8, suppression: 1.5, reload: 5.5, roundWeight: 0.012, aimTime: 0.6, opticRange: 800,
   },
   m240: {
@@ -158,13 +158,13 @@ export const WEAPONS: Record<string, Weapon> = {
   akm: {
     id: "akm", name: "AKM", short: "AK", cls: "rifle", caliber: "7.62×39mm", faction: "insurgent",
     muzzleVel: 715, effRange: 350, maxRange: 1500, dispersionMOA: 6, cyclicRPM: 600, magSize: 30,
-    burst: [3, 8], auto: true, damage: 42, damageType: "ball", penetration: 0.42,
+    burst: [3, 8], auto: true, damage: 48, damageType: "ball", penetration: 0.42,
     suppressionRadius: 5, suppression: 1, reload: 3.6, roundWeight: 0.016, aimTime: 0.9, opticRange: 400,
   },
   rpk: {
     id: "rpk", name: "RPK LMG", short: "RPK", cls: "lmg", caliber: "7.62×39mm", faction: "insurgent",
     muzzleVel: 745, effRange: 600, maxRange: 1500, dispersionMOA: 7, cyclicRPM: 600, magSize: 40,
-    burst: [5, 10], auto: true, damage: 42, damageType: "ball", penetration: 0.42,
+    burst: [5, 10], auto: true, damage: 48, damageType: "ball", penetration: 0.42,
     suppressionRadius: 8, suppression: 1.6, reload: 4.5, roundWeight: 0.016, aimTime: 0.7, opticRange: 600,
   },
   pkm: {

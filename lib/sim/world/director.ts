@@ -21,14 +21,26 @@ export function runDirector(w: World, dt: number) {
   if (w.state.clock < w.state.nextActivityAt) return;
   const night = w.isNight();
   let base = (w.rng.range(14, 30) * 60) / (0.45 + w.state.enemyHeat);
-  if (night) base *= 0.6;
+  // The US owns the night (NODs); the enemy lacked them, so deep-night DIRECT-FIRE activity is
+  // SPARSE and the enemy favors the dawn/dusk stand-to windows and daylight harassment. The old
+  // `if (night) base *= 0.6` had it inverted (smaller base = sooner = MORE frequent at night).
+  // Night infiltration (caching/movement) is preserved below — it's just not gunfights.
+  const hour = w.secondsOfDay / 3600;
+  const deepNight = night && (hour < 4.5 || hour >= 21);
+  const dawnDusk = (hour >= 4.5 && hour < 7) || (hour >= 17 && hour < 19.5);
+  if (deepNight) base *= 1.8;        // far LESS frequent deep at night
+  else if (dawnDusk) base *= 0.75;   // the favored stand-to windows — slightly MORE
   w.state.nextActivityAt = w.state.clock + base;
 
   if (w.sim.livingEnemies().length >= MAX_ACTIVE_ENEMY) return;
   if (w.state.enemyStrengthAbs <= 1) return;
 
   const r = w.rng.next();
-  if (r < 0.42) {
+  if (deepNight) {
+    // Deep night: mostly infiltration/caching movement; the occasional probe, no complex attacks.
+    if (r < 0.75) spawnInfiltration(w);
+    else spawnHarass(w);
+  } else if (r < 0.42) {
     // Against a patrol in a hotter valley, the ambush is often IED-initiated.
     if (w.state.enemyHeat > 0.45 && w.activePatrolCentroid() && w.rng.chance(0.5)) spawnIedAmbush(w);
     else spawnAmbushOnPatrol(w);
@@ -70,7 +82,9 @@ function spawnAmbushOnPatrol(w: World) {
   const count = drawEnemy(w, w.rng.int(3, 6));
   if (count === 0) return;
   const dir = patrol ? norm(sub(w.copWorld(), focus)) : { x: 0, y: -1 };
-  const positions = firingPositions(w, focus, dir, count, 90, 360);
+  // 80..260 m: small-arms ambush range in a narrow valley. The old 90..360 m let the elevation
+  // reweight push the cell onto distant ridges that engaged at ~320 m (too far to suppress).
+  const positions = firingPositions(w, focus, dir, count, 80, 260);
   positions.forEach((pos, i) => {
     const e = spawnFighter(w, pos, i, count);
     e.brainState = "ambush";
@@ -152,7 +166,10 @@ function spawnHarass(w: World) {
   const focus = patrol ?? w.copWorld();
   const count = drawEnemy(w, w.rng.int(2, 3));
   if (count === 0) return;
-  const positions = firingPositions(w, focus, { x: 0, y: -1 }, count, 300, 620);
+  // 220..380 m: standoff harassing fire from the high ground — longer than the 80..260 m
+  // ambush, but inside effective AK/PKM range so the rounds REACH the patrol (two-way fire),
+  // not the old 300..620 m sterile plink that produced enemy-only suppression (integration fix).
+  const positions = firingPositions(w, focus, { x: 0, y: -1 }, count, 220, 380);
   positions.forEach((pos, i) => {
     const e = spawnFighter(w, pos, i, count);
     e.brainState = "engage";
@@ -214,33 +231,100 @@ function drawEnemy(w: World, n: number): number {
   return clamp(Math.min(n, room, Math.ceil(w.state.enemyStrengthAbs)), 0, n);
 }
 
+/** Score a candidate firing point against the kill zone: plunging fire from concealed,
+ *  covered high ground that has LOS to the focus and lies along the desired ambush axis. */
+function scoreFiringPoint(w: World, p: Vec2, focus: Vec2, dir: Vec2): number | null {
+  const t = w.terrain;
+  if (p.x < 20 || p.y < 20 || p.x > t.worldSize - 20 || p.y > t.worldSize - 20) return null;
+  if (!t.passableCell(Math.floor(p.x / t.cellSize), Math.floor(p.y / t.cellSize))) return null;
+  const los = lineOfSight(t, p, focus, { observerHeight: 1.2, targetHeight: 1.7 });
+  if (!los.visible) return null; // a plunging position with no LOS to the kill zone is useless
+  const conceal = t.concealAt(p.x, p.y);
+  const cover = t.coverAt(p.x, p.y);
+  const elevAdv = t.elevAt(p.x, p.y) - t.elevAt(focus.x, focus.y);
+  const toP = norm(sub(p, focus));
+  const align = toP.x * dir.x + toP.y * dir.y;
+  // Plunging fire: normalize elevAdv to a ~0..1.6 band (saturating ~35 m up) so it can OUTWEIGH
+  // conceal (the old elevAdv*0.02 was swamped by conceal*3 — elevation was effectively ignored).
+  const elevScore = clamp(elevAdv / 22, -0.5, 1.6);
+  // PROXIMITY: high ground only matters if it can actually engage the kill zone. Without this,
+  // maximizing elevation alone drives the cell onto the tallest, FARTHEST ridges (measured: they
+  // engaged at 320 m, too far to suppress, and exfil dominated). Korengal high ground was CLOSE
+  // (narrow valley). Prefer firing points near a realistic small-arms ambush range (~150 m),
+  // falling off past it — this keeps the plunging advantage at an engageable distance.
+  const range = dist(p, focus);
+  // Falls off HARD past ~150 m so a far, tall ridge can't beat a closer, slightly-lower knoll.
+  // (Integration tuning: with the old /200 falloff + −0.5 floor the elevation term swamped
+  //  proximity and harass cells settled at ~330 m / +73 m elev — a one-sided plink the US won
+  //  for free with ZERO return-fire suppression. Tighter falloff + weight keeps the plunging
+  //  advantage at an ENGAGEABLE range so rounds actually reach the patrol and suppress BOTH sides.)
+  const proximity = clamp(1 - Math.abs(range - 150) / 150, -1.2, 1);
+  return elevScore * 2.6 + proximity * 2.6 + conceal * 2.2 + cover * 1.6 + los.exposure * 1.6 + align * 0.6;
+}
+
+/**
+ * Firing positions for an enemy cell. TWO-STAGE so the cell actually MASSES on a firing line
+ * (the L) instead of ringing the kill zone uniformly (#12). The old single-stage version sampled
+ * count*8 points across the whole minR..maxR annulus — ~380k m² with ~40 samples ⇒ candidates
+ * ~100 m apart, so no picker could ever build a tight firing line (measured: within-45m-of-best
+ * = 1–3, pairwise ~180 m). Instead we now: (1) sample ANCHORS across the annulus and pick the
+ * best 1–2 high-ground/defilade sectors (the L corners); (2) sample the actual firing positions
+ * DENSELY around each anchor (within a fire-team frontage), so the cell lands on 1–2 firing lines.
+ */
 function firingPositions(w: World, focus: Vec2, dir: Vec2, count: number, minR: number, maxR: number): Vec2[] {
   const t = w.terrain;
+  const FRONTAGE = 40; // a fire team's firing line frontage (m) — tight on the kill zone
+
+  // Stage 1: scan anchors across the annulus; keep the scored, LOS-capable ones.
+  const anchors: { p: Vec2; s: number }[] = [];
+  for (let tries = 0; tries < 700 && anchors.length < 24; tries++) {
+    const p = add(focus, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(minR, maxR)));
+    const s = scoreFiringPoint(w, p, focus, dir);
+    if (s !== null) anchors.push({ p, s: s + w.rng.range(0, 0.4) });
+  }
+  anchors.sort((a, b) => b.s - a.s);
+
+  // Choose 1–2 anchors (L corners): the best, plus — only for a cell big enough to man two legs —
+  // one well clear of it for angular separation. Small cells (≤4) stay a single tight firing line.
+  const corners: Vec2[] = [];
+  if (anchors.length) corners.push(anchors[0].p);
+  if (count > 4) {
+    const second = anchors.find((a) => corners.every((c) => dist(a.p, c) > FRONTAGE * 1.6));
+    if (second) corners.push(second.p);
+  }
+  if (corners.length === 0) {
+    // No LOS anchor found — fall back to spread points so the cell still spawns somewhere valid.
+    const out: Vec2[] = [];
+    while (out.length < count) out.push(clampMap(t, add(focus, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(minR, maxR)))));
+    return out;
+  }
+
+  // Stage 2: densely sample firing positions around each corner; take the best, MIN_SEP apart.
+  const MIN_SEP = 4; // not stacked on one man
+  const perCorner = Math.ceil(count / corners.length);
   const out: Vec2[] = [];
-  const cands: { p: Vec2; s: number }[] = [];
-  for (let tries = 0; tries < 500 && cands.length < count * 8; tries++) {
-    const a = w.rng.range(0, Math.PI * 2);
-    const r = w.rng.range(minR, maxR);
-    const p = add(focus, fromAngle(a, r));
-    if (p.x < 20 || p.y < 20 || p.x > t.worldSize - 20 || p.y > t.worldSize - 20) continue;
-    if (!t.passableCell(Math.floor(p.x / t.cellSize), Math.floor(p.y / t.cellSize))) continue;
-    const los = lineOfSight(t, p, focus, { observerHeight: 1.2, targetHeight: 1.7 });
-    if (!los.visible) continue;
-    const conceal = t.concealAt(p.x, p.y);
-    const cover = t.coverAt(p.x, p.y);
-    const elevAdv = t.elevAt(p.x, p.y) - t.elevAt(focus.x, focus.y);
-    const toP = norm(sub(p, focus));
-    const align = toP.x * dir.x + toP.y * dir.y;
-    cands.push({ p, s: elevAdv * 0.02 + conceal * 3 + cover * 2 + los.exposure * 2 + align * 0.6 + w.rng.range(0, 1) });
+  for (const corner of corners) {
+    const local: { p: Vec2; s: number }[] = [{ p: corner, s: scoreFiringPoint(w, corner, focus, dir) ?? 0 }];
+    for (let tries = 0; tries < 200 && local.length < perCorner * 6; tries++) {
+      const p = add(corner, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(0, FRONTAGE)));
+      const s = scoreFiringPoint(w, p, focus, dir);
+      if (s !== null) local.push({ p, s: s + w.rng.range(0, 0.3) });
+    }
+    local.sort((a, b) => b.s - a.s);
+    let placed = 0;
+    for (const c of local) {
+      if (out.length >= count || placed >= perCorner) break;
+      if (out.some((q) => dist(q, c.p) < MIN_SEP)) continue;
+      out.push(c.p);
+      placed++;
+    }
   }
-  cands.sort((a, b) => b.s - a.s);
-  for (const c of cands) {
-    if (out.length >= count) break;
-    if (out.some((q) => dist(q, c.p) < 14)) continue;
-    out.push(c.p);
+  // Top up around the primary corner if dense sampling fell short (rough terrain / few cells).
+  while (out.length < count) {
+    const p = add(corners[0], fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(0, FRONTAGE)));
+    out.push(clampMap(t, p));
   }
-  while (out.length < count) out.push(clampMap(t, add(focus, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(minR, maxR)))));
-  return out;
+  return out.slice(0, count);
 }
 
 /** Staging point at the mouth of the nearest draw toward `target`. */

@@ -91,7 +91,9 @@ type KineticClass = "intermediate556" | "intermediate762" | "fullpower" | "heavy
 const LETHALITY_CURVE: Record<KineticClass, [number, number][]> = {
   // 5.56×45: sharp knee — fragmentation/yaw needs ~2500 fps, gone by ~150–200 m;
   // past that it still pokes .22-cal holes, so the tail isn't zero.
-  intermediate556: [[0, 1], [100, 1], [200, 0.88], [300, 0.73], [400, 0.62], [500, 0.52], [700, 0.42], [1000, 0.36]],
+  // Near (0-100 m): >1 models full fragmentation/yaw at point-blank (the real near-range
+  // terminal effect). 150 m knee preserved; 200-1000 m tail UNCHANGED from HEAD (no cliff).
+  intermediate556: [[0, 1.15], [100, 1.05], [150, 1], [200, 0.86], [300, 0.7], [400, 0.58], [500, 0.5], [700, 0.42], [1000, 0.36]],
   // 7.62×39: heavier/slower, no fragmentation reliance, but low BC bleeds it at distance.
   intermediate762: [[0, 1], [150, 1], [300, 0.84], [500, 0.68], [700, 0.57], [1000, 0.47]],
   // 7.62×51 / 7.62×54R / .303: full-power rifle — holds energy well downrange.
