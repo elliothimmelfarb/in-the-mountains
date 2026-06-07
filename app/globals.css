@@ -7,6 +7,7 @@
   --line: #2c3022;
   --ink: #d8d6c4;
   --ink-dim: #aaaa90; /* nudged brighter so secondary mono text clears WCAG AA on the darkest panel (was #9a9a82 → 3.7:1) */
+  --ink-2: #c6c4b0; /* running-narrative tier: brighter than dim for log/directive text you scan mid-fight, below primary ink so hierarchy survives */
   --olive: #6b7a3a;
   --tan: #c2a878;
   --amber: #e0a72b;
@@ -25,6 +26,7 @@
   --color-line: var(--line);
   --color-ink: var(--ink);
   --color-inkdim: var(--ink-dim);
+  --color-ink2: var(--ink-2);
   --color-olive: var(--olive);
   --color-tan: var(--tan);
   --color-amber: var(--amber);

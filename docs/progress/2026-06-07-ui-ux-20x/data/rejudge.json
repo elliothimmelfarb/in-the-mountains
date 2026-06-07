@@ -1,0 +1,95 @@
+{
+  "summary": "Adversarial paired re-judge: 5 expert personas score the In the Mountains command-UI BEFORE vs AFTER on the same rubric, name residual problems, estimate the quality lift",
+  "agentCount": 5,
+  "logs": [],
+  "result": {
+    "n": 5,
+    "beforeOverall": 58.6,
+    "afterOverall": 82.4,
+    "beforeLegibility": 51,
+    "afterLegibility": 82,
+    "beforeAccessibility": 40,
+    "afterAccessibility": 74.6,
+    "beforeHierarchy": 56.8,
+    "afterHierarchy": 84.2,
+    "meanImprovementFactor": 2.3,
+    "betterVotes": [
+      "B",
+      "B",
+      "B",
+      "B",
+      "B"
+    ],
+    "perJudge": [
+      {
+        "aOverall": 68,
+        "bOverall": 85,
+        "factor": 2.2,
+        "better": "B"
+      },
+      {
+        "aOverall": 44,
+        "bOverall": 79,
+        "factor": 2.4,
+        "better": "B"
+      },
+      {
+        "aOverall": 58,
+        "bOverall": 82,
+        "factor": 2.4,
+        "better": "B"
+      },
+      {
+        "aOverall": 61,
+        "bOverall": 82,
+        "factor": 2.2,
+        "better": "B"
+      },
+      {
+        "aOverall": 62,
+        "bOverall": 84,
+        "factor": 2.4,
+        "better": "B"
+      }
+    ],
+    "residualProblems": [
+      "The left column (CONTACT LOG / COMMAND LOG / DETAIL) in the full-frame HUD shots is still the weakest zone: tiny, low-contrast olive-on-near-black running text that a commander cannot scan under time pressure — the legibility floor lift didn't reach it as visibly as the right column.",
+      "The jacket/personnel modal (jacket-after) improved layout but still has muddy bar contrast and cramped stat rows (Marksmanship/Leadership/Composure/Aggression vs the right-side stat cluster); the dimmed backdrop helps focus but the modal's own internal contrast is borderline.",
+      "The campaign meters (STAB/ATT/ENY/CBT/HHQ) lean on small color-coded under-bars (green/amber/rust/blue) to carry state — a colorblind/low-light hazard with no redundant shape or text-state cue beyond the number.",
+      "The controls/legend is modal-only (press ? ) with no persistent on-screen affordance hinting it exists; a brand-new commander mid-firefight has no always-visible 'press ? for help' cue, so discoverability still depends on prior knowledge.",
+      "The right command column scrolls — LOGISTICS and TASK ORGANIZATION are clipped below the fold in rightcol.png — so SOP/ROE and below-fold controls remain hidden until the user discovers scrolling; no scroll indicator or section overview.",
+      "Full-frame HUD remains very dense at actual resolution: the gains are clearest in the hi-detail crops, but at game viewing scale the top-bar clusters and right-column rows still crowd, and tap-target spacing in the dense bar is tight for precise mouse/keyboard targeting under stress.",
+      "No keyboard focus RING is actually visible in B's HUD/village/jacket views — the amber outlines I see are ACTIVE/selected states, not :focus-visible. A WCAG 2.4.7 audit cannot confirm focus visibility from these statics; only the menu/commandbar hint at it. This is the single biggest unproven accessibility claim.",
+      "B's full-resolution HUD bottom strip (LST SQUAD / FIRE SUPPORT / CONTACT FEED / map controls) is still cramped and several sub-panel labels sit at or near the 12px floor at the actual rendered scale — the legible >=12px appearance in rightcol.png is a high-DPI CROP, not proof the live HUD renders that large.",
+      "Status is still encoded by COLOR ALONE in critical places: STAB/ATT/ENY/CBT/HHQ meter bars, the green/amber/red soldier-readiness dots, and the attitude bars in the village panel — fails WCAG 1.4.1 (use of color) for color-blind commanders; no shape/text redundancy on the meters.",
+      "Text TRUNCATION persists: 'RULES OF ENGAGEMENT' is clipped in the right column and several order-button captions sit edge-to-edge with no padding margin, risking clipping at narrower viewports / larger OS font scaling (reflow, WCAG 1.4.10/1.4.4).",
+      "The jacket/soldier modal in B is still quite dim (low-contrast olive labels over a near-black scrim with the live map bleeding through) — secondary stat labels likely miss the 4.5:1 contrast minimum (WCAG 1.4.3); the dialog also shows no visible close-focus or trap indication.",
+      "No motion-safety or audio-alternative evidence: the mute toggle exists, but there is no caption/visual-only path shown for the audio 'read the net' cue, and toasts auto-dismiss with no visible persistence/timing control (WCAG 2.2.1 timing, 1.4.2 audio control only partially addressed).",
+      "The left-column log/order panels (ACTIVE ELEMENTS, BATTALION DIRECTIVES, CONTACT/COMMAND LOG) remain low-contrast gray-on-near-black in the full-frame B shots — the brightness lift that hit the command bar and right column did not fully reach these, so the running narrative is still the hardest thing to scan mid-fight.",
+      "The command bar packs five labeled campaign gauges (STAB/ATT/ENY/CBT/HHQ) into a tight horizontal strip; even improved, distinguishing five micro-bars-plus-numbers at a glance during a firefight is a real cognitive load, and the color coding alone (green/rust/blue) risks confusion for color-vision-deficient users without a shape/label fallback.",
+      "The soldier jacket modal in B is cleaner but the stat grid is still cramped — labels and values sit close, and the secondary readouts remain small relative to the large name header, so the dossier reads as dense rather than calm.",
+      "The full-HUD bottom band (1ST SQUAD / FIRE SUPPORT / CONTACT FEED) is still crammed and low-contrast in the compressed frames; the polish visible in the hi-detail crops doesn't obviously translate to the bottom panels at real screen scale.",
+      "Onboarding still depends on a summoned modal (Field Reference) rather than persistent in-context hints; a brand-new commander mid-contact has no always-on reminder of the approve/deny-fire keys (F/X) at the moment they matter — discoverability improved but is gated behind remembering to press ?.",
+      "Toasts appear top-center over the map (hud-toasts) where they can occlude terrain/contact during the exact moment they fire; no visible dismissal affordance, stacking behavior, or priority tiering is evident, so a burst of events could clutter the most important sightline.",
+      "Right command column still truncates content: 'build mat.' wraps awkwardly and 'RULES OF ENGAGEMENT' is clipped at the panel's bottom edge — the type fits the floor but the panel height doesn't fit the type, so a commander still scrolls or guesses.",
+      "At real in-game zoom (hud-after / village-after thumbnails) the bottom fire-support and contact-feed panels are still very dense and the type returns to borderline-small — the >=12px floor reads cleanly in the hi-detail crops but the full-frame HUD is where speed-reading happens and it remains crammed.",
+      "Menu footer regressed slightly: the controls hint now wraps to two lines ('...the valley never / stops'), breaking the single clean baseline A had and creating an orphaned word.",
+      "All-caps tracking on some labels (PRESENCE PATROL, SQUAD ORDERS) is heavy enough that word-shape recognition suffers under time pressure — tracked small-caps scan slower than sentence-case for a glance-and-act loop.",
+      "The campaign-meter strip (STAB/ATT/ENY/CBT/HHQ) packs five label+number+bar triads into a narrow band; the numerals are clear but the tiny bar widths carry little perceptual signal and the five-up rhythm crowds at the top bar's right edge.",
+      "Numeric-vs-label contrast is good but color is still doing too much hierarchy work (amber heads, olive bars, rust accents) — for a colorblind commander the type scale alone doesn't fully encode the STAB-good vs ENY-bad distinction without the color cue.",
+      "LOGISTICS rows in the right column still truncate labels mid-word ('build mat.', 'red kits' clipped at the panel bottom) — the ammo/class names wrap or cut off, which is exactly the kind of thing a commander shouldn't have to puzzle over mid-fight.",
+      "The full HUD (hud-after.png) is still extremely cramped at normal resolution — the per-detail crops read beautifully, but in the assembled 1280-wide HUD the left log panels and bottom FIRE SUPPORT / CONTACT FEED rows are still small and low-contrast; the >=12px floor helps but the three-column-plus-bottom-rail layout fights for the same pixels.",
+      "Color is doing too much load-bearing work without redundant encoding: STAB/ATT/ENY/CBT meters and the roster status dots rely on hue (green/amber/rust/blue) to convey state — a red/green colorblind commander gets little from the dots beyond position, and the meters lack numeric or pattern backup beyond the single number.",
+      "The Controls & Map Legend overlay is excellent but appears to be modal/on-demand only — there is no persistent always-visible affordance reminding which keys are live during a TIC, so a new commander still has to pause and re-open it under stress; discoverability improved, retention under load did not.",
+      "Toasts (hud-toasts.png) stack top-center over the map and could occlude the contact area during a firefight; no visible dismiss control or queue indicator, and rapid-fire command confirmations risk piling up exactly when the map matters most.",
+      "The jacket/dossier modal, while improved, still sits very dark with stat values (READY/MORALE/role chips) in muted olive on near-black — the tabbed nav row is small and the active-tab state is subtle; under a wounded-soldier MEDEVAC decision you want those numbers to punch harder."
+    ],
+    "rationales": [
+      "B sharpens the milspec aesthetic instead of flattening it: the commandbar crop shows real grouped information architecture (identity / CLOCK / LIGHT-WX-AIR / STAB-ATT-ENY-CBT-HHQ meters / 1-16x speed latch with an amber active ring / pause-warn / audio / help / menu) with larger numerals and clear active-vs-disabled states, where A's top strip was an undifferentiated run of tiny labels. The rightcol crop is the strongest evidence — big tap targets, unambiguous selected states (filled PRESENCE PATROL, PATROL, HOLD & RETURN FIRE), >=12px labels, status dots, ready counts, and right-aligned logistics values — a dramatic scanability gain over A's cramped right column. The new help overlay (grouped TIME/COMMAND/COMBAT/INTERFACE keycaps plus a true map legend with color swatches and the doctrine line) is a genuine onboarding and accessibility win A lacked entirely, and the toasts add command feedback that was previously invisible. A is a respectable dense HUD but carries sub-12px text, no focus/feedback affordances, and a muddy jacket modal; B clears the shippable-good bar while A sits at competent-mediocre. The improvement is roughly 2x for a commander reading a fight at a glance — meaningful but not transformative, since the dense full-frame HUD and weak left log column still tax legibility.",
+      "Iteration A is a genuinely hostile read: the HUD, village popover, and soldier jacket render dim olive/grey text at an effective 8-11px against near-black with no discernible focus states, so a commander cannot scan a fight at a glance and an accessibility build would fail it outright on contrast (1.4.3) and focus visibility (2.4.7). Iteration B sharpens — not flattens — the milspec aesthetic: the commandbar crop shows cleanly sectioned clock/light/wx/air/meters/speed-latch with a ringed active state, the right column gives large mono labels with explicit active outlines, collapsible groups, info affordances and labeled logistics bars, and the new Controls & Map Legend overlay (real keycaps for Space/1-5/T/F/X/C/R/M/Esc plus a color legend) is a decisive onboarding and labeling win that A simply lacks. Command-feedback toasts close the action-feedback loop, and the menu's footer/label text crossed into readable territory. B is clearly the better, more accessible build, but it is not world-class: the focus RINGS I can verify are mostly active-state outlines rather than proven :focus-visible, color-only meter encoding persists, the live HUD bottom strip remains cramped, and the jacket modal stays low-contrast — so I credit a real ~2.4x usability gain, not a transformation.",
+      "B is a clear, substantial win that sharpened the milspec aesthetic rather than flattening it. The command bar went from a cramped, tiny, hard-to-parse strip in A to clearly segmented zones with a legible speed ladder (1x-16x), an amber focus ring on the active speed and pause, and labeled campaign gauges — a real hierarchy and focus-visibility gain. The right command column is the standout: large mono caps with unmistakable active (amber border/fill) vs inactive states, per-soldier role chips and (i) affordances, and readable logistics bars, where A's equivalent was faint and small. The new Controls & Map Legend overlay plus the discoverable ? button and command toasts close major onboarding and feedback gaps that A simply lacked, and the >=12px floor is visibly honored in the hi-detail crops. It is not world-class — the left log panels and bottom band remain low-contrast and crammed, the five-gauge meter strip is still a scan burden, and onboarding leans on a summoned modal — so it lands at solid-shippable, not 95.",
+      "B is a clear, disciplined typographic upgrade, not a flattening of the milspec look — the hi-detail commandbar and rightcol crops show a real three-tier scale (heavy mono numerals as data, tracked small-caps as labels, distinct section heads) with markedly improved leading and a legible >=12px floor, versus A's cramped 8-10px log/fire-support panes with little breathing room. The new help overlay is a standout: consistent keycap chips, two-column COMBAT/INTERFACE grouping, and a typed map legend turn discoverability from absent to genuinely teachable. B's jacket card also tightens the stat grid into a clean tabular rhythm where A's was muddy and low-contrast. The menus are near-identical (A's single-line footer is marginally cleaner than B's two-line wrap), so the win is concentrated in the HUD and overlays where time-pressure legibility actually matters. I score B at 82 (shippable-good, not world-class) because the type system is sharp but real residuals remain — panel truncation, still-dense full-zoom HUD, and over-reliance on color for hierarchy keep it short of 90.",
+      "B is a clear, substantial win that SHARPENS the milspec aesthetic rather than flattening it — the olive/amber/rust-on-near-black mono identity is fully intact, but every element now earns its pixels. The biggest gains are hierarchy and affordance: the redesigned command bar (commandbar.png) cleanly segments identity / CLOCK-LIGHT-WX-AIR / the STAB-ATT-ENY-CBT-HHQ campaign meters / a real speed latch with an amber focus ring, and the right column (rightcol.png) turns squeezed text into large tappable order cards with unambiguous active/disabled SOP states, a status-dotted roster, and labeled logistics bars — that is what real C2 kit affordance looks like. The new Controls & Map Legend overlay (help.png) and the command-feedback toasts are genuine onboarding and closed-loop-feedback features the baseline simply lacked, and the >=12px floor plus visible focus rings move accessibility from poor to respectable. The honest ceiling on B is that the FULL assembled HUD is still dense and somewhat cramped at native resolution (the detail crops flatter it), logistics labels still clip, and state encoding leans hard on color without redundant cues — so it is shippable-good, not yet world-class."
+    ]
+  }
+}

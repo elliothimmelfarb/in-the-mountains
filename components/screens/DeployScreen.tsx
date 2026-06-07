@@ -130,7 +130,7 @@ function kindStyle(kind: string): string {
     case "casualty": return "text-tan border-tan";
     case "contact":  return "text-amber border-amber";
     case "support":  return "text-us border-us";
-    default:         return "text-inkdim border-line";
+    default:         return "text-ink2 border-line";
   }
 }
 
@@ -444,7 +444,7 @@ function DirectivesBody() {
                   {left >= 0 ? `${left}d` : "OVERDUE"} · D{d.deadlineDay}
                 </span>
               </div>
-              <div className="text-inkdim text-[10px] leading-snug mt-0.5">{d.desc}</div>
+              <div className="text-ink2 text-[10px] leading-snug mt-0.5">{d.desc}</div>
               <div className="h-1 bg-panel2 mt-1 border border-line">
                 <div className="h-full bg-olive" style={{ width: `${Math.round(d.progress * 100)}%` }} />
               </div>
@@ -516,7 +516,7 @@ function CommandLogBody() {
   return (
     <div className="p-2 flex flex-col gap-0.5">
       {lines.map((l) => (
-        <div key={l.id} className={`text-[10px] leading-snug ${l.kind === "objective" ? "text-amber" : "text-inkdim"}`}>
+        <div key={l.id} className={`text-[10px] leading-snug ${l.kind === "objective" ? "text-amber" : "text-ink2"}`}>
           <span className="font-mono opacity-60">D{l.day} </span>{l.msg}
         </div>
       ))}
