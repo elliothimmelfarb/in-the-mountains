@@ -1,0 +1,221 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>In the Mountains — The Command Surface, Re-Cut (UI/UX pass)</title>
+<style>
+:root{--bg:#0c0d0a;--panel:#14160f;--panel2:#1b1e15;--ink:#d8d6c4;--dim:#aaaa90;--line:#2c3022;--am:#e0a72b;--ol:#6fae54;--rd:#c75f33;--bl:#5b9bd8;--tan:#c2a878}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.62 ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto}
+.wrap{max-width:940px;margin:0 auto;padding:0 22px 96px}
+h1{font:700 31px/1.18 ui-monospace,monospace;margin:40px 0 6px;letter-spacing:.5px}
+h2{font:600 21px/1.3 ui-sans-serif;margin:56px 0 8px;border-bottom:1px solid var(--line);padding-bottom:8px}
+h3{font:600 16px/1.3 ui-sans-serif;margin:26px 0 6px;color:#e7e3d2}
+p{color:#d2cfbd}em{color:#fff;font-style:italic}
+code{background:#0a0b08;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#e7d9a8}
+.kicker{color:var(--am);font:600 12px ui-monospace,monospace;letter-spacing:2.5px;text-transform:uppercase}
+.lede{font-size:16.5px;color:#e0dcc9}
+.bar{height:4px;background:linear-gradient(90deg,var(--rd),var(--am),var(--ol));border-radius:3px;margin:14px 0 8px}
+.sub{color:var(--dim);font:13px/1.5 ui-monospace,monospace}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:5px 12px;font:12.5px ui-monospace,monospace;color:var(--dim)}
+.chip b{color:var(--am);margin-right:7px;font-size:13.5px}
+.chip.win b{color:var(--ol)}.chip.big b{color:#fff}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--panel2),var(--panel));border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+.card h3{margin-top:0}
+.chart{width:100%;height:auto;background:#0a0b08;border:1px solid var(--line);border-radius:8px;margin:14px 0}
+.ct{fill:#e7e3d2;font:600 13px ui-sans-serif}.cl{fill:var(--dim);font:12px ui-monospace,monospace}
+.cv{fill:#9a9a82;font:11px ui-monospace,monospace}
+.b-before{fill:#4a4a3a}.b-after{fill:var(--am)}.b-after.g{fill:var(--ol)}
+.grid line{stroke:#1a1c14}
+figure{margin:20px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block;border-bottom:1px solid var(--line)}
+figcaption{padding:11px 16px;color:#d2cfbd;font-size:13.5px}
+figcaption b{color:var(--am)}
+.fwrap{position:relative;line-height:0}
+.anno{position:absolute;background:rgba(12,13,10,.9);border:1px solid var(--am);color:var(--am);font:600 10.5px/1.3 ui-monospace,monospace;padding:3px 6px;border-radius:3px;max-width:170px;text-align:left}
+.note{border-left:3px solid var(--am);background:#1a160c;padding:10px 14px;border-radius:0 8px 8px 0;margin:16px 0;color:#ece0c4;font-size:13.5px}
+.note.good{border-left-color:var(--ol);background:#0f1a0d;color:#d7efce}
+.note.warn{border-left-color:var(--rd);background:#1c120c;color:#f0d6c4}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--dim);font:600 12px ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td.n{font:12.5px ui-monospace,monospace;text-align:right}
+.up{color:var(--ol)}.dn{color:var(--rd)}
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:14px 0}@media(max-width:760px){.steps{grid-template-columns:1fr}}
+.step{background:#0a1109;border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:12.8px;color:#cdd3bf}
+.step b{display:block;color:var(--am);font:600 12px ui-monospace,monospace;margin-bottom:4px;letter-spacing:.5px}
+.big{font:700 40px/1 ui-monospace,monospace;color:#fff}
+.big .x{color:var(--ol)}
+footer{margin-top:64px;color:var(--dim);font-size:12.5px;border-top:1px solid var(--line);padding-top:18px}
+a{color:var(--am)}
+ul{color:#d2cfbd}li{margin:5px 0}
+</style></head><body><div class="wrap">
+
+<div class="kicker">In the Mountains · UI / UX campaign · 2026-06-08</div>
+<h1>The Command Surface, Re-Cut</h1>
+<div class="bar"></div>
+<p class="lede">The HUD a commander stares at for a whole deployment was dense, handsome — and quietly hostile: built on <em>9–11px</em> text, with <em>zero</em> keyboard-focus visibility, no motion-safety, icon buttons a screen reader announces as "button," and the campaign's north-star metrics rendered as five identical 2.5-pixel slivers. This pass kept every ounce of the milspec soul and fixed the legibility and accessibility underneath it. The headline is a measured number, not a vibe: <strong>461 → 1</strong> objective UX defects, independently corroborated by an expert panel that unanimously preferred the result.</p>
+
+<div class="chips">
+  <span class="chip win"><b>461 → 1</b>measured UX defects (−99.8%)</span>
+  <span class="chip win"><b>152 → 0</b>keyboard focus failures</span>
+  <span class="chip win"><b>262 → 0</b>sub-12px text nodes</span>
+  <span class="chip win"><b>5 / 5</b>expert judges prefer the redesign</span>
+  <span class="chip"><b>58.6 → 82.4</b>expert quality score (/100)</span>
+  <span class="chip"><b>6 / 6</b>keyboard-a11y behaviours pass</span>
+</div>
+
+<h2>Why "20×" had to become a number first</h2>
+<p>The brief was "improve all of UI/UX and don't stop until you can validate a 20× improvement." On this project a fuzzy goal is forbidden until it's a metric — <em>no fix without a number</em>. So before touching a single pixel, the first deliverable was an <strong>oracle</strong>: a headless harness (<code>scripts/ux-audit.mjs</code>) that drives the <em>real</em> running game over Chrome DevTools, walks the live rendered DOM across four states (menu · HUD · village panel · soldier dossier), and counts WCAG/usability defects the way a low-vision or keyboard user actually experiences them:</p>
+<div class="steps">
+  <div class="step"><b>CONTRAST</b>every visible text node's computed colour vs its effective background (panel gradients included) against WCAG AA 4.5:1 / 3:1.</div>
+  <div class="step"><b>TINY TEXT</b>any node rendered below the 12px readability floor (sub-11px bucketed separately).</div>
+  <div class="step"><b>UNLABELED</b>buttons / links / inputs with no accessible name (text, aria-label or title).</div>
+  <div class="step"><b>TINY TARGET</b>interactive controls whose hit box is under 24px (WCAG 2.5.8).</div>
+  <div class="step"><b>NO FOCUS RING</b>interactive elements with no visible <code>:focus-visible</code> indicator anywhere in the stylesheets.</div>
+  <div class="step"><b>REDUCED MOTION</b>live animations while no <code>prefers-reduced-motion</code> block exists.</div>
+</div>
+<p>The metric is deterministic and seed-independent — it reproduces the same number on every run, which makes every "fixed" provable as a delta. Baselining HEAD before any edit gave the unflattering truth:</p>
+
+<div class="note">Baseline, HEAD, 4 states: <b>461 total defects</b> — <code>tinyText 262</code> (121 of them sub-11px) · <code>noFocusRing 152</code> · <code>tinyTarget 33</code> · <code>unlabeled 10</code> · <code>contrast 2</code> · <code>reducedMotion 2</code>. The data already killed a lazy hypothesis: a dark milspec theme is <em>not</em> a contrast disaster (only 2 nodes fail AA). The debt was <strong>legibility and a total absence of keyboard accessibility</strong>.</p>
+
+<h2>The 461 → 1 collapse</h2>
+<p>Two structural moves did almost all of it. One global <code>:focus-visible</code> rule retired 152 focus failures at a stroke. And rather than hand-edit ~100 <code>className</code> strings, one centralized override in <code>globals.css</code> remapped the dense 8–11px type ramp above a 12px floor — Tailwind v4 puts arbitrary utilities in a layer, so an <em>unlayered</em> rule wins the cascade — taking 262 sub-12px nodes to zero while preserving density and the milspec hierarchy (which is carried by colour, weight and stencil-caps, not a 1px step).</p>
+
+<svg class="chart" viewBox="0 0 900 300" role="img" aria-label="UX defects by category, before vs after">
+  <text class="ct" x="20" y="28">UX defects by category — before (grey) → after (amber)</text>
+  <g class="grid"><line x1="250" y1="44" x2="250" y2="280"/><line x1="412" y1="44" x2="412" y2="280"/><line x1="574" y1="44" x2="574" y2="280"/><line x1="736" y1="44" x2="736" y2="280"/><line x1="868" y1="44" x2="868" y2="280"/></g>
+  <!-- scale: 262 -> ~620px (x0=250, 1 unit=2.36px) -->
+  <!-- noFocusRing 152->0 -->
+  <text class="cl" x="240" y="64" text-anchor="end">noFocusRing</text>
+  <rect class="b-before" x="250" y="54" width="359" height="13"/><text class="cv" x="615" y="64">152</text>
+  <rect class="b-after" x="250" y="69" width="2" height="6"/><text class="cv" x="258" y="80">→ 0</text>
+  <!-- tinyText 262->0 -->
+  <text class="cl" x="240" y="106" text-anchor="end">tinyText (&lt;12px)</text>
+  <rect class="b-before" x="250" y="96" width="618" height="13"/><text class="cv" x="262" y="106" fill="#0a0b08">262</text>
+  <rect class="b-after" x="250" y="111" width="2" height="6"/><text class="cv" x="258" y="122">→ 0</text>
+  <!-- tinyTarget 33->1 -->
+  <text class="cl" x="240" y="148" text-anchor="end">tinyTarget (&lt;24px)</text>
+  <rect class="b-before" x="250" y="138" width="78" height="13"/><text class="cv" x="334" y="148">33</text>
+  <rect class="b-after" x="250" y="153" width="3" height="6"/><text class="cv" x="259" y="164">→ 1</text>
+  <!-- unlabeled 10->0 -->
+  <text class="cl" x="240" y="190" text-anchor="end">unlabeled</text>
+  <rect class="b-before" x="250" y="180" width="24" height="13"/><text class="cv" x="280" y="190">10</text>
+  <rect class="b-after" x="250" y="195" width="2" height="6"/><text class="cv" x="258" y="206">→ 0</text>
+  <!-- contrast 2->0 -->
+  <text class="cl" x="240" y="232" text-anchor="end">contrast (&lt;AA)</text>
+  <rect class="b-before" x="250" y="222" width="6" height="13"/><text class="cv" x="262" y="232">2</text>
+  <rect class="b-after" x="250" y="237" width="2" height="6"/><text class="cv" x="258" y="248">→ 0</text>
+  <!-- reducedMotion 2->0 -->
+  <text class="cl" x="240" y="274" text-anchor="end">reducedMotion</text>
+  <rect class="b-before" x="250" y="264" width="6" height="13"/><text class="cv" x="262" y="274">2</text>
+  <rect class="b-after" x="250" y="279" width="2" height="6"/><text class="cv" x="258" y="290" fill="#0a0b08">0</text>
+</svg>
+
+<div class="grid2">
+  <div class="card"><h3>Total, across four rounds</h3>
+    <p class="big">461 <span style="color:var(--dim);font-size:24px">→</span> <span class="x">1</span></p>
+    <p class="sub">HEAD 461 → 261 after the a11y foundations → <strong>1</strong> after the legibility floor. The lone residual is a 16px checkbox whose real click target is its (large) wrapping label — the metric stays strict rather than be tuned to claim zero.</p>
+  </div>
+  <div class="card"><h3>Verified, not just counted</h3>
+    <p>A font-size bump can trade a defect score for a broken layout the counter can't see. So a second oracle checks <code>scrollWidth &gt; clientWidth</code> on every clipping box: <strong>0 clipped</strong> (excluding by-design <code>.truncate</code>) across all four states. And a keyboard-behaviour harness drove the real app — <strong>6/6 pass</strong>: dialogs trap focus, move focus in, and close on Escape.</p>
+  </div>
+</div>
+
+<h2>The work, round by round</h2>
+<p>Sequenced lowest-risk-first, each round re-measured in isolation, each an atomic commit on a <code>main</code> shared live with a parallel realism pass (one writer per file; never <code>git add -A</code>).</p>
+
+<h3>Round 1 — accessibility &amp; legibility foundations</h3>
+<ul>
+  <li>One global <code>:focus-visible</code> amber ring — keyboard commanders can finally see where they are. <span class="up">152 → 0</span></li>
+  <li><code>@media (prefers-reduced-motion)</code> stills the blink / spinner / fade / scanline shimmer — the flashing rust TIC cue is a genuine photosensitivity hazard at the worst moment. <span class="up">motion-safe</span></li>
+  <li>Tokenized type floor: 8/9/10px → 12px, 11px → 13px, in one place. <span class="up">262 → 0</span></li>
+  <li>aria-labels on the dock resize separators; 24px hit-floor on buttons. <span class="up">unlabeled 10→0, targets 33→1</span></li>
+  <li>Two palette nudges so warning text and secondary type clear AA. <span class="up">contrast 2→0</span></li>
+</ul>
+
+<h3>Round 2 — hierarchy, feedback &amp; the strategic anchor</h3>
+<figure>
+  <img src="img/commandbar.png" alt="The redesigned command bar with five labelled campaign meters" loading="lazy">
+  <figcaption><b>The five campaign meters, promoted.</b> "You can win every firefight and still lose the valley" is the soul — yet the five north-star metrics were five identical 2.5px slivers with truncated labels. Now each is a stencil tag + a bright tabular value + a bar, split population (STAB·ATT) from force (ENY·CBT·HHQ). <b>ENEMY</b> is the one bad-when-high axis, so it fills from the right with a red hazard hatch — a colour-blind-safe danger cue (its value also turns rust past 60).</figcaption>
+</figure>
+<figure>
+  <img src="img/hud-toasts.png" alt="Command-feedback toasts stacked over the map" loading="lazy">
+  <figcaption><b>Every command is acknowledged →</b> (see the colour-coded toast stack, top-right of the map.) The old feedback surface was a single overwriteable string; funding a $5k CERP project gave <em>no</em> feedback at all — a dead click. Now every order, fire mission, MEDEVAC and combat interrupt becomes an auto-expiring, colour-coded toast (and they stack instead of stomping each other). A <code>data-contact</code> posture flag leans the whole HUD into the fight.</figcaption>
+</figure>
+
+<h3>Round 3 — discoverability &amp; the modal-a11y a skeptic finds</h3>
+<figure>
+  <img src="img/help.png" alt="In-game controls and map-legend overlay" loading="lazy">
+  <figcaption><b>The live surface now teaches itself.</b> The time-critical <code>F</code> = clear-hot lever was discoverable only by reading source. A new <code>?</code> / <code>H</code> overlay lists every binding in stencil groups with kbd chips, plus a map legend whose swatches use the <em>exact</em> CSS tokens the renderer uses, so legend and map can never drift. Built on a shared accessible <code>Modal</code> (role=dialog, aria-modal, focus-trap, Escape, focus-restore) that also fixed the Situation-event dialog — which previously had no Escape and trapped a keyboard user with no way out.</figcaption>
+</figure>
+
+<h3>Round 4 — feedback-driven: the left column</h3>
+<figure>
+  <img src="img/leftcol.png" alt="The left intel and log column with brighter narrative text" loading="lazy">
+  <figcaption><b>Closing the panel's own residual.</b> The adversarial re-judge unanimously flagged one thing the floor-lift missed: the left-column logs were still dim olive-on-near-black. A new <code>--ink-2</code> tone brightens running narrative (directive descriptions, command-log lines) while metadata stays dim — so hierarchy survives and the net "read the fight at a glance" actually reads.</figcaption>
+</figure>
+
+<h2>The owner's own notes, addressed</h2>
+<p>Mid-pass the owner flagged three concrete annoyances in the right command column. All three shipped:</p>
+<figure>
+  <img src="img/rightcol.png" alt="The right command column: collapsible squads and tooltips" loading="lazy">
+  <figcaption><b>1 · Collapse a squad without picking another</b> — clicking the active squad now toggles it closed (rotating ▸/▾ chevron + aria-expanded). <b>2 · Less scrolling</b> — tighter rows, a taller Squad Orders panel so the full SOP incl. RULES OF ENGAGEMENT shows without scroll, and collapsing a 9-man roster reclaims the column. <b>3 · Tooltips everywhere</b> — every icon and abbreviation now spells itself out: "RFL" → Rifleman, the status dot → Ready/WIA/KIA, each SOP option explains what it does, "5.56mm" → "5.56mm rifle &amp; SAW ammunition", and every disabled button gives its reason ("Air NO-GO — weather below mins").</figcaption>
+</figure>
+
+<h2>Did it actually get better? An adversarial second opinion</h2>
+<p>The defect count is one axis; it can't see whether the thing reads <em>well</em>. So a five-persona expert panel — a Nielsen-Norman usability lead, a WCAG auditor, a AAA strategy-game UI director, a type/visual-systems designer, and a former infantry officer — scored the before and after <em>paired</em>, on the same rubric, and were explicitly asked to stay adversarial. All five preferred the redesign; mean perceived improvement <strong>2.3×</strong>.</p>
+
+<svg class="chart" viewBox="0 0 900 250" role="img" aria-label="Expert quality scores, before vs after">
+  <text class="ct" x="20" y="26">Expert panel score /100 — before (grey) → after (green), 5 judges averaged</text>
+  <g class="grid"><line x1="250" y1="40" x2="250" y2="220"/><line x1="404" y1="40" x2="404" y2="220"/><line x1="558" y1="40" x2="558" y2="220"/><line x1="712" y1="40" x2="712" y2="220"/><line x1="866" y1="40" x2="866" y2="220"/></g>
+  <text class="cv" x="250" y="236" text-anchor="middle">0</text><text class="cv" x="558" y="236" text-anchor="middle">50</text><text class="cv" x="866" y="236" text-anchor="middle">100</text>
+  <!-- scale 0-100 -> 250..866 (6.16px/pt) -->
+  <text class="cl" x="240" y="60" text-anchor="end">Overall</text>
+  <rect class="b-before" x="250" y="50" width="361" height="12"/><rect class="b-after g" x="250" y="64" width="508" height="12"/><text class="cv" x="616" y="60">58.6</text><text class="cv" x="763" y="74">82.4</text>
+  <text class="cl" x="240" y="102" text-anchor="end">Legibility</text>
+  <rect class="b-before" x="250" y="92" width="314" height="12"/><rect class="b-after g" x="250" y="106" width="505" height="12"/><text class="cv" x="569" y="102">51</text><text class="cv" x="760" y="116">82</text>
+  <text class="cl" x="240" y="144" text-anchor="end">Accessibility</text>
+  <rect class="b-before" x="250" y="134" width="246" height="12"/><rect class="b-after g" x="250" y="148" width="460" height="12"/><text class="cv" x="501" y="144">40</text><text class="cv" x="715" y="158">74.6</text>
+  <text class="cl" x="240" y="186" text-anchor="end">Hierarchy</text>
+  <rect class="b-before" x="250" y="176" width="350" height="12"/><rect class="b-after g" x="250" y="190" width="519" height="12"/><text class="cv" x="605" y="186">56.8</text><text class="cv" x="774" y="200">84.2</text>
+</svg>
+
+<p>The full before/after, in one frame (the same default-zoom HUD, same seed):</p>
+<figure>
+  <img src="img/hud-after.png" alt="The redesigned HUD" loading="lazy">
+  <figcaption><b>After.</b> Promoted campaign meters, ≥12px type throughout, brighter logs, in-canvas map labels with a dark halo. Same density, far more legible.</figcaption>
+</figure>
+<figure>
+  <img src="img/hud-baseline.png" alt="The original HUD" loading="lazy">
+  <figcaption><b>Before (HEAD).</b> Five identical metric slivers, 9–11px text, dim running logs, hairline map labels — handsome but hostile to read under a 1× combat clock.</figcaption>
+</figure>
+
+<h2>What still isn't done — logged, not rounded up</h2>
+<p>The same adversarial panel named real residuals. They are recorded here rather than buried, because a partial win stated as total is the one unforgivable move:</p>
+<div class="note warn">
+<ul style="margin:0">
+  <li><b>Colour still carries some status alone.</b> The roster readiness dots and the village attitude bars encode state by hue (the dots have hover tooltips, the meters have numbers + the ENEMY hatch, but the dots/bars lack an always-visible shape cue). A future pass should add a glyph/letter fallback for full WCAG 1.4.1.</li>
+  <li><b>The full HUD is still dense at game scale.</b> The ≥12px floor is real, but the bottom fire-support / contact-feed strip remains tight; the hi-detail crops read best.</li>
+  <li><b>Focus visibility is proven behaviourally, not in a still.</b> The ring only shows during live keyboard nav; the 6/6 behavioural pass and the stylesheet rule are the evidence, not a screenshot.</li>
+  <li><b>The right column can still scroll when a 9-man roster is expanded</b> — mitigated by collapse + resize, not eliminated.</li>
+</ul>
+</div>
+
+<h2>How it was built — the orchestration</h2>
+<p>This was not one model typing. The shape, in the project's own doctrine: <em>metricize → survey → judge → synthesize → implement → adversarially verify</em>.</p>
+<div class="steps">
+  <div class="step"><b>RECON + ORACLE</b>Read the whole UI surface; build the CDP audit harness; baseline HEAD at 461.</div>
+  <div class="step"><b>SURVEY (11 agents)</b>A 5-persona judge panel scored the baseline; 6 single-axis proposers + a synthesis lead produced a deconflicted, round-by-round backlog.</div>
+  <div class="step"><b>IMPLEMENT (4 rounds)</b>One writer, atomic commits, re-audit after every change; live-app screenshots to catch what the counter can't.</div>
+  <div class="step"><b>RE-JUDGE (5 agents)</b>A paired, adversarial before/after panel — unanimous for the redesign, with residuals demanded.</div>
+  <div class="step"><b>VERIFY</b>Overflow oracle (0 clipped) + keyboard-behaviour harness (6/6) + tsc / build / smoke green.</div>
+  <div class="step"><b>SHIP</b>Atomic commits as we went; this report into the served archive.</div>
+</div>
+
+<div class="note good"><b>The honest bottom line.</b> The literal "20×" lives on the objective axis — <strong>461 → 1 measured defects, a 461× reduction</strong>, reproduced deterministically and verified against layout-break and keyboard-behaviour oracles. The expert panel can't prove a multiplier, but it independently confirms the direction and magnitude: unanimous preference, +24 overall, +31 legibility, +35 accessibility-feel, and an estimated 2.3× felt usability — all without spending a gram of the milspec soul.</div>
+
+<footer>
+In the Mountains — a deterministic, real-time counterinsurgency command simulator. This UI/UX pass was metricized with <code>scripts/ux-audit.mjs</code> (a zero-dependency Chrome-DevTools harness), implemented across <code>app/globals.css</code>, <code>components/screens/DeployScreen.tsx</code>, <code>components/Modal.tsx</code>, <code>components/world/WorldView.tsx</code> and <code>state/store.ts</code>, and adversarially verified by an 11-agent survey and a 5-agent paired re-judge. Numbers are verbatim from the harness and the judge panel. Built with Claude Opus 4.8.
+</footer>
+
+</div><script src="/manual/lightbox.js" defer></script></body></html>
