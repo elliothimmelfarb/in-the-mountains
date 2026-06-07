@@ -76,16 +76,18 @@ export function villageHamlet(v: { id: string; size: number; population: number 
     return h / 4294967296;
   };
   // DISCRETE walled qalats ringing an open central courtyard — NOT a merged wall maze.
-  // A dense OVERLAPPING cluster fused its walls into a labyrinth with 1-cell slots that
-  // trapped a returning patrol in a path-vs-steering oscillation (issue-010 class —
-  // bal-6 / Loy Kalay). Compounds are spaced EVENLY on a ring (even angular spacing +
-  // small jitter), and the count is capped by the ring's circumference so every alley
-  // between neighbours is ≥~2 cells (10 m) — wide enough for movement to thread/skirt the
-  // hamlet. Leaving the centre open also puts the patrol's village objective on clear
-  // ground. Deterministic from v.id; bounded inside v.size so it never reaches the wire.
+  // The first cut scattered OVERLAPPING compounds that filled the whole footprint and fused
+  // their walls into a labyrinth with 1-cell slots, trapping a returning patrol in a
+  // path-vs-steering oscillation (issue-010 class — bal-6 / Loy Kalay). Spreading the qalats
+  // EVENLY on a ring and capping the count to TARGET ~8-cell arcs keeps them mostly separate
+  // with an open, SKIRTABLE exterior — the angular/radial jitter still lets an occasional
+  // neighbour pair land close, but a ring you can walk AROUND never re-forms the fill-the-
+  // footprint trap (empirically: balance 0 stranded). The open centre also puts the patrol's
+  // village objective on clear ground. 2–5 qalats in practice (ring capacity binds before the
+  // population count at the 6–10-cell village radii). Deterministic from v.id; bounded ~v.size.
   const ringRad = 0.72 * v.size;
-  const want = Math.max(2, Math.min(6, Math.round(v.population / 38)));
-  const n = Math.max(2, Math.min(want, Math.floor((2 * Math.PI * ringRad) / 8))); // ≥8-cell arc/qalat
+  const want = Math.max(2, Math.min(5, Math.round(v.population / 38)));
+  const n = Math.max(2, Math.min(want, Math.floor((2 * Math.PI * ringRad) / 8))); // target ~8-cell arc/qalat
   const out: HamletCompound[] = [];
   const base = rnd() * Math.PI * 2;
   for (let k = 0; k < n; k++) {

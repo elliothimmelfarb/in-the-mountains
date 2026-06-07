@@ -51,7 +51,7 @@ verification pass (0 blockers, 0 majors) plus the dynamic balance harness gated 
   over 60 seeds incl. the held-out tail (vil∩ 0, vilGap positive, 0 unreachable garrison posts),
   copstuck ≤ baseline grind.
 - **S4 — villages: monolith → hamlet (`terrain.ts`).** New deterministic `villageHamlet(v)` (FNV
-  hash of `v.id`, no rng) stamps a **ring of 2–6 discrete walled qalats** around an open courtyard;
+  hash of `v.id`, no rng) stamps a **ring of 2–5 discrete walled qalats** around an open courtyard;
   village radius 4–8 → 6–10 cells (**hamlet extent ~70–90 m**, was a single ~40 m box). First cut
   scattered overlapping compounds that fused into a wall maze and trapped a returning patrol
   (bal-6, 1/12 stall — caught by the dynamic balance harness, *missed* by the static audit); rebuilt
