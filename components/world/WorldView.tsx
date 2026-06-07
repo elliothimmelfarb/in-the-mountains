@@ -46,6 +46,16 @@ function unitsCentroid(us: { pos: { x: number; y: number } }[]): { x: number; y:
   return { x: x / n, y: y / n };
 }
 
+/** A map label with a dark halo so it stays legible over busy terrain (the
+ *  fillStyle is set by the caller; this strokes a dark outline, then fills). */
+function haloText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number) {
+  ctx.lineJoin = "round";
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = "rgba(12,13,10,0.85)";
+  ctx.strokeText(text, x, y);
+  ctx.fillText(text, x, y);
+}
+
 /** A capped maneuver arrow with a filled head (screen coords). */
 function drawManeuverArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string) {
   const ang = Math.atan2(y1 - y0, x1 - x0);
@@ -224,13 +234,13 @@ export default function WorldView() {
       const fid = "marker-" + (f.kind === "bridge" ? "bridge" : f.kind === "junction" ? "junction" : f.kind === "saddle" ? "saddle" : f.kind === "spur" ? "spur" : f.kind === "draw" ? "draw" : "peak");
       const drew = hasSprite(fid) && drawScreenSprite(ctx, fid, x, y, 22);
       if (!drew) {
-        ctx.fillStyle = "rgba(216,214,196,0.5)";
-        ctx.font = "9px var(--font-mono, monospace)";
-        ctx.fillText("▲ " + f.name, x, y - 4);
-      } else if (cam.ppm > 0.4) {
         ctx.fillStyle = "rgba(216,214,196,0.62)";
-        ctx.font = "9px var(--font-mono, monospace)";
-        ctx.fillText(f.name, x, y + 16);
+        ctx.font = "11px var(--font-mono, monospace)";
+        haloText(ctx, "▲ " + f.name, x, y - 4);
+      } else if (cam.ppm > 0.4) {
+        ctx.fillStyle = "rgba(220,218,200,0.72)";
+        ctx.font = "11px var(--font-mono, monospace)";
+        haloText(ctx, f.name, x, y + 16);
       }
     }
 
@@ -301,9 +311,9 @@ export default function WorldView() {
         ctx.stroke();
       }
       ctx.textAlign = "center";
-      ctx.fillStyle = "rgba(232,229,212,0.95)";
-      ctx.font = "10px var(--font-mono, monospace)";
-      ctx.fillText(v.name, x, y + 14);
+      ctx.fillStyle = "rgba(234,231,214,0.98)";
+      ctx.font = "12px var(--font-mono, monospace)";
+      haloText(ctx, v.name, x, y + 15);
       if (v.lastVisitedDay >= 0) {
         ctx.fillStyle = "#6fae54";
         ctx.fillText("✓", x + 20, y - 8);
@@ -518,7 +528,7 @@ export default function WorldView() {
       else if (ss === "suppress") { txt = `${sqName} · SUPPRESSING`; col = "rgba(224,167,43,0.96)"; }
       else if (ss === "hold" || ss === "react") { txt = `${sqName} · CONTACT`; col = "rgba(224,167,43,0.96)"; }
       else if (cam.ppm < 0.4) continue; // out of contact: only label at closer zoom to avoid clutter
-      ctx.font = "bold 9px var(--font-mono, monospace)";
+      ctx.font = "bold 11px var(--font-mono, monospace)";
       const wpx = ctx.measureText(txt).width + 8;
       const ly = byTop - 24;
       ctx.fillStyle = "rgba(12,13,10,0.72)";
@@ -637,7 +647,7 @@ export default function WorldView() {
           ctx.fill();
         }
         ctx.fillStyle = drewWp ? "#1c160e" : "#0c0d0a";
-        ctx.font = "bold 9px var(--font-mono, monospace)";
+        ctx.font = "bold 11px var(--font-mono, monospace)";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(String(i + 1), px, drewWp ? py - 2 : py + 0.5);
@@ -671,7 +681,7 @@ export default function WorldView() {
       ctx.fillStyle = "rgba(12,13,10,0.8)";
       ctx.fillRect(fx + 12, fy - 22, 96, 13);
       ctx.fillStyle = "#e05028";
-      ctx.font = "bold 9px var(--font-mono, monospace)";
+      ctx.font = "bold 11px var(--font-mono, monospace)";
       ctx.textAlign = "left";
       ctx.fillText("CALL FOR FIRE", fx + 16, fy - 12);
       ctx.textAlign = "center";
@@ -727,7 +737,7 @@ export default function WorldView() {
     ctx.strokeStyle = "rgba(28,22,14,0.9)";
     ctx.strokeRect(bx, by, barPx, 4);
     ctx.fillStyle = "rgba(232,229,212,0.92)";
-    ctx.font = "9px var(--font-mono, monospace)";
+    ctx.font = "11px var(--font-mono, monospace)";
     ctx.textAlign = "right";
     ctx.textBaseline = "alphabetic";
     const label = niceM >= 1000 ? `${niceM / 1000} km` : `${niceM} m`;
