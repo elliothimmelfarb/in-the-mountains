@@ -1,0 +1,279 @@
+{
+  "baselineScores": {
+    "perJudgeOverall": [
+      42,
+      38,
+      46,
+      34,
+      40
+    ],
+    "avgOverall": 40,
+    "avgDimensions": {
+      "visualHierarchy": 50,
+      "legibility": 26,
+      "affordanceClarity": 47,
+      "aestheticPolish": 70,
+      "informationDensity": 60,
+      "accessibilityFeel": 12,
+      "onboardingClarity": 40
+    },
+    "allTopProblems": [
+      "LEGIBILITY IS THE FOUNDATIONAL DEBT: the entire HUD is built on 9-11px mono on near-black (#0c0d0a). The audit counts 262 tiny-text nodes (121 sub-11px). Concretely: DockPanel headers are text-[10px] (DeployScreen.tsx:113), Intel/Combat/Command log lines text-[10px] (lines 417/440/455), the [SIGINT ·94%] source tags text-[9px], TaskOrg rank/role text-[9px-10px] (lines 785-788), the directive countdown text-[9px] (line 379), CERP hint text-[9px] (line 878). At 1440px these render at ~9-11 device px. During a firefight a commander cannot scan the Contact Feed (text-[10px] two-column, line 583) or read which weapon is being requested fast enough — the time-critical CLEARED HOT call sits above a 10px grid reason string (line 539). This single class of defect dominates everything else and caps every other score.",
+      "ZERO FOCUS VISIBILITY (152 noFocusRing): there is no :focus-visible rule anywhere in globals.css and .tac-btn only animates background/border on :hover (lines 96-99). A keyboard user tabbing the time controls, SOP segments, mission buttons, CERP grid, or the approve/deny call-for-fire literally cannot see where focus is — the most time-critical lever in the game (CLEARED HOT, DeployScreen.tsx:541) is keyboard-invisible. This is a total accessibility failure, not a polish gap.",
+      "ICON-ONLY CONTROLS WITHOUT ACCESSIBLE NAMES (10 unlabeled) AND AMBIGUOUS GLYPHS: the speed latches render bare '▶ ⏸ 1× 2× 4× 8× 16× ⏩ ⏸▲ 🔇' (CommandBar lines 291-305). '⏸▲' (auto-pause-on-fire) and '⏩' (warp/skip) are non-obvious even with the title= tooltip, and tooltips don't help touch/screen-reader users. The hamburger '≡' menu (line 318) and the 'i'-in-circle service-record button (TaskOrg line 789) are pure glyphs. A new commander cannot tell what '⏸▲' does without hovering.",
+      "MULTIPLE SIMULTANEOUS BLINKING ATTENTION MAGNETS WITH NO REDUCED-MOTION ESCAPE (2 reducedMotion, but felt worse): .blink runs unconditionally (globals.css:149) and there is NO @media(prefers-reduced-motion) block. In a fight, '● TIC' blinks in the CommandBar (line 290) AND in the Combat Log badge (line 468), the '▲ CALL FOR FIRE' header blinks (line 538), the CLEARED HOT button-row sits in an animate-pulse box (line 537), and an urgent directive deadline blinks rust (line 379). Three-to-five things strobing at once destroys the very triage the blink is meant to aid, and there is no way to opt out — a vestibular-sensitivity and a focus hazard at the worst moment.",
+      "WEAK PRIMARY/SECONDARY/TERTIARY HIERARCHY — EVERYTHING IS THE SAME WEIGHT: the HUD is a uniform field of small olive/amber-on-black with thin 1px #2c3022 borders. Panel headers (10px stencil) barely outrank body text (10px). The five CommandBar metric bars (Stability/Attitudes/Enemy/Comb.Pwr/Higher, lines 281-285) are visually identical 11px+2.5px-tall bars — no encoding tells you Stability is the campaign's north-star vs Higher confidence being secondary. The eye has no anchor; during contact nothing rises to demand attention except the blinkers, so calm-state scanning is a slow left-to-right read.",
+      "ICON-ONLY / GLYPH STATE DOTS CARRY MEANING BY COLOR ALONE: TaskOrg status uses a 1.5px colored dot (bg-good/bg-rust/amber/#444, line 784) as the sole ready/wounded/kia/rest signal, and the village attitude/coop/sympathy bars rely on color (green/amber/red) with no shape or label redundancy. Color-blind commanders lose the wounded-vs-ready distinction. Combined with sub-24px text labels this is a double accessibility hit.",
+      "TINY HIT TARGETS ON FREQUENTLY-USED CONTROLS (33 tinyTarget): the SOP segment buttons are text-[10px] px-1.5 py-0.5 (Seg, line 665) — roughly 16-18px tall; the mission buttons, CERP grid (px-2 py-1 at 10px), the 'recall' chip (text-[9px] px-1.5 py-0.5, line 339), Convoy/Air (text-[9px] px-1.5 py-0.5, line 913), and the service-record 'i' are all well below the 24px comfortable target. These are the levers you adjust mid-decision; they demand pixel-precise aiming.",
+      "ONBOARDING / DISCOVERABILITY IS THIN INSIDE THE FIGHT: hotkeys live only in title= tooltips and a 10px footer on the menu (MenuScreen line 122). Inside the HUD there is no persistent legend for F=clear-hot / X=deny / R=route / 1-5 speed / T warp / Space pause / M mute (DeployScreen onKey, lines 169-199). The empty-state copy is good ('No contact. The valley is quiet.') but a first-time commander faced with the dense dock has no guided path to 'plan a patrol → set SOP → step off' beyond the separate TutorialCoach — the live surface itself doesn't teach its own controls.",
+      "Text is illegibly small at scale: the entire HUD body is built on 9-11px mono with 27 instances of text-[9px] and 2 of text-[8px] (e.g. DeployScreen.tsx:337 task readout, :376/:396 directive tags, :662 stat labels). The audit measures 262 sub-12px runs (121 under 11px). At a normal viewing distance an 8-9px stencil tag with 0.14em letter-spacing is unreadable during a fight — this is the single dominant debt and an automatic WCAG fail for a defense trainer.",
+      "ZERO keyboard focus visibility: globals.css has no :focus-visible rule and components/app have no focus-visible/focus:ring anywhere (grep returns nothing), yielding 152 noFocusRing defects. A keyboard-only commander tabbing through 43 buttons — pause, warp, CLEARED HOT/DENY, MEDEVAC, route/SOP selectors — gets no visible indication of where they are. This is a hard WCAG 2.4.7 (AA) failure and alone should fail the build.",
+      "Icon/glyph-only controls have no programmatic accessible name (aria-label count is 0 across all components). The CommandBar transport buttons are bare glyphs — pause '⏸' (DeployScreen.tsx:291), warp '⏩' (:298), auto-pause '⏸▲' (:301), mute '🔊' (:305), and the per-soldier service-record 'ⓘ' (:789) — labeled only via title=, which is not a reliable accessible name and is invisible to touch/keyboard. 10 unlabeled-control defects; a screen reader announces 'button' with no meaning.",
+      "Touch/hit targets fall below the 24px minimum (33 tinyTarget defects). The 'recall' button is text-[9px] px-1.5 py-0.5 (DeployScreen.tsx:339/:913/:914 Convoy/Air) rendering ~17px tall, and the 'ⓘ' jacket button is px-1 only with no min-height (:789). Sub-24px controls fail WCAG 2.5.8 (AA) and are error-prone under stress on a trackpad.",
+      "No prefers-reduced-motion support: globals.css defines .blink (1s infinite, used 21 times incl. the '● TIC' and urgent-directive indicators at :379/:468) and .scanlines/.vignette/.fade-in with no @media (prefers-reduced-motion: reduce) escape hatch (2 reducedMotion defects flagged, but the real exposure is the continuously blinking combat indicators). For motion-sensitive / vestibular users an infinitely blinking red TIC badge is a genuine harm.",
+      "Hierarchy collapses under uniform density: dock panel titles, body labels, values, and tags all live in a narrow 8-11px mono band, so the eye has no clear primary->secondary->tertiary ramp. The CLEARED HOT/DENY pair (the most consequential action, :541-542) is differentiated only by being 12px vs 11px and a danger border — at a glance the single highest-stakes decision in the game does not visually dominate the screen.",
+      "Color is overloaded as the sole status channel without redundant encoding: rust/amber/good/blink carry directive urgency (:379 text-rust blink vs text-inkdim) and promise kept/broken counts (:844) purely via hue, with no shape/text fallback. For deuteranopic users the contested-status palette (rust vs olive-good on near-black) is hard to disambiguate, compounding the 2 measured sub-AA contrast pairs.",
+      "Onboarding/discoverability of hotkeys is buried in micro-text: the menu footer 'SPACE pause · 1-5 speed · T skip' is faint low-contrast caption text, and in-HUD hotkey hints like [F]/[X] are text-[9px] opacity-70 (:541-542) — the keybindings that drive the whole fight are the least legible elements on screen, so a new commander cannot learn to fight at a glance.",
+      "Legibility is the project-killer: the ENTIRE UI is built on 9-11px mono (262 sub-12px instances, 121 sub-11px). DeployScreen renders dock headers at text-[10px], Seg/SOP labels and rank/role tags at text-[9px], all intel/combat/command-log lines at text-[10px], Bar labels at text-[11px], and even the jacket bio at text-[12px]. On the .panel dark-gradient over the bg #0c0d0a, these are barely scannable at rest and unreadable mid-firefight — fatal for a 'read the fight at a glance' trainer where the clock locks to 1x under TIC and the human must parse state fast.",
+      "Zero keyboard focus visibility (152 noFocusRing): globals.css has NO :focus-visible rule, so the dozens of tac-btn time-controls, the SOP segmented groups, mission picker, CERP grid, resupply, and modal close buttons give a keyboard/switch user no visible focus anywhere. A defense-grade tool that is completely non-navigable by keyboard cannot clear the bar.",
+      "No prefers-reduced-motion guard while motion runs forever: .blink loops infinitely on the '● TIC' latch, the directive-deadline countdown, and the CombatBadge, plus animate-pulse on the call-for-fire card — the two most safety-critical, attention-grabbing elements pulse perpetually with no reduced-motion off-switch (a vestibular/photosensitivity hazard AND a distraction that desensitizes the player to genuine urgency).",
+      "Hit targets violate the 24px minimum in the hottest controls (33 tinyTarget): the SOP Seg buttons (text-[10px] px-1.5 py-0.5), the mission picker, the ⓘ jacket launcher (px-1 icon-only), the recall/Convoy/Air micro-buttons (text-[9px] px-1.5 py-0.5), and the CERP grid are all far under 24px — exactly the controls a commander needs to hit decisively, now fiddly even with a mouse.",
+      "Affordance/state is too quiet to read fast: .tac-btn.active (amber border + slightly lighter bg) is the ONLY state cue, and at 9-10px the difference between idle/hover/active/disabled is nearly invisible. Selected squad, active SOP option, and active mission all rely on the same low-contrast outline — the eye cannot confirm 'what is currently set' at a glance. The call-for-fire card is the lone genuinely strong, differentiated control, which proves the rest is undertuned.",
+      "Icon-only / glyph-only buttons lack accessible names (10 unlabeled): the top-bar ☰ menu, ⏸/▶ pause, ⏩ warp, ⏸▲ auto-pause, and emoji-only 🔇/🔊 + Convoy/Air rely on title attributes or nothing for a screen reader; Icon.tsx SVGs are aria-hidden by design, so any button whose label IS the icon is unnamed.",
+      "Discoverability of the command model and hotkeys is weak: a rich hotkey set exists (Space, 1-5 speed, T warp, M mute, R route, F/X clear-hot/deny) but only [F]/[X]/[R] are surfaced inline; the cryptic ⏩ and ⏸▲ glyphs, the squad-not-men command philosophy, and the approve/deny-only combat lever are undiscoverable to a new commander — onboarding leans entirely on an external tutorial.",
+      "Density is unevenly distributed: in the quiet state the left dock column is mostly dead space ('All elements at the COP', 'No reporting yet. Patrol and talk to people.', 'No contact. The valley is quiet.') consuming a full 280px column, while the data-dense Logistics/Task-Org/Squad-Orders are cramped into tiny rows — the layout wastes its most valuable screen real estate when calm and crowds it when busy.",
+      "NO TYPE SCALE TOKEN SYSTEM AT ALL. globals.css :root/@theme tokenizes only colors and one font-family; there is zero type ladder (no --fs-1/--text-xs etc). Every size is a hardcoded arbitrary px literal — text-[8px], text-[9px], text-[10px], text-[11px], text-[12px], text-sm/text-xl/text-6xl — sprayed across ~80 call sites in DeployScreen.tsx with no semantic meaning. There is no single place to retune type; a global legibility fix is currently impossible. This is the root cause of the 262 tinyText defects.",
+      "8px LIVE BODY/LABEL TEXT. DeployScreen DirectivesBody renders directive kind tags at text-[8px] in BOTH the active branch (line 376) and the resolved branch (line 396). 8px is below any usable floor even uppercase-stencil; it is effectively a texture, not text. These plus the 9px tier are the 121 sub-11px renders.",
+      "THE 9-10px MONO FLOOR IS THE WHOLE UI. DockPanel titles (text-[10px] stencil), Bar component (text-[11px]), Seg/SOP labels (text-[9px]), IntelBody/CombatLogBody/CommandLogBody/ContactFeed all at text-[10px] leading-snug, TaskOrgBody roster (text-[10px], rank column text-inkdim), CERP/mission buttons (text-[10px]), AttrBar (text-[10px]), SquadReadout (text-[10px]). A commander cannot read a firefight at a glance off 10px mono on #0c0d0a — the dominant felt failure.",
+      "TIGHT TRACKING + CRUSHED LINE-HEIGHT ON MONO BODY. Only .stencil (0.14em) and .tac-btn (0.06em) get letter-spacing tokens; all the 9-11px mono BODY runs at default tracking, which is too tight for small mono on near-black. Logs use leading-snug at 10px (CombatLogBody line 440, IntelBody line 417) — rows visually collide. No baseline/vertical-rhythm system; leading-none/tight/snug are applied by feel, not a scale.",
+      "INSUFFICIENT TYPOGRAPHIC HIERARCHY — EVERYTHING IS THE SAME WEIGHT/SIZE. The contrast between a section header (10px stencil) and its body (10px mono) is ~0 size delta; hierarchy is carried almost entirely by color, not type. Primary actions (CLEARED HOT 12px) barely out-size tertiary chrome. The eye has no large anchor in-game — compare the menu (6xl title) which is the only screen that breathes. Visual scan order collapses under combat load.",
+      "ZERO FOCUS-VISIBLE / KEYBOARD AFFORDANCE IN THE TYPE/CHROME SYSTEM. globals.css has NO :focus-visible rule; .tac-btn defines hover and active states but nothing for keyboard focus (152 noFocusRing defects). The dock chevron buttons, segmented SOP buttons, and roster rows are all keyboard-traversable but invisibly so. Also no prefers-reduced-motion block despite .blink/.fade-in/.scanlines/.vignette running live (2 reducedMotion defects, but blink at this density is also a legibility hazard).",
+      "TABULAR-NUMS USED INCONSISTENTLY. The clock uses tabular-nums (CommandBar line 264) but the Bar value readouts (line 53), countdown 'Nd' directive timers (line 379), supply quantities, and stat cards do NOT — so live-updating numerics jitter horizontally as digits change width, which on a real-time sim is constant visual noise exactly where stability matters.",
+      "UNLABELED ICON-ONLY GLYPH BUTTONS RELY ON TYPOGRAPHIC GLYPHS AS UI. Pause/speed/warp/audio/menu controls are emoji/unicode glyphs (⏸ ▶ ⏩ ⏸▲ 🔊 ☰) and the info button is ⓘ (line 789) with no accessible name (10 unlabeled defects). Using text glyphs as the entire control vocabulary means the type system IS the icon system, with no fallback label and no consistent optical sizing.",
+      "LEGIBILITY IS THE WAR-LOSER: the entire C2 surface is built on 9-11px mono (262 sub-12px text nodes, 121 of them under 11px). The top-bar metric labels (DeployScreen Bar, line 48-49 'text-[11px]' w-[80px]) truncate Stability/Attitudes/Enemy/Combat Power/Higher to 'Stabi…/Attit…/Enem…' so the five numbers that define whether you're winning the valley are unreadable at a glance. Task Org rows, Intel Feed, both logs and the Contact Feed all sit at text-[10px]/text-[9px]. Under stress a commander cannot read this; it fails the 'read a fight at a glance' bar outright.",
+      "ZERO keyboard focus visibility (152 noFocusRing): globals.css has NO :focus-visible rule. Every tac-btn, the speed/pause controls, the CLEARED HOT / DENY buttons, the volume slider, the SOP segmented groups — none show a focus ring. A keyboard or switch user is flying blind; for a 'defense-grade trainer' that is a hard accessibility failure, not a polish nit.",
+      "The single most consequential control — the call-for-fire APPROVE/DENY (OrderBar line 536-544) — does not own the screen. It's a small card wedged into Zone 2 of a three-zone bottom strip at text-[11px]/text-[12px], competing with the fire-support grid and a two-column contact feed beside it. The lever that gets men killed (deny) or civilians killed (clear hot) should be the unmistakable focal point of the moment; instead it's animate-pulse on a cramped 220px card the eye can miss.",
+      "No prefers-reduced-motion block (globals.css). .blink runs at 1s forever on TIC badges, urgent directive countdowns, the fire-support banner AND the CLEAR-HOT button; the call-for-fire card adds animate-pulse. Multiple simultaneous infinite blinkers create visual noise that competes with itself (when everything blinks, nothing reads as urgent) and is a vestibular/photosensitivity hazard with no opt-out.",
+      "Tiny touch/hit targets and unlabeled icon controls (33 tinyTarget <24px, 10 unlabeled): the recall button (line 339 'text-[9px] px-1.5 py-0.5'), the service-record ⓘ (line 789 'px-1'), Convoy/Air resupply (text-[9px] px-1.5 py-0.5), and glyph-only buttons ☰ (menu), ⏩ (warp), ⏸▲ (auto-pause), 🔇/🔊 carry meaning only through an emoji/arrow with no accessible name. Fat-finger and screen-reader hostile.",
+      "Weak visual hierarchy across the dock: every DockPanel uses the same 10px amber stencil header (DockPanel line 113) with no weight/size differentiation between a passive feed (Command Log) and an action surface (Squad Orders). Within panels, primary actions (Step Off, Clear Hot, Secure the Build) share the same tac-btn treatment as tertiary toggles, so the eye has no anchor — nothing tells a new commander where the decision is.",
+      "Onboarding/discoverability is thin: hotkeys are buried in titles (Space/F/X/T/R/C) and only partially surfaced. The menu footer lists them in ~9px gray ('SPACE pause · 1-5 speed · T skip'). A new player can't tell that clicking the map plants a fire mission, that SOP locks in contact until they hit it, or that the ⓘ opens a jacket. No persistent legend/keybind reference on the command surface itself.",
+      "Color carries critical state with no redundant encoding: stability=green, enemy=red, US=blue, attitude=amber are distinguished by hue alone in the metric bars, intel source stripes, and unit/status dots — combined with the low-contrast olive/near-black palette this is a real problem for the ~8% red-green deficient, and only 2 contrast defects were caught because the audit can't see hue-only semantics."
+    ]
+  },
+  "backlog": {
+    "rounds": [
+      {
+        "round": 1,
+        "theme": "LEGIBILITY FOUNDATION — kill the 262-defect tinyText debt with a tokenized milspec type scale, then close the residual a11y gaps (tinyTarget, unlabeled separators) that survive after the already-landed focus/motion work. This round alone should move 461 → ~15.",
+        "items": [
+          {
+            "title": "Define a tokenized milspec type scale with a 12px floor in :root + @theme (root cause of all 262 tinyText)",
+            "why": "The whole HUD is hardcoded text-[8/9/10/11px] arbitraries with ZERO type tokens — there is no single dial to raise the floor. The audit flags every DOM node rendered <12px; a centralized scale makes a global legibility fix a one-line edit instead of a 104-site sweep, and is the precondition for every other tinyText item.",
+            "files": [
+              "app/globals.css (:root)",
+              "app/globals.css (@theme inline)"
+            ],
+            "expectedImpact": "Enables the entire tinyText kill (262, incl. 121 sub-11) and the consistency lift. By itself moves nothing until migrated — but it is the keystone for the single largest defect category. Adds --text-micro:12px (the floor, replaces all 8/9/10/11), --text-sm2:13px, --text-base2:15px, --text-head:18px, --text-stencil:11px (uppercase caps read ~10% larger so it clears the legibility bar while staying tight), each paired with a --lh token (1.25 data rows / 1.4 prose). Reuse the SAME tokens for the existing already-passing 12/13/15 sizes so future edits stay on-scale.",
+            "effort": "S",
+            "risk": "Token-only, zero render change until migrated. The one decision to lock: 12px is the floor (matches the audit's <12 cut), NOT 11 — the competing CONSISTENCY dossier proposed an 11px micro which would leave EVERY migrated node still flagged. Reject 11; use 12. SEAM: this file is also touched by tabular-nums, spacing, and reduced-motion (already landed) — append, do not rewrite the existing :focus-visible/prefers-reduced-motion block at lines 204-238."
+          },
+          {
+            "title": "Migrate every text-[8/9/10/11px] in the HUD (DeployScreen ~84 instances) to the scale tokens — tinyText 262 → ~0",
+            "why": "DeployScreen IS the HUD and holds the bulk of the sub-12px text: dock headers text-[10px], the ▾ caret + right-slot badge text-[9px], log lines text-[10px], the call-for-fire grid readout + reason text-[10px], SquadReadout/CERP/TaskOrg/AttrBar all 9-10px, and the two text-[8px] directive KIND tags (lines 379/399). This single mechanical pass is THE 20x lever.",
+            "files": [
+              "components/screens/DeployScreen.tsx"
+            ],
+            "expectedImpact": "tinyText 262 → near-0 and subEleven 121 → 0 across all 4 states — the dominant debt category collapsed. This is ~85% of the total 461 reduction once the already-landed 154 focus/motion defects are counted. Mechanical: text-[8/9/10/11px] → text-micro; text-[12/13px] → text-sm2. The two text-[8px] directive chips become text-micro with .stencil-tight tracking so they still fit their px-1 chip.",
+            "effort": "M",
+            "risk": "Density preservation is the live risk: 12px at 1.25 leading occupies ~the same vertical as 10px at 1.5, so pair this with per-tier line-height tokens and tighter tracking on data rows. Highest-density wrap candidates: TaskOrg member rows (status dot + rank + name + role + abbr + ⓘ in a w-[344px] column — name already .truncate), the SOP triplet, and the call-for-fire grid readout (max-w-[220px]). Docks are min-h-0 + overflow-y-auto so growth scrolls, not clips. VERIFY: re-screenshot hud.png + village.png; confirm no roster/SOP wrap and CommandBar h-12 still fits stacked 12px-label+14px-value (26px < 48)."
+          },
+          {
+            "title": "Migrate the secondary screens (Menu/Loading/Jacket/Tutorial/TourEnd) to the scale — the residual ~42 tinyText",
+            "why": "The non-HUD sub-12px text lives in roomy modals/screens: Menu credits+footer text-[10px], Loading task list, TutorialCoach header/buttons, TourEnd stat labels text-[9px], and the SoldierJacket REST/MORALE/KIA pill captions text-[9px] visible in jacket.png. These are pure-win, lowest-risk because the panels (w-[460-520px]) have generous space.",
+            "files": [
+              "components/screens/MenuScreen.tsx",
+              "components/screens/LoadingScreen.tsx",
+              "components/TutorialCoach.tsx",
+              "components/screens/TourEndScreen.tsx",
+              "components/screens/DeployScreen.tsx (SoldierJacket, EventModal)"
+            ],
+            "expectedImpact": "Finishes the tinyText kill — the remaining ~42 nodes across the menu/loading/jacket states → 0, so all 4 audited states clear. No overflow risk in the roomy modals.",
+            "effort": "S",
+            "risk": "Watch the wide letter-spacing stencils: LoadingScreen tracking-[0.4em] and Menu tagline tracking-[0.4em] may push past their card at 12px — drop to tracking-[0.25em] if they wrap. TutorialCoach body is already 13px (fine); only its header/buttons need bumping."
+          },
+          {
+            "title": "One mechanism for the 24px hit-floor: .tac-btn{min-height:24px} + grow the dock collapse-toggle + size the ⓘ/recall/Convoy/Air/checkbox — tinyTarget 33 → ~0",
+            "why": "After focus/motion landed, tinyTarget (33) is the largest REMAINING audited category. The biggest cluster is the DockPanel header collapse-toggle (measured 15px tall across ~9 panels — the h-7 header is 28px but the inner <button> has no height). The rest are the service-record ⓘ (already partly fixed to w-6 h-6 at line 792), recall/Convoy/Air micro-buttons (text-[9px] py-0.5 ≈ 16px), the 64×16 volume range, and the 13px 'Send officers' checkbox. These are the levers a commander hits mid-decision.",
+            "files": [
+              "app/globals.css (.tac-btn)",
+              "components/screens/DeployScreen.tsx (DockPanel, TaskOrgBody, ResupplyButtons, CommandBar, SquadOrdersBody)"
+            ],
+            "expectedImpact": "tinyTarget 33 → near-0. Unify with ONE global floor — add min-height:24px + display:inline-flex;align-items:center;justify-content:center to .tac-btn (catches recall, Convoy/Air, Seg, and every py-0.5 button at once). Add h-full to the DockPanel toggle so it fills the 28px header (fixes ~9 at once, zero reflow). Volume range → h-6; checkbox label wrapper → min-h-[24px] with the box bumped to w-4 h-4.",
+            "effort": "S",
+            "risk": "A blanket .tac-btn min-height:24px could nudge ultra-tight single-row strips (SOP Seg row, the badge Convoy/Air). VERIFY the OrderBar bottom strip and Logistics header don't grow a row and overflow; if any does, scope min-height to icon-only/micro buttons only. SEAM: this overlaps the Round-2 Btn primitive — apply the global floor NOW (cheap, kills the defects) and let the Btn primitive later absorb it as the canonical size table; do NOT do both sizings independently."
+          },
+          {
+            "title": "Name + keyboard-operate the dock resize separators — the ACTUAL 10 unlabeled defects (not the glyph buttons)",
+            "why": "The brief assumed the 10 unlabeled were icon-only buttons, but the audit treats role='separator' as interactive (line 216 excludes them from tinyTarget but line 210 still counts them unlabeled if nameless). The 10 are exactly the dock ResizeHandle divs (4 hud + 3 village + 3 jacket). A parallel pass already added aria-label to ResizeHandle (line 154) — VERIFY that landed across all states, then add tabIndex + Arrow/Home/End keyboard resize to honour the 'fully keyboard-operable' claim already written into globals.css.",
+            "files": [
+              "components/screens/DeployScreen.tsx (ResizeHandle, DockPanel)"
+            ],
+            "expectedImpact": "unlabeled 10 → 0 (likely already 0 if the landed aria-label covers every instance — confirm by re-running scripts/ux-audit.mjs). Keyboard resize (ArrowUp/Down call setPanelHeight(clamp(cur∓16, 28..560)), Home/End for min/max) makes the resize lever non-mouse-only.",
+            "effort": "S",
+            "risk": "tabIndex on the handle adds it to tab order — verify it isn't noisy/trapping; if undesirable, the aria-label alone clears the defect and keyboard nav can gate behind focus. Confirm no NEW tinyTarget (separators are excluded at line 216, so safe)."
+          }
+        ]
+      },
+      {
+        "round": 2,
+        "theme": "HIERARCHY, FEEDBACK & THE DESIGN SYSTEM — with the floor raised and defects near-zero, this round buys the expert-judged quality lift: give the eye an anchor, make every command feel acknowledged, and unify the chrome so density reads as deliberate, not crowded. Defect-neutral-to-positive; quality-dominant.",
+        "items": [
+          {
+            "title": "Promote the 5 campaign bars from identical slivers to the strategic anchor (with redundant non-color encoding)",
+            "why": "'You can win every firefight and still lose the valley' is the soul, yet hud.png shows the 5 campaign metrics as near-identical 2.5px slivers with truncated 80px labels ('Comb. Pwr','Higher') — at a glance you cannot tell Stability from Enemy. This is the single biggest hierarchy failure: the most important persistent state has the LEAST visual weight. It also fixes the color-only-status accessibility hit the judges flagged.",
+            "files": [
+              "components/screens/DeployScreen.tsx (Bar, CommandBar)"
+            ],
+            "expectedImpact": "Massive scan-speed + expert-judgment lift; also retires the label-truncation tinyText and adds shape/text redundancy for colorblind users. Redesign as a labeled meter cluster: 5-6px bars, a 3-4 char stencil tag above each (STAB/ATT/ENY/CBT/HQ) so labels never truncate, a bright tabular-num value, and a DISTINCT treatment for ENEMY (the inverted/bad axis — fill-from-right or hazard hatch) so 'enemy high' reads as danger not progress. Group STAB+ATT (population) vs ENY+CBT+HQ (force) with a hair of extra gap.",
+            "effort": "M",
+            "risk": "Taller bars + a tag row may force CommandBar from 48px to ~56-60px — confirm WorldView/dock heights still fit and nothing clips. SEAM: this is the spine; graft in the CommandBar zone-triage and the LIGHT/WX/AIR glyph-collapse below so the bar is reworked ONCE, not three times."
+          },
+          {
+            "title": "Triage the CommandBar into Identity / Strategic-Posture / Time-State zones and collapse LIGHT/WX/AIR to glyphs",
+            "why": "The 48px top bar packs 8 equal-weight 11px groups separated by identical 1px dividers — the eye has nothing to land on, and the actionable AIR NO-GO (it gates MEDEVAC/CAS) gets the same treatment as the cosmetic WX label. Re-ranking gives the bar a center of gravity and frees horizontal room for the promoted campaign bars.",
+            "files": [
+              "components/screens/DeployScreen.tsx (CommandBar, weatherIcon)"
+            ],
+            "expectedImpact": "Strong hierarchy + IA lift; collapsing LIGHT/WX/AIR into one 3-glyph environment cluster (with accessible names/tooltips) removes a repeated tiny-caption pattern. Three zones: IDENTITY (left, lowest contrast — demote callsign/seed to a title tooltip), STRATEGIC POSTURE (center anchor — the promoted bars + CLOCK as the single largest tabular element, ~16px, on a faintly brighter --panel-2 fill with a 2px amber top-border), TIME-STATE (right — env glyphs + play/speed/audio).",
+            "effort": "M",
+            "risk": "Center zone overflow at narrow widths — verify at 1280px AND 1440px the 5-bar block + clock fit without wrapping; gate the env-glyph collapse behind a min-width. Glyph-only env must keep NIGHT/NO-GO legible by SHAPE not color alone (don't trade a tinyText for an unlabeled/colorblind defect) — ties to the AIR NO-GO promotion."
+          },
+          {
+            "title": "Restructure the OrderBar so the call-for-fire dominates in contact + add a global contact-vs-calm mode",
+            "why": "The approve/deny call-for-fire — the single most consequential lever, the one that gets men or civilians killed under TIC's forced 1× clock — is buried as a conditional inside Zone 2, one card among three coequal panels, differentiated only by a pulse border. And the HUD looks identical in contact vs calm except a 10px blinking TIC tag. A commander cannot feel the fight from across the room or find the decision fast.",
+            "files": [
+              "components/screens/DeployScreen.tsx (OrderBar, SquadReadout, DeployScreen root)",
+              "app/globals.css",
+              "state/store.ts (UI-only)"
+            ],
+            "expectedImpact": "The highest-stakes decision becomes the unmistakable focal point, and the whole surface gains a posture signal. Make the call-for-fire a full-height leftmost PRIMARY slot that, when active, widens and pushes fire-support + contact-feed right, with CLEARED HOT as the largest highest-contrast control (~14px bold, already tac-btn-danger); collapse to a thin 'NO FIRE REQUESTS' rail when idle. Drive ONE data-contact attribute on the DeployScreen root from world.inContact() that gives OrderBar/Combat-Log/Contact-Feed a faint rust top-accent and gently dims calm-only panels (chrome/contrast only — NEVER hide ammo or live data).",
+            "effort": "M",
+            "risk": "Layout shift when a request appears could jar mid-fight — use a fast width/fade transition, not an instant reflow, and gate it through the already-landed prefers-reduced-motion block so the mode-switch isn't a motion assault. Dim must never hide info a commander needs. SEAM: the contact-mode hook should REPLACE scattered blink tags as the single urgency source of truth, coordinating with the feedback item below."
+          },
+          {
+            "title": "Replace the single overwriteable banner with a severity-typed toast stack + confirm the silent fund/resupply actions",
+            "why": "The entire DOM feedback surface is ONE mutable string (store.ts banner), no queue, no severity, instantly stomped by the next drained interrupt — so fund a project + send a KLE + request resupply in quick succession yields at most one fleeting line. Worse, fundProject ($5k, irreversible, 'one-way drain') and requestResupply set NO banner at all — the most expensive action in the game reads as a dead click and invites double-spends.",
+            "files": [
+              "state/store.ts (frame, fundProject, requestResupply, stepOff, conductKLE)",
+              "components/screens/DeployScreen.tsx (BannerOverlay, VillagePanel, ResupplyButtons)",
+              "app/globals.css"
+            ],
+            "expectedImpact": "Every command becomes legibly acknowledged — a large game-feel lift that makes the 'win attitudes, not firefights' loop felt. Add toasts:{id,text,sev,t}[] (UI-only) + pushToast(text,sev); sev→token color (good/info=--us/warn=--amber/crit=--rust) with a left accent reusing kindStyle()'s channel-color language. Render max-4 cards driven by the existing ~110ms frame() loop (no new timer), auto-dismiss ~4.5s. Keep the centered banner ONLY for the persistent 'SELECT IMPACT POINT' fire prompt. Add a 160ms flash-confirm on the clicked button.",
+            "effort": "M",
+            "risk": "Toast stack must NOT occlude the OrderBar call-for-fire — anchor top-center-right below CommandBar, clear of the bottom strip, cap at 4. SEAM: banner priority must yield to the fully-blocking EventModal and must give the live fireRequest banner priority over generic interrupts (store.ts drainInterrupts) so the lever is never stomped — coordinate with the contact-mode item."
+          },
+          {
+            "title": "Establish the design-system primitives: Btn (size+variant+iconOnly+aria), StatBar, PanelHeader, and route all color through tokens",
+            "why": "The same .tac-btn renders at 5+ ad-hoc sizes ('text-[12px] py-1.5 font-bold' vs 'text-[9px] px-1.5 py-0.5'), there are TWO near-duplicate stat bars (Bar vs AttrBar) that already drift, section headers render at 9/10/12px arbitrarily, and tokens are bypassed with inline hex (#5b9bd8 used as 'US blue' while --us is actually #4a86c6 — two blues for one concept). This is the structural root of the consistency, tinyTarget, and unlabeled defects recurring.",
+            "files": [
+              "components/ui/Btn.tsx",
+              "components/ui/StatBar.tsx",
+              "components/ui/PanelHeader.tsx",
+              "app/globals.css (:root, .tac-btn)",
+              "components/screens/DeployScreen.tsx (Seg, OrderBar, CommandBar, Bar, AttrBar, SoldierJacket, DockPanel)"
+            ],
+            "expectedImpact": "Locks in the Round-1 wins so they cannot regress, and makes future a11y/color fixes one-place edits. Btn maps sizes to spacing tokens (sm=min-h-24 / md=28 / lg=32), iconOnly TS-REQUIRES aria-label and forces min-w==min-h≥24 — machine-checked. StatBar collapses Bar+AttrBar and is the single seam to add role=progressbar + aria-valuenow. PanelHeader gives every section title one size/weight/spacing. Retire inline hex → tokens; pick ONE canonical blue.",
+            "effort": "L",
+            "risk": "Pure refactor but broad blast radius — migrate incrementally, re-screenshot jacket.png (8 attr bars must still pack 2-up) and the SOP card (3 Seg rows must stay one-line each). SEAM: Btn's min-height must agree with the Round-1 global .tac-btn floor (don't double-size). Picking the darker --us on near-black could tip one of the 2 contrast defects — run the audit contrast check after; if it regresses, standardize on the lighter #5b9bd8 as the --us value."
+          }
+        ]
+      },
+      {
+        "round": 3,
+        "theme": "REFINEMENT, DISCOVERABILITY & EDGE CASES — teach the live surface to teach itself, close the modal/keyboard accessibility gaps that sit outside the audit but a skeptic will find, and apply the final numeric/legibility polish. This round converts 'defects fixed' into 'a soldier would recognize this'.",
+        "items": [
+          {
+            "title": "Add a keyboard-shortcut help overlay (? / H) + an in-canvas Map Legend (L), reachable from the CommandBar",
+            "why": "Once a player clicks Deploy the ONLY hotkey reference (the menu footer, itself incomplete — omits M/R/F/X) is left behind; F=clear-hot, the single most time-critical lever under TIC, is discoverable only by reading source. And the map's amber no-fire ring — the literal civClear ROE soul — has no legend, so a new commander cannot know it means 'your soldiers will hold fire here.'",
+            "files": [
+              "components/screens/DeployScreen.tsx (CommandBar, onKey, map column)",
+              "state/store.ts (UI-only helpOpen/toggleHelp)",
+              "app/globals.css (:root tokens for swatches)"
+            ],
+            "expectedImpact": "The highest-leverage discoverability fix — the live surface finally teaches its own controls. HelpOverlay (mirror the SoldierJacket shell) lists every real binding read from the handler in stencil groups with kbd chips. Map Legend = a React absolute-positioned panel over the canvas (NOT in-canvas drawing — keep lib/render React-free) with swatches using the EXACT CSS tokens (var(--us)/--enemy/--civ/--amber) so legend and renderer never drift. Both reachable from one '?' entry; L toggles the legend.",
+            "effort": "M",
+            "risk": "New overlay must not trap focus or steal Space/Esc from the sim — verify the onKey input-field guard still lets you type a seed and that closing help restores prior pause state. Legend must default-collapsed and pin to a corner the OrderBar doesn't cover. SEAM: build both overlays on the shared Modal primitive from the next item."
+          },
+          {
+            "title": "Shared Modal primitive: role=dialog + aria-modal + focus-trap + Esc + focus-restore for EventModal, SoldierJacket, Help",
+            "why": "Outside the audit but the clearest 'a skeptic would notice' gap: EventModal has NO Esc and NO click-outside (a keyboard user who opens a Situation event is STUCK), SoldierJacket closes on backdrop but not Esc, neither sets role=dialog/aria-modal/aria-labelledby, neither traps focus (Tab escapes to the HUD behind the scrim), neither restores focus to the opener. The DeployScreen global onKey handles Escape only for fire-support/planning, never the modals.",
+            "files": [
+              "components/Modal.tsx",
+              "components/screens/DeployScreen.tsx (EventModal, SoldierJacket)"
+            ],
+            "expectedImpact": "Quality-only (not in the audit score) but high expert-judged accessibility value and the reusable shell for the Help/Legend overlays. One shared <Modal>: store activeElement on mount, focus first focusable, Escape→onClose, Tab/Shift+Tab wrap within the dialog, restore focus on unmount. Wire titleId to the existing <h2>.",
+            "effort": "M",
+            "risk": "Focus-trap bugs can LOCK the user if the focusable query misses (e.g. only ✕ is focusable) — test with Playwright: open jacket, Tab cycles, Esc closes, focus returns to the ⓘ. EventModal Esc must respect decision-forcing events — gate against world.pendingEvent semantics: allow Esc focus-trap but not dismiss for events that must be answered, and document it."
+          },
+          {
+            "title": "Make the WorldView canvas keyboard-focusable + give every glyph-only control a robust aria-label",
+            "why": "The canvas is the primary surface yet has no tabIndex and no accessible name — a keyboard commander cannot focus the map; globals.css already added canvas:focus-visible{outline:none} (line 209) anticipating a focusable canvas that doesn't exist yet. And several controls pass the audit only because a Unicode glyph counts as textContent (☰ announces '☰', ✕ announces '✕', ⏩/⏸▲ via title) — robust for screen readers, cheap to fix.",
+            "files": [
+              "components/world/WorldView.tsx",
+              "app/globals.css",
+              "components/screens/DeployScreen.tsx (CommandBar, MapControls, VillagePanel, SoldierJacket)"
+            ],
+            "expectedImpact": "Closes the keyboard/SR accessibility story beyond the audit number. Canvas: tabIndex=0, role=application, aria-label describing pan/zoom/select + 'press C to jump to contact', plus a subtle 1px inset amber focus cue (the outline is already suppressed). Add aria-labels to ☰ (Open menu), ▶/⏸ (dynamic Resume/Pause), ⏩ (Skip to next event), ⏸▲ (Toggle auto-pause), ✕ (Close), ↶ (Undo waypoint) — visible glyph unchanged, soul preserved.",
+            "effort": "S",
+            "risk": "role=application passes keys through to the global handlers (correct here) but verify Space=pause still preventDefaults so focused-canvas Space doesn't scroll. Confirm tabbing to the canvas then continues into the right column, not a trap. aria-label strings must stay in sync with dynamic paused/warp state."
+          },
+          {
+            "title": "Numeric stability + per-tier rhythm + auto-launch tutorial: the felt-legibility and onboarding finish",
+            "why": "Only the clock uses tabular-nums — every other live number (the 5 campaign bar values, ammo, morale %, CERP $, MEDEVAC ETA) is proportional, so digits jitter horizontally on a real-time sim exactly where stability matters. And the excellent TutorialCoach is opt-in: the biggest amber 'Deploy ▸' button drops a first-timer straight into the dense HUD with zero guidance.",
+            "files": [
+              "app/globals.css (.font-mono / .num)",
+              "components/screens/DeployScreen.tsx (Bar, AttrBar, empty-states)",
+              "components/screens/MenuScreen.tsx",
+              "state/store.ts (newCampaign, loadLayout seenTutorial)"
+            ],
+            "expectedImpact": "Final polish that lifts the 'read a fight at a glance' feel: add font-variant-numeric:tabular-nums to the .font-mono base rule (one rule kills app-wide number jitter), apply per-tier line-height to dense bodies so 12px keeps density, and persist seenTutorial in itm-ui-v1 so the FIRST-ever Deploy auto-launches the non-modal coach (set seenTutorial=true so it never repeats). Sharpen empty-states with the first-move verb chain ('pick a squad → set SOP → draw route → Step Off').",
+            "effort": "M",
+            "risk": "tabular-nums on already-mono text is a near no-op for advance width but stabilizes alt-figure glyphs — near-zero risk; verify the w-[40px] value column still fits '100%'. seenTutorial MUST stay in itm-ui-v1, NOT the itm-save-v2 campaign-save migration path (the two-localStorage gotcha). Over-tight leading (<1.2) hurts prose — scope tight leading to single-line data rows, keep modal/jacket prose at 1.4."
+          },
+          {
+            "title": "Final guard pass: in-canvas tactical HUD text floor + fixed-container overflow + tactile press + disabled-reason tooltips",
+            "why": "The audit can't see canvas text, but WorldView draws unit/waypoint/scale labels at 9-10px — the smallest text in the product, read ON the map under TIC's 1× clock, exactly where legibility matters most for the quality bar. Separately, raising mono to 12px widens fixed-px containers (the grid readout in max-w-[220px], SquadReadout min-w-[230px]) that fit at 10px; and disabled buttons (CERP, Convoy/Air, mortar-empty) explain nothing.",
+            "files": [
+              "components/world/WorldView.tsx (drawHud)",
+              "components/screens/DeployScreen.tsx (Bar, SquadReadout, OrderBar, VillagePanel, ResupplyButtons)",
+              "app/globals.css (.tac-btn:active, :disabled)"
+            ],
+            "expectedImpact": "Catches the residual quality gaps a soldier would notice: bump canvas labels to a 12px-equivalent floor with a 1px dark halo (readable over busy terrain without growing); re-express at-risk fixed widths in ch/rem so the scale change doesn't clip; add .tac-btn:active translateY(1px)+inset shadow for mechanical 'thunk' (gated by the landed reduced-motion block); compute a per-button disabled reason ('Insufficient CERP $X of $5k' / 'Air NO-GO' / 'Tube empty') surfaced via a denied-click pushToast so the disabled state teaches.",
+            "effort": "M",
+            "risk": "Larger canvas labels increase clutter when units are dense — the halo fixes contrast for free; if collisions appear, hide labels below a zoom threshold rather than shrinking. ch-based widths depend on Geist Mono loading (one-frame fallback jump, acceptable). Reason strings must derive from the SAME computed boolean as the disable predicate so they can't lie. DO NOT edit lib/sim — disabled reasons read world state read-only."
+          }
+        ]
+      }
+    ],
+    "seams": [
+      "GLOBAL TOKEN HOME (app/globals.css :root + @theme) is the most-contended file — type scale (R1), spacing/color/radius tokens + .tac-btn floor (R1/R2), and the ALREADY-LANDED :focus-visible + prefers-reduced-motion block (lines 204-238) all live here. Rule: APPEND, never rewrite the landed a11y block; land the type scale FIRST so every later token references it; one writer per CSS section per commit.",
+      "12px vs 11px FLOOR CONFLICT: the LEGIBILITY dossier proposes --fs-micro:12px; the CONSISTENCY dossier proposes --fs-micro:11px. The audit cuts at <12 (line 193), so an 11px floor leaves EVERY migrated node still flagged. RESOLVED: 12px is the floor, non-negotiable — it is what makes the 20x math work. 11px is allowed ONLY for uppercase .stencil caps (which read ~10% larger), tokenized as --text-stencil.",
+      "BUTTON SIZING is touched twice: R1 lands a blanket .tac-btn{min-height:24px} (cheap, kills ~9-of-33 tinyTarget now) and R2's Btn primitive defines a canonical size table. Reconcile: the Btn primitive ABSORBS the global floor as its sm size — do not size buttons independently in both rounds, or the second pass fights the first.",
+      "CommandBar is reworked by THREE hierarchy items (promote 5 bars / zone-triage / collapse LIGHT-WX-AIR to glyphs) — they all edit the same 48px bar. Reconcile by treating 'promote the 5 campaign bars' as the spine and grafting the zone-triage + glyph-collapse into ONE CommandBar rework commit, not three, to avoid serial reflow churn and height re-measurement.",
+      "FEEDBACK vs CONTACT-MODE vs BLINK: the toast stack (R2 feedback), the data-contact whole-screen mode (R2 hierarchy), and the already-landed reduced-motion block all govern urgency signaling. Single source of truth: data-contact drives posture and REPLACES scattered .blink tags; the live fireRequest banner gets priority over generic interrupts in store.ts drainInterrupts; toasts anchor clear of both the CommandBar and the OrderBar call-for-fire so urgency cues never occlude each other.",
+      "MODAL primitive (R3) is shared by EventModal, SoldierJacket, AND the new Help/Legend overlays (R3 discoverability) — build Modal.tsx once and route all four through it; the discoverability overlays depend on it, so order Modal before/with them.",
+      "COLOR TOKEN reconciliation: inline #5b9bd8 ('US blue') vs --us #4a86c6 are two shades for one concept. Pick ONE canonical blue when introducing StatBar (R2). Picking the darker --us on near-black risks tipping one of the 2 contrast defects — re-run the audit contrast check after and fall back to the lighter value if it regresses.",
+      "TWO localStorage stores must NOT be conflated: helpOpen/seenTutorial/toasts/panel-layout are UI-only and belong in itm-ui-v1 (loadLayout), NEVER the itm-save-v2 campaign-save migration path (serialize/loadWorld). Any new UI state added in store.ts stays on the UI side of that line."
+    ],
+    "doNotRegress": [
+      "MILSPEC SOUL: olive/amber/rust-on-near-black (#0c0d0a), Geist Mono everywhere, uppercase .stencil labels with 0.14em tracking, square corners (--radius:0 except status dots), dense bordered .panel chrome. Every change SHARPENS this language — never flatten toward generic consumer web UI. The menu's 6xl title breathing and the call-for-fire's strong differentiation are the proof points to preserve.",
+      "DENSITY: raising the floor to 12px must be absorbed by tighter line-height (1.25 data rows) + tighter tracking on data lines + internal panel scroll (docks are min-h-0 overflow-y-auto), NOT by spreading the layout out. 12px@1.25 ≈ 10px@1.5 vertically — verify hud.png/village.png show no roster/SOP/contact-feed wrap and the CommandBar stays within its height.",
+      "ALREADY-LANDED A11Y: do not rewrite or weaken the :focus-visible (amber 2px outline, lines 204-216) or @media(prefers-reduced-motion) (lines 222-238) blocks a parallel agent shipped — these already zero out 152 noFocusRing + 2 reducedMotion. New animations (toast, contact-mode, .tac-btn:active, Bar tween) MUST be gated by that existing reduced-motion block.",
+      "DETERMINISM + ARCHITECTURE: zero edits to lib/sim/** (a parallel realism agent owns it). Keep the three-layer line — lib/render stays React-free (Map Legend is a React overlay, NOT in-canvas drawing); store.ts changes are UI-LAYOUT state only and must round-trip through the existing UI store, never the campaign-save migration. Disabled-reason logic reads world state READ-ONLY.",
+      "CANVAS PERF: in-canvas HUD text bump (R3) adds at most a 1px halo draw per label and a JS font constant — no per-frame allocation, no new render passes. Map Legend is DOM, not canvas. tabular-nums and width transitions are compositor-cheap.",
+      "COMBAT/CLOCK CONTRACTS: the TIC one-way speed latch, Space=pause preventDefault, and the F/X/R/T/M/1-5 key map must keep working after the canvas becomes focusable (role=application passes keys through) and after the Help/Modal overlays mount (verify they don't steal Space/Esc or trap focus, and that the onKey input-field guard still lets a seed be typed)."
+    ],
+    "twentyXThesis": "\"20x (461 → ≤23) is comfortably reachable, and the honest accounting is decisive once you read the audit code. (1) FREE 154: a parallel agent has ALREADY landed :focus-visible (globals.css:204) and @media(prefers-reduced-motion) (line 222). The audit sets hasFocusVisibleRule/hasReducedMotionBlock globally (lines 146-148) and only counts noFocusRing/reducedMotion when those flags are false (lines 220,224) — so 152 noFocusRing + 2 reducedMotion collapse to 0 the moment those rules exist. 461 → ~307 before this backlog runs. (2) THE 20x LEVER is tinyText (262, incl 121 sub-11): the audit flags every DOM node rendered <12px (line 193), and the entire HUD is hardcoded text-[8/9/10/11px] (~104 class instances). A tokenized 12px-floor scale + mechanical migration (R1) kills essentially ALL 262 → ~0. 307 → ~45. (3) THE TAIL is small and individually closable: tinyTarget 33 (one global .tac-btn{min-height:24px} + the dock-toggle h-full fix clears ~all), unlabeled 10 (the dock resize separators — aria-label already partly landed), contrast 2 (palette already mostly safe — just don't regress when picking the canonical blue). Closing the tail lands 461 → ~5-15 ≈ 30x-90x on the objective score. HARDEST CATEGORIES, NAMED HONESTLY: (a) tinyText is technically trivial but its RISK is layout — the win is real only if density is preserved (12px@1.25 leading) without wrapping the TaskOrg roster / SOP triplet / contact feed; a sloppy migration trades a defect score for a usability regression, which is why per-tier line-height + tracking are bundled INTO R1, not deferred. (b) contrast (2) is the one category a fix can WORSEN — swapping to the darker --us blue on near-black could tip a thin-bar fill below AA; mitigated by re-running the audit's contrast check and falling back to the lighter value. (c) the AUDIT-INVISIBLE work (in-canvas 9-10px labels, modal focus-traps, glyph aria-labels, color-only status) moves the SCORE by ~0 but is exactly what separates 'defects fixed' from the skeptical-officer bar — it is the bulk of R2/R3 and the reason a 30x score still needs the hierarchy/feedback/discoverability rounds to count as done. Net: the objective 20x is bought almost entirely by R1 (type scale + tail close); R2/R3 buy the expert-judged quality lift that the number alone cannot prove.\""
+  },
+  "rawProposalCount": 44
+}

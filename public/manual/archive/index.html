@@ -126,9 +126,9 @@
   logbook: the valley pushed back, and each chapter is what pushing back looked like.</p>
 
   <div class="statstrip">
-    <div class="s"><b>5</b><span>days · Jun 3–7</span></div>
-    <div class="s"><b>23</b><span>chapters</span></div>
-    <div class="s"><b>10</b><span>full reports</span></div>
+    <div class="s"><b>6</b><span>days · Jun 3–8</span></div>
+    <div class="s"><b>24</b><span>chapters</span></div>
+    <div class="s"><b>11</b><span>full reports</span></div>
     <div class="s"><b>17</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
     <div class="s"><b>1</b><span>deterministic clock</span></div>
@@ -170,6 +170,7 @@
     <a class="rep" href="reports/2026-06-06-fivex-campaign/report.html"><span class="rd">2026-06-06</span><span class="rt">The 5× campaign</span><span class="rs">Five file-disjoint waves — combat, audio, game-feel, COIN, scale — verified across deployments.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-07-soundscape/report.html"><span class="rd">2026-06-07</span><span class="rt">Soundscape — 20× immersion</span><span class="rs">From mono-and-silent to a living canyon: reverb, ambient bed, occlusion, 5-layer gunfire. Playable A/B audio.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-07-world-scale-complete/report.html"><span class="rd">2026-06-07</span><span class="rt">World scale, finished</span><span class="rs">The audit's deferred half, shipped: COP 170→120 m, platoon 35→41, villages monolith→hamlet, honest gradient — adversarially verified, with the stall hunt the static pass missed.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-08-ui-ux/report.html"><span class="rd">2026-06-08</span><span class="rt">The command surface, re-cut</span><span class="rs">461→1 measured UX defects: keyboard focus rings, a 12px legibility floor, promoted campaign meters, command toasts, an accessible modal + in-game controls. Five expert judges, unanimous.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -782,6 +783,28 @@
       </div>
       <p class="quote">The brief said the gradient was inverted; the code said it already drained north — only the names lied. Code is ground truth; a spec is a hypothesis.</p>
       <a class="readmore" href="reports/2026-06-07-world-scale-complete/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-08-ui-ux">
+    <div class="shot">
+      <a href="reports/2026-06-08-ui-ux/report.html"><img src="assets/2026-06-08-ui-ux.png" alt="The command HUD, after vs before" loading="lazy"></a>
+      <div class="cap">The command HUD, after (top) vs before (bottom). Opens the full UI/UX report with charts and annotated crops.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-08</span></div>
+      <h3>The command surface, re-cut: 461 → 1 measured UX defects</h3>
+      <div class="tags"><span class="tag">UI/UX</span><span class="tag">Accessibility</span><span class="tag">Render</span></div>
+      <p>The HUD a commander stares at for a whole deployment was dense and handsome — and quietly hostile: built on <em>9–11px</em> text, with <em>zero</em> keyboard-focus visibility, no motion-safety, glyph buttons a screen reader calls "button," and the campaign's five north-star metrics drawn as identical 2.5px slivers. This pass kept every ounce of the milspec soul and fixed the legibility and accessibility under it.</p>
+      <p class="shape"><b>The shape:</b> a CDP audit harness metricized the debt at <b>461 defects</b> before any edit; an 11-agent survey (5-persona judge panel + 6 single-axis proposers + a synthesis lead) produced a deconflicted backlog; four atomic rounds implemented it; a 5-agent adversarial paired re-judge graded the result and demanded residuals. A focus-floor + a 12px type floor did most of the collapse; an overflow oracle and a keyboard-behaviour harness (6/6 pass) verified nothing broke.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">measured UX defects</span><span class="b">461</span><span class="ar">→</span><span class="a">1 (−99.8%)</span></span>
+        <span class="m"><span class="lbl">keyboard focus failures</span><span class="b">152</span><span class="ar">→</span><span class="a">0</span></span>
+        <span class="m"><span class="lbl">sub-12px text nodes</span><span class="b">262</span><span class="ar">→</span><span class="a">0</span></span>
+        <span class="m"><span class="lbl">expert quality score /100</span><span class="b">58.6</span><span class="ar">→</span><span class="a">82.4 (5/5 prefer)</span></span>
+      </div>
+      <p class="quote">The literal 20× lives on the objective axis — a 461× defect reduction, reproduced deterministically — and an independent expert panel unanimously confirmed the direction and magnitude.</p>
+      <a class="readmore" href="reports/2026-06-08-ui-ux/report.html">Read the full report →</a>
     </div>
   </article>
 
