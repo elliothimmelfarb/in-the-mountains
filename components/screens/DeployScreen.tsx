@@ -320,21 +320,21 @@ function CommandBar() {
       {/* time controls */}
       <div className="flex items-center px-2 gap-1 border-l border-line">
         {inContact && <span className="stencil text-rust text-[10px] blink mr-1">● TIC</span>}
-        <button className={`tac-btn px-2 py-1 ${paused ? "active" : ""}`} onClick={togglePause} title="Pause (Space)">{paused ? "▶" : "⏸"}</button>
+        <button className={`tac-btn px-2 py-1 ${paused ? "active" : ""}`} onClick={togglePause} title={paused ? "Resume (Space)" : "Pause (Space)"} aria-label={paused ? "Resume the clock" : "Pause the clock"} aria-pressed={paused}>{paused ? "▶" : "⏸"}</button>
         {SPEEDS.map((s) => {
           const disabled = inContact && s > 4;
           return (
             <button key={s} disabled={disabled} className={`tac-btn px-2 py-1 ${!paused && !warp && speed === s ? "active" : ""}`} onClick={() => setSpeed(s)}>{s}×</button>
           );
         })}
-        <button disabled={inContact} className={`tac-btn px-2 py-1 ${warp ? "active" : ""}`} onClick={toggleWarp} title="Skip to next event (T)">⏩</button>
+        <button disabled={inContact} className={`tac-btn px-2 py-1 ${warp ? "active" : ""}`} onClick={toggleWarp} title="Skip to next event (T)" aria-label="Skip to next event" aria-pressed={warp}>⏩</button>
         {/* Auto-pause on a new call-for-fire: the urgency cue. On = the clock stops so you read the
             call (clear hot [F] / deny [X]). Never auto-restores speed — TIC owns that one-way drop. */}
-        <button className={`tac-btn px-2 py-1 ${autoPauseOnFire ? "active" : ""}`} onClick={toggleAutoPauseOnFire} title="Auto-pause on a new call-for-fire">⏸▲</button>
+        <button className={`tac-btn px-2 py-1 ${autoPauseOnFire ? "active" : ""}`} onClick={toggleAutoPauseOnFire} title="Auto-pause on a new call-for-fire" aria-label="Toggle auto-pause on a new call-for-fire" aria-pressed={autoPauseOnFire}>⏸▲</button>
       </div>
       {/* audio — master mute + volume (persisted in itm-ui-v1, NOT the campaign save) */}
       <div className="flex items-center px-2 gap-1 border-l border-line">
-        <button className={`tac-btn px-2 py-1 ${audioMuted ? "active" : ""}`} onClick={toggleAudioMute} title="Mute (M)">{audioMuted ? "🔇" : "🔊"}</button>
+        <button className={`tac-btn px-2 py-1 ${audioMuted ? "active" : ""}`} onClick={toggleAudioMute} title="Mute (M)" aria-label={audioMuted ? "Unmute audio" : "Mute audio"} aria-pressed={audioMuted}>{audioMuted ? "🔇" : "🔊"}</button>
         <input
           type="range"
           min={0}
@@ -695,13 +695,13 @@ function OrderBar() {
               {sim.mortars.map((mt) => {
                 const wp = getWeapon(mt.weaponId);
                 return (
-                  <button key={mt.weaponId} disabled={mt.rounds <= 0} className={`tac-btn inline-flex items-center gap-1.5 text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
+                  <button key={mt.weaponId} disabled={mt.rounds <= 0} title={mt.rounds <= 0 ? `${wp.short}: tube empty — resupply mortar rounds` : `${wp.name} — ${mt.rounds} rounds on hand`} className={`tac-btn inline-flex items-center gap-1.5 text-left text-[10px] ${fireSupport?.weaponId === mt.weaponId ? "active" : ""}`} onClick={() => setFireSupport(mt.weaponId, `${wp.short} ×4`, 4)}>
                     <Icon name="ico-mortar" size={13} /> {wp.name} <span className="text-inkdim">({mt.rounds})</span>
                   </button>
                 );
               })}
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
-              <button disabled={!sim.casAvailable || sim.casUsed} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
+              <button disabled={!sim.casAvailable || sim.casUsed} title={!sim.casAvailable ? "No CAS on station" : sim.casUsed ? "CAS already expended this window" : "CAS gun run — click the map"} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_gun" ? "active" : ""}`} onClick={() => setFireSupport("cas_gun", "CAS GUN RUN")}><Icon name="ico-cas-gun" size={13} /> Gun</button>
+              <button disabled={!sim.casAvailable || sim.casUsed} title={!sim.casAvailable ? "No CAS on station" : sim.casUsed ? "CAS already expended this window" : "CAS Hellfire — click the map"} className={`tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${fireSupport?.weaponId === "cas_rocket" ? "active" : ""}`} onClick={() => setFireSupport("cas_rocket", "CAS HELLFIRE")}><Icon name="ico-cas-hellfire" size={13} /> Hellfire</button>
               <button className={`col-span-2 tac-btn inline-flex items-center justify-center gap-1 text-[10px] ${casualtyInField ? "tac-btn-danger active" : ""}`} onClick={medevacSelected}>
                 <Icon name="ico-medevac" size={13} /> 9-LINE MEDEVAC {casualtyInField && <span className="text-[9px]">· casualty down</span>}
               </button>
@@ -968,7 +968,7 @@ function VillagePanel({ villageId }: { villageId: string }) {
     <div className="border-b border-line p-2 flex-1 min-h-0 overflow-y-auto">
       <div className="flex justify-between items-center mb-2">
         <div className="stencil text-[11px] text-amber">{v.name}</div>
-        <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => selectVillage(null)}>✕</button>
+        <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => selectVillage(null)} aria-label="Close village panel">✕</button>
       </div>
       <div className="text-[11px] text-inkdim mb-1 font-mono">Elder: <span className="text-ink">{v.elder}</span></div>
       <div className="text-[11px] text-inkdim mb-2 font-mono">Pop ~{v.population} · {v.censusDone ? "censused" : "no census"} · wants a {v.wants}</div>
@@ -1015,7 +1015,9 @@ function VillagePanel({ villageId }: { villageId: string }) {
         {CERP_PROJECTS.map((p) => {
           const asked = v.ask?.kind === "project" && v.ask.projectType === p; // the elder specifically asked for this one
           return (
-            <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${asked ? "border-amber tac-btn-danger" : v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
+            <button key={p} disabled={world.state.cerp < 5000 || v.projects.includes(p) || !!proj}
+              title={v.projects.includes(p) ? `${p} is already built here` : proj ? "A project is already in progress here" : world.state.cerp < 5000 ? `Need $5k — you have $${world.state.cerp.toLocaleString()}` : `Fund a ${p} ($5k)${asked ? " — the elder asked for this" : ""}`}
+              className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${asked ? "border-amber tac-btn-danger" : v.wants === p ? "border-amber" : ""}`} onClick={() => fundProject(v.id, p)}>
               <Icon name={cerpIcon(p)} size={12} />{v.projects.includes(p) ? "✓ " : ""}{asked ? "★ " : ""}{p}
             </button>
           );
@@ -1056,8 +1058,8 @@ function ResupplyButtons() {
   const inbound = world.state.resupplies[0];
   return (
     <span className="inline-flex gap-1">
-      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound} onClick={() => requestResupply("convoy")}>Convoy</button>
-      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound || !world.state.weather.airAvailable} onClick={() => requestResupply("air")}>Air</button>
+      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound} title={inbound ? "A resupply is already inbound" : "Request a ground convoy resupply"} onClick={() => requestResupply("convoy")}>Convoy</button>
+      <button className="tac-btn text-[9px] px-1.5 py-0.5" disabled={!!inbound || !world.state.weather.airAvailable} title={inbound ? "A resupply is already inbound" : !world.state.weather.airAvailable ? "Air is NO-GO — weather below mins" : "Request an air resupply"} onClick={() => requestResupply("air")}>Air</button>
     </span>
   );
 }
