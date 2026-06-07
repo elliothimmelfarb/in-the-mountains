@@ -80,13 +80,19 @@ export function tickTasks(w: World, dt: number) {
           squadFight(w, t, members, dt);
         } else {
           if (t.squadState) releaseCombat(w, t, members);
-          t.timer -= dt;
-          onStationEffects(w, t, members, dt);
-          if (t.timer <= 0) {
-            t.phase = "returning";
-            resetProgress(t);
-            releaseFormation(members);
-            w.log(`${t.label}: objective complete, returning to ${w.state.fob.name}.`, "radio");
+          if (t.kind === "secure") {
+            // A secure element garrisons the build site open-ended — no dwell timer; it returns
+            // only when the project it's securing completes or is sabotaged, or the player recalls.
+            secureHold(w, t, members, dt);
+          } else {
+            t.timer -= dt;
+            onStationEffects(w, t, members, dt);
+            if (t.timer <= 0) {
+              t.phase = "returning";
+              resetProgress(t);
+              releaseFormation(members);
+              w.log(`${t.label}: objective complete, returning to ${w.state.fob.name}.`, "radio");
+            }
           }
         }
         break;
@@ -370,6 +376,40 @@ function reachableObjective(w: World, p: Vec2): Vec2 {
   return w.terrain.cellCenter(c.cx, c.cy);
 }
 
+/**
+ * A secure element holds an all-round overwatch on the project site indefinitely (no dwell
+ * timer). It re-establishes the perimeter only when it isn't already holding it, so it doesn't
+ * thrash the men every tick, and it ends ONLY when the project it's securing finishes or is
+ * sabotaged (the work is done / impossible) — otherwise the player recalls it. It also stamps
+ * lastVisitedDay so a held secure presence advances the presence directive, and accrues toward
+ * fulfilling a "security" elder ask.
+ */
+function secureHold(w: World, t: Task, members: Unit[], dt: number) {
+  const at = t.route[0] ?? centroidOf(members);
+  // Hold the perimeter (idempotent — holdSecurity caches ringSlots and settles men in place).
+  if (members.some((m) => m.brainState !== "holding")) {
+    holdSecurity(w, byTeam(w, members), at, 16, t);
+  }
+  const near = w.nearestVillage(at, 120);
+  if (near) {
+    near.lastVisitedDay = w.day;
+    w.advancePresence();
+    // A sustained security presence fulfills a "security" elder ask after ~1 game-hour.
+    if (near.ask?.kind === "security" && !near.ask.fulfilled) {
+      t.holdTimer = (t.holdTimer ?? 0) + dt;
+      if ((t.holdTimer ?? 0) > 3600) w.fulfillAsk(near, "a security presence");
+    }
+  }
+  // End the task when the build resolves (complete or sabotaged) — the element is then free.
+  const proj = t.projectId !== undefined ? w.state.projects.find((p) => p.id === t.projectId) : undefined;
+  if (proj && (proj.stage === "complete" || proj.stage === "sabotaged")) {
+    t.phase = "returning";
+    resetProgress(t);
+    releaseFormation(members);
+    w.log(`${t.label}: site secured — the work is done, returning to ${w.state.fob.name}.`, "radio");
+  }
+}
+
 function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {
   const here = centroidOf(members);
   const near = w.nearestVillage(here, 70);
@@ -377,6 +417,12 @@ function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {
     near.attitude = clamp(near.attitude + (8 / 360) * dt, -100, 100);
     near.cooperation = clamp(near.cooperation + (10 / 360) * dt, 0, 100);
     near.lastVisitedDay = w.day;
+    // A shura yields an elder ASK — once per engagement (gated on the village having no pending
+    // ask). The follow-through (or a lapsed deadline) swings attitude up or DOWN: the design-
+    // promised broken-promises mechanic. ~once during the 360 s dwell.
+    if (!near.ask && w.rng.chance(0.03 * dt)) {
+      w.raiseElderAsk(near);
+    }
     if (w.rng.chance(0.02 * dt)) {
       w.addIntel({
         source: "HUMINT",

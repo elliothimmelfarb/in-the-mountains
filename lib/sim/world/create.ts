@@ -4,8 +4,8 @@ import { makePlatoon, makeCivilian, Platoon, RosterMember, Unit, Role, resetIdCo
 import { elderName } from "../names";
 import { VillageState, rollWeather, attitudeToMetric, CERP_PROJECTS } from "../campaign";
 import { World } from "./world";
-import { WorldState, Ids, resetIds, defaultSOP } from "./types";
-import { buildRoutine, clampMap, crewEmplacements, buildEmplacements } from "./helpers";
+import { WorldState, Ids, resetIds, defaultSOP, DAY } from "./types";
+import { buildRoutine, crewEmplacements, buildEmplacements } from "./helpers";
 
 /**
  * Build *only* the valley terrain for a seed — the single heaviest phase of a deploy
@@ -50,6 +50,9 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
       lastVisitedDay: -1,
       censusDone: false,
       wants: rng.pick(CERP_PROJECTS),
+      ask: null,
+      brokenPromises: 0,
+      keptPromises: 0,
     };
   });
 
@@ -141,6 +144,12 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     nextActivityAt: rng.range(8, 18) * 60,
     nextIntelAt: rng.range(10, 30) * 60,
     nextEventAt: rng.range(40, 90) * 60,
+    // COIN strategic clock (v6) — keep these two rng draws here, immediately after nextEventAt,
+    // so the draw order stays stable within v6 (any reorder shifts every downstream draw).
+    nextCerpStipendAt: rng.range(6, 8) * DAY,
+    nextDirectiveAt: rng.range(5, 8) * DAY,
+    civCasualties: 0,
+    reliefWatchClock: -1, // confidence starts healthy; no relief watch running (constant — no rng draw)
     lastContactClock: -9999,
     platoon: { callsign: platoon.callsign, squads: platoon.squads },
   };
@@ -173,6 +182,19 @@ export function loadWorld(data: {
   // v<4 saves predate squad SOP — default each task's SOP from its mission so the
   // combat AI and the civilian-fire gate have a policy to read.
   for (const t of state.tasks) if (!t.sop) t.sop = defaultSOP(t.missionType);
+  // v6: COIN strategic fields. serialize() dumps `state` whole, so every new field is already
+  // written — the only gap a load could leave is `undefined` on a pre-v6 save, so default them
+  // all here (same-seed replay and the campaign save survive). Tasks' secureVillageId/projectId
+  // and directives' startMetric stay undefined for old data (old saves have no secure tasks).
+  if (state.nextCerpStipendAt === undefined) state.nextCerpStipendAt = state.clock + 7 * DAY;
+  if (state.nextDirectiveAt === undefined) state.nextDirectiveAt = state.clock + 5 * DAY;
+  if (state.civCasualties === undefined) state.civCasualties = 0;
+  if (state.reliefWatchClock === undefined) state.reliefWatchClock = -1;
+  for (const v of state.villages) {
+    if (v.ask === undefined) v.ask = null;
+    if (v.brokenPromises === undefined) v.brokenPromises = 0;
+    if (v.keptPromises === undefined) v.keptPromises = 0;
+  }
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);
@@ -213,10 +235,12 @@ function issueInitialDirectives(w: World) {
   w.state.directives.push({
     id: Ids.dir++,
     title: "Establish Presence",
-    desc: "Run security patrols and put boots in every village within two weeks. Show the flag.",
+    desc: "Run security patrols and put boots in every village inside twelve days. Show the flag.",
     kind: "presence",
     issuedDay: day,
-    deadlineDay: day + 14,
+    // Higher wants presence established FAST after the RIP — a neglected AO blows this and the
+    // penalty bites (it is one of the first ways the player feels pressure from battalion).
+    deadlineDay: day + 12,
     status: "active",
     progress: 0,
     reward: 12,
@@ -225,10 +249,10 @@ function issueInitialDirectives(w: World) {
   w.state.directives.push({
     id: Ids.dir++,
     title: "Meet the Elders",
-    desc: "Conduct a shura (KLE) with the village elders. Win hearts; gather atmospherics.",
+    desc: "Conduct a shura (KLE) with the village elders within two weeks. Win hearts; gather atmospherics.",
     kind: "kle",
     issuedDay: day,
-    deadlineDay: day + 21,
+    deadlineDay: day + 14,
     status: "active",
     progress: 0,
     reward: 15,
