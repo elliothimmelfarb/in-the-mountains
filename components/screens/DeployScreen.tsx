@@ -55,6 +55,29 @@ function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%" }: { lab
   );
 }
 
+// The five campaign metrics — the strategic north-star ("win the valley, not the
+// firefight"). Promoted from identical horizontal slivers to a labeled vertical
+// meter: a stencil TAG (text, not colour) + a bright tabular value + a thin bar.
+// ENEMY is the one "bad-when-high" axis, so it fills FROM THE RIGHT with a hazard
+// hatch — redundant shape+texture cues so colour-blind commanders read it as danger.
+function CampaignMeter({ tag, label, value, color, bad = false }: { tag: string; label: string; value: number; color?: string; bad?: boolean }) {
+  const pct = Math.max(0, Math.min(100, value));
+  return (
+    <div className="flex flex-col justify-center gap-1 min-w-0 flex-1" title={`${label}: ${Math.round(value)}%`}>
+      <div className="flex items-baseline justify-between gap-1 leading-none">
+        <span className="stencil text-[9px] text-inkdim">{tag}</span>
+        <span className={`font-mono text-[13px] tabular-nums ${bad && value > 60 ? "text-rust" : "text-ink"}`}>{Math.round(value)}</span>
+      </div>
+      <div className="h-[5px] bg-bg border border-line relative overflow-hidden">
+        <div
+          className={`h-full absolute top-0 ${bad ? `right-0 hazard-hatch` : "left-0"}`}
+          style={{ width: pct + "%", background: bad ? undefined : color }}
+        />
+      </div>
+    </div>
+  );
+}
+
 function roleAbbr(role: string): string {
   const map: Record<string, string> = {
     platoon_leader: "PL", platoon_sergeant: "PSG", squad_leader: "SL", team_leader: "TL",
@@ -203,7 +226,7 @@ export default function DeployScreen() {
   if (!world) return null;
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col" data-contact={world.inContact()}>
       <CommandBar />
       <div className="flex-1 flex min-h-0">
         <div className="w-[280px] shrink-0 border-r border-line flex flex-col min-h-0">
@@ -278,13 +301,16 @@ function CommandBar() {
           <div className="leading-none text-sm">{wx.airAvailable ? "ON" : "NO-GO"}</div>
         </div>
       </div>
-      <div className="flex-1 flex items-center px-3">
-        <div className="flex-1 grid grid-cols-5 gap-2.5 max-w-[620px]">
-          <Bar label="Stability" value={m.stability} color="#6fae54" />
-          <Bar label="Attitudes" value={m.attitude} color="#e0a72b" />
-          <Bar label="Enemy" value={m.enemyStrength} color="#c0392b" />
-          <Bar label="Comb. Pwr" value={m.combatPower} color="#5b9bd8" />
-          <Bar label="Higher" value={m.higherConfidence} color="#c2a878" />
+      {/* STRATEGIC POSTURE — the campaign's north-star, the visual anchor of the bar.
+          Population axes (STAB/ATT) and force axes (ENY/CBT/HHQ) split by a hairline. */}
+      <div className="flex-1 flex items-center px-3 min-w-0">
+        <div className="flex items-stretch gap-3 w-full max-w-[600px] py-1.5">
+          <CampaignMeter tag="STAB" label="Valley Stability" value={m.stability} color="var(--good)" />
+          <CampaignMeter tag="ATT" label="Village Attitudes" value={m.attitude} color="var(--amber)" />
+          <div className="w-px bg-line self-stretch shrink-0" aria-hidden />
+          <CampaignMeter tag="ENY" label="Estimated Enemy Strength" value={m.enemyStrength} bad />
+          <CampaignMeter tag="CBT" label="Combat Power" value={m.combatPower} color="var(--us)" />
+          <CampaignMeter tag="HHQ" label="Higher's Confidence" value={m.higherConfidence} color="var(--tan)" />
         </div>
       </div>
       {/* time controls */}
@@ -530,7 +556,7 @@ function OrderBar() {
   const fr = world.state.fireRequest;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 bg-panel/95 border-t border-line p-2 z-10">
+    <div className="absolute bottom-0 left-0 right-0 bg-panel/95 border-t border-line p-2 z-10 contact-accent">
       <div className="flex items-stretch gap-3">
         {/* ZONE 1 — squad readout */}
         <SquadReadout />
@@ -1020,7 +1046,7 @@ function EventModal() {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 fade-in">
       <div className="panel w-[520px] max-w-[92vw] p-5">
-        <div className="stencil text-amber text-xs mb-1">Situation · {ev.kind} · {world.clockLabel()}</div>
+        <div className="stencil text-amber text-xs mb-1">Situation · {ev.kind.replace(/^dwell_/, "").replace(/_/g, " ")} · {world.clockLabel()}</div>
         <h2 className="text-ink text-xl font-bold mb-2">{ev.title}</h2>
         <p className="text-inkdim text-sm leading-relaxed mb-4">{ev.body}</p>
         <div className="flex flex-col gap-2">

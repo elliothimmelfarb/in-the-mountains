@@ -54,6 +54,38 @@ body {
 
 .font-mono {
   font-family: var(--font-mono);
+  /* tabular figures so live numbers (clock, campaign meters, ammo, ETA, $)
+     don't jitter horizontally on a real-time sim where stability reads as trust */
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Contact posture — one source of truth for "the valley is loud" ────
+   DeployScreen sets data-contact on its root from world.inContact(); the
+   whole surface then leans into the fight: a hairline rust top-accent on
+   the combat-facing panels, and a faint desaturation of calm-only chrome.
+   Chrome/contrast only — never hides ammo or live data. Motion-gated. */
+[data-contact="true"] .calm-dim {
+  opacity: 0.66;
+  transition: opacity 0.5s ease;
+}
+.contact-accent {
+  box-shadow: none;
+  transition: box-shadow 0.4s ease;
+}
+[data-contact="true"] .contact-accent {
+  box-shadow: inset 0 2px 0 -1px var(--rust);
+}
+
+/* hazard hatch for the ENEMY meter — a non-colour redundant cue (the only
+   "bad-when-high" axis), so colour-blind commanders still read it as danger */
+.hazard-hatch {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--rust) 0,
+    var(--rust) 2px,
+    color-mix(in srgb, var(--rust) 55%, #000) 2px,
+    color-mix(in srgb, var(--rust) 55%, #000) 4px
+  );
 }
 
 ::-webkit-scrollbar {

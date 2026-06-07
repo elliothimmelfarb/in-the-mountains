@@ -257,6 +257,16 @@ async function auditState(name, setupExpr) {
     try {
       const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
       writeFileSync(`${SHOTS_DIR}/${name}.png`, Buffer.from(shot.data, "base64"));
+      // hi-detail 2x crops of the two dense strips (CommandBar top + OrderBar bottom)
+      if (name === "hud") {
+        for (const [sel, tag] of [[".panel.h-12, .panel.border-x-0", "commandbar"], [".contact-accent", "orderbar"]]) {
+          const rj = await evalJS(`(()=>{const e=document.querySelector('${sel}');if(!e)return null;const r=e.getBoundingClientRect();return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});})()`);
+          if (!rj) continue;
+          const r = JSON.parse(rj);
+          const c = await send("Page.captureScreenshot", { format: "png", clip: { x: r.x, y: r.y, width: r.width, height: r.height, scale: 2 }, captureBeyondViewport: true });
+          writeFileSync(`${SHOTS_DIR}/${tag}.png`, Buffer.from(c.data, "base64"));
+        }
+      }
     } catch (e) { console.error("shot fail", name, e.message); }
   }
   return res;
