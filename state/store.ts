@@ -167,6 +167,18 @@ let _hadFireRequest = false;
 const audio = new AudioEngine();
 export const getAudio = () => audio;
 
+/** Hand the audio engine the new world's terrain (for LOS occlusion) + the static positions the
+ *  ambient bed needs (COP generator, village wildlife/adhan, river burble). Called once per deploy
+ *  /load — a render-side READ of sim state (Law 7: never the reverse). */
+function wireAudioWorld(w: World): void {
+  audio.setTerrain(w.terrain);
+  audio.setWorldStatics({
+    copPos: w.terrain.cellCenter(w.terrain.copCell.cx, w.terrain.copCell.cy),
+    villages: w.terrain.villages.map((v) => w.terrain.cellCenter(v.cx, v.cy)),
+    river: w.terrain.riverPoints(24),
+  });
+}
+
 function hasSaveOnDisk(): boolean {
   try {
     return typeof window !== "undefined" && !!window.localStorage.getItem(SAVE_KEY);
@@ -387,6 +399,7 @@ export const useGame = create<GameStore>((set, get) => ({
           loadProgress: null,
           tick: get().tick + 1,
         });
+        wireAudioWorld(world);
         get().saveCampaign();
       },
     );
@@ -432,6 +445,7 @@ export const useGame = create<GameStore>((set, get) => ({
           loadProgress: null,
           tick: get().tick + 1,
         });
+        wireAudioWorld(world);
       },
     );
   },
@@ -554,9 +568,12 @@ export const useGame = create<GameStore>((set, get) => ({
     // the firefight's first frame would be silenced by the stale `st.warp` captured up top.
     const af = get();
     const nowContact = w.inContact();
+    const wx = w.state.weather;
     audio.tick(
       { effects: w.sim.effects, log: w.sim.log, fireMissions: w.sim.fireMissions, inContact: nowContact },
       { running, paused: af.paused, warp: af.warp, inContact: nowContact },
+      // ambient bed env — all deterministic World getters; the engine adds the camera-relative bits.
+      { secondsOfDay: w.secondsOfDay, solar: w.solarLight(), isNight: w.isNight(), windSpeed: wx.wind, weatherLabel: wx.label, precip: wx.precip, inContact: nowContact },
     );
 
     // periodic HUD refresh + autosave

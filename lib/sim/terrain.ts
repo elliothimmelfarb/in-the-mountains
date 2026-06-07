@@ -2512,6 +2512,15 @@ export class Terrain {
   worldOf(cx: number, cy: number): Vec2 {
     return this.cellCenter(cx, cy);
   }
+
+  /** World points sampled down the meandering river/valley centerline — used render-side by the
+   *  ambient bed to position the stream layer (its gain rises as the camera nears the floor). */
+  riverPoints(count = 24): Vec2[] {
+    const out: Vec2[] = [];
+    const step = Math.max(1, Math.floor(this.size / count));
+    for (let y = 0; y < this.size; y += step) out.push(this.cellCenter(this.centerX[y], y));
+    return out;
+  }
 }
 
 /** [hard cover 0..1, concealment 0..1] per landcover class. */

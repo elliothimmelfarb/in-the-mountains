@@ -109,6 +109,114 @@ function sub(ctx: AudioContext, dst: AudioNode, at: number, f0: number, f1: numb
   tone(ctx, dst, at, "sine", f0, f1, dur, peak, 0.004);
 }
 
+// ----------------------------------------------------------------------------- weapon table
+/**
+ * The per-weapon parameter table that drives the 5-LAYER gunfire stack. One row per audible
+ * weapon class — we have no per-weapon id on the Effect, only faction + size>=1.5 ⇒ MG, so a
+ * cue.kind maps 1:1 to a row. US (5.56) is bright/sharp; insurgent (7.62) is woodier/lower —
+ * THAT centre-frequency split is the audible enemy-vs-us tell. Exported so the offline oracle
+ * and any test can read the exact values the live mix uses (Law 4) — realism is checkable, not
+ * vibes (FM 3-22.9 small-arms report character; the muzzle blast carries calibre identity).
+ *
+ * Layers (see synthCue): 1 TRANSIENT (shared <5 ms click), 2 BODY (bandpass @ bodyCenterHz),
+ * 3 SUB (chest punch subF0→subF1), 4 MECHANICAL (bolt clack after the report), 5 TAIL (not here
+ * — player.ts feeds the reverb send from the whole cue; synth.ts only leaves headroom).
+ */
+export interface WeaponVoice {
+  /** layer 2 — broadband report carrying weapon identity (bandpass centre Hz). */
+  bodyCenterHz: number;
+  /** layer 2 — bandpass Q (lower = woodier/broader for 7.62). */
+  bodyQ: number;
+  /** layer 2 — report duration s. */
+  bodyDur: number;
+  /** layer 2 — the bright formant/colour band (a 2nd bandpass above bodyCenter); 4.2 kHz US
+   *  vs 3.0 kHz INS is the dominant 5.56-vs-7.62 brightness tell. */
+  formantHz: number;
+  /** layer 3 — sub start Hz (chest punch). */
+  subF0: number;
+  /** layer 3 — sub end Hz. */
+  subF1: number;
+  /** layer 3 — sub duration s. */
+  subDur: number;
+  /** N-wave (ballistic shock period) duration s — tighter = sharper snap. */
+  nwaveDur: number;
+  /** N-wave highpass corner Hz — weapon-tinted shock (5.56 higher than 7.62). */
+  nwaveHP: number;
+  /** MG burst inter-shot step range [lo,hi] s (rate of fire); undefined for single rifles. */
+  rpmStep?: [number, number];
+  /** MG burst count range [lo,hi]; undefined for single rifles. */
+  burst?: [number, number];
+  /** MG burst gain falloff across the burst (0.5 ⇒ last shot at 50%). */
+  falloff?: number;
+}
+
+/** The shipped values. US bright/sharp (5.56), insurgent woodier/lower (7.62). */
+export const WEAPON_TABLE: Record<"muzzle_us" | "muzzle_insurgent" | "mg_us" | "mg_insurgent", WeaponVoice> = {
+  muzzle_us: {
+    bodyCenterHz: 3500, bodyQ: 1.5, bodyDur: 0.05, formantHz: 4200,
+    subF0: 180, subF1: 90, subDur: 0.06,
+    nwaveDur: 0.00035, nwaveHP: 5000,
+  },
+  muzzle_insurgent: {
+    bodyCenterHz: 2600, bodyQ: 1.2, bodyDur: 0.075, formantHz: 3000,
+    subF0: 140, subF1: 68, subDur: 0.07,
+    nwaveDur: 0.0006, nwaveHP: 3500,
+  },
+  mg_us: {
+    bodyCenterHz: 3700, bodyQ: 1.8, bodyDur: 0.045, formantHz: 4400,
+    subF0: 180, subF1: 95, subDur: 0.05,
+    nwaveDur: 0.00035, nwaveHP: 5200,
+    rpmStep: [0.064, 0.078], burst: [5, 9], falloff: 0.5, // ~850 rpm SAW rip
+  },
+  mg_insurgent: {
+    bodyCenterHz: 2400, bodyQ: 1.0, bodyDur: 0.085, formantHz: 2800,
+    subF0: 130, subF1: 60, subDur: 0.07,
+    nwaveDur: 0.0007, nwaveHP: 3300,
+    rpmStep: [0.088, 0.102], burst: [4, 7], falloff: 0.4, // ~650 rpm PKM hammer
+  },
+};
+
+/** fract(x) — the fractional part, for the golden-ratio per-shot jitter walk. */
+const fract = (x: number) => x - Math.floor(x);
+
+/**
+ * Build ONE shot from the 5-LAYER stack into `out` at time `t`. This is the single unified
+ * gunfire mechanism (Law 6) — a single rifle crack is just a 1-shot "burst", and the MG loop
+ * calls this per round. `w` is the weapon row; `vi` is a deterministic 0..1 per-shot jitter seed
+ * (golden-ratio walked across a burst); `bg` is the burst gain for this shot (1 for singles);
+ * `firstInBurst` drives the SUB policy (full sub only on the first round to avoid low-end mud).
+ */
+function gunShot(ctx: AudioContext, out: AudioNode, t: number, w: WeaponVoice, vi: number, bg: number, firstInBurst: boolean): void {
+  // per-shot deterministic jitter: body ±8%, peak ±15%, decay ±12%, timing ±4 ms.
+  const k = (lo: number, hi: number) => lo + vi * (hi - lo);
+  const bodyJ = k(0.92, 1.08);
+  const peakJ = k(0.85, 1.15);
+  const decJ = k(0.88, 1.12);
+  const at = t + k(-0.004, 0.004);
+
+  // LAYER 1 — TRANSIENT: the <5 ms attack click ("how close"). Shared across all weapons.
+  noiseBurst(ctx, out, at, 0.004, "highpass", 6000, 0.5, 1.0 * bg * peakJ, 0.00005);
+
+  // LAYER 2 — BODY: broadband report carrying weapon identity. The bandpass centre IS the
+  // calibre tell (5.56 ~3.5 kHz vs 7.62 ~2.6 kHz), so it must be loud enough to move the
+  // spectral brightness — not buried under the sub. A bright formant burst at formantHz
+  // (4.2 kHz US vs 3.0 kHz INS) is the dominant identity tell — it's what makes 5.56 audibly
+  // sharper than 7.62.
+  noiseBurst(ctx, out, at, w.bodyDur * decJ, "bandpass", w.bodyCenterHz * bodyJ, w.bodyQ, 1.0 * bg * peakJ);
+  noiseBurst(ctx, out, at, w.bodyDur * decJ, "bandpass", w.formantHz * bodyJ, 1.4, 0.9 * bg * peakJ);
+
+  // LAYER 3 — SUB: 30–120 Hz chest punch — felt, not the identity. Kept under the body so it
+  // punches without dominating brightness. Full only on the first round of a burst; reduced
+  // after (avoids low-end mud building across a long burst).
+  const subGain = (firstInBurst ? 0.32 : 0.14) * bg;
+  sub(ctx, out, at, w.subF0, w.subF1, w.subDur * decJ, subGain);
+
+  // LAYER 4 — MECHANICAL: the bolt clack 12–25 ms AFTER the report — what makes it a real action.
+  noiseBurst(ctx, out, at + k(0.012, 0.025), 0.006, "bandpass", 3000 * bodyJ, 5, 0.12 * bg, 0.0006);
+
+  // LAYER 5 — TAIL: NOT synthesized here — player.ts feeds a reverb send from the whole cue.
+}
+
 // ----------------------------------------------------------------------------- recipes
 /**
  * Synthesize one cue into `out` (a per-cue gain node already wired to pan->master).
@@ -123,48 +231,49 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
   switch (cue.kind) {
     // --- small arms -------------------------------------------------------------------
     case "muzzle_us": {
-      // Tight, bright M4-class crack + a short body.
-      noiseBurst(ctx, out, crack, 0.045, "highpass", 2000, 0.7, 1.0);
-      noiseBurst(ctx, out, crack, 0.04, "peaking", j(3500, 4500), 6, 0.9);
-      sub(ctx, out, crack, 180, 90, 0.06, 0.4);
-      return { endTime: crack + 0.1 };
+      // Tight, bright M4-class crack: the 5-layer stack, one shot. (US = sharp 5.56.)
+      gunShot(ctx, out, crack, WEAPON_TABLE.muzzle_us, cue.v, 1, true);
+      return { endTime: crack + WEAPON_TABLE.muzzle_us.subDur + 0.06 };
     }
     case "muzzle_insurgent": {
       // Lower, woodier AK-class report — the audible enemy-vs-us split with no weaponId.
-      noiseBurst(ctx, out, crack, 0.07, "highpass", 1500, 0.6, 0.9);
-      noiseBurst(ctx, out, crack, 0.06, "peaking", j(2500, 3200), 3, 0.85);
-      sub(ctx, out, crack, 140, 70, 0.07, 0.45);
-      return { endTime: crack + 0.13 };
+      gunShot(ctx, out, crack, WEAPON_TABLE.muzzle_insurgent, cue.v, 1, true);
+      return { endTime: crack + WEAPON_TABLE.muzzle_insurgent.subDur + 0.07 };
     }
     case "mg_us": {
       // SAW rip — a single cue == a burst of 5-9 cracks at ~70 ms (≈850 RPM), falling gain.
-      const n = Math.round(j(5, 9));
-      const step = j(0.064, 0.078);
+      const w = WEAPON_TABLE.mg_us;
+      const n = Math.round(j(w.burst![0], w.burst![1]));
+      const step = j(w.rpmStep![0], w.rpmStep![1]);
       for (let i = 0; i < n; i++) {
-        const t = crack + i * step;
-        const g = 1 - (i / n) * 0.5;
-        noiseBurst(ctx, out, t, 0.04, "highpass", 2000, 0.7, 0.95 * g);
-        noiseBurst(ctx, out, t, 0.035, "peaking", j(3400, 4400), 6, 0.85 * g);
-        sub(ctx, out, t, 180, 95, 0.05, 0.35 * g);
+        // golden-ratio per-shot jitter: a burst's shots differ, but a seed reproduces them.
+        const vi = fract(cue.v * 1.618 + i * 0.618);
+        gunShot(ctx, out, crack + i * step, w, vi, 1 - (i / n) * w.falloff!, i === 0);
       }
-      return { endTime: crack + n * step + 0.08 };
+      return { endTime: crack + n * step + 0.06 };
     }
     case "mg_insurgent": {
       // PKM hammer — slower (~95 ms, ≈650 RPM), heavier, deeper: the gun from the high ground.
-      const n = Math.round(j(4, 7));
-      const step = j(0.088, 0.102);
+      const w = WEAPON_TABLE.mg_insurgent;
+      const n = Math.round(j(w.burst![0], w.burst![1]));
+      const step = j(w.rpmStep![0], w.rpmStep![1]);
       for (let i = 0; i < n; i++) {
-        const t = crack + i * step;
-        const g = 1 - (i / n) * 0.4;
-        noiseBurst(ctx, out, t, 0.06, "highpass", 1400, 0.6, 0.95 * g);
-        noiseBurst(ctx, out, t, 0.05, "peaking", j(2400, 3000), 3, 0.85 * g);
-        sub(ctx, out, t, 130, 62, 0.07, 0.5 * g);
+        const vi = fract(cue.v * 1.618 + i * 0.618);
+        gunShot(ctx, out, crack + i * step, w, vi, 1 - (i / n) * w.falloff!, i === 0);
       }
-      return { endTime: crack + n * step + 0.1 };
+      return { endTime: crack + n * step + 0.08 };
     }
     case "nearmiss": {
-      // Supersonic snap then a 30 Hz thump (only the player schedules this for far+toward events).
-      noiseBurst(ctx, out, crack, 0.02, "bandpass", j(2200, 3000), 4, 0.8);
+      // The N-WAVE: the ballistic shockwave (separate from the muzzle report). We model the
+      // shock PERIOD, not the full Whitham waveform — a single tight highpassed noise SNAP,
+      // weapon-tinted by the same N-wave corner the rounds carry, then a low thump at the
+      // s.o.s. delay (the "snap … crump" of an incoming round). Faction is unknown on a
+      // near-miss tail, so we use the insurgent N-wave corner (incoming is the enemy's).
+      const w = WEAPON_TABLE.muzzle_insurgent;
+      // a tight 2–4 kHz tick reads better than a pure highpass (which sounds thin), tinted by
+      // the weapon's N-wave corner; ~0.5 ms keeps the snap sharp.
+      noiseBurst(ctx, out, crack, 0.0005 + w.nwaveDur, "highpass", w.nwaveHP, 0.3, 1.0, 0.00005);
+      noiseBurst(ctx, out, crack, 0.012, "bandpass", j(2200, 3000), 4, 0.7);
       sub(ctx, out, thump, 34, 26, 0.06, 0.6);
       return { endTime: thump + 0.1 };
     }

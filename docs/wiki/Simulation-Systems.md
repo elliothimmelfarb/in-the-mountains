@@ -435,38 +435,57 @@ teaches. Headless proof (`… melt <seed>`): the threatened cohort closes ~50 % 
 within the window while a control cohort barely moves, **no shot is fired**, and children lead — all
 fully replay-deterministic (same seed → identical civilian positions).
 
-## Procedural audio (`lib/audio/`)
+## Procedural soundscape (`lib/audio/`)
 
-Battle audio is a **render-side observer** — exactly like `lib/render/combat-fx.ts`. It *reads*
-sim state and plays sound; it **never** writes back into `lib/sim`, and `lib/sim` has zero audio
-imports (Law 7 — a seed reproduces outcomes; audio is a pure spectator). Every sound is
-**synthesized procedurally** (Web Audio: oscillators + filtered-noise buffers + envelopes) — no
-binary assets, no npm audio dependency.
+The audio is a **render-side observer** — like `lib/render/combat-fx.ts`. It *reads* sim state and
+plays sound; it **never** writes back into `lib/sim`, and `lib/sim` has zero audio imports (Law 7 —
+a seed reproduces outcomes; audio is a pure spectator). Every sound is **synthesized procedurally**
+(Web Audio only — oscillators, filtered-noise buffers, biquads, convolution, envelopes); there are
+**no binary audio assets and no npm audio dependency** — even the reverb impulse response is
+generated from decaying noise. It is both a **combat** mix and a **living valley** ambience.
 
-**Two halves, strict split:**
-- **`mapper.ts` (PURE, headless)** — `CueMapper.collect({effects, log, fireMissions, inContact})`
-  walks the three sim streams against monotonic high-water marks (the dedup pattern from
-  `combat-fx.ts` `noteCombatEffects`) and emits an ordered `AudioCue[]`: every new `Effect` id →
-  exactly one cue (`blood` → none, by design); contact-relevant log lines → a radio bed; fire-mission
-  status transitions → `shot` / `splash` / a danger-close klaxon; the TIC rising edge → the contact
-  sting. Per-cue variation is a **pure hash of the source id** (`RNG.hashString`, mirroring the
-  per-civ trait hash), so the same event always sounds the same — no wall-clock, no PRNG stream.
-- **`synth.ts` + `player.ts` (BROWSER only)** — the `AudioEngine` owns the `AudioContext`
-  (created/resumed on the **first user gesture** per the browser autoplay policy), the master
-  volume/mute bus, a 24-voice polyphony cap, and the spatial mix: distance attenuation, a low-pass
-  on far sounds (air absorption), stereo pan, **zoom-scaled** audible radius, and a
-  **speed-of-sound delay** that splits a distant shot into the bright *crack* then the low *thump*
-  — the genre's "you see the flash, then hear it" signature. The US-vs-insurgent and MG-vs-rifle
-  timbres are the maximum fidelity the `Effect` carries (faction + `size≥1.5`); there is no
-  `weaponId` on the effect and we deliberately do not add one (it would touch the save/determinism
-  contract for a marginal gain).
+**Pure (headless, deterministic) half:**
+- **`mapper.ts` / `cue.ts`** — `CueMapper.collect({effects, log, fireMissions, inContact})` walks
+  the sim streams against monotonic high-water marks and emits an ordered `AudioCue[]`: every new
+  `Effect` id → one cue (`blood` → none); contact-relevant log lines → a radio bed; fire-mission
+  transitions → `shot` / `splash` / danger-close klaxon; the TIC rising edge → the contact sting.
+- **`ambient-state.ts`** — `computeAmbientMix(signals)` maps deterministic World getters
+  (`solarLight()`, `windVector()`, `secondsOfDay`, `weather`, `inContact`) → target gains/densities
+  for the ambient bed, plus a **pure Poisson schedule** (`RNG.hashString`) for birds/dogs/etc.
+  Per-cue/per-spot variation is a pure hash of the source id — same seed ⇒ same sound, no wall-clock.
 
-**Seam:** `state/store.ts` `frame()` calls `audio.tick(world.sim-streams, {running,paused,warp,inContact})`
-after `world.tick`, always advancing the mapper's marks (so resume never dumps a backlog) but
-**scheduling sound only when live** — silenced during pause/warp. `WorldView.tsx` pushes the camera
-pose each RAF (the listener) and wires the unlock-on-gesture. Volume/mute live in the
-`itm-ui-v1` UI-layout localStorage (a per-device preference), **never** the campaign save.
+**Browser (render) half — the bus graph in `player.ts`:**
+`master → limiter(brickwall)`, with `combat / atmos / radio / score` submix buses and a shared
+**valley reverb** return. Per positional cue: `gain → lowpass(air + terrain occlusion) → [elevation
+shelf] → pan → combatBus`, plus a parallel **wet send** (rising with distance) → highpass → pre-delay
+→ the shared convolver. Key pieces:
+- **`reverb.ts`** — one `ConvolverNode`; the IR is exp-decaying **stereo** noise (decorrelated → the
+  reverb gives the mix its width) shaped by an air-absorption sweep with **4 ridge slap-taps** baked
+  in (the canyon echo). RT60 ≈ 1.8 s; IR fill is seeded so it's reproducible.
+- **`ambient.ts`** — a persistent `AmbientEngine` on `atmosBus`: procedural wind (gust LFOs,
+  weather-driven), river, COP generator drone, and Poisson birds/insects/dogs/call-to-prayer, all
+  frequency-partitioned. Ducks ~85 % on the contact rising edge and exhales over ~12 s — *the
+  readable silence of the calm-before as an instrument.* Plays through pause; only warp suspends it.
+- **`synth.ts`** — gunfire is a **5-layer stack** (transient · body · sub · mechanical · tail) from
+  a per-weapon table, with a true sub-millisecond supersonic crack; US (5.56) reads brighter than
+  insurgent (7.62), SAW vs PKM by cadence — the audible "who's shooting" tell.
+- **HDR auto-mixer + ducking** — the loudest current sound raises a window quieter sounds duck
+  beneath (somber by dynamics, not volume); control-side `setTargetAtTime` ducks (radio ducks atmos;
+  HE ducks everything). **Priority voice-stealing** keeps the 32-voice cap on the sounds that matter.
+- **Spatialization** — `StereoPanner` by screen position (HRTF is wasted on a top-down camera),
+  distance attenuation + air-absorption lowpass, the **speed-of-sound crack→thump** ranging split,
+  an **elevation** brightness shelf, and a **terrain line-of-sight raycast** that muffles fire behind
+  a ridge ("the valley is the enemy", applied to sound).
 
-The headless determinism + purity proof is `scripts/audio-probe.ts` (`AUDIO OK`): 1:1 event→cue
-mapping with no double-fire, byte-identical cue streams from a replayed recording, and a static
-grep that `lib/sim` imports no audio and the pure mapper touches no browser global.
+**Seams:** `state/store.ts` `frame()` calls `audio.tick(sim-streams, flags, ambientEnv)` after
+`world.tick` (always advancing the mapper marks; scheduling combat only when live; the bed plays
+through pause); `wireAudioWorld(world)` hands the engine the terrain (occlusion) + COP/village/river
+positions on deploy and load; `WorldView.tsx` pushes the camera (the listener) each RAF and wires
+unlock-on-gesture. Volume/mute live in `itm-ui-v1` (per-device), **never** the campaign save.
+
+**Verification.** `scripts/audio-probe.ts` (`AUDIO OK`) proves the pure layer: 1:1 event→cue, no
+double-fire, byte-identical replayed cue streams, `lib/sim` imports no audio. `scripts/audio-render.ts`
+is the **offline oracle** — it renders the *real* synth + bus graph through a headless
+`OfflineAudioContext` to PCM and asserts the numbers (no clip; calm→combat dynamic spread; living
+ambient floor; wide stereo image; terrain occlusion muffles), writing listenable `.wav`s; renders are
+seed-pinned so A/B deltas are real. `scripts/audio-viz.ts` draws before/after spectrograms.

@@ -44,6 +44,9 @@ next-env.d.ts
 .playwright-mcp/
 *.local.png
 
+# audio oracle scratch render (regen: npx tsx scripts/audio-render.ts)
+docs/progress/_audio-latest/
+
 # generated asset-gallery manifest (regen: node scripts/gallery.mjs)
 public/_dev/assets.json
 
