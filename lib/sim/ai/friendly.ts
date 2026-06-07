@@ -31,8 +31,12 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
     u.brainTimer = 0.4 + sim.rng.next() * 0.3;
   }
 
-  const underFire = u.suppression > 0.35;
-  const pinned = u.composure < 0.22 || u.suppression > 0.8;
+  // With suppression now a real, accumulating field (physics wave), a near-miss should
+  // get a man moving/down and a sustained volume should pin a fraction of the element —
+  // not require the old, never-reached 0.35/0.8 gates. The lever is THIS threshold + the
+  // stance block below, NOT seekCover reach (covertune A/B regressed 50-min KIA).
+  const underFire = u.suppression > 0.18;
+  const pinned = u.composure < 0.25 || u.suppression > 0.55;
   const contact = u.visibleEnemyIds.length > 0 || underFire;
 
   // Casualty care is every soldier's job, not just the medic's. If a buddy is down
@@ -109,6 +113,16 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
         }
         // assault element bounds onto the objective (gunner displaces forward on the lull)
         if (!contact && u.rof === "suppress") u.rof = "free"; // stop hosing empty ground
+        // GRENADE & CLEAR (#11): a maneuver man who closes inside frag range of the objective,
+        // with grenades and a live close threat, frags it before the final assault — the drill
+        // that was dead code (nothing ever set brainState "fragging"). The throw itself is
+        // civ-gated in the fragging case (throwFrag does NOT pass through civClear).
+        if (u.orderTarget && u.grenades > 0 && dist(u.pos, u.orderTarget) <= 35 &&
+            (u.visibleEnemyIds.length > 0 || u.suppression > 0.2)) {
+          u.brainState = "fragging";
+          u.faceLock = null;
+          break;
+        }
         if (u.orderTarget && u.path.length === 0 && dist(u.pos, u.orderTarget) > 3) sim.moveTo(u, u.orderTarget);
         maybeReachedDest(u);
         break;
@@ -154,17 +168,24 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
     case "fragging": {
       if (u.orderTarget) {
         const r = dist(u.pos, u.orderTarget);
-        if (r <= 40 && u.grenades > 0) {
+        // CIV GATE: throwFrag does NOT route through civClear, so an assault frag could land
+        // near a civilian. Add the same ROE check here (adding a gate, never weakening one).
+        // If the throw is unsafe, fall back into the assault flow instead of fragging.
+        const assaulting = u.orderType === "assault";
+        if (r <= 40 && u.grenades > 0 && sim.civClear(u, u.orderTarget, null)) {
           sim.throwFrag(u, u.orderTarget);
-          u.brainState = "holding";
-          u.orderTarget = null;
+          // an assault man resumes bounding onto the objective; otherwise he holds.
+          u.brainState = assaulting ? "moving" : "holding";
+          if (!assaulting) u.orderTarget = null;
         } else if (r > 40) {
           sim.moveTo(u, u.orderTarget);
-          if (r < 38) {
-            sim.throwFrag(u, u.orderTarget);
-            u.brainState = "holding";
-          }
+        } else {
+          // in range but the throw is civ-blocked — don't hang in fragging; rejoin the fight.
+          u.brainState = assaulting ? "moving" : "holding";
+          if (!assaulting) u.orderTarget = null;
         }
+      } else {
+        u.brainState = "holding";
       }
       break;
     }

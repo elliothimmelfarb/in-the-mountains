@@ -54,7 +54,7 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
         u.targetId = tgt;
         u.rof = "free";
         u.brainState = "engage";
-        u.brainTimer = sim.rng.range(8, 16);
+        u.brainTimer = sim.rng.range(14, 26); // engage DWELL — fire a real spell before scooting
         if (sim.rng.chance(0.5)) sim.addLog("CONTACT! Small arms from the high ground!", "contact");
       } else if (u.brainTimer <= (u.iedInit ? -90 : -22)) {
         // Patience exhausted. The IED triggerman is disciplined and waits much longer
@@ -81,18 +81,22 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
         const cover = sim.findCover(u.pos, u.threatDir, 30);
         if (cover) sim.moveTo(u, cover);
       }
-      // Shoot and scoot: after a spell of firing, or under pressure, displace.
+      // Shoot and scoot: after a good spell of firing FROM a position, or when pressed,
+      // displace to a new firing point (#17). Now that displacePosition reliably returns a
+      // lateral bound, the engage DWELL is the throttle — a fighter must put real rounds
+      // downrange before he bounds, or he never engages (the over-scoot regression). Pressure
+      // (real suppression / near impacts) can cut the dwell short — that's the point of scoot.
       u.brainTimer -= dt;
-      const pressed = u.suppression > 0.5 || nearImpacts(sim, u);
+      const pressed = u.suppression > 0.6 || nearImpacts(sim, u);
       if ((u.brainTimer <= 0 || pressed) && u.aggression < 0.85) {
         const spot = displacePosition(sim, u);
         if (spot) {
           sim.moveTo(u, spot);
           u.brainState = "scoot";
           u.rof = "hold";
-          u.brainTimer = sim.rng.range(3, 6);
+          u.brainTimer = sim.rng.range(2, 4); // brief bound — get to the new spot and re-engage
         } else {
-          u.brainTimer = sim.rng.range(6, 12);
+          u.brainTimer = sim.rng.range(8, 14); // nowhere to go — keep firing
         }
       }
       break;
@@ -102,7 +106,7 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
       u.rof = "free";
       if (u.visibleEnemyIds.length > 0 || u.suppression > 0.1) {
         u.brainState = "engage";
-        u.brainTimer = sim.rng.range(8, 16);
+        u.brainTimer = sim.rng.range(14, 26);
         u.targetId = sim.acquireTarget(u);
         if (sim.rng.chance(0.5)) sim.addLog("They've spotted us — contact!", "contact");
       }
@@ -113,7 +117,7 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
       if (u.path.length === 0) {
         u.brainState = "engage";
         u.rof = "free";
-        u.brainTimer = sim.rng.range(8, 16);
+        u.brainTimer = sim.rng.range(14, 26); // re-engage from the new spot for a full spell
         u.targetId = sim.acquireTarget(u);
       }
       break;
@@ -163,11 +167,27 @@ function nearImpacts(sim: CombatSim, u: Unit): boolean {
   return sim.effects.some((e) => (e.kind === "blast" || e.kind === "impact") && dist(e.pos, u.pos) < 25);
 }
 
-/** A nearby covered firing position away from the current threat (lateral scoot). */
+/**
+ * Where to bound for shoot-and-scoot. Prefer a covered position to displace to; but on the
+ * open high ground a covered cell is almost never within reach, so the old "cover or nothing"
+ * returned null ~always and the fighter never scooted (#17, baseline 0.02%). The real scoot is
+ * a LATERAL defilade bound off the gun-target line — break the line, re-engage from a new spot;
+ * cover is a bonus, not a requirement.
+ */
 function displacePosition(sim: CombatSim, u: Unit): { x: number; y: number } | null {
   const cover = sim.findCover(u.pos, u.threatDir, 55);
-  if (cover && dist(cover, u.pos) > 8) return cover;
-  return null;
+  if (cover && dist(cover, u.pos) > 6) return cover;
+  // No cover within reach → lateral scoot perpendicular to the threat line.
+  const td = u.threatDir ?? { x: 0, y: -1 };
+  const perp = { x: -td.y, y: td.x };
+  const side = sim.rng.chance(0.5) ? 1 : -1;
+  const reach = sim.rng.range(14, 28);
+  const cand = add(u.pos, scale(perp, side * reach));
+  const m = sim.terrain.worldSize;
+  if (cand.x < 8 || cand.y < 8 || cand.x > m - 8 || cand.y > m - 8) return null;
+  const cs = sim.terrain.cellSize;
+  if (!sim.terrain.passableCell(Math.floor(cand.x / cs), Math.floor(cand.y / cs))) return null;
+  return cand;
 }
 
 /** Where to run to break contact — away from the nearest enemy and uphill, toward the map edge. */
