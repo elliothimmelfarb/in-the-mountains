@@ -91,6 +91,9 @@ export default function MenuScreen() {
           <a className="tac-btn no-underline" href="/manual/tutorial.html" target="_blank" rel="noreferrer">
             Tutorial
           </a>
+          <a className="tac-btn no-underline" href="/manual/archive/index.html" target="_blank" rel="noreferrer">
+            How It Was Built
+          </a>
           <button className="tac-btn" onClick={() => setShowCredits((s) => !s)}>
             About
           </button>

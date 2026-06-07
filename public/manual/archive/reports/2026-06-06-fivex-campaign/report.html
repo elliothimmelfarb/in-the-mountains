@@ -1,0 +1,1691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>In the Mountains — The 5× Campaign Report</title>
+<style>
+  /* ───────── command-post palette ───────── */
+  :root{
+    --bg:#14160f;          /* charcoal-olive base */
+    --bg2:#1b1e15;         /* panel */
+    --bg3:#23271b;         /* raised panel */
+    --ink:#cdd2bd;         /* primary text (bone) */
+    --ink-dim:#9aa088;     /* secondary text */
+    --ink-faint:#6c715c;   /* faint / captions */
+    --line:#3a4030;        /* hairlines */
+    --olive:#8a9a4f;       /* signal olive */
+    --tan:#c8a96a;         /* map ink / amber */
+    --amber:#d8b25a;       /* highlight amber */
+    --rust:#b5562f;        /* casualty / enemy / warning */
+    --rust-dim:#7d3c22;
+    --teal:#5c8a86;        /* friendly accent */
+    --good:#7fa64b;        /* improvement green */
+    --bad:#b5562f;         /* regression / before-bad */
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:"Avenir Next","Segoe UI",Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);font-size:15px;line-height:1.62;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* faint topo grid backdrop */
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      linear-gradient(rgba(138,154,79,.025) 1px,transparent 1px) 0 0/100% 46px,
+      linear-gradient(90deg,rgba(138,154,79,.025) 1px,transparent 1px) 0 0/46px 100%;
+  }
+  a{color:var(--amber);text-decoration:none}
+  a:hover{text-decoration:underline}
+  code,.mono{font-family:var(--mono);font-size:.86em}
+  code{background:var(--bg3);color:var(--tan);padding:.08em .38em;border-radius:3px;border:1px solid var(--line)}
+  h1,h2,h3,h4{font-weight:600;line-height:1.18;letter-spacing:.01em}
+  .wrap{display:grid;grid-template-columns:236px 1fr;max-width:1320px;margin:0 auto}
+  /* ───────── sticky TOC ───────── */
+  nav.toc{
+    position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    padding:26px 16px 40px 22px;border-right:1px solid var(--line);
+    font-family:var(--mono);font-size:12.5px;background:rgba(20,22,15,.6);
+  }
+  nav.toc .brand{font-family:var(--sans);font-weight:700;font-size:15px;color:var(--ink);letter-spacing:.06em}
+  nav.toc .brand small{display:block;font-weight:400;font-size:10.5px;color:var(--ink-faint);letter-spacing:.18em;margin-top:3px}
+  nav.toc ol{list-style:none;margin:18px 0 0;padding:0;counter-reset:s}
+  nav.toc li{margin:.1em 0}
+  nav.toc a{display:block;color:var(--ink-dim);padding:4px 8px;border-left:2px solid transparent;border-radius:0 3px 3px 0}
+  nav.toc a:hover{color:var(--ink);background:rgba(138,154,79,.07);border-left-color:var(--olive);text-decoration:none}
+  nav.toc a.sub{padding-left:22px;font-size:11.5px;color:var(--ink-faint)}
+  nav.toc .tag{display:block;margin-top:22px;color:var(--ink-faint);font-size:10px;letter-spacing:.2em;border-top:1px solid var(--line);padding-top:12px}
+  main{padding:0 40px 120px;min-width:0}
+  section{padding-top:46px;margin-top:-10px}
+  section>h2{
+    font-size:13px;letter-spacing:.26em;text-transform:uppercase;color:var(--tan);
+    border-bottom:1px solid var(--line);padding-bottom:8px;margin:0 0 6px;
+  }
+  section>h2 .n{color:var(--ink-faint);margin-right:10px}
+  .lead{font-size:16px;color:var(--ink-dim);max-width:74ch}
+  h3{font-size:19px;color:var(--ink);margin:34px 0 6px}
+  h4{font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--olive);margin:22px 0 4px}
+  p{max-width:76ch}
+  .muted{color:var(--ink-dim)}
+  .faint{color:var(--ink-faint)}
+  strong{color:var(--ink)}
+  .up{color:var(--good);font-weight:700}
+  .down{color:var(--rust);font-weight:700}
+  /* arrows that read as improvement regardless of metric direction */
+  .win{color:var(--good);font-weight:700}
+  .reg{color:var(--rust);font-weight:700}
+
+  /* ───────── HERO ───────── */
+  .hero{padding:60px 0 14px;border-bottom:1px solid var(--line)}
+  .hero .kick{font-family:var(--mono);font-size:12px;letter-spacing:.34em;color:var(--olive);text-transform:uppercase}
+  .hero h1{font-size:46px;margin:14px 0 6px;letter-spacing:.01em}
+  .hero h1 .sub{display:block;font-size:20px;color:var(--tan);font-weight:500;letter-spacing:.12em;margin-top:8px}
+  .thesis{font-size:21px;line-height:1.5;color:var(--ink);max-width:30ch;border-left:3px solid var(--tan);padding:6px 0 6px 20px;margin:26px 0 10px;max-width:64ch}
+  .thesis em{color:var(--amber);font-style:normal;font-weight:600}
+  .meta{font-family:var(--mono);font-size:12px;color:var(--ink-faint);letter-spacing:.06em;margin-top:18px}
+  .meta span{margin-right:20px}
+
+  /* ───────── scorecard ───────── */
+  .scorecard{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:12px;margin:28px 0 8px}
+  .sc{background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:14px 15px;position:relative;overflow:hidden}
+  .sc::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--olive)}
+  .sc.flip::after{background:var(--good)}
+  .sc .lab{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-faint)}
+  .sc .val{font-family:var(--mono);font-size:15px;margin-top:8px;color:var(--ink);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .sc .b4{color:var(--rust);text-decoration:line-through;text-decoration-color:rgba(181,86,47,.5)}
+  .sc .arrow{color:var(--ink-faint)}
+  .sc .af{color:var(--good);font-weight:700;font-size:17px}
+  .sc .note{font-size:10.5px;color:var(--ink-faint);margin-top:6px;font-family:var(--mono)}
+
+  /* ───────── panels / callouts ───────── */
+  .panel{background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:18px 20px;margin:20px 0}
+  .panel.raised{background:var(--bg3)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  .callout{border-left:3px solid var(--amber);background:rgba(216,178,90,.06);padding:12px 16px;margin:18px 0;border-radius:0 5px 5px 0}
+  .callout.law{border-left-color:var(--olive);background:rgba(138,154,79,.07)}
+  .callout.resid{border-left-color:var(--rust);background:rgba(181,86,47,.07)}
+  .callout .h{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);display:block;margin-bottom:4px}
+  .callout.law .h{color:var(--olive)}
+  .callout.resid .h{color:var(--rust)}
+
+  /* ───────── tables ───────── */
+  table{border-collapse:collapse;width:100%;font-family:var(--mono);font-size:12.5px;margin:14px 0}
+  th,td{text-align:left;padding:8px 11px;border-bottom:1px solid var(--line)}
+  th{color:var(--tan);font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:600;border-bottom:1px solid var(--olive)}
+  tr:hover td{background:rgba(138,154,79,.04)}
+  td.num{text-align:right}
+  caption{caption-side:bottom;text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--ink-faint);padding-top:8px;letter-spacing:.04em}
+
+  /* ───────── charts ───────── */
+  figure{margin:22px 0}
+  figure svg{display:block;width:100%;height:auto;background:var(--bg2);border:1px solid var(--line);border-radius:7px}
+  figcaption{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:8px;letter-spacing:.03em;line-height:1.5}
+  figcaption .src{color:var(--olive)}
+  .ct-axis{stroke:var(--line);stroke-width:1}
+  .ct-grid{stroke:var(--line);stroke-width:1;stroke-dasharray:2 4;opacity:.6}
+  .ct-lab{fill:var(--ink-dim);font-family:var(--mono);font-size:11px}
+  .ct-labx{fill:var(--ink-dim);font-family:var(--mono);font-size:11px;text-anchor:middle}
+  .ct-title{fill:var(--ink);font-family:var(--mono);font-size:12.5px;font-weight:600}
+  .ct-axtitle{fill:var(--ink-faint);font-family:var(--mono);font-size:10px;letter-spacing:.08em}
+  .ct-val{fill:var(--ink);font-family:var(--mono);font-size:11px;font-weight:600}
+  .ct-valw{fill:#0f1109;font-family:var(--mono);font-size:11px;font-weight:700}
+  .bar-b4{fill:var(--rust-dim)}
+  .bar-af{fill:var(--olive)}
+  .bar-af2{fill:var(--good)}
+  .leg{font-family:var(--mono);font-size:10.5px}
+
+  /* ───────── annotated screenshots ───────── */
+  .shot{position:relative;margin:22px 0;border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#000;line-height:0}
+  .shot img{display:block;width:100%;height:auto}
+  .shot svg.ovl{position:absolute;inset:0;width:100%;height:100%}
+  .ann-line{stroke:var(--amber);stroke-width:1.6;fill:none}
+  .ann-dot{fill:none;stroke:var(--amber);stroke-width:1.6}
+  .ann-box{fill:rgba(20,22,15,.86);stroke:var(--amber);stroke-width:1}
+  .ann-txt{fill:var(--ink);font-family:var(--mono);font-size:13px}
+  .ann-num{fill:#0f1109;font-family:var(--mono);font-size:12px;font-weight:700}
+  .ann-numbg{fill:var(--amber)}
+  .shotcap{font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin:6px 2px 0;letter-spacing:.03em;line-height:1.55}
+  .shotcap b{color:var(--ink-dim)}
+  .pairhead{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--tan);letter-spacing:.1em;text-transform:uppercase;margin:8px 2px 2px}
+
+  /* mechanism teach boxes */
+  .teach{background:var(--bg3);border:1px solid var(--line);border-left:3px solid var(--teal);border-radius:0 6px 6px 0;padding:14px 18px;margin:18px 0}
+  .teach .h{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);display:block;margin-bottom:6px}
+  .teach ol{margin:6px 0 0;padding-left:20px}
+  .teach li{margin:5px 0;max-width:74ch}
+
+  .verdict{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:.1em;padding:2px 8px;border-radius:3px;border:1px solid;text-transform:uppercase}
+  .v-pass{color:var(--good);border-color:var(--good);background:rgba(127,166,75,.08)}
+  .v-part{color:var(--amber);border-color:var(--amber);background:rgba(216,178,90,.08)}
+  .v-resid{color:var(--rust);border-color:var(--rust);background:rgba(181,86,47,.08)}
+
+  .filemap{font-family:var(--mono);font-size:12px}
+  .filemap .row{display:grid;grid-template-columns:120px 1fr;gap:14px;padding:7px 0;border-bottom:1px solid var(--line)}
+  .filemap .w{color:var(--tan);font-weight:600}
+  .wave-A{color:var(--rust)}.wave-B{color:var(--teal)}.wave-C{color:var(--amber)}.wave-D{color:var(--olive)}.wave-E{color:var(--tan)}
+
+  hr{border:none;border-top:1px solid var(--line);margin:40px 0}
+  .axisrow{display:grid;grid-template-columns:150px 1fr;gap:16px;padding:12px 0;border-bottom:1px solid var(--line);align-items:start}
+  .axisrow .ax{font-family:var(--mono);font-size:12px;color:var(--tan);letter-spacing:.06em}
+  .axisrow .ev{font-size:14px}
+  .meter{height:9px;background:var(--bg3);border:1px solid var(--line);border-radius:5px;overflow:hidden;margin:7px 0 9px;max-width:340px}
+  .meter > i{display:block;height:100%;background:linear-gradient(90deg,var(--olive),var(--good))}
+  footer{margin-top:60px;padding-top:24px;border-top:1px solid var(--line);font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+  @media(max-width:760px){
+    .wrap{grid-template-columns:1fr}
+    nav.toc{position:static;height:auto;border-right:none;border-bottom:1px solid var(--line)}
+    main{padding:0 18px 80px}
+    .hero h1{font-size:32px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ════════════ STICKY TOC ════════════ -->
+<nav class="toc">
+  <div class="brand">IN THE MOUNTAINS<small>5× CAMPAIGN · AFTER-ACTION</small></div>
+  <ol>
+    <li><a href="#hero">00 · Thesis &amp; Scorecard</a></li>
+    <li><a href="#method">01 · The Method</a></li>
+    <li><a href="#method" class="sub">recon → wave → verify</a></li>
+    <li><a href="#filemap" class="sub">file-partition map</a></li>
+    <li><a href="#waveA">02 · Wave A — Combat Soul</a></li>
+    <li><a href="#waveB">03 · Wave B — Audio</a></li>
+    <li><a href="#waveC">04 · Wave C — Sensory &amp; Game-Feel</a></li>
+    <li><a href="#waveD">05 · Wave D — COIN Soul</a></li>
+    <li><a href="#waveE">06 · Wave E — World-Map Scale</a></li>
+    <li><a href="#charts">07 · The Charts (all)</a></li>
+    <li><a href="#shots">08 · Annotated Screenshots</a></li>
+    <li><a href="#residuals">09 · Honest Residuals</a></li>
+    <li><a href="#assess">10 · The 5× Assessment</a></li>
+  </ol>
+  <span class="tag">SEED-FAITHFUL · NO FIX W/O A NUMBER · 2026-06-06</span>
+</nav>
+
+<main>
+
+<!-- ════════════ HERO ════════════ -->
+<section id="hero" class="hero" style="padding-top:0">
+  <div class="kick">After-Action Report · Five-times-better campaign</div>
+  <h1>The 5× Campaign
+    <span class="sub">Making a defense-grade war-sim READ, SOUND, and PLAY true</span>
+  </h1>
+  <div class="thesis">
+    The simulation was already defense-grade under the hood; this campaign made it
+    <em>read</em>, <em>sound</em>, and <em>play</em> true.
+  </div>
+  <p class="lead">
+    <em>In the Mountains</em> is a deterministic, single-clock real-time counterinsurgency sim of a remote US
+    combat outpost in a Korengal-like valley. The engine — scored base-of-fire vs. maneuver, PID-aimed
+    indirect fire, ambush/scoot insurgent AI, elevation LOS over a 512² terrain grid — was deep before this
+    campaign began. What it lacked was <strong>legibility, sensory presence, a living strategic layer, and a
+    true-to-scale map</strong>. <strong>Five</strong> file-disjoint waves closed those gaps, each gated by a headless
+    harness and an independent adversarial verify. Below is every hypothesis, every number, every mechanism — and
+    every residual we did <em>not</em> fully solve.
+  </p>
+  <div class="meta">
+    <span>BRANCH <strong>main</strong></span>
+    <span>BASELINE @ <strong>c6bf324</strong></span>
+    <span>WAVES <strong>A · B · C · D · E</strong></span>
+    <span>DONE-GATE <strong>tsc · build · smoke · balance</strong></span>
+  </div>
+
+  <h4 style="margin-top:34px">Headline scorecard — before → after</h4>
+  <div class="scorecard">
+    <div class="sc flip">
+      <div class="lab">Combat exchange ratio</div>
+      <div class="val"><span class="b4">~5:1 against</span><span class="arrow">→</span><span class="af">US-favorable</span></div>
+      <div class="note">balance.ts · KIA 0.75→0.33</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Enemy accounted / contact</div>
+      <div class="val"><span class="b4">1.25</span><span class="arrow">→</span><span class="af">4.42</span></div>
+      <div class="note">balance.ts · 3.5× · held-out 5.40</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Suppression (reachable)</div>
+      <div class="val"><span class="b4">0.000</span><span class="arrow">→</span><span class="af">1.0</span></div>
+      <div class="note">realism-probe · 27–36% pinned</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Enemy elevation adv.</div>
+      <div class="val"><span class="b4">+2.41 m</span><span class="arrow">→</span><span class="af">+38 m</span></div>
+      <div class="note">plunging fire (ambush)</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Stance: standing under fire</div>
+      <div class="val"><span class="b4">73%</span><span class="arrow">→</span><span class="af">~10%</span></div>
+      <div class="note">prone 0%→1.7–4% · crouch ~87%</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Audio cue fidelity</div>
+      <div class="val"><span class="b4">silent</span><span class="arrow">→</span><span class="af">1:1</span></div>
+      <div class="note">audio-probe · 1252==1252, 0 dropped</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">COIN tour-score spread</div>
+      <div class="val"><span class="b4">0.5</span><span class="arrow">→</span><span class="af">30.3</span></div>
+      <div class="note">campaign-loop · careful vs body-count</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">CERP projects completed</div>
+      <div class="val"><span class="b4">0 (sabotaged)</span><span class="arrow">→</span><span class="af">1.3–2.0</span></div>
+      <div class="note">4/4 on survey-40</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Soldier figure vs. true size</div>
+      <div class="val"><span class="b4">36×</span><span class="arrow">→</span><span class="af">17× → 3×</span></div>
+      <div class="note">scale-probe · default→tactical zoom</div>
+    </div>
+    <div class="sc flip">
+      <div class="lab">Squad reads as</div>
+      <div class="val"><span class="b4">one blob</span><span class="arrow">→</span><span class="af">9 spaced men</span></div>
+      <div class="note">overlap true→false at every zoom</div>
+    </div>
+  </div>
+  <p class="faint" style="font-size:12px;font-family:var(--mono);margin-top:6px">
+    Every figure above is reproduced verbatim from the dated source docs in this folder. Numbers-first is a
+    hard rule on this repo — nothing here is rounded up.
+  </p>
+</section>
+
+
+<!-- ════════════ 01 · METHOD ════════════ -->
+<section id="method">
+  <h2><span class="n">01</span>The Method — orchestration as the differentiator</h2>
+  <p class="lead">
+    The work was not "do a big todo list." It was an orchestration: a recon fan-out to map the opportunity
+    space, then <strong>file-disjoint waves</strong> run as pipelines, each ending in an <strong>independent
+    adversarial verify</strong> — all gated by <em>no fix without a number</em>, the <em>determinism
+    contract</em>, and a <em>DO-NOT-RETRY</em> list so no agent re-walks a dead end.
+  </p>
+
+  <div class="grid2">
+    <div class="panel">
+      <h4 style="margin-top:0">1 · Recon fan-out</h4>
+      <p class="muted" style="margin:0">
+        <strong>12 domain-expert agents</strong> (infantry doctrine, ballistics, COIN, audio, render, game-feel…)
+        read the engine in parallel and proposed improvements along realism <em>and</em> joy/awe. Their output was
+        judged and deduped into <strong>63 ranked hypotheses</strong> — each a falsifiable claim with a measurable
+        target, not a vibe.
+      </p>
+    </div>
+    <div class="panel">
+      <h4 style="margin-top:0">2 · DO-NOT-RETRY ledger</h4>
+      <p class="muted" style="margin:0">
+        Previously-reverted approaches travel with their measured failure so they are never re-proposed:
+        screen-shake-as-shockwave / recoil-kick (reverted, fought the camera pose), a WeakMap for civilian home
+        (rejected — breaks serialize-replay determinism), and coarse-dt combat scoring (<em>caught lying</em>:
+        23 KIA at DT=30 vs 11–12 at fine-dt on the same seed).
+      </p>
+    </div>
+  </div>
+
+  <h4>The recon → wave → verify pipeline</h4>
+  <p class="muted">Read left-to-right. Each wave is a self-contained pipeline; the lanes run in parallel because
+    they own disjoint files. Nothing is "done" until a <em>separate, skeptical</em> agent re-derives the number.
+    (The diagram shows the original four lanes; a <strong>fifth lane — Wave E, world-map scale</strong> — landed after
+    the same recon, on the render layer, and followed the identical metricize → baseline → re-measure → adversarial-verify shape.)</p>
+
+  <!-- ───── PIPELINE DIAGRAM (inline SVG) ───── -->
+  <figure>
+  <svg viewBox="0 0 980 430" role="img" aria-label="Recon to wave to verify pipeline diagram">
+    <defs>
+      <marker id="arr" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+        <path d="M0,0 L9,4.5 L0,9 z" fill="#8a9a4f"/>
+      </marker>
+      <marker id="arrA" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 z" fill="#6c715c"/>
+      </marker>
+    </defs>
+
+    <!-- RECON -->
+    <rect x="14" y="150" width="150" height="128" rx="7" fill="#1b1e15" stroke="#3a4030"/>
+    <text x="89" y="142" text-anchor="middle" class="ct-axtitle" fill="#c8a96a">RECON FAN-OUT</text>
+    <text x="89" y="178" text-anchor="middle" class="ct-title" fill="#cdd2bd">12 experts</text>
+    <text x="89" y="200" text-anchor="middle" class="ct-lab">domain agents,</text>
+    <text x="89" y="216" text-anchor="middle" class="ct-lab">read in parallel</text>
+    <line x1="34" y1="232" x2="144" y2="232" stroke="#3a4030"/>
+    <text x="89" y="252" text-anchor="middle" class="ct-title" fill="#d8b25a">63 hypotheses</text>
+    <text x="89" y="270" text-anchor="middle" class="ct-lab">judged &amp; ranked</text>
+
+    <!-- fan arrows -->
+    <path d="M164,200 C200,150 210,80 250,74"  class="ct-axis" stroke="#8a9a4f" fill="none" marker-end="url(#arr)"/>
+    <path d="M164,210 C200,200 210,166 250,162" class="ct-axis" stroke="#8a9a4f" fill="none" marker-end="url(#arr)"/>
+    <path d="M164,220 C200,250 210,256 250,252" class="ct-axis" stroke="#8a9a4f" fill="none" marker-end="url(#arr)"/>
+    <path d="M164,230 C200,300 210,344 250,344" class="ct-axis" stroke="#8a9a4f" fill="none" marker-end="url(#arr)"/>
+
+    <!-- WAVE LANES -->
+    <!-- A -->
+    <rect x="252" y="50" width="206" height="50" rx="6" fill="#23271b" stroke="#b5562f"/>
+    <text x="264" y="70" class="ct-title" fill="#b5562f">WAVE A</text>
+    <text x="264" y="88" class="ct-lab">Combat soul · 6 sim files</text>
+    <!-- B -->
+    <rect x="252" y="138" width="206" height="50" rx="6" fill="#23271b" stroke="#5c8a86"/>
+    <text x="264" y="158" class="ct-title" fill="#5c8a86">WAVE B</text>
+    <text x="264" y="176" class="ct-lab">Audio · new lib/audio/</text>
+    <!-- C -->
+    <rect x="252" y="226" width="206" height="50" rx="6" fill="#23271b" stroke="#d8b25a"/>
+    <text x="264" y="246" class="ct-title" fill="#d8b25a">WAVE C</text>
+    <text x="264" y="264" class="ct-lab">Sensory &amp; game-feel · render</text>
+    <!-- D -->
+    <rect x="252" y="320" width="206" height="50" rx="6" fill="#23271b" stroke="#8a9a4f"/>
+    <text x="264" y="340" class="ct-title" fill="#8a9a4f">WAVE D</text>
+    <text x="264" y="358" class="ct-lab">COIN soul · world/* + HUD</text>
+
+    <!-- HARNESS GATE column -->
+    <text x="588" y="34" text-anchor="middle" class="ct-axtitle" fill="#6c715c">METRICIZE · BASELINE · RE-MEASURE</text>
+    <g font-family="monospace">
+      <rect x="494" y="56" width="188" height="38" rx="5" fill="#1b1e15" stroke="#3a4030"/>
+      <text x="504" y="80" class="ct-lab" fill="#cdd2bd">balance.ts · realism-probe</text>
+      <rect x="494" y="144" width="188" height="38" rx="5" fill="#1b1e15" stroke="#3a4030"/>
+      <text x="504" y="168" class="ct-lab" fill="#cdd2bd">audio-probe (1:1 cue)</text>
+      <rect x="494" y="232" width="188" height="38" rx="5" fill="#1b1e15" stroke="#3a4030"/>
+      <text x="504" y="256" class="ct-lab" fill="#cdd2bd">atmospherics-probe</text>
+      <rect x="494" y="326" width="188" height="38" rx="5" fill="#1b1e15" stroke="#3a4030"/>
+      <text x="504" y="350" class="ct-lab" fill="#cdd2bd">campaign-loop.ts</text>
+    </g>
+    <line x1="458" y1="75"  x2="494" y2="75"  class="ct-axis" stroke="#6c715c" marker-end="url(#arrA)"/>
+    <line x1="458" y1="163" x2="494" y2="163" class="ct-axis" stroke="#6c715c" marker-end="url(#arrA)"/>
+    <line x1="458" y1="251" x2="494" y2="251" class="ct-axis" stroke="#6c715c" marker-end="url(#arrA)"/>
+    <line x1="458" y1="345" x2="494" y2="345" class="ct-axis" stroke="#6c715c" marker-end="url(#arrA)"/>
+
+    <!-- VERIFY column -->
+    <text x="800" y="34" text-anchor="middle" class="ct-axtitle" fill="#6c715c">ADVERSARIAL VERIFY (fresh agent)</text>
+    <g>
+      <rect x="712" y="56" width="200" height="38" rx="5" fill="#1b1e15" stroke="#8a9a4f"/>
+      <text x="722" y="80" class="ct-lab" fill="#cdd2bd">re-run twice · byte-identical</text>
+      <rect x="712" y="144" width="200" height="38" rx="5" fill="#1b1e15" stroke="#8a9a4f"/>
+      <text x="722" y="168" class="ct-lab" fill="#cdd2bd">replay determinism check</text>
+      <rect x="712" y="232" width="200" height="38" rx="5" fill="#1b1e15" stroke="#8a9a4f"/>
+      <text x="722" y="256" class="ct-lab" fill="#cdd2bd">layer-purity · regression hunt</text>
+      <rect x="712" y="320" width="200" height="38" rx="5" fill="#1b1e15" stroke="#8a9a4f"/>
+      <text x="722" y="344" class="ct-lab" fill="#cdd2bd">held-out tail · serialize r/t</text>
+    </g>
+    <line x1="682" y1="75"  x2="712" y2="75"  class="ct-axis" stroke="#8a9a4f" marker-end="url(#arr)"/>
+    <line x1="682" y1="163" x2="712" y2="163" class="ct-axis" stroke="#8a9a4f" marker-end="url(#arr)"/>
+    <line x1="682" y1="251" x2="712" y2="251" class="ct-axis" stroke="#8a9a4f" marker-end="url(#arr)"/>
+    <line x1="682" y1="345" x2="712" y2="345" class="ct-axis" stroke="#8a9a4f" marker-end="url(#arr)"/>
+
+    <!-- merge -->
+    <path d="M912,75  C944,75 960,200 940,205"  class="ct-axis" stroke="#8a9a4f" fill="none"/>
+    <path d="M912,163 C940,163 950,200 940,205" class="ct-axis" stroke="#8a9a4f" fill="none"/>
+    <path d="M912,251 C940,251 950,210 940,210" class="ct-axis" stroke="#8a9a4f" fill="none"/>
+    <path d="M912,345 C944,345 960,215 940,210" class="ct-axis" stroke="#8a9a4f" fill="none"/>
+    <rect x="916" y="190" width="58" height="40" rx="6" fill="#23271b" stroke="#d8b25a"/>
+    <text x="945" y="207" text-anchor="middle" class="ct-lab" fill="#d8b25a">MERGE</text>
+    <text x="945" y="222" text-anchor="middle" class="ct-lab" fill="#d8b25a">main</text>
+
+    <!-- baseline footer -->
+    <text x="14" y="404" class="ct-axtitle" fill="#6c715c">GATE THROUGHOUT:  no fix without a number  ·  same-seed determinism contract  ·  DO-NOT-RETRY ledger honoured</text>
+  </svg>
+  <figcaption><span class="src">Pipeline.</span> One recon fan-out feeds four file-disjoint wave lanes. Each
+    lane metricizes on a headless harness, baselines on HEAD, implements, then hands to a <em>fresh</em> verifier
+    who re-derives every number before merge. The verify column is where the work is proven — not where the author says "done."</figcaption>
+  </figure>
+
+  <!-- FILE PARTITION MAP -->
+  <div id="filemap"></div>
+  <h4>File-partition map — why the waves could not collide</h4>
+  <p class="muted">Parallel agents are safe only with <em>one writer per file</em>. The partition below is the
+    contract: each wave's owned files are disjoint, so the four ran concurrently and merged cleanly. The
+    architecture's strict layering (pure engine → React-free renderers → the single Zustand bridge) made the
+    cut-lines natural.</p>
+  <div class="panel filemap">
+    <div class="row"><span class="w wave-A">WAVE&nbsp;A</span><span><span class="faint">engine, deterministic —</span>
+      <code>lib/sim/combat.ts</code> · <code>weapons.ts</code> · <code>ballistics.ts</code> ·
+      <code>ai/friendly.ts</code> · <code>ai/insurgent.ts</code> · <code>world/director.ts</code></span></div>
+    <div class="row"><span class="w wave-B">WAVE&nbsp;B</span><span><span class="faint">new package + render bridge —</span>
+      new <code>lib/audio/{cue,mapper,synth,player,index}.ts</code> · <code>state/store.ts</code><sup>(+)</sup> ·
+      <code>components/world/WorldView.tsx</code><sup>(+)</sup> · <code>scripts/audio-probe.ts</code></span></div>
+    <div class="row"><span class="w wave-C">WAVE&nbsp;C</span><span><span class="faint">renderers, React-free —</span>
+      <code>lib/render/{topo,combat-fx,draw}.ts</code> · <code>lib/sim/ai/civilian.ts</code> ·
+      <code>components/world/WorldView.tsx</code><sup>(+)</sup> · <code>scripts/atmospherics-probe.ts</code></span></div>
+    <div class="row"><span class="w wave-D">WAVE&nbsp;D</span><span><span class="faint">strategic engine + HUD —</span>
+      <code>lib/sim/world/{world,types,create,projects,tasks,events}.ts</code> · new <code>directives.ts</code> ·
+      <code>campaign.ts</code> · <code>scripts/campaign-loop.ts</code> · <code>state/store.ts</code><sup>(+)</sup> ·
+      <code>DeployScreen.tsx</code></span></div>
+    <div class="row"><span class="w wave-E">WAVE&nbsp;E</span><span><span class="faint">render layer, React-free —</span>
+      <code>lib/render/draw.ts</code> · <code>lib/render/combat-fx.ts</code> <span class="faint">(import-sync only)</span> ·
+      <code>components/world/WorldView.tsx</code><sup>(+)</sup> · <code>scripts/scale-probe.mjs</code></span></div>
+    <p class="faint" style="font-size:11px;margin:12px 0 0;font-family:var(--mono)"><sup>(+)</sup> Shared
+      touch-points (<code>store.ts</code>, <code>WorldView.tsx</code>) were reconciled at merge — the one place a
+      cross-wave regression appeared (the Space-key collision, §04) and was caught by the verifier.</p>
+  </div>
+
+  <div class="callout law">
+    <span class="h">The five laws every wave obeyed</span>
+    <strong>1. No fix without a number</strong> — baseline on HEAD first, re-measure each change in isolation.
+    <strong>2. Don't trust yourself</strong> — a separate skeptical agent re-derives the result.
+    <strong>3. Prove on a held-out tail</strong> — tune on <code>survey-0..39</code>, prove on <code>survey-40..59</code>.
+    <strong>4. The oracle obeys the mover's real rules</strong> — a loose oracle lies as badly as the metric.
+    <strong>5. Numbers-first, residual named, restraint logged</strong> — lead with the unflattering figure.
+  </div>
+</section>
+
+
+<!-- ════════════ 02 · WAVE A ════════════ -->
+<section id="waveA">
+  <h2><span class="n">02</span>Wave A — Combat Soul · the firefight now reads true</h2>
+
+  <h3>Hypothesis — the exchange ratio was inverted</h3>
+  <p>
+    On HEAD, a 12-deployment balance run (<code>balance.ts 12 50</code>) produced <strong>0.75 US KIA</strong> and
+    <strong>5.58 US WIA</strong> against only <strong>1.25 enemy accounted</strong> per contact — roughly
+    <span class="reg">6.3 friendly casualties for every 1 enemy</span>, an inverted ~5:1 ratio. Real US infantry
+    <em>won</em> firefights tactically; the sim had it backwards. Two candidate causes: under-effective US fire,
+    over-lethal enemy fire, or an undercount of fighters who exfil/evac. The deeper realism reads were equally
+    damning: <strong>0.000 suppression</strong> (no one was ever pinned), <strong>73% of soldiers stood upright
+    under fire</strong> (0% prone), and the enemy held a meaningless <strong>+2.41 m</strong> elevation edge in a
+    valley defined by plunging fire.
+  </p>
+
+  <h3>Method — the headless harness</h3>
+  <p>
+    <code>scripts/balance.ts &lt;deployments&gt; &lt;minutes&gt;</code> runs continuous deployments and reports
+    KIA / WIA / enemy-accounted / civ-cas plus a stall check. Realism reads came from <code>realism-probe.ts</code>
+    (suppression reachable/pinned fraction, stance distribution, terminal ballistics, elevation advantage,
+    shoot-and-scoot displacement, enemy massing). HEAD numbers were captured verbatim <em>before any edit</em>, then
+    every change re-measured in isolation, then re-proven on a <strong>fresh 20-seed held-out tail</strong>.
+  </p>
+
+  <h3>Change — six engine files, the right way</h3>
+  <p>
+    Touched <code>combat.ts</code>, <code>weapons.ts</code>, <code>ballistics.ts</code>, <code>ai/friendly.ts</code>,
+    <code>ai/insurgent.ts</code>, <code>world/director.ts</code>. The fix was <em>not</em> a damage buff that turns
+    the game into a turkey-shoot. Instead: <strong>suppression now credits the whole flight path</strong> of a
+    round (everyone near the line gets pinned, not just the target), soldiers <strong>take cover and go prone/crouch</strong>
+    under fire, ambushers occupy <strong>real high ground</strong>, and they <strong>shoot-and-scoot</strong> after
+    engaging. US fire became effective <em>because</em> the tactics became real — KIA <em>fell</em> while enemy
+    accounted <em>rose</em>.
+  </p>
+
+  <div class="callout law">
+    <span class="h">Verified by the adversary</span>
+    The Wave-A verifier reran <code>balance.ts</code> <strong>twice → byte-identical</strong> (determinism intact),
+    confirmed the <code>civClear</code> civilian-fire gate untouched, and found <strong>no DO-NOT-RETRY violation</strong>.
+    Civ casualties stayed 0 throughout.
+  </div>
+
+  <h4>Result — before → after (with held-out)</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-waves-ab.md</span> · <code>balance.ts 12 50</code>; held-out 20×50 fresh seeds.</caption>
+    <thead><tr><th>balance.ts metric</th><th class="num">HEAD</th><th class="num">After (12×50)</th><th class="num">Held-out (20×50)</th></tr></thead>
+    <tbody>
+      <tr><td>US KIA / contact</td><td class="num">0.75</td><td class="num"><span class="win">0.33</span></td><td class="num">0.30</td></tr>
+      <tr><td>US WIA / contact</td><td class="num">5.58</td><td class="num"><span class="win">3.92</span></td><td class="num">2.70</td></tr>
+      <tr><td>Enemy accounted / contact</td><td class="num">1.25</td><td class="num"><span class="win">4.42</span> (3.5×)</td><td class="num">5.40</td></tr>
+      <tr><td>Exchange ratio</td><td class="num"><span class="reg">~5:1 against</span></td><td class="num"><span class="win">~even</span></td><td class="num"><span class="win">US-favorable</span></td></tr>
+      <tr><td>Civ casualties</td><td class="num">0</td><td class="num">0</td><td class="num">0</td></tr>
+      <tr><td>Stalls</td><td class="num">none</td><td class="num">none</td><td class="num">none</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">The settled mid-campaign measurement (a separate balance pass cited in the baseline lineage)
+    landed at <strong>0.58 KIA / 4.33 WIA / 5.67 enemy</strong> — the chart in §07 plots all three after-states
+    against HEAD so you can see the convergence, not just one cherry-picked column.</p>
+
+  <h4>Realism wins (realism-probe)</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-waves-ab.md</span> · realism-probe.ts.</caption>
+    <thead><tr><th>#</th><th>Metric</th><th class="num">HEAD</th><th class="num">After</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td>Suppression reachable / pinned</td><td class="num">0.000 / ~0</td><td class="num"><span class="win">1.0 / 27–36%</span></td></tr>
+      <tr><td>2</td><td>Stance standing / prone</td><td class="num">73% / 0%</td><td class="num"><span class="win">~10% / 1.7–4%</span> (crouch ~87%)</td></tr>
+      <tr><td>5/18</td><td>5.56 kill% @25 m / terminal dmg</td><td class="num">0.7% / 30.7</td><td class="num"><span class="win">2.1% / 42.2</span></td></tr>
+      <tr><td>9</td><td>Enemy mean elevation adv.</td><td class="num">+2.41 m</td><td class="num"><span class="win">+38 m</span> (ambush)</td></tr>
+      <tr><td>4</td><td>Shoot-and-scoot displacement</td><td class="num">0.02%</td><td class="num"><span class="win">~81%</span> of engage entries</td></tr>
+      <tr><td>11</td><td>Frags (grenade &amp; clear)</td><td class="num">dead code</td><td class="num"><span class="win">wired live</span> (civ-gated ≤35 m)</td></tr>
+      <tr><td>12</td><td>Enemy within-40 m massing</td><td class="num">0.00</td><td class="num"><span class="win">1.4–2.1</span> (L firing line)</td></tr>
+      <tr><td>30</td><td>Night tempo</td><td class="num"><span class="reg">inverted (1.67× at night)</span></td><td class="num"><span class="win">flipped</span> (deep-night ×1.8 delay)</td></tr>
+      <tr><td>—</td><td>Wind drift (bonus)</td><td class="num">flat ~0.23 m</td><td class="num"><span class="win">0.31 → 2.45 m</span> w/ range</td></tr>
+    </tbody>
+  </table>
+
+  <div class="teach">
+    <span class="h">How it works — suppression credit along the whole flight path</span>
+    <ol>
+      <li>A fired round is not a point event at the target; it traces a <strong>line</strong> from muzzle to impact.</li>
+      <li>Every soldier within a band of that line accrues <strong>suppression</strong> — the rounds "snapping past"
+        are what pins real infantry, not just the rounds that hit. This is why HEAD's 0.000 (suppression only
+        credited on a hit) jumped to a <strong>1.0 reachable</strong> ceiling with <strong>27–36% pinned</strong> at any instant.</li>
+      <li>A suppressed soldier's behaviour changes: he <strong>crouches or goes prone</strong> and his fire degrades —
+        which is exactly why standing-under-fire collapsed 73%→~10%. Suppression is the mechanism that makes the
+        firefight <em>feel</em> like a firefight, and the reason US KIA fell: pinned enemies shoot worse.</li>
+    </ol>
+  </div>
+
+  <div class="pairhead"><span>DAY — combat-day.png</span><span>NIGHT — night-firefight.png</span></div>
+  <div class="grid2">
+    <!-- DAY -->
+    <div>
+      <div class="shot">
+        <img src="./shots/combat-day.png" alt="Daytime firefight on the green valley floor">
+        <svg class="ovl" viewBox="0 0 1632 1530" preserveAspectRatio="none">
+          <!-- callout 1: vegetated river (lower-left blue channel + green veg) -->
+          <circle cx="120" cy="940" r="74" class="ann-dot"/>
+          <line x1="190" y1="900" x2="360" y2="800" class="ann-line"/>
+          <rect x="360" y="772" width="430" height="58" rx="5" class="ann-box"/>
+          <circle cx="384" cy="801" r="13" class="ann-numbg"/><text x="380" y="806" class="ann-num">1</text>
+          <text x="404" y="806" class="ann-txt">vegetated river — daylight reads true</text>
+          <!-- callout 2: left 60mm beaten zone bloom -->
+          <circle cx="530" cy="430" r="80" class="ann-dot"/>
+          <line x1="530" y1="510" x2="620" y2="700" class="ann-line"/>
+          <rect x="620" y="700" width="360" height="58" rx="5" class="ann-box"/>
+          <circle cx="644" cy="729" r="13" class="ann-numbg"/><text x="640" y="734" class="ann-num">2</text>
+          <text x="664" y="734" class="ann-txt">60 mm beaten-zone bloom</text>
+          <!-- callout 3: the named squad — now a ROW of small spaced men, not a blob -->
+          <rect x="320" y="996" width="950" height="96" rx="50" fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="9 7" opacity=".85"/>
+          <line x1="700" y1="1100" x2="560" y2="1230" class="ann-line"/>
+          <rect x="120" y="1212" width="470" height="58" rx="5" class="ann-box"/>
+          <circle cx="144" cy="1241" r="13" class="ann-numbg"/><text x="140" y="1246" class="ann-num">3</text>
+          <text x="164" y="1246" class="ann-txt">1st squad — 9 spaced named men, true scale</text>
+          <!-- callout 4: HESCO perimeter cross-hatch (right side) -->
+          <circle cx="1340" cy="430" r="70" class="ann-dot"/>
+          <line x1="1340" y1="500" x2="1240" y2="700" class="ann-line"/>
+          <rect x="1100" y="700" width="460" height="58" rx="5" class="ann-box"/>
+          <circle cx="1124" cy="729" r="13" class="ann-numbg"/><text x="1120" y="734" class="ann-num">4</text>
+          <text x="1144" y="734" class="ann-txt">COP HESCO perimeter (cross-hatch)</text>
+        </svg>
+      </div>
+      <p class="shotcap"><b>Day.</b> Full ambient light: the green valley floor, vegetated river, and HESCO
+        cross-hatch are all legible. 1st squad (Kowalski · Beckett · Carrillo · Salazar · Whitaker) now reads as
+        <b>distinct, evenly-spaced individuals</b> — the Wave-E scale fix (§06), not a single 21 m giant.
+        The same scene at night is the right-hand frame — the day/night pair below.</p>
+    </div>
+    <!-- NIGHT -->
+    <div>
+      <div class="shot">
+        <img src="./shots/night-firefight.png" alt="Night firefight with additive muzzle and blast light">
+        <svg class="ovl" viewBox="0 0 1632 1530" preserveAspectRatio="none">
+          <!-- 1 muzzle/blast night-light bloom (upper-left warm glow) -->
+          <circle cx="517" cy="111" r="92" class="ann-dot"/>
+          <line x1="517" y1="203" x2="430" y2="300" class="ann-line"/>
+          <rect x="120" y="300" width="430" height="58" rx="5" class="ann-box"/>
+          <circle cx="144" cy="329" r="13" class="ann-numbg"/><text x="140" y="334" class="ann-num">1</text>
+          <text x="164" y="334" class="ann-txt">muzzle / blast night-light (additive)</text>
+          <!-- 2 blast bloom (right warm glow) -->
+          <circle cx="1242" cy="287" r="100" class="ann-dot"/>
+          <line x1="1242" y1="387" x2="1140" y2="470" class="ann-line"/>
+          <rect x="780" y="470" width="382" height="58" rx="5" class="ann-box"/>
+          <circle cx="804" cy="499" r="13" class="ann-numbg"/><text x="800" y="504" class="ann-num">2</text>
+          <text x="824" y="504" class="ann-txt">blast bloom — warm, no cyan</text>
+          <!-- 3 fire-mission beaten zone — dashed orbit ring on the right -->
+          <line x1="1300" y1="640" x2="1180" y2="740" class="ann-line"/>
+          <rect x="780" y="740" width="450" height="58" rx="5" class="ann-box"/>
+          <circle cx="804" cy="769" r="13" class="ann-numbg"/><text x="800" y="774" class="ann-num">3</text>
+          <text x="824" y="774" class="ann-txt">fire-mission beaten-zone ring</text>
+          <!-- 4 engaged squad — small spaced men lit by the firefight -->
+          <rect x="320" y="996" width="950" height="96" rx="50" fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="9 7" opacity=".85"/>
+          <line x1="700" y1="1100" x2="560" y2="1200" class="ann-line"/>
+          <rect x="120" y="1182" width="470" height="58" rx="5" class="ann-box"/>
+          <circle cx="144" cy="1211" r="13" class="ann-numbg"/><text x="140" y="1216" class="ann-num">4</text>
+          <text x="164" y="1216" class="ann-txt">engaged squad — spaced men lit by the fight</text>
+          <!-- 5 fire support panel (bottom HUD rail) -->
+          <line x1="700" y1="1340" x2="700" y2="1290" class="ann-line"/>
+          <rect x="560" y="1252" width="300" height="46" rx="5" class="ann-box"/>
+          <circle cx="584" cy="1275" r="13" class="ann-numbg"/><text x="580" y="1280" class="ann-num">5</text>
+          <text x="604" y="1280" class="ann-txt">approve/deny fires</text>
+        </svg>
+      </div>
+      <p class="shotcap"><b>Night.</b> The night wash darkens the valley; <b>additive warm glow</b> from muzzle,
+        blast, and tracer (Wave C, gated to night&gt;0.25, never cyan) paints the firefight on top — the single
+        most cinematic change in the campaign.</p>
+    </div>
+  </div>
+
+  <div class="callout resid">
+    <span class="h">Honest residual (Wave A)</span>
+    Suppression <em>element-average</em> peak (0.43–0.48) sits <strong>below</strong> the guessed 0.6–0.85 band:
+    the per-contact mechanism is decisive, but fights are short/sharp and pushing harder risks the KIA guardrail
+    (<strong>~35% confidence it converges without breaking balance — logged, not forced</strong>). Mean enemy
+    pairwise spacing is not reliably down; elevation (+38 m) sits above the guessed band but is deemed
+    <em>more</em> Korengal-faithful, not less.
+  </div>
+</section>
+
+
+<!-- ════════════ 03 · WAVE B ════════════ -->
+<section id="waveB">
+  <h2><span class="n">03</span>Wave B — Procedural Audio · the absent transformative dimension</h2>
+
+  <h3>Hypothesis — the game was silent</h3>
+  <p>
+    The repo had <strong>zero audio dependencies</strong> and the game made no sound. A firefight you can see but
+    not hear loses most of its weight. The constraint was hard: audio must not touch <code>lib/sim</code>
+    (determinism contract) and must add no binary assets.
+  </p>
+
+  <h3>Method — a 1:1 cue oracle</h3>
+  <p>
+    <code>scripts/audio-probe.ts</code> asserts a strict invariant: <strong>exactly one audio cue per sim
+    effect-id</strong>. It replays the deterministic sim, counts non-blood effect ids, and counts cues — they must
+    match with zero dropped and zero double-fired. It also replays twice and demands the cue stream be
+    byte-identical (the mapper must be pure).
+  </p>
+
+  <h3>Change — a new <code>lib/audio/</code> package on the render seam</h3>
+  <p>
+    Five new files (<code>cue / mapper / synth / player / index</code>) plus wiring in <code>state/store.ts</code>,
+    <code>WorldView.tsx</code>, and a HUD volume/mute control. The <strong>render-side event seam</strong> is the key:
+    the audio system subscribes from the RAF <code>frame()</code> loop the same way the visual effects do — it reads
+    <code>sim.effects</code> (muzzle / impact / ricochet / blast / blood / frag-air / smoke-pop / flare),
+    the <code>LogEntry</code> bus, and <code>FireMission</code> status — and never imports into the engine.
+  </p>
+
+  <div class="teach">
+    <span class="h">How it works — the render-side audio event-seam</span>
+    <ol>
+      <li><strong>Pure mapper</strong> (<code>mapper.ts</code>): consumes the sim's Effect / LogEntry / FireMission
+        stream and emits <code>AudioCue[]</code>. It is headless-testable and deterministic — two replays produce
+        byte-identical cues (7394 cues verified). It contains <em>no</em> Web-Audio calls, so it can run under tsx.</li>
+      <li><strong>Browser synth</strong> (<code>synth.ts</code> / <code>player.ts</code>): Web-Audio oscillators +
+        filtered noise + envelopes. Distance attenuation, a low-pass on far sounds, a speed-of-sound delay, stereo
+        pan and zoom scaling — all procedural, no samples.</li>
+      <li><strong>Determinism firewall</strong>: <code>lib/sim</code> has <em>zero</em> audio imports. The
+        AudioContext unlocks only on a user gesture (Next 16 App Router + browser autoplay policy), and audio is
+        silent during pause/warp. The engine never knows audio exists.</li>
+    </ol>
+  </div>
+
+  <h4>Result — verified invariants</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-waves-ab.md</span> · <code>AUDIO OK</code>.</caption>
+    <thead><tr><th>Invariant</th><th>Result</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Cue-per-effect fidelity</td><td>1252 cues == 1252 effect ids · 0 dropped · 0 double-fired (of 1480)</td><td><span class="verdict v-pass">1:1</span></td></tr>
+      <tr><td>Mapper purity / determinism</td><td>two replays byte-identical · 7394 cues</td><td><span class="verdict v-pass">pure</span></td></tr>
+      <tr><td>Determinism contract</td><td><code>lib/sim</code> has ZERO audio imports</td><td><span class="verdict v-pass">intact</span></td></tr>
+      <tr><td>Voice bounding</td><td>24-voice pool cap</td><td><span class="verdict v-pass">bounded</span></td></tr>
+      <tr><td>Autoplay policy</td><td>unlocks only on user gesture</td><td><span class="verdict v-pass">compliant</span></td></tr>
+      <tr><td>Pause / warp</td><td>silent during pause and time-warp</td><td><span class="verdict v-pass">gated</span></td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Final <em>sound-quality</em> judgement requires a human at a browser — that capture is a
+    real-app pass, not a headless one. The invariants above prove the <em>plumbing</em> is correct and
+    determinism-safe; they cannot prove a 7.62 sounds menacing. That is the one honest caveat for Wave B.</p>
+</section>
+
+
+<!-- ════════════ 04 · WAVE C ════════════ -->
+<section id="waveC">
+  <h2><span class="n">04</span>Wave C — Sensory &amp; Game-Feel · the valley sleeps, wakes, and weathers</h2>
+
+  <h3>Hypothesis — the valley was diurnally flat and weatherless on screen</h3>
+  <p>
+    Two sensory gaps. First, civilians wandered 24/7 at a <strong>flat 100% outdoor occupancy</strong> with no
+    dawn/dusk rhythm, and the flagship COIN tell — civilians <em>melting away before an ambush</em>, which the
+    tutorial explicitly promises — <strong>did not exist (0% drop)</strong>. Second, weather existed in
+    <code>world.state</code> but was never <em>rendered</em>; night was a flat wash with no light from the fight.
+  </p>
+
+  <h3>Method — the atmospherics probe with a mover-faithful oracle</h3>
+  <p>
+    <code>scripts/atmospherics-probe.ts</code> measures outdoor occupancy by hour, and a staged pre-contact
+    melt-away, using ground-truth time from <code>world.secondsOfDay</code> (independent of the <code>sim.light</code>
+    the brain reads) and "home" = the same snapped point the mover actually walks to. Law 4 in action: the oracle
+    obeys the mover's real rules, so it cannot be fooled by the system it checks.
+  </p>
+
+  <h3>Change — render-side atmospherics + civilian brain</h3>
+  <p>
+    Owned <code>lib/render/{topo,combat-fx,draw}.ts</code>, <code>lib/sim/ai/civilian.ts</code>, and
+    <code>WorldView.tsx</code>. The diurnal pattern and melt-away are <strong>deterministic engine</strong> changes
+    in the civilian brain (no new persisted field — serialize stays byte-identical). Weather rendering, night-light,
+    wind-leaned smoke, camera-punch, and the off-screen contact pointer are <strong>render-only</strong>.
+  </p>
+
+  <h4>Result — headless-verified (deterministic)</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-wave-c.md</span> + issue 016 · atmospherics-probe.ts.</caption>
+    <thead><tr><th>Target</th><th>Result</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>A · Diurnal pattern-of-life</td><td>day 80–98% out → 19:00 10% → night 0% → 06:00 61%; survey-43 held-out night 14.8%/23.9%, midday 62%</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>B · Pre-contact "calm before" melt</td><td>survey-7: 56% of outdoor civs clear before a staged ambush, <strong>0 shots</strong>, <strong>children first</strong>; control 0%. Held-out 48%, kids-first t=42 s</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>Determinism (A+B)</td><td>same-seed civ-position hashes byte-identical in- &amp; cross-process; smoke round-trip ×3</td><td><span class="verdict v-pass">PASS</span></td></tr>
+    </tbody>
+  </table>
+
+  <h4>Code-verified, capture in the real app</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-wave-c.md</span> — code-verified; live screenshots below.</caption>
+    <thead><tr><th>Target</th><th>What changed</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>C · Weather rendered</td><td><code>topo.ts drawWeather()</code>: rain streaks / drifting fog / elev-gated snow-line / blowing dust from <code>world.state.weather</code> + live wind vector</td><td><span class="verdict v-part">CODE</span></td></tr>
+      <tr><td>D · Night light</td><td><code>combat-fx.ts drawNightLights()</code>: additive warm glow from muzzle/blast/tracer, gated night&gt;0.25, no cyan, age-faded</td><td><span class="verdict v-part">CODE</span></td></tr>
+      <tr><td>E · Wind-leaned smoke/haze</td><td><code>draw.ts drawSmoke()</code> + <code>combat-fx.ts drawCombatHaze()</code> drift with the wind vector</td><td><span class="verdict v-part">CODE</span></td></tr>
+      <tr><td>F · Camera-punch + edge-flash</td><td><code>noteShakeEvents()/drawEdgeFlash()</code> — capped 7 px, prox²·size, monotonic-id dedup; <em>not</em> the reverted shockwave/recoil</td><td><span class="verdict v-part">CODE</span></td></tr>
+      <tr><td>G · Off-screen contact pointer</td><td><code>drawOffscreenContactPointer()</code> + jump-to-contact key snap (ppm ≥ 1.2)</td><td><span class="verdict v-part">CODE</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="teach">
+    <span class="h">How it works — night-light additive over the night wash</span>
+    <ol>
+      <li>At night the renderer lays a darkening <strong>night wash</strong> over the valley.</li>
+      <li><code>drawNightLights()</code> then paints <strong>additive</strong> warm glow from each live muzzle, blast,
+        and tracer effect <em>on top</em> of that wash — additive blending means light <em>adds</em> brightness rather
+        than replacing colour, so a firefight genuinely illuminates its surroundings.</li>
+      <li>It is gated to <code>night &gt; 0.25</code> (no glow in daylight), the glow is <strong>age-faded</strong>
+        with the effect's life, and it is deliberately warm — <strong>never cyan</strong> — so it reads as fire, not UI.</li>
+    </ol>
+  </div>
+
+  <div class="callout resid">
+    <span class="h">Cross-wave regression — caught by the verifier (the value of the skeptical pass)</span>
+    <code>WorldView.tsx</code> bound jump-to-contact to <strong>Space</strong>, but <code>DeployScreen.tsx</code>
+    already bound Space → pause; both <code>window</code> listeners fired on one press (Space paused <em>and</em>
+    jumped the camera). Fix: rebind jump-to-contact to <code>'c'</code> only. A green author-run would have shipped
+    this — the independent adversarial pass found it. This is precisely why "don't trust yourself" is Law 2.
+  </div>
+
+  <div class="pairhead"><span>WEATHER — rain</span><span>WEATHER — fog</span></div>
+  <div class="grid2">
+    <div>
+      <div class="shot">
+        <img src="./shots/weather-rain.png" alt="Rain streaks over the valley">
+        <svg class="ovl" viewBox="0 0 1632 1530" preserveAspectRatio="none">
+          <line x1="260" y1="260" x2="470" y2="200" class="ann-line"/>
+          <rect x="470" y="172" width="360" height="58" rx="5" class="ann-box"/>
+          <circle cx="494" cy="201" r="13" class="ann-numbg"/><text x="490" y="206" class="ann-num">1</text>
+          <text x="514" y="206" class="ann-txt">wind-leaned rain streaks</text>
+          <line x1="430" y1="560" x2="560" y2="700" class="ann-line"/>
+          <rect x="560" y="682" width="420" height="58" rx="5" class="ann-box"/>
+          <circle cx="584" cy="711" r="13" class="ann-numbg"/><text x="580" y="716" class="ann-num">2</text>
+          <text x="604" y="716" class="ann-txt">60 mm beaten-zone still legible in rain</text>
+          <line x1="1080" y1="430" x2="1240" y2="330" class="ann-line"/>
+          <rect x="1120" y="302" width="420" height="58" rx="5" class="ann-box"/>
+          <circle cx="1144" cy="331" r="13" class="ann-numbg"/><text x="1140" y="336" class="ann-num">3</text>
+          <text x="1164" y="336" class="ann-txt">overcast desaturates the floor</text>
+        </svg>
+      </div>
+      <p class="shotcap"><b>Rain.</b> <code>drawWeather()</code> draws streaks leaned along the live wind vector;
+        the floor desaturates under overcast. Combat FX remain readable through the weather layer.</p>
+    </div>
+    <div>
+      <div class="shot">
+        <img src="./shots/weather-fog.png" alt="Drifting fog softening the valley">
+        <svg class="ovl" viewBox="0 0 1632 1530" preserveAspectRatio="none">
+          <line x1="820" y1="380" x2="980" y2="300" class="ann-line"/>
+          <rect x="860" y="272" width="400" height="58" rx="5" class="ann-box"/>
+          <circle cx="884" cy="301" r="13" class="ann-numbg"/><text x="880" y="306" class="ann-num">1</text>
+          <text x="904" y="306" class="ann-txt">drifting fog softens distance</text>
+          <line x1="300" y1="500" x2="430" y2="640" class="ann-line"/>
+          <rect x="120" y="640" width="380" height="58" rx="5" class="ann-box"/>
+          <circle cx="144" cy="669" r="13" class="ann-numbg"/><text x="140" y="674" class="ann-num">2</text>
+          <text x="164" y="674" class="ann-txt">river edge still anchors the eye</text>
+        </svg>
+      </div>
+      <p class="shotcap"><b>Fog.</b> Drifting fog reduces apparent visibility and mood without hiding the
+        navigational anchors. Snow-line is elevation-gated (not shown at this floor altitude).</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- ════════════ 05 · WAVE D ════════════ -->
+<section id="waveD">
+  <h2><span class="n">05</span>Wave D — COIN Soul · "counterinsurgency is the real game" made true</h2>
+
+  <h3>Hypothesis — the strategic pillar was mechanically dead</h3>
+  <p>
+    DESIGN pillar 5 is "you can win every firefight and still lose the valley" — yet on HEAD, playing COIN well
+    vs. badly produced near-identical outcomes. <code>campaign-loop.ts</code> showed careful-COIN tour score
+    <strong>38.0</strong> vs. body-count <strong>37.5</strong> — a <span class="reg">spread of 0.5</span> (it needed
+    &gt;25 to discriminate). Worse: <strong>0/6 projects ever completed</strong> (all sabotaged because no element
+    ever <em>stayed</em> to hold the multi-day build), CERP was a <strong>one-way drain</strong> to 0, directive
+    deadlines/penalties were written but <em>read nowhere</em>, and 5 of 7 directive kinds were never even created.
+    The soul of the game was inert.
+  </p>
+
+  <h3>Method — the campaign-loop harness, two scripted policies</h3>
+  <p>
+    <code>scripts/campaign-loop.ts</code> drives full multi-day tours under two scripted commander policies —
+    <strong>careful COIN</strong> vs. <strong>body-count</strong> — and measures whether the strategy layer
+    <em>discriminates</em>: tour-score spread, mean-attitude swing, projects completed, CERP two-way, directive
+    cadence + deadline-fire. A wide spread means the game rewards patience; a flat one means the pillar is dead.
+  </p>
+
+  <h3>Change — secure-build, two-way CERP, live directives, asymmetric promises</h3>
+  <p>
+    Engine files <code>world / types / create / projects / tasks / events</code> + new <code>directives.ts</code>,
+    plus <code>campaign.ts</code>, the harness, and HUD wiring in <code>store.ts</code> / <code>DeployScreen.tsx</code>.
+    The keystone is the <strong>secure-build order</strong>: a patrol-level garrison order
+    (<code>World.secureBuild(memberIds, villageId, …)</code>) routes an element to a project site
+    (reachability-aware, no beeline) and holds an open-ended overwatch — so <code>securityAt</code> finally counts a
+    <em>held</em> element through the whole build, and projects <strong>complete instead of sabotage</strong>.
+  </p>
+
+  <div class="teach">
+    <span class="h">How it works — the secure-build order that makes projects complete</span>
+    <ol>
+      <li>A multi-day CERP project (a micro-hydro, a school) has a <code>building</code> stage that needs sustained
+        security. On HEAD, <code>securityAt</code> counted any 2 transient friendlies — so a patrol passing through
+        "secured" it for a tick, then left, and the build <strong>sabotaged</strong>.</li>
+      <li><code>secureBuild</code> issues a patrol a <code>secureHold</code> task (<code>tasks.ts</code>): the element
+        routes to the site reachability-aware and <strong>holds an open-ended overwatch</strong> until the build
+        finishes, sabotages, or it's recalled. <code>securityAt</code> now counts the held element <em>first</em>.</li>
+      <li>A completed project pays off: per-type <code>PROJECT_PAYOFF</code> (×1.6 if the village wanted it, ×0.6 if
+        not) + a CERP refund + a fulfilled-ask hook. Winning the valley now <em>out-weighs</em> the body count in
+        <code>computeTourScore</code> (coin = projComplete×11 + dirComplete×4 + kept×3 + wonOver×3; attrition only ×0.06).</li>
+    </ol>
+  </div>
+
+  <h4>Result — the flip (default 3×8 tour)</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-wave-d.md</span> + issue 015 · <code>campaign-loop.ts</code> 3×8.</caption>
+    <thead><tr><th>Metric</th><th class="num">HEAD</th><th class="num">After</th><th>Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Tour score: careful vs body-count</td><td class="num">38.0 vs 37.5 (<span class="reg">0.5</span>)</td><td class="num"><span class="win">60.0 vs 29.7 (30.3)</span></td><td><span class="verdict v-pass">discriminates</span></td></tr>
+      <tr><td>Careful COIN moves mean attitude</td><td class="num">Δ +0.3 (flat)</td><td class="num"><span class="win">Δ +7.7</span> (body-count +0.1)</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>CERP projects completed / tour</td><td class="num">0 (all sabotaged)</td><td class="num"><span class="win">1.3–2.0</span> (4/4 survey-40)</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>CERP economy</td><td class="num">one-way 30000→0</td><td class="num"><span class="win">two-way</span> (stipend + refund)</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>Directives</td><td class="num">dead; never fail</td><td class="num"><span class="win">cadence 2.3–3.3/tour; fail FIRES</span> (D14 presence −10)</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>KLE / shura</td><td class="num">360 s attitude-drip</td><td class="num"><span class="win">kept +10 / broken −12</span> (asymmetric)</td><td><span class="verdict v-pass">PASS</span></td></tr>
+      <tr><td>Secure-build order</td><td class="num">none (#1 API gap)</td><td class="num"><span class="win">World.secureBuild()</span></td><td><span class="verdict v-pass">PASS</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout law">
+    <span class="h">Determinism — the #1 risk of this wave, independently confirmed</span>
+    Every new persisted field is in <strong>both</strong> <code>serialize()</code> and <code>loadWorld()</code>
+    (<code>nextCerpStipendAt</code>, <code>nextDirectiveAt</code>, <code>civCasualties</code>,
+    <code>reliefWatchClock</code>; village <code>ask/keptPromises/brokenPromises</code>; <code>Directive.startMetric</code>;
+    <code>Task.secureVillageId</code>). The proof: a <strong>serialize → load → serialize round-trip is
+    BYTE-IDENTICAL (240,893 == 240,893)</strong> — the strongest possible evidence no field was dropped from load.
+  </div>
+
+  <h3>The command layer — coin-hud.png</h3>
+  <p class="muted">The HUD is where the strategic layer becomes <em>playable</em>: the directive feed, SOP settings,
+    fire-support, and logistics are all surfaced so a human can drive the levers the harness drives. Callouts below
+    point at the real panels.</p>
+  <div class="shot">
+    <img src="./shots/coin-hud.png" alt="The COIN command HUD with directives, SOP, fire support and logistics">
+    <svg class="ovl" viewBox="0 0 1440 813" preserveAspectRatio="none">
+      <!-- 1 BATTALION DIRECTIVES (left panel) -->
+      <circle cx="120" cy="245" r="34" class="ann-dot"/>
+      <line x1="120" y1="245" x2="270" y2="190" class="ann-line"/>
+      <rect x="270" y="166" width="318" height="44" rx="5" class="ann-box"/>
+      <circle cx="291" cy="188" r="11" class="ann-numbg"/><text x="287" y="192" class="ann-num">1</text>
+      <text x="308" y="192" class="ann-txt">battalion directives feed (PRESENCE 12d)</text>
+      <!-- 2 logs (left lower) -->
+      <circle cx="120" cy="640" r="34" class="ann-dot"/>
+      <line x1="120" y1="640" x2="270" y2="690" class="ann-line"/>
+      <rect x="270" y="668" width="300" height="44" rx="5" class="ann-box"/>
+      <circle cx="291" cy="690" r="11" class="ann-numbg"/><text x="287" y="694" class="ann-num">2</text>
+      <text x="308" y="694" class="ann-txt">intel / combat / command log</text>
+      <!-- 3 mission orders + SOP (right panel top) -->
+      <circle cx="1320" cy="190" r="38" class="ann-dot"/>
+      <line x1="1320" y1="190" x2="1110" y2="150" class="ann-line"/>
+      <rect x="800" y="128" width="312" height="44" rx="5" class="ann-box"/>
+      <circle cx="821" cy="150" r="11" class="ann-numbg"/><text x="817" y="154" class="ann-num">3</text>
+      <text x="838" y="154" class="ann-txt">mission orders + SOP (pace / ROE)</text>
+      <!-- 4 roster / task org (right mid) -->
+      <circle cx="1330" cy="430" r="36" class="ann-dot"/>
+      <line x1="1330" y1="430" x2="1110" y2="430" class="ann-line"/>
+      <rect x="800" y="408" width="312" height="44" rx="5" class="ann-box"/>
+      <circle cx="821" cy="430" r="11" class="ann-numbg"/><text x="817" y="434" class="ann-num">4</text>
+      <text x="838" y="434" class="ann-txt">task org · 9/9 ready · SL/SAW/GRN/RFL</text>
+      <!-- 5 logistics bars (right lower) -->
+      <circle cx="1360" cy="660" r="34" class="ann-dot"/>
+      <line x1="1360" y1="660" x2="1110" y2="690" class="ann-line"/>
+      <rect x="800" y="668" width="312" height="44" rx="5" class="ann-box"/>
+      <circle cx="821" cy="690" r="11" class="ann-numbg"/><text x="817" y="694" class="ann-num">5</text>
+      <text x="838" y="694" class="ann-txt">logistics — ammo / build / med / water</text>
+      <!-- 6 fire support (bottom center) -->
+      <circle cx="540" cy="730" r="34" class="ann-dot"/>
+      <line x1="540" y1="730" x2="540" y2="640" class="ann-line"/>
+      <rect x="392" y="600" width="300" height="44" rx="5" class="ann-box"/>
+      <circle cx="413" cy="622" r="11" class="ann-numbg"/><text x="409" y="626" class="ann-num">6</text>
+      <text x="430" y="626" class="ann-txt">fire support — 60/81 mm · HELLFIRE · MEDEVAC</text>
+    </svg>
+  </div>
+  <p class="shotcap"><b>COIN command HUD (COP Vimoto, fivex-hud).</b>
+    <b>1</b> the live <b>battalion directives</b> feed with status &amp; deadline (here "Establish Presence", 12 days);
+    <b>2</b> the intel / combat / command logs (CERP micro-hydro funded at Chichal);
+    <b>3</b> mission orders (PATROL · RECON · INTERDICTION · CENSUS · SEARCH · ESTABLISH OP) and the <b>SOP</b> (pace + ROE that locks in contact);
+    <b>4</b> the <b>task organization</b> roster (9/9 ready, SL/TL/SAW/GRN/RFL);
+    <b>5</b> the <b>logistics</b> bars (5.56 / 7.62 / 60 / 81 mm, build, med kits, water);
+    <b>6</b> the <b>fire-support</b> rail with the approve/deny levers that are the only in-combat command.</p>
+
+  <div class="callout resid">
+    <span class="h">Honest residual (Wave D) — characterized, not closed → issue 015</span>
+    The held-out <strong>4×14 tail does NOT discriminate on average</strong> (careful 27.5 vs body-count 30.5,
+    <span class="reg">spread −3.0</span>) — but this went from <em>inverted (−26.8)</em> to <strong>bimodal</strong>:
+    where a careful tour survives it CRUSHES body-count (survey-40 careful <strong>96</strong>, 4/4 projects, vs 29 —
+    the seed that scored 2 before the fix), while on 2/4 combat-heavy seeds a scripted presence patrol routed at the
+    <em>most hostile village</em> (adversarial) takes a catastrophic firefight → early relief → 0. Root cause:
+    <strong>coarse-dt harness + tactically-naive scripted routing, NOT the COIN engine</strong> (which completes
+    projects and moves attitude Δ+7.6 on <em>every</em> held-out seed). The validate stage <strong>fixed the
+    instrument</strong> (adaptive fine-dt sub-step while a mobile patrol is in contact) rather than curve-fitting
+    the score, and a process win lived: it caught its predecessor's mislabeled "all-PASS" and traced it to the
+    harness over-killing (23 KIA at DT=30 vs 11–12 at fine-dt). Law 4 again.
+  </div>
+</section>
+
+
+<!-- ════════════ 06 · WAVE E ════════════ -->
+<section id="waveE">
+  <h2><span class="n">06</span>Wave E — World-Map Scale · the squad stops being a blob</h2>
+
+  <h3>Hypothesis — the one clearly-visible realism gap left on the map</h3>
+  <p>
+    Every other wave fixed something you had to <em>measure</em> to see. This one you could see at a glance and never
+    un-see: <strong>soldiers were drawn ~36× too large</strong>. A fixed <strong>15 px figure floor</strong> rendered
+    a man at roughly <strong>21 m of ground-width</strong> at the default zoom — a single soldier as wide as a
+    nine-man squad's entire correct <strong>5.5 m dispersion</strong>. So a squad collapsed into <em>one overlapping
+    blob</em> at every zoom level, the opposite of what a defense-grade map should show. The fix is render-only
+    (issue 014 "Bucket 1" = R1 + R2); the terrain/sim scale (Bucket 2) was deliberately left untouched.
+  </p>
+
+  <h3>Method — a zero-dep scale probe with a true-footprint oracle</h3>
+  <p>
+    <code>scripts/scale-probe.mjs</code> (seed <code>korengal</code>) sweeps the camera across zoom bands (pixels-per-metre
+    0.3 → 8.0) and at each band computes three independent ground-truths: <strong>figVsTrue</strong> (drawn figure
+    width ÷ a real 0.6 m man), <strong>soldier/COP</strong> (the figure's footprint as a fraction of the 170 m COP
+    — a realistic soldier is ≈1%), and <strong>squadFiguresOverlap</strong> (do two adjacent men in a 5.5 m-spaced
+    squad draw on top of each other?). HEAD was captured verbatim <em>before any edit</em>; every band re-measured
+    after; smoke round-trip re-asserted.
+  </p>
+
+  <h3>Change — figures track their footprint, squads aggregate into NATO icons</h3>
+  <p>
+    Two owned render files (<code>lib/render/draw.ts</code>, plus an <em>import-sync</em> of <code>combat-fx.ts</code>)
+    and the <code>WorldView.tsx</code> bridge. The figure-size formula was rebuilt to track the real kit footprint
+    instead of a giant legibility floor, a per-squad NATO icon was added below tactical zoom, and — the highest-risk
+    detail — combat-fx was made to <strong>import the same <code>figurePx</code></strong> so every cue stays glued to
+    the now-correctly-sized men.
+  </p>
+
+  <div class="teach">
+    <span class="h">How it works — footprint-tracking size · legibility floor · per-squad LOD · one source of truth</span>
+    <ol>
+      <li><strong>R1 — the figure tracks its footprint.</strong> <code>figurePx</code> went from
+        <code>max(15, min(40, ppm·7))</code> to <code>max(7, min(26, ppm·1.6))</code> — a <strong>1.6 m kit footprint</strong>
+        with a small <strong>7 px legibility floor</strong> instead of a 15 px giant floor (<code>dotR</code> likewise
+        <code>max(4.5,min(13,0.95·ppm))</code> → <code>max(3,min(9,0.7·ppm))</code>). The LOD fade bands were pushed up to
+        tactical zoom (<code>FIG_FADE0</code> 0.5→2.5, <code>FIG_FADE1</code> 0.9→3.5): individuals only <em>resolve</em>
+        at ppm ≥ 2.5, exactly where they are near-true size and fit the 5.5 m gap.</li>
+      <li><strong>R2 — per-squad aggregation below tactical zoom.</strong> A new <code>drawSquadIcon()</code> paints one
+        NATO friendly rectangle (echelon dot + a <code>"1st ×9"</code> badge, contact-tint) per <code>squadId</code> at
+        the element centroid; <code>WorldView</code> groups live non-garrison friendlies by squad below
+        <code>FIG_FADE0</code> with a 0.4-ppm crossfade so nothing pops. <strong>A squad reads as one icon zoomed out,
+        as spaced individuals zoomed in</strong> — the right object at the right scale.</li>
+      <li><strong>combat-fx SYNC — the #1 regression risk.</strong> combat-fx had its <em>own</em> private
+        <code>figurePx</code> and inline dot formulas; those were deleted and it now <strong>imports
+        <code>figurePx</code> / <code>dotR</code> from <code>draw.ts</code></strong> (no import cycle). One source of
+        truth means the suppression crescent, the bleed pool, and the danger-close halo can <em>never</em> detach
+        from a resized figure ring — exactly the kind of split-brain that a naive size change would have introduced.</li>
+    </ol>
+  </div>
+
+  <h4>Result — before → after (scale-probe, seed korengal)</h4>
+  <table>
+    <caption>Source: <span style="color:var(--olive)">results-wave-e.md</span> · <code>scale-probe.mjs</code> (seed korengal). figVsTrue = drawn figure ÷ a 0.6 m man (lower is truer); soldier/COP = footprint ÷ 170 m COP (≈1% is realistic); overlap = two 5.5 m-spaced men draw on top of each other.</caption>
+    <thead><tr><th>ppm (zoom)</th><th>LOD</th><th class="num">figVsTrue</th><th class="num">soldier/COP</th><th>squad overlap</th></tr></thead>
+    <tbody>
+      <tr><td>0.3 (strategic)</td><td>squad-icon</td><td class="num">83× → <span class="win">39×</span></td><td class="num">0.294 → <span class="win">0.137</span></td><td>true → <span class="win">false</span></td></tr>
+      <tr><td>0.7 (default)</td><td>squad-icon</td><td class="num">36× → <span class="win">17×</span></td><td class="num">0.126 → <span class="win">0.059</span></td><td>true → <span class="win">false</span></td></tr>
+      <tr><td>1.0</td><td>squad-icon</td><td class="num">25× → <span class="win">12×</span></td><td class="num">0.088 → <span class="win">0.041</span></td><td>true → <span class="win">false</span></td></tr>
+      <tr><td>2.0</td><td>squad-icon</td><td class="num">13× → <span class="win">6×</span></td><td class="num">0.044 → <span class="win">0.021</span></td><td>true → <span class="win">false</span></td></tr>
+      <tr><td>4.0 (tactical)</td><td>figures</td><td class="num">12× → <span class="win">3×</span></td><td class="num">0.041 → <span class="win">0.010</span> (~1%)</td><td>true → <span class="win">false</span></td></tr>
+      <tr><td>8.0</td><td>figures</td><td class="num">8× → <span class="win">3×</span></td><td class="num">0.029 → <span class="win">0.009</span></td><td>true → <span class="win">false</span></td></tr>
+    </tbody>
+  </table>
+  <p class="muted"><code>squadFiguresOverlap</code> is now <strong>false at every zoom</strong>: below 2.5 ppm a
+    squad is drawn as <em>one</em> NATO icon (so there is nothing to overlap), and at 2.5+ ppm each figure (≤1.8 m)
+    finally fits inside the real 5.5 m gap. At tactical zoom <code>soldier/COP</code> lands at <strong>~0.010
+    (~1%)</strong> — a realistic footprint — down from a 36× giant at default.</p>
+
+  <!-- WAVE-E CHART: figVsTrue across zoom bands, before vs after -->
+  <figure>
+  <svg viewBox="0 0 720 360" role="img" aria-label="Figure-vs-true size across zoom bands before and after">
+    <text x="24" y="26" class="ct-title">Figure size vs. a real 0.6 m man — across zoom (scale-probe, seed korengal)</text>
+    <text x="24" y="44" class="ct-axtitle">1× = true scale (target) · lower is truer · HEAD was a 36× giant at default zoom</text>
+    <!-- plot: x = 6 zoom groups; y value 0..90 → height; y0=300, top=70 (230px), scale 90 -> 230px (2.556px/unit) -->
+    <line x1="70" y1="300" x2="690" y2="300" class="ct-axis"/>
+    <line x1="70" y1="70"  x2="70"  y2="300" class="ct-axis"/>
+    <g class="ct-lab" text-anchor="end">
+      <line x1="66" y1="300" x2="70" y2="300" class="ct-axis"/><text x="60" y="304">0×</text>
+      <line x1="66" y1="249" x2="70" y2="249" class="ct-grid"/><text x="60" y="253">20×</text>
+      <line x1="66" y1="198" x2="70" y2="198" class="ct-grid"/><text x="60" y="202">40×</text>
+      <line x1="66" y1="147" x2="70" y2="147" class="ct-grid"/><text x="60" y="151">60×</text>
+      <line x1="66" y1="95"  x2="70" y2="95"  class="ct-grid"/><text x="60" y="99">80×</text>
+    </g>
+    <!-- "true scale" baseline at 1× (y = 300 - 1*2.556 = 297.4) -->
+    <line x1="70" y1="297.4" x2="690" y2="297.4" stroke="#5c8a86" stroke-width="1.6" stroke-dasharray="4 4"/>
+    <text x="684" y="293" class="ct-lab" text-anchor="end" fill="#5c8a86">1× true scale</text>
+    <text x="22" y="185" class="ct-axtitle" transform="rotate(-90,22,185)" text-anchor="middle">figure ÷ true (×)</text>
+    <!-- 6 groups; each group 2 bars width 28; group pitch ~100. y=300 - v*2.556 -->
+    <!-- G1 ppm0.3: 83->212.2px ; 39->99.7px ; x0=98 -->
+    <g>
+      <rect x="98"  y="87.8"  width="28" height="212.2" class="bar-b4"/>
+      <rect x="128" y="200.3" width="28" height="99.7"  class="bar-af2"/>
+      <text x="112" y="81"  class="ct-val" text-anchor="middle">83×</text>
+      <text x="142" y="194" class="ct-val" text-anchor="middle">39×</text>
+      <text x="127" y="318" class="ct-labx">0.3</text>
+    </g>
+    <!-- G2 ppm0.7 (default): 36->92.0 ; 17->43.5 ; x0=196 -->
+    <g>
+      <rect x="196" y="208.0" width="28" height="92.0" class="bar-b4"/>
+      <rect x="226" y="256.5" width="28" height="43.5" class="bar-af2"/>
+      <text x="210" y="201" class="ct-val" text-anchor="middle">36×</text>
+      <text x="240" y="250" class="ct-val" text-anchor="middle">17×</text>
+      <text x="225" y="318" class="ct-labx">0.7*</text>
+    </g>
+    <!-- G3 ppm1.0: 25->63.9 ; 12->30.7 ; x0=294 -->
+    <g>
+      <rect x="294" y="236.1" width="28" height="63.9" class="bar-b4"/>
+      <rect x="324" y="269.3" width="28" height="30.7" class="bar-af2"/>
+      <text x="308" y="229" class="ct-val" text-anchor="middle">25×</text>
+      <text x="338" y="263" class="ct-val" text-anchor="middle">12×</text>
+      <text x="323" y="318" class="ct-labx">1.0</text>
+    </g>
+    <!-- G4 ppm2.0: 13->33.2 ; 6->15.3 ; x0=392 -->
+    <g>
+      <rect x="392" y="266.8" width="28" height="33.2" class="bar-b4"/>
+      <rect x="422" y="284.7" width="28" height="15.3" class="bar-af2"/>
+      <text x="406" y="260" class="ct-val" text-anchor="middle">13×</text>
+      <text x="436" y="278" class="ct-val" text-anchor="middle">6×</text>
+      <text x="421" y="318" class="ct-labx">2.0</text>
+    </g>
+    <!-- G5 ppm4.0 (tactical): 12->30.7 ; 3->7.7 ; x0=490 -->
+    <g>
+      <rect x="490" y="269.3" width="28" height="30.7" class="bar-b4"/>
+      <rect x="520" y="292.3" width="28" height="7.7"  class="bar-af2"/>
+      <text x="504" y="262" class="ct-val" text-anchor="middle">12×</text>
+      <text x="534" y="286" class="ct-val" text-anchor="middle">3×</text>
+      <text x="519" y="318" class="ct-labx">4.0†</text>
+    </g>
+    <!-- G6 ppm8.0: 8->20.4 ; 3->7.7 ; x0=588 -->
+    <g>
+      <rect x="588" y="279.6" width="28" height="20.4" class="bar-b4"/>
+      <rect x="618" y="292.3" width="28" height="7.7"  class="bar-af2"/>
+      <text x="602" y="273" class="ct-val" text-anchor="middle">8×</text>
+      <text x="632" y="286" class="ct-val" text-anchor="middle">3×</text>
+      <text x="617" y="318" class="ct-labx">8.0</text>
+    </g>
+    <text x="380" y="338" class="ct-axtitle" text-anchor="middle">pixels per metre (zoom) · *default · †tactical (figures resolve)</text>
+    <!-- legend -->
+    <g class="leg" transform="translate(98,354)">
+      <rect x="0" y="-9" width="12" height="12" class="bar-b4"/><text x="18" y="1" fill="#9aa088">HEAD (giant floor)</text>
+      <rect x="200" y="-9" width="12" height="12" class="bar-af2"/><text x="218" y="1" fill="#9aa088">after (footprint-tracking)</text>
+    </g>
+  </svg>
+  <figcaption><span class="src">scale-probe (seed korengal)</span> · figVsTrue collapses across every zoom band —
+    <strong>36× → 17×</strong> at the default zoom, <strong>12× → 3×</strong> at tactical, where a soldier finally
+    reads at ≈1% of the COP. The teal dashed line is true scale (1×); below 2.5 ppm the squad is a single NATO icon
+    (so figVsTrue describes the icon's stand-in), at 2.5+ ppm it is individual men. <code>squadFiguresOverlap</code>
+    is false in every band.</figcaption>
+  </figure>
+
+  <div class="callout law">
+    <span class="h">Verified by the adversary + the done-gate</span>
+    The fix is render-only — <strong><code>lib/sim</code> is untouched</strong>, so the determinism contract is intact
+    by construction. The standing done-gate is green: <strong>tsc clean · build 0 errors · smoke OK</strong>, and the
+    re-captured combat shots (this report's §02 day/night and §08 tableau, ppm 4.6) were inspected to confirm the
+    combat-FX cues stay hugged to the resized figures — the exact regression the import-sync was designed to prevent.
+  </div>
+
+  <div class="callout resid">
+    <span class="h">Honest tradeoff / scope (Wave E)</span>
+    The legibility-vs-realism tension lives <em>only</em> in the narrow <strong>2.1–2.5 ppm crossfade band</strong>
+    (the icon fading out while individuals fade in — both briefly semi-transparent); it is unambiguous above 2.5 and
+    below 2.1. <strong>R3</strong> (render a village as a sub-compound cluster — a hamlet, not one qalat) was
+    deliberately deferred as the smallest slice. <strong>Bucket 2</strong> (valley shape, weapons-squad count, COP
+    geometry) was left untouched — the sim/terrain is sensitive and issue 014 itself rates the relief and peaks as
+    already authentic. Net: <strong>issue 014 → Bucket 1 RESOLVED; Bucket 2 + R3 deferred.</strong>
+  </div>
+</section>
+
+
+<!-- ════════════ 07 · CHARTS ════════════ -->
+<section id="charts">
+  <h2><span class="n">07</span>The Charts — every headline number, drawn</h2>
+  <p class="lead">Inline SVG, zero dependencies (matching the repo's ethos). Every axis is labeled and every chart
+    cites its harness. Bars are colour-coded: <span style="color:var(--rust)">■ HEAD (before)</span> ·
+    <span style="color:var(--olive)">■ after (tuned)</span> · <span style="color:var(--good)">■ after (held-out)</span>.</p>
+
+  <!-- CHART 1: exchange ratio (grouped, three after-states) -->
+  <figure>
+  <svg viewBox="0 0 720 360" role="img" aria-label="Combat exchange ratio before and after">
+    <text x="24" y="26" class="ct-title">Combat exchange — casualties per contact (balance.ts 12×50)</text>
+    <text x="24" y="44" class="ct-axtitle">lower US KIA/WIA is better · higher enemy-accounted is better</text>
+    <!-- plot area: x 70..690, y 70..300; value 0..6 → height -->
+    <!-- y axis grid 0..6 -->
+    <g>
+      <!-- gridlines every 1 (scale: 6 -> 220px, 1 unit = 36.67px), y0=300 -->
+      <line x1="70" y1="300" x2="690" y2="300" class="ct-axis"/>
+      <line x1="70" y1="80"  x2="70"  y2="300" class="ct-axis"/>
+      <!-- ticks -->
+      <g class="ct-lab" text-anchor="end">
+        <line x1="66" y1="300" x2="70" y2="300" class="ct-axis"/><text x="60" y="304">0</text>
+        <line x1="66" y1="263" x2="70" y2="263" class="ct-grid"/><text x="60" y="267">1</text>
+        <line x1="66" y1="227" x2="70" y2="227" class="ct-grid"/><text x="60" y="231">2</text>
+        <line x1="66" y1="190" x2="70" y2="190" class="ct-grid"/><text x="60" y="194">3</text>
+        <line x1="66" y1="153" x2="70" y2="153" class="ct-grid"/><text x="60" y="157">4</text>
+        <line x1="66" y1="117" x2="70" y2="117" class="ct-grid"/><text x="60" y="121">5</text>
+        <line x1="66" y1="80"  x2="70" y2="80"  class="ct-grid"/><text x="60" y="84">6</text>
+      </g>
+      <text x="22" y="190" class="ct-axtitle" transform="rotate(-90,22,190)" text-anchor="middle">casualties / contact</text>
+    </g>
+    <!-- three metric groups; each group has HEAD + 3 after bars; bar width 22, 1 unit=36.67px -->
+    <!-- helper: y = 300 - value*36.667 -->
+    <!-- GROUP 1: US KIA  (HEAD .75=27.5px; after .58=21.3; waveA .33=12.1; holdout .30=11) -->
+    <g>
+      <rect x="110" y="272.5" width="22" height="27.5" class="bar-b4"/>
+      <rect x="134" y="278.7" width="22" height="21.3" class="bar-af"/>
+      <rect x="158" y="287.9" width="22" height="12.1" class="bar-af"/>
+      <rect x="182" y="289.0" width="22" height="11.0" class="bar-af2"/>
+      <text x="121" y="266" class="ct-val" text-anchor="middle">.75</text>
+      <text x="193" y="283" class="ct-val" text-anchor="middle">.30</text>
+      <text x="146" y="320" class="ct-labx">US KIA</text>
+    </g>
+    <!-- GROUP 2: US WIA (5.58=204.6; 4.33=158.8; 3.92=143.7; 2.70=99.0) -->
+    <g>
+      <rect x="300" y="95.4"  width="22" height="204.6" class="bar-b4"/>
+      <rect x="324" y="141.2" width="22" height="158.8" class="bar-af"/>
+      <rect x="348" y="156.3" width="22" height="143.7" class="bar-af"/>
+      <rect x="372" y="201.0" width="22" height="99.0"  class="bar-af2"/>
+      <text x="311" y="89" class="ct-val" text-anchor="middle">5.58</text>
+      <text x="383" y="195" class="ct-val" text-anchor="middle">2.70</text>
+      <text x="336" y="320" class="ct-labx">US WIA</text>
+    </g>
+    <!-- GROUP 3: Enemy accounted (1.25=45.8; 5.67=207.9; 4.42=162.1; 5.40=198.0) -->
+    <g>
+      <rect x="490" y="254.2" width="22" height="45.8"  class="bar-b4"/>
+      <rect x="514" y="92.1"  width="22" height="207.9" class="bar-af"/>
+      <rect x="538" y="137.9" width="22" height="162.1" class="bar-af"/>
+      <rect x="562" y="102.0" width="22" height="198.0" class="bar-af2"/>
+      <text x="501" y="248" class="ct-val" text-anchor="middle">1.25</text>
+      <text x="525" y="86"  class="ct-val" text-anchor="middle">5.67</text>
+      <text x="536" y="320" class="ct-labx">Enemy accounted</text>
+    </g>
+    <!-- legend -->
+    <g class="leg" transform="translate(110,338)">
+      <rect x="0" y="-9" width="12" height="12" class="bar-b4"/><text x="18" y="1" fill="#9aa088">HEAD</text>
+      <rect x="78" y="-9" width="12" height="12" class="bar-af"/><text x="96" y="1" fill="#9aa088">after settled (.58/4.33/5.67) &amp; wave-A (.33/3.92/4.42)</text>
+      <rect x="430" y="-9" width="12" height="12" class="bar-af2"/><text x="448" y="1" fill="#9aa088">held-out (.30/2.70/5.40)</text>
+    </g>
+  </svg>
+  <figcaption><span class="src">balance.ts 12×50</span> · HEAD: 0.75 KIA / 5.58 WIA / 1.25 enemy → settled
+    0.58 / 4.33 / 5.67 · wave-A 0.33 / 3.92 / 4.42 · held-out (20×50) 0.30 / 2.70 / 5.40. Three after-states are
+    shown so the convergence is visible, not a single cherry-picked column. The inversion is gone.</figcaption>
+  </figure>
+
+  <!-- CHART 2: suppression -->
+  <figure>
+  <svg viewBox="0 0 720 250" role="img" aria-label="Suppression reachable fraction before and after">
+    <text x="24" y="26" class="ct-title">Suppression — reachable fraction &amp; pinned band (realism-probe)</text>
+    <!-- horizontal bars; x scale 0..1 → 70..610 (540px) -->
+    <line x1="70" y1="60" x2="70" y2="210" class="ct-axis"/>
+    <line x1="70" y1="210" x2="630" y2="210" class="ct-axis"/>
+    <g class="ct-labx">
+      <text x="70"  y="228">0.0</text><line x1="70"  y1="210" x2="70"  y2="206" class="ct-axis"/>
+      <text x="205" y="228">0.25</text><line x1="205" y1="210" x2="205" y2="206" class="ct-grid"/>
+      <text x="340" y="228">0.5</text><line x1="340" y1="210" x2="340" y2="206" class="ct-grid"/>
+      <text x="475" y="228">0.75</text><line x1="475" y1="210" x2="475" y2="206" class="ct-grid"/>
+      <text x="610" y="228">1.0</text><line x1="610" y1="210" x2="610" y2="206" class="ct-axis"/>
+    </g>
+    <text x="340" y="246" class="ct-axtitle" text-anchor="middle">fraction of element under suppression</text>
+    <!-- HEAD reachable 0.000 -->
+    <text x="62" y="92" class="ct-lab" text-anchor="end">HEAD reachable</text>
+    <rect x="70" y="80" width="1.5" height="22" class="bar-b4"/>
+    <text x="80" y="96" class="ct-val">0.000</text>
+    <!-- after reachable 1.0 -->
+    <text x="62" y="132" class="ct-lab" text-anchor="end">after reachable</text>
+    <rect x="70" y="120" width="540" height="22" class="bar-af"/>
+    <text x="556" y="136" class="ct-valw">1.0</text>
+    <!-- after pinned band 0.27-0.36 : x-scale 0..1 -> 70..610 (540px, 5.4px/%) -->
+    <text x="62" y="172" class="ct-lab" text-anchor="end">after pinned (band)</text>
+    <!-- faint fill 0 -> 0.36 to show the upper extent -->
+    <rect x="70" y="160" width="194.4" height="22" class="bar-af2" opacity=".28"/>
+    <!-- solid 27% -> 36% band -->
+    <rect x="215.8" y="160" width="48.6" height="22" class="bar-af2"/>
+    <text x="274" y="176" class="ct-val">27–36%</text>
+  </svg>
+  <figcaption><span class="src">realism-probe</span> · suppression went from <strong>0.000</strong> reachable
+    (never credited) to a <strong>1.0</strong> ceiling, with <strong>27–36%</strong> of an element pinned at any
+    instant. The element-average peak (0.43–0.48) is the logged residual — see §09.</figcaption>
+  </figure>
+
+  <!-- CHART 3: elevation -->
+  <figure>
+  <svg viewBox="0 0 720 200" role="img" aria-label="Enemy elevation advantage before and after">
+    <text x="24" y="26" class="ct-title">Enemy mean elevation advantage (realism-probe, ambush)</text>
+    <!-- x scale 0..40m → 70..630 (560px → 14px/m) -->
+    <line x1="70" y1="50" x2="70" y2="150" class="ct-axis"/>
+    <line x1="70" y1="150" x2="630" y2="150" class="ct-axis"/>
+    <g class="ct-labx">
+      <text x="70"  y="168">0</text>
+      <text x="210" y="168">10</text><line x1="210" y1="150" x2="210" y2="146" class="ct-grid"/>
+      <text x="350" y="168">20</text><line x1="350" y1="150" x2="350" y2="146" class="ct-grid"/>
+      <text x="490" y="168">30</text><line x1="490" y1="150" x2="490" y2="146" class="ct-grid"/>
+      <text x="630" y="168">40</text><line x1="630" y1="150" x2="630" y2="146" class="ct-axis"/>
+    </g>
+    <text x="350" y="186" class="ct-axtitle" text-anchor="middle">metres of elevation over the friendly element</text>
+    <text x="62" y="76" class="ct-lab" text-anchor="end">HEAD</text>
+    <rect x="70" y="64" width="33.7" height="22" class="bar-b4"/>
+    <text x="112" y="80" class="ct-val">+2.41 m</text>
+    <text x="62" y="116" class="ct-lab" text-anchor="end">after</text>
+    <rect x="70" y="104" width="532" height="22" class="bar-af"/>
+    <text x="540" y="120" class="ct-valw">+38 m</text>
+  </svg>
+  <figcaption><span class="src">realism-probe</span> · the enemy's elevation edge in ambush jumped from a
+    meaningless <strong>+2.41 m</strong> to <strong>+38 m</strong> — real plunging fire from the draws, faithful to
+    the Korengal terrain.</figcaption>
+  </figure>
+
+  <!-- CHART 4: stance -->
+  <figure>
+  <svg viewBox="0 0 720 270" role="img" aria-label="Stance distribution under fire before and after">
+    <text x="24" y="26" class="ct-title">Stance under fire — share of element (realism-probe)</text>
+    <text x="24" y="44" class="ct-axtitle">HEAD: nearly everyone stands upright · after: crouch dominates, some prone</text>
+    <!-- two stacked horizontal bars, x 0..100% → 70..630 (560px → 5.6px/%) -->
+    <line x1="70" y1="70" x2="70" y2="210" class="ct-axis"/>
+    <line x1="70" y1="210" x2="630" y2="210" class="ct-axis"/>
+    <g class="ct-labx">
+      <text x="70"  y="228">0%</text>
+      <text x="210" y="228">25%</text><line x1="210" y1="210" x2="210" y2="206" class="ct-grid"/>
+      <text x="350" y="228">50%</text><line x1="350" y1="210" x2="350" y2="206" class="ct-grid"/>
+      <text x="490" y="228">75%</text><line x1="490" y1="210" x2="490" y2="206" class="ct-grid"/>
+      <text x="630" y="228">100%</text><line x1="630" y1="210" x2="630" y2="206" class="ct-axis"/>
+    </g>
+    <text x="350" y="248" class="ct-axtitle" text-anchor="middle">percentage of the element in each stance</text>
+    <!-- HEAD: standing 73 (408.8px), prone 0, rest crouch 27 (151.2) -->
+    <text x="62" y="100" class="ct-lab" text-anchor="end">HEAD</text>
+    <rect x="70"    y="84" width="408.8" height="26" fill="#b5562f"/>
+    <rect x="478.8" y="84" width="151.2" height="26" fill="#6c715c"/>
+    <text x="274" y="101" class="ct-valw">standing 73%</text>
+    <text x="554" y="101" class="ct-val" text-anchor="middle">crouch 27%</text>
+    <!-- after: standing 10 (56), crouch 87 (487.2... cap to 504), prone ~3 (16.8) -->
+    <text x="62" y="160" class="ct-lab" text-anchor="end">after</text>
+    <rect x="70"    y="144" width="56"  height="26" fill="#b5562f"/>
+    <rect x="126"   y="144" width="487" height="26" fill="#8a9a4f"/>
+    <rect x="613"   y="144" width="17"  height="26" fill="#7fa64b"/>
+    <text x="98"  y="161" class="ct-val" text-anchor="middle">10%</text>
+    <text x="370" y="161" class="ct-valw">crouch ~87%</text>
+    <text x="621" y="138" class="ct-val" text-anchor="middle">prone ~3%</text>
+    <!-- legend -->
+    <g class="leg" transform="translate(70,262)">
+      <rect x="0" y="-9" width="12" height="12" fill="#b5562f"/><text x="18" y="1" fill="#9aa088">standing (exposed)</text>
+      <rect x="170" y="-9" width="12" height="12" fill="#8a9a4f"/><text x="188" y="1" fill="#9aa088">crouch</text>
+      <rect x="270" y="-9" width="12" height="12" fill="#7fa64b"/><text x="288" y="1" fill="#9aa088">prone (1.7–4%)</text>
+    </g>
+  </svg>
+  <figcaption><span class="src">realism-probe</span> · standing-under-fire collapsed from <strong>73% → ~10%</strong>;
+    prone rose from <strong>0% → 1.7–4%</strong>; the rest crouch (~87%). Soldiers now take cover like soldiers.</figcaption>
+  </figure>
+
+  <!-- CHART 5: COIN tour score spread -->
+  <figure>
+  <svg viewBox="0 0 720 320" role="img" aria-label="COIN tour score: careful vs body count before and after">
+    <text x="24" y="26" class="ct-title">COIN tour score — careful COIN vs body-count (campaign-loop 3×8)</text>
+    <text x="24" y="44" class="ct-axtitle">a wide spread = the strategy layer discriminates (target &gt; 25)</text>
+    <!-- plot: x 0..70 value → height; y0=270, scale 70 -> 200px (2.857px/unit) -->
+    <line x1="70" y1="60" x2="70" y2="270" class="ct-axis"/>
+    <line x1="70" y1="270" x2="690" y2="270" class="ct-axis"/>
+    <g class="ct-lab" text-anchor="end">
+      <line x1="66" y1="270" x2="70" y2="270" class="ct-axis"/><text x="60" y="274">0</text>
+      <line x1="66" y1="213" x2="70" y2="213" class="ct-grid"/><text x="60" y="217">20</text>
+      <line x1="66" y1="156" x2="70" y2="156" class="ct-grid"/><text x="60" y="160">40</text>
+      <line x1="66" y1="99"  x2="70" y2="99"  class="ct-grid"/><text x="60" y="103">60</text>
+    </g>
+    <text x="22" y="165" class="ct-axtitle" transform="rotate(-90,22,165)" text-anchor="middle">tour score</text>
+    <!-- HEAD group: careful 38.0 (108.6px), body 37.5 (107.1) -->
+    <g>
+      <rect x="150" y="161.4" width="48" height="108.6" class="bar-b4"/>
+      <rect x="206" y="162.9" width="48" height="107.1" fill="#7d3c22"/>
+      <text x="174" y="155" class="ct-val" text-anchor="middle">38.0</text>
+      <text x="230" y="155" class="ct-val" text-anchor="middle">37.5</text>
+      <text x="202" y="290" class="ct-labx">HEAD — spread 0.5</text>
+    </g>
+    <!-- AFTER group: careful 60.0 (171.4px), body 29.7 (84.9) -->
+    <g>
+      <rect x="430" y="98.6"  width="48" height="171.4" class="bar-af2"/>
+      <rect x="486" y="185.1" width="48" height="84.9"  class="bar-af"/>
+      <text x="454" y="92"  class="ct-val" text-anchor="middle">60.0</text>
+      <text x="510" y="178" class="ct-val" text-anchor="middle">29.7</text>
+      <text x="482" y="290" class="ct-labx">AFTER — spread 30.3</text>
+    </g>
+    <!-- legend -->
+    <g class="leg" transform="translate(150,312)">
+      <rect x="0" y="-9" width="12" height="12" class="bar-af2"/><text x="18" y="1" fill="#9aa088">careful COIN</text>
+      <rect x="140" y="-9" width="12" height="12" class="bar-af"/><text x="158" y="1" fill="#9aa088">body-count</text>
+      <text x="280" y="1" fill="#6c715c">(HEAD bars in rust)</text>
+    </g>
+  </svg>
+  <figcaption><span class="src">campaign-loop 3×8</span> · careful-COIN vs body-count went from
+    <strong>38.0 / 37.5 (spread 0.5)</strong> to <strong>60.0 / 29.7 (spread 30.3)</strong>. Patience now wins the
+    valley — the design pillar is mechanically alive. The held-out 4×14 residual (spread −3.0, bimodal) is in §09.</figcaption>
+  </figure>
+
+  <!-- CHART 6: audio fidelity -->
+  <figure>
+  <svg viewBox="0 0 720 170" role="img" aria-label="Audio cue fidelity">
+    <text x="24" y="26" class="ct-title">Audio cue fidelity — cues vs sim effect-ids (audio-probe)</text>
+    <line x1="70" y1="50" x2="70" y2="120" class="ct-axis"/>
+    <line x1="70" y1="120" x2="630" y2="120" class="ct-axis"/>
+    <!-- x scale 0..1300 → 70..630 (560px) -->
+    <g class="ct-labx">
+      <text x="70"  y="138">0</text>
+      <text x="285" y="138">500</text><line x1="285" y1="120" x2="285" y2="116" class="ct-grid"/>
+      <text x="500" y="138">1000</text><line x1="500" y1="120" x2="500" y2="116" class="ct-grid"/>
+      <text x="630" y="138">1300</text>
+    </g>
+    <text x="350" y="156" class="ct-axtitle" text-anchor="middle">count (1 px ≈ 2.32 events)</text>
+    <text x="62" y="76" class="ct-lab" text-anchor="end">effect ids</text>
+    <rect x="70" y="64" width="539" height="20" class="bar-af"/>
+    <text x="615" y="80" class="ct-val">1252</text>
+    <text x="62" y="106" class="ct-lab" text-anchor="end">audio cues</text>
+    <rect x="70" y="94" width="539" height="20" class="bar-af2"/>
+    <text x="615" y="110" class="ct-val">1252</text>
+  </svg>
+  <figcaption><span class="src">audio-probe</span> · <strong>1252 cues == 1252 non-blood effect ids</strong>,
+    0 dropped, 0 double-fired (of 1480 total cues). The mapper is pure (two replays byte-identical, 7394 cues) and
+    <code>lib/sim</code> has zero audio imports — determinism intact.</figcaption>
+  </figure>
+
+  <!-- CHART 7: diurnal occupancy curve -->
+  <figure>
+  <svg viewBox="0 0 720 280" role="img" aria-label="Diurnal outdoor occupancy curve before and after">
+    <text x="24" y="26" class="ct-title">Diurnal outdoor occupancy by hour (atmospherics-probe, survey-7)</text>
+    <text x="24" y="44" class="ct-axtitle">HEAD: flat 100% all day &amp; night · after: the valley sleeps and wakes</text>
+    <!-- plot: x 0..24h → 70..650 (24.17px/h); y 0..100% → 230(0)..70(100) i.e. 1.6px/% -->
+    <line x1="70" y1="70" x2="70" y2="230" class="ct-axis"/>
+    <line x1="70" y1="230" x2="650" y2="230" class="ct-axis"/>
+    <g class="ct-lab" text-anchor="end">
+      <text x="62" y="234">0%</text><line x1="66" y1="230" x2="70" y2="230" class="ct-axis"/>
+      <text x="62" y="194">25%</text><line x1="66" y1="190" x2="70" y2="190" class="ct-grid"/>
+      <text x="62" y="154">50%</text><line x1="66" y1="150" x2="70" y2="150" class="ct-grid"/>
+      <text x="62" y="114">75%</text><line x1="66" y1="110" x2="70" y2="110" class="ct-grid"/>
+      <text x="62" y="74">100%</text><line x1="66" y1="70" x2="70" y2="70" class="ct-axis"/>
+    </g>
+    <g class="ct-labx">
+      <text x="70"  y="248">00</text>
+      <text x="215" y="248">06</text><line x1="215" y1="230" x2="215" y2="226" class="ct-grid"/>
+      <text x="360" y="248">12</text><line x1="360" y1="230" x2="360" y2="226" class="ct-grid"/>
+      <text x="505" y="248">19</text><line x1="505" y1="230" x2="505" y2="226" class="ct-grid"/>
+      <text x="650" y="248">24</text>
+    </g>
+    <text x="360" y="266" class="ct-axtitle" text-anchor="middle">hour of day</text>
+    <!-- HEAD flat 100% line at y=70 -->
+    <line x1="70" y1="70" x2="650" y2="70" stroke="#b5562f" stroke-width="2" stroke-dasharray="5 4"/>
+    <text x="430" y="64" class="ct-val" fill="#b5562f">HEAD — flat 100% (day = night)</text>
+    <!-- AFTER curve: points (00:0%,y230)(06:61%,y132.4)(12:83%,y97.2)(19:10%,y214)(24back to ~0,y230) -->
+    <!-- map hour->x: x=70+h*24.167 ; %->y: y=230-pct*1.6 -->
+    <polyline fill="none" stroke="#7fa64b" stroke-width="2.4" points="
+      70,230  95,230  215,132.4  288,82  360,97.2  433,118  505,214  578,230  650,230"/>
+    <!-- markers + labels -->
+    <circle cx="70"  cy="230" r="3.4" fill="#7fa64b"/><text x="70"  y="222" class="ct-val" text-anchor="middle" fill="#7fa64b">0%</text>
+    <circle cx="215" cy="132.4" r="3.4" fill="#7fa64b"/><text x="215" y="126" class="ct-val" text-anchor="middle" fill="#7fa64b">61%</text>
+    <circle cx="360" cy="97.2" r="3.4" fill="#7fa64b"/><text x="360" y="90" class="ct-val" text-anchor="middle" fill="#7fa64b">83%</text>
+    <circle cx="505" cy="214" r="3.4" fill="#7fa64b"/><text x="520" y="210" class="ct-val" fill="#7fa64b">10%</text>
+    <text x="430" y="200" class="leg" fill="#9aa088">after — wakes 06:00, peaks midday, home by dusk, asleep at night</text>
+  </svg>
+  <figcaption><span class="src">atmospherics-probe (survey-7)</span> · HEAD outdoor occupancy was a flat 100% all
+    24 hours (day == night). After, the valley wakes at 06:00 (61%), peaks at midday (83%), empties by 19:00 (10%),
+    and sleeps at night (0%). Held-out survey-43 night floor (≈13%) is real civilians fleeing infiltrators after
+    dark, not a bug.</figcaption>
+  </figure>
+</section>
+
+
+<!-- ════════════ 08 · ANNOTATED SHOTS GALLERY ════════════ -->
+<section id="shots">
+  <h2><span class="n">08</span>Annotated Screenshots — what you are looking at</h2>
+  <p class="lead">The featured screenshots are annotated inline at their point of use (combat day/night in §02,
+    weather in §04, the COIN HUD in §05). All combat shots were <strong>re-captured after the Wave-E scale fix</strong>
+    (§06) — the squad now reads as small, evenly-spaced individuals, not a giant. The remaining tableau below shows
+    combat <em>legibility</em> — the Combat Visual Language reading clearly in daylight, the proof that the firefight
+    is not just simulated but <em>readable</em>.</p>
+
+  <div class="shot">
+    <img src="./shots/combat-tableau.png" alt="Daytime combat tableau showing the combat visual language">
+    <svg class="ovl" viewBox="0 0 1632 1530" preserveAspectRatio="none">
+      <!-- 1 mortar beaten zones (two craters left & right of the H) -->
+      <circle cx="617" cy="119" r="74" class="ann-dot"/>
+      <circle cx="995" cy="139" r="96" class="ann-dot"/>
+      <line x1="617" y1="193" x2="500" y2="300" class="ann-line"/>
+      <rect x="120" y="300" width="430" height="58" rx="5" class="ann-box"/>
+      <circle cx="144" cy="329" r="13" class="ann-numbg"/><text x="140" y="334" class="ann-num">1</text>
+      <text x="164" y="334" class="ann-txt">indirect-fire beaten zones (60/81 mm)</text>
+      <!-- 2 helipad / COP center -->
+      <circle cx="788" cy="111" r="56" class="ann-dot"/>
+      <line x1="788" y1="167" x2="660" y2="240" class="ann-line"/>
+      <rect x="300" y="240" width="240" height="58" rx="5" class="ann-box"/>
+      <circle cx="324" cy="269" r="13" class="ann-numbg"/><text x="320" y="274" class="ann-num">2</text>
+      <text x="344" y="274" class="ann-txt">COP / helipad</text>
+      <!-- 3 the squad — small spaced named men, not a blob -->
+      <rect x="400" y="700" width="830" height="120" rx="60" fill="none" stroke="var(--amber)" stroke-width="2" stroke-dasharray="9 7" opacity=".85"/>
+      <line x1="600" y1="826" x2="470" y2="940" class="ann-line"/>
+      <rect x="120" y="922" width="500" height="58" rx="5" class="ann-box"/>
+      <circle cx="144" cy="951" r="13" class="ann-numbg"/><text x="140" y="956" class="ann-num">3</text>
+      <text x="164" y="956" class="ann-txt">squad — spaced named men, fits the 5.5 m gap</text>
+      <!-- 4 dark scree / terrain LOS (diagonal dark band lower-left) -->
+      <line x1="360" y1="640" x2="500" y2="540" class="ann-line"/>
+      <rect x="500" y="512" width="380" height="58" rx="5" class="ann-box"/>
+      <circle cx="524" cy="541" r="13" class="ann-numbg"/><text x="520" y="546" class="ann-num">4</text>
+      <text x="544" y="546" class="ann-txt">dark scree band — terrain dominates LOS</text>
+      <!-- 5 named buildings / COP interior (upper-right cluster) -->
+      <circle cx="1393" cy="72" r="60" class="ann-dot"/>
+      <line x1="1393" y1="132" x2="1280" y2="240" class="ann-line"/>
+      <rect x="840" y="240" width="460" height="58" rx="5" class="ann-box"/>
+      <circle cx="864" cy="269" r="13" class="ann-numbg"/><text x="860" y="274" class="ann-num">5</text>
+      <text x="884" y="274" class="ann-txt">COP interior — TOC / motor / DFAC, named</text>
+    </svg>
+  </div>
+  <p class="shotcap"><b>Combat tableau (day).</b> The Combat Visual Language reads at a glance:
+    <b>1</b> indirect-fire beaten zones bloom where mortars land; <b>2</b> the COP and helipad anchor the center;
+    <b>3</b> the squad is a row of small, spaced named men (Pratt · Patterson · Marsh · Beckett) — the Wave-E scale
+    fix (§06), each figure finally fitting inside the real 5.5 m dispersion; <b>4</b> the dark scree band is impassable
+    terrain that dictates lines of sight; <b>5</b> the COP interior is modelled and labelled (TOC, motor pool,
+    DFAC). Legibility is what lets a player <em>read</em> the fight they cannot micro-command.</p>
+</section>
+
+
+<!-- ════════════ 09 · RESIDUALS ════════════ -->
+<section id="residuals">
+  <h2><span class="n">09</span>Honest Residuals — measured, characterized, logged</h2>
+  <p class="lead">Honesty is a feature on this repo, not a weakness. Every item below is a known gap that was
+    <em>measured</em>, <em>root-caused</em>, and <em>logged</em> for a future session — none is hand-waved, and
+    none is rounded up to "fixed."</p>
+
+  <div class="panel">
+    <h4 style="margin-top:0">Wave A — suppression element-average peak below the guessed band</h4>
+    <p class="muted">Peak <strong>0.43–0.48</strong> vs the guessed 0.6–0.85. The per-contact mechanism is decisive
+      and the reachable ceiling is 1.0; fights are short/sharp, and pushing suppression harder risks the KIA
+      guardrail. <strong>Calibrated ~35% confidence it converges without breaking balance</strong> — logged, not
+      forced. Related: mean enemy <em>pairwise</em> spacing is not reliably down; elevation (+38 m) is above the
+      guessed band but judged <em>more</em> Korengal-faithful, not a defect.</p>
+  </div>
+
+  <div class="panel">
+    <h4 style="margin-top:0">Wave B — sound <em>quality</em> needs a human in a browser</h4>
+    <p class="muted">The headless harness proves the cue plumbing is 1:1 and deterministic, the mapper is pure, and
+      <code>lib/sim</code> has zero audio imports — but it <em>cannot</em> prove a 7.62 sounds menacing or that the
+      mix is balanced. Final sound-quality judgement is an explicit real-app capture, not a headless claim.</p>
+  </div>
+
+  <div class="panel">
+    <h4 style="margin-top:0">Wave C — weather is render-only; gameplay consequence deferred</h4>
+    <p class="muted">Rain, fog, snow-line, and dust are <em>drawn</em> from <code>world.state.weather</code>, and they
+      drift with the live wind vector — but they do not yet change LOS, accuracy, or movement. That is a deliberate
+      scoping call: the visible layer landed first; weather-as-a-gameplay-modifier is a future wave.</p>
+  </div>
+
+  <div class="panel">
+    <h4 style="margin-top:0">Wave D — held-out 4×14 bimodal spread −3.0 (a harness artifact, not the engine)</h4>
+    <p class="muted">The held-out tail does not discriminate <em>on average</em> (careful 27.5 vs body-count 30.5,
+      <strong>spread −3.0</strong>) — but it went from <em>inverted (−26.8)</em> to <strong>bimodal</strong>: where
+      a careful tour survives it crushes body-count (survey-40 careful <strong>96</strong>, 4/4 projects). The 2/4
+      failing seeds are a <strong>coarse-dt harness + tactically-naive scripted patrol routing</strong> (presence
+      patrols sent at the most hostile village → catastrophic firefight → early relief → 0), <em>not</em> the COIN
+      engine — which completes projects and moves attitude Δ+7.6 on every seed. A clean held-out proof needs fine-dt
+      patrol windows or smarter scripted routing. Logged in issue 015 for a future wave rather than chased with
+      score curve-fitting.</p>
+  </div>
+
+  <div class="panel">
+    <h4 style="margin-top:0">Wave E — world-map scale: Bucket 1 RESOLVED; Bucket 2 + R3 deferred (issue 014)</h4>
+    <p class="muted">The clearly-visible half of issue 014 is <strong>fixed</strong>: soldiers no longer paint as
+      giants (figVsTrue <strong>36× → 17×</strong> at default, <strong>12× → 3×</strong> at tactical), a squad no
+      longer blobs (<code>squadFiguresOverlap</code> true → <strong>false at every zoom</strong>), and a soldier's
+      footprint lands at a realistic <strong>~1% of the COP</strong> at tactical zoom — see §06. What remains
+      <em>deliberately deferred</em>: <strong>R3</strong> (render a village as a sub-compound hamlet rather than one
+      qalat — the smallest slice) and <strong>Bucket 2</strong> (valley shape, weapons-squad count, COP geometry —
+      sim/terrain is sensitive and 014 already rates the relief/peaks as authentic). The narrow 2.1–2.5 ppm crossfade
+      band is the one residual seam, unambiguous on either side of it. Honestly partial — but the part you could see
+      with your eyes is closed.</p>
+  </div>
+
+  <div class="callout law">
+    <span class="h">The DO-NOT-RETRY ledger (negatives honoured)</span>
+    Three approaches were refuted earlier and are <em>not</em> re-attempted: screen-shake-as-shockwave / recoil-kick
+    (fought the camera pose — only the capped 7 px camera-punch + rust edge-flash survived), a WeakMap for civilian
+    home state (breaks serialize-replay determinism), and coarse-dt combat scoring (caught lying: 2× the KIA). Honour
+    recorded negatives — never re-walk a measured dead end.
+  </div>
+</section>
+
+
+<!-- ════════════ 10 · THE 5× ASSESSMENT ════════════ -->
+<section id="assess">
+  <h2><span class="n">10</span>The 5× Assessment — how much better, axis by axis</h2>
+  <p class="lead">Is the game <em>five times</em> better? "5×" is a direction, not a literal multiplier — so the
+    honest answer is per-axis and tied to a number or a screenshot. The verdict: the engine was always deep; this
+    campaign converted that depth into <strong>felt experience</strong> — and on the two axes that were
+    <em>mechanically dead</em> (the exchange ratio, the COIN pillar) plus the one that was <em>visibly broken</em>
+    (the 36× soldier giant), the improvement is not incremental, it is qualitative. Below, each axis carries its
+    evidence.</p>
+
+  <h3>Realism</h3>
+  <div class="axisrow">
+    <div class="ax">Combat lethality</div>
+    <div class="ev">
+      <div class="meter"><i style="width:92%"></i></div>
+      The exchange ratio was <strong>inverted</strong> (~5:1 against, 0.75 KIA / 1.25 enemy). It is now
+      <strong>US-favorable</strong> (0.33 KIA / 4.42 enemy, held-out 0.30 / 5.40) — and it got there the
+      <em>right</em> way (suppression + cover + tactics), with KIA <em>falling</em>, not via a damage buff. A
+      qualitative flip, not a tweak.
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Enemy &amp; terrain</div>
+    <div class="ev">
+      <div class="meter"><i style="width:84%"></i></div>
+      Suppression <strong>0.000 → 1.0</strong> reachable; stance <strong>73% → ~10%</strong> standing; elevation
+      <strong>+2.41 → +38 m</strong> plunging fire; shoot-and-scoot <strong>0.02% → ~81%</strong>; enemy massing
+      <strong>0.00 → 1.4–2.1</strong> (an L-shaped firing line). A soldier reading FM 3-21.8 would now recognize
+      the behaviour. (Residual: suppression element-avg peak, §09.)
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Map scale &amp; legibility</div>
+    <div class="ev">
+      <div class="meter"><i style="width:85%"></i></div>
+      A squad used to draw as a single <strong>21 m giant</strong> (a soldier <strong>36×</strong> true size at the
+      default zoom), the most visible un-realism on the screen. It now reads as <strong>nine spaced men</strong> at a
+      realistic <strong>~1% of the COP</strong> footprint (figVsTrue 36× → 17× → 3×; <code>squadFiguresOverlap</code>
+      false at every zoom), and aggregates into a proper per-squad NATO icon when zoomed out — the right object at the
+      right scale. (Residual: Bucket 2 sim/terrain scale + R3 village cluster deferred, §09.)
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">COIN strategy</div>
+    <div class="ev">
+      <div class="meter"><i style="width:80%"></i></div>
+      The design pillar was <strong>mechanically dead</strong> (spread 0.5, 0 projects complete, dead directives,
+      one-way CERP). It now <strong>discriminates</strong> (spread 30.3, attitude Δ+7.7, projects complete, live
+      directives with firing deadlines, asymmetric promises). "Win every firefight and still lose the valley" is
+      now playable. (Residual: the held-out harness artifact, §09 — the engine is sound; the instrument needs
+      fine-dt patrol windows.)
+    </div>
+  </div>
+
+  <h3>Joy &amp; awe</h3>
+  <div class="axisrow">
+    <div class="ax">Audio</div>
+    <div class="ev">
+      <div class="meter"><i style="width:78%"></i></div>
+      From <strong>silent</strong> to a deterministic, procedural Web-Audio layer with <strong>1:1 cue fidelity</strong>
+      (1252==1252), distance attenuation, speed-of-sound delay, and stereo pan — zero binary assets, zero engine
+      coupling. The single most transformative missing dimension, added cleanly. (Caveat: final mix quality is a
+      human-in-browser judgement.)
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Night-light</div>
+    <div class="ev">
+      <div class="meter"><i style="width:88%"></i></div>
+      The most cinematic change in the campaign: additive warm muzzle/blast/tracer glow over the night wash
+      (<code>drawNightLights()</code>, gated night&gt;0.25, never cyan). See the night-firefight screenshot in §02 —
+      the fight genuinely lights the valley.
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Weather &amp; atmospherics</div>
+    <div class="ev">
+      <div class="meter"><i style="width:62%"></i></div>
+      Weather went from <strong>data-only</strong> to <strong>rendered</strong> — rain streaks, drifting fog,
+      elev-gated snow-line, blowing dust, all leaned along the live wind vector (§04 screenshots). The valley now
+      reads as a place with weather. (Honest: it's render-only; no gameplay consequence yet, §09.)
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Living world (pattern-of-life)</div>
+    <div class="ev">
+      <div class="meter"><i style="width:86%"></i></div>
+      The valley was <strong>diurnally flat</strong> (100% outdoors, 24/7) and the flagship COIN tell — civilians
+      melting away before an ambush — <strong>did not exist</strong>. Now the valley <strong>sleeps and wakes</strong>
+      (0% night → 83% midday) and civilians <strong>melt away before a shot is fired</strong> (56% clear, children
+      first, 0 shots). A player can finally <em>read the absence</em> the tutorial promised.
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Game-feel</div>
+    <div class="ev">
+      <div class="meter"><i style="width:70%"></i></div>
+      Capped camera-punch (7 px, prox²·size), a rust danger-close edge-flash, wind-leaned smoke/haze, and an
+      off-screen contact pointer with jump-to-contact — the allowed felt-weight mechanics, not the reverted
+      shockwave/recoil. The fight you cannot micro-command now <em>tugs</em> at the camera when it matters.
+    </div>
+  </div>
+  <div class="axisrow">
+    <div class="ax">Strategic stakes</div>
+    <div class="ev">
+      <div class="meter"><i style="width:82%"></i></div>
+      The command HUD (§05) surfaces directives, SOP, fire-support, task-org, and logistics — the levers that were
+      previously inert are now visible and drivable. Combined with the live COIN layer, the campaign now has real
+      stakes: a tour can be won by patience and lost by impatience, independent of the body count.
+    </div>
+  </div>
+
+  <div class="callout">
+    <span class="h">The bottom line</span>
+    Before this campaign a skeptic could play and not realize how deep the engine ran — it looked flat, sounded
+    silent, and rewarded the wrong play. After <strong>five</strong> waves: the firefight <strong>reads</strong>
+    (legible FX, plunging fire, suppression), it <strong>sounds</strong> (1:1 procedural audio, night-light), it
+    <strong>plays true</strong> (a living valley, a COIN pillar that discriminates patience from body-count), and it
+    <strong>scales true</strong> — a squad reads as nine spaced men, not a 21 m giant blob. On the dead axes the
+    change is qualitative, not incremental — which is what "5×" is supposed to mean. And every claim here is tied to a
+    number from a headless harness or a feature you can see in a screenshot. <em>Did an AI really build this?</em> —
+    the evidence, not the assertion, is meant to answer that.
+  </div>
+</section>
+
+<footer>
+  IN THE MOUNTAINS · 5× CAMPAIGN AFTER-ACTION · baseline @ c6bf324 · 2026-06-06<br>
+  Sources: baseline-head.md · results-waves-ab.md · results-wave-c.md · results-wave-d.md · results-wave-e.md · issues 014 / 015 / 016.
+  All charts inline SVG, zero dependencies. Numbers verbatim from the source docs — no figure rounded up.
+</footer>
+
+</main>
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Civilian Atmospherics — Diurnal Pattern-of-Life &amp; the Calm Before</title>
+<style>
+  :root{
+    --rust:#b5532a; --amber:#e0a72b; --shadow:#1c160e; --blood:#9c2c20;
+    --rim:#fbf4dc; --ink:#d8d6c4; --paper:#15110b; --panel:#1f1810; --line:#3a2e1d;
+    --ok:#6fae5b; --pass:#7bbf63;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);
+    font:16px/1.6 "Iowan Old Style",Palatino,Georgia,serif;padding:0 0 6rem}
+  .wrap{max-width:920px;margin:0 auto;padding:0 1.4rem}
+  header{background:linear-gradient(180deg,#221a10,#15110b);border-bottom:3px solid var(--rust);
+    padding:3rem 0 2rem;margin-bottom:2rem}
+  h1{font-size:2rem;margin:0 0 .3rem;color:var(--rim);letter-spacing:.3px}
+  h2{font-size:1.4rem;color:var(--amber);border-bottom:1px solid var(--line);
+    padding-bottom:.3rem;margin-top:2.6rem}
+  h3{color:var(--rust);font-size:1.1rem;margin-top:1.8rem}
+  .sub{color:#9c9580;font-style:italic}
+  code,pre{font-family:"SF Mono",ui-monospace,Menlo,monospace}
+  code{background:#241c12;padding:.08em .35em;border-radius:3px;font-size:.85em;color:var(--amber)}
+  pre{background:#0f0c07;border:1px solid var(--line);border-left:3px solid var(--rust);
+    padding:1rem 1.1rem;overflow:auto;font-size:.78rem;line-height:1.45;color:#cfcab6;border-radius:4px}
+  table{border-collapse:collapse;width:100%;margin:1.2rem 0;font-size:.92rem}
+  th,td{border:1px solid var(--line);padding:.5rem .7rem;text-align:left}
+  th{background:#241c12;color:var(--amber)}
+  td.n{font-variant-numeric:tabular-nums;text-align:right}
+  .pass{color:var(--pass);font-weight:bold}
+  .before{color:#b98}.after{color:var(--pass);font-weight:bold}
+  blockquote{border-left:3px solid var(--amber);margin:1.4rem 0;padding:.4rem 1.2rem;
+    color:#cfc7ad;background:#1c1610;font-style:italic}
+  .callout{background:#1c1610;border:1px solid var(--line);border-radius:6px;padding:1rem 1.2rem;margin:1.4rem 0}
+  .lede{font-size:1.15rem;color:var(--rim)}
+  ul li{margin:.3rem 0}
+  .tag{display:inline-block;background:var(--rust);color:var(--rim);font-size:.7rem;
+    padding:.12em .55em;border-radius:3px;letter-spacing:.5px;vertical-align:middle}
+  footer{margin-top:3rem;padding-top:1.4rem;border-top:1px solid var(--line);color:#857d68;font-size:.85rem}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <span class="tag">ATMOSPHERICS WAVE · CIVILIAN STREAM</span>
+  <h1>The valley keeps a day now — and learns to go quiet before the shooting</h1>
+  <p class="sub">Diurnal pattern-of-life (#13) &amp; the pre-contact "calm before" tell (#6) ·
+  <code>lib/sim/ai/civilian.ts</code> · 2026-06-06</p>
+</div></header>
+
+<div class="wrap">
+
+<p class="lede">Two things were missing from the soul of the valley. First, it never slept — villagers
+wandered 24/7 at constant population, day and night identical. Second, the flagship counterinsurgency
+tell the tutorial <em>explicitly teaches</em> — civilians <strong>melting away before an ambush</strong>
+— <strong>did not exist</strong> in the engine. A patient player had nothing to read. Both are fixed,
+deterministically, off data the simulation already computes, with <strong>zero new saved state</strong>.</p>
+
+<h2>1 · What a skeptic should check first: is it really there?</h2>
+<p>Everything below is produced by a headless probe you can run yourself —
+<code>scripts/atmospherics-probe.ts</code>. It does not trust the same clock the brain reads: the
+brain only sees time through <code>sim.light</code>, while the probe reads ground-truth time straight
+from <code>world.secondsOfDay</code> (an independent oracle). "Indoors" isn't a guess either — it's the
+exact snapped home point the mover actually walks to.</p>
+
+<h2>2 · The daily rhythm (diurnal pattern-of-life)</h2>
+<p>The World writes <code>sim.light</code> (ambient 0–1) every tick from the solar clock. The brain
+keys the outdoor <strong>occupancy</strong> to that light — a pure function of how bright it is:</p>
+<ul>
+  <li><strong>Full day</strong> (light ≥ 0.85): the whole village is out in the fields and the market.</li>
+  <li><strong>Dawn / dusk ramp</strong>: a <em>home-pull</em> grows smoothly as the light fades —
+    children and elders lean home earliest.</li>
+  <li><strong>Night</strong> (light &lt; 0.2): indoors. The night-home drive <em>overrides</em> the
+    gentler "wary / clear the road" reactions (a man merely wary of someone in the distance at 2 a.m.
+    still wants to be inside), but always yields to a real <em>flee</em>.</li>
+</ul>
+
+<blockquote>The clever part is the restraint: occupancy is keyed to the <em>magnitude</em> of the
+light, which is symmetric across dawn and dusk — so the brain <strong>never has to tell a sunrise from
+a sunset</strong>. We model the thing that's seen and measured (how many are out), not the event.</blockquote>
+
+<p>The outdoor curve, by the hour, before → after (<code>survey-7</code>, the tuned seed):</p>
+<table>
+  <tr><th>Hour</th><th>Light</th><th class="n">Before (flat)</th><th class="n">After</th><th>Reads as</th></tr>
+  <tr><td>06:00</td><td>0.53</td><td class="n before">100%</td><td class="n after">46%</td><td>dawn — emerging</td></tr>
+  <tr><td>12:00</td><td>1.00</td><td class="n before">100%</td><td class="n after">83%</td><td>full pattern of life</td></tr>
+  <tr><td>19:00</td><td>0.15</td><td class="n before">100%</td><td class="n after">33%</td><td>dusk — melting in</td></tr>
+  <tr><td>00–04</td><td>0.05</td><td class="n before">100%</td><td class="n after">0%</td><td>indoors, valley asleep</td></tr>
+</table>
+
+<div class="callout">
+<strong>An honest residual.</strong> On a <em>hot</em> seed (<code>survey-43</code>, 50 civilians) the
+deep-night floor is ~13% of the population, not zero. That is <strong>not a bug in the rhythm</strong>:
+those villagers are correctly fleeing/clearing <strong>insurgents infiltrating the draws after dark</strong>
+(verified — an armed fighter 9–15 m from each of them). The gate accepts that real floor: night ≤ 22%
+of population <em>and</em> ≤ 35% of midday. Both seeds pass.
+</div>
+
+<h2>3 · The calm before — civilians melt away before the first shot</h2>
+<p>In the <em>same</em> single pass the brain already makes over nearby armed men, it now also flags
+<strong>staged</strong> fighters: an ambush cell holding its fire (<code>brainState&nbsp;===&nbsp;"ambush"</code>)
+or an infiltrator moving concealed (<code>"patrolling"</code> + <code>technique&nbsp;===&nbsp;"concealed"</code>)
+— alive, but <strong>not yet shooting</strong> — out to a 150&nbsp;m sense radius (deliberately wider
+than the 45&nbsp;m "they're on top of us" ring, so the <em>gentle</em> melt fires first). Sensed
+villagers quietly walk home, <strong>children first</strong>, and their departures are
+<strong>staggered</strong> by a seeded dice roll so the fields <em>thin</em> over a few seconds rather
+than teleporting empty. That thinning <em>is</em> the absence an alert player learns to read.</p>
+
+<p>Measured 90&nbsp;s <em>before any round is fired</em> (proven by asserting zero muzzle/blast
+effects during the window):</p>
+<table>
+  <tr><th>Seed</th><th>Threatened cohort closes its distance home</th><th>Control cohort</th><th>Shots fired</th><th>Children</th></tr>
+  <tr><td>survey-7 (tuned)</td><td class="after">56% (4 → 2 out)</td><td>0% — barely moves</td><td class="pass">0</td><td>lead</td></tr>
+  <tr><td>survey-43 (held-out)</td><td class="after">48% (18 → 9 out)</td><td>24%</td><td class="pass">0</td><td>kids halve distance at t=42 s, before adults</td></tr>
+</table>
+<p>The control cohort — outdoor civilians who can't sense any staged cell — staying put is what proves
+the drop is the <em>signal</em>, not the clock.</p>
+
+<h2>4 · Why you can trust it (determinism &amp; the standing checks)</h2>
+<p>Every decision derives only from the unit-id hash (<code>trait()</code>), the seeded
+<code>sim.rng</code>, the deterministic <code>sim.light</code>, and sim unit state — never
+<code>Math.random</code> or the wall clock. The probe re-runs each seed twice and asserts an
+<strong>identical civilian-position fingerprint</strong>. No new field was added to the unit, so the
+save round-trip is byte-identical.</p>
+<ul>
+  <li><code>npx tsc --noEmit</code> — clean</li>
+  <li><code>npx tsx scripts/smoke.ts</code> — <span class="pass">SMOKE OK</span> (serialize round-trip + no-NaN)</li>
+  <li><code>npm run build</code> — clean · <code>npm run lint</code> — exit 0</li>
+  <li><code>npx tsx scripts/balance.ts 12 50</code> — no stall, civilian casualties 0 (the diurnal/melt
+    logic doesn't strand anyone or spike tick cost — the home snap is computed lazily, so daylight pays nothing)</li>
+  <li><code>atmospherics-probe</code> — <span class="pass">OK</span> on both modes, tuned <em>and</em> held-out</li>
+</ul>
+
+<h2>5 · The one thing deliberately left unbuilt (restraint logged)</h2>
+<p>A typed <code>sim.dayFrac</code> seam would be the cleanest way to tell a dawn <em>event</em> from a
+dusk <em>event</em> — but it needs editing files this wave doesn't own, and the occupancy design
+genuinely doesn't require it. A future feature that truly needs the distinction (roosters at dawn only,
+say) should add that sanctioned seam — <strong>not</strong> a render-side or <code>WeakMap</code> hack,
+which would break serialize-replay determinism.</p>
+
+<h2>Appendix · verbatim probe output</h2>
+<p>The full per-hour tables and gate lines are saved alongside this report:
+<code>diurnal-survey-7.txt</code>, <code>melt-survey-7.txt</code>, and the two
+<code>…-survey-43-holdout.txt</code> files. The diurnal gate block from the tuned seed:</p>
+<pre>  ── GATES ──
+  night(00-04) outdoor avg 0.0  = 0.0% of pop, 0.0% of midday  [pop&lt;=22% &amp; midday&lt;=35%]  PASS
+  midday(12) outdoor 20/24 = 83%  [&gt;=60%]  PASS
+  rising edge: dawn(06) 11 &lt; midday 20  PASS
+  falling edge: dusk(19) 8 &lt; midday 20  PASS
+  DETERMINISM (diurnal): two same-seed runs civ-pos-hash 2884555957 vs 2884555957  PASS
+ATMOSPHERICS-PROBE OK</pre>
+
+<footer>
+In the Mountains · civilian atmospherics wave · <code>lib/sim/ai/civilian.ts</code> +
+<code>scripts/atmospherics-probe.ts</code>. Doctrine: DESIGN §3.6; the calm-before tell the tutorial
+teaches. Tuned on <code>survey-7</code>, proven on held-out <code>survey-43</code>.
+</footer>
+
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

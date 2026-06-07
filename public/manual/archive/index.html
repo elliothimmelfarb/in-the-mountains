@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Development Archive</title>
+<link rel="stylesheet" href="../style.css" />
+<style>
+  /* archive-specific layer on top of the Field Manual's tokens */
+  .kicker { color: var(--amber); font-size: 11px; text-transform: uppercase; letter-spacing: 3px; margin: 0 0 6px; }
+  .statstrip { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 6px; }
+  .statstrip .s { background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 10px 14px; min-width: 96px; }
+  .statstrip .s b { display: block; color: var(--amber); font-size: 22px; font-weight: 900; line-height: 1; }
+  .statstrip .s span { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .method { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 18px 0; }
+  .method .step { background: var(--panel); border: 1px solid var(--line); border-top: 2px solid var(--olive); padding: 12px; border-radius: 2px; }
+  .method .step .n { color: var(--amber); font-family: ui-monospace, monospace; font-size: 12px; }
+  .method .step h4 { margin: 4px 0 4px; font-size: 13px; color: var(--ink); }
+  .method .step p { margin: 0; font-size: 12px; color: var(--dim); line-height: 1.5; }
+  @media (max-width: 760px) { .method { grid-template-columns: 1fr 1fr; } }
+
+  .reportgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(236px, 1fr)); gap: 10px; margin: 16px 0 6px; }
+  .rep { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--amber); border-radius: 3px; padding: 11px 13px; text-decoration: none; color: var(--ink); transition: border-color .15s, background .15s; }
+  .rep:hover { border-color: var(--amber); background: var(--panel2); }
+  .rep .rd { font-family: ui-monospace, monospace; font-size: 11px; color: var(--amber); letter-spacing: .5px; }
+  .rep .rt { font-size: 14px; margin: 3px 0 3px; font-weight: 700; line-height: 1.25; }
+  .rep .rs { color: var(--dim); font-size: 12px; line-height: 1.45; flex: 1; }
+  .rep .go { color: var(--amber); font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-top: 8px; }
+
+  .act { margin: 56px 0 8px; }
+  .act .actkick { color: var(--olive); font-size: 11px; text-transform: uppercase; letter-spacing: 3px; }
+  .act h2 { margin: 4px 0 6px; border: 0; padding: 0; }
+  .act .actsub { color: var(--dim); font-style: italic; margin: 0 0 4px; }
+
+  .chapter { display: grid; grid-template-columns: 300px 1fr; gap: 22px; background: linear-gradient(180deg, var(--panel2), var(--panel)); border: 1px solid var(--line); border-left: 3px solid var(--amber); border-radius: 3px; padding: 18px 20px; margin: 20px 0; scroll-margin-top: 18px; }
+  .chapter.alt { border-left-color: var(--olive); }
+  .chapter .shot { line-height: 0; }
+  .chapter .shot a { display: block; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; background: #000; }
+  .chapter .shot img { width: 100%; display: block; aspect-ratio: 16 / 10; object-fit: cover; transition: transform .25s ease; }
+  .chapter .shot a:hover img { transform: scale(1.04); }
+  .chapter .shot .cap { color: var(--dim); font-size: 11px; margin-top: 6px; line-height: 1.4; font-style: italic; }
+  .chapter .meta { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+  .chapter .day { font-family: ui-monospace, monospace; font-size: 12px; color: var(--amber); background: var(--panel); border: 1px solid var(--line); padding: 1px 7px; border-radius: 2px; }
+  .chapter h3 { margin: 6px 0 8px; color: var(--ink); font-size: 19px; line-height: 1.25; }
+  .chapter .tags { margin: 0 0 8px; }
+  .chapter p { margin: 8px 0; font-size: 14.5px; }
+  .chapter .shape { color: var(--dim); font-size: 13.5px; }
+  .chapter .shape b { color: var(--olive); }
+
+  .metrics { display: flex; flex-wrap: wrap; gap: 7px; margin: 12px 0; }
+  .m { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 6px; }
+  .m .lbl { color: var(--dim); }
+  .m .b { color: var(--rust); }
+  .m .ar { color: var(--dim); }
+  .m .a { color: var(--good); font-weight: 700; }
+  .m.stat { color: var(--us); }
+
+  .quote { border-left: 2px solid var(--olive); padding: 2px 0 2px 14px; margin: 12px 0 4px; color: var(--ink); font-style: italic; font-size: 14px; }
+  .readmore { display: inline-block; margin-top: 8px; font-size: 13px; color: var(--amber); text-decoration: none; border: 1px solid var(--line); border-radius: 2px; padding: 5px 12px; background: var(--panel); }
+  .readmore:hover { border-color: var(--amber); }
+  .norep { color: var(--dim); font-size: 12px; margin-top: 8px; font-style: italic; }
+
+  @media (max-width: 760px) { .chapter { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+<nav>
+  <div class="brand">IN THE <span>MOUNTAINS</span></div>
+  <div class="sub">Development Archive</div>
+  <a href="/">‹ Back to game</a>
+  <a href="../index.html">Field Manual ›</a>
+  <a href="../tutorial.html">Interactive Tutorial ›</a>
+
+  <div class="navhdr">The Archive</div>
+  <a href="#intro">How this was built</a>
+  <a href="#method">The five moves</a>
+  <a href="#reports">All full reports</a>
+
+  <div class="navhdr">Act I · Jun 3–5 · Making the valley walkable</div>
+  <a href="#c-2026-06-03-movement">Squad on station, 300 m short</a>
+  <a href="#c-2026-06-04-terrain">Villagers in the wire</a>
+  <a href="#c-2026-06-04-movement">The 718 m spiral</a>
+  <a href="#c-2026-06-04-squad-command">You have the watch</a>
+  <a href="#c-2026-06-04-realism">Waking the dead code</a>
+  <a href="#c-2026-06-04-combat-visual">Reading the firefight</a>
+  <a href="#c-2026-06-04-visual-overhaul">160 hand-drawn sprites</a>
+  <a href="#c-2026-06-05-batch">Eight patches in a day</a>
+  <a href="#c-2026-06-05-pathfinding">The router was fine</a>
+
+  <div class="navhdr">Act II · Jun 6 · The deep systems</div>
+  <a href="#c-2026-06-06-river-navigation">The river was a chasm</a>
+  <a href="#c-2026-06-06-movement-realism">The 360° security halt</a>
+  <a href="#c-2026-06-06-cop-interior">The dead-end TOC</a>
+  <a href="#c-2026-06-06-firemission-realism">Mortars on itself</a>
+  <a href="#c-2026-06-06-world-scale-realism">Soldiers 36 m wide</a>
+  <a href="#c-2026-06-06-coin-real-game">Winning the valley</a>
+  <a href="#c-2026-06-06-atmospherics">The valley goes quiet</a>
+  <a href="#c-2026-06-06-procedural-audio">Sound from nothing</a>
+  <a href="#c-2026-06-06-deploy-loading-screen">The frozen button</a>
+  <a href="#c-2026-06-06-fivex-campaign">Five waves at once</a>
+
+  <div class="navhdr">Act III · Jun 7 · Cinema &amp; polish</div>
+  <a href="#c-2026-06-07-atmospherics">Weather &amp; night-light</a>
+  <a href="#c-2026-06-07-soundscape">A canyon that echoes</a>
+
+  <div class="navhdr">The method itself</div>
+  <a href="#c-methodology">How this AI was aimed</a>
+  <a href="#c-dev-archive">This archive itself</a>
+</nav>
+
+<main>
+  <p class="kicker">A development archive</p>
+  <h1>HOW <span class="a">IN THE MOUNTAINS</span> WAS BUILT</h1>
+  <p class="lede">A chronological, honest record of the work — every major rebuild, the player complaint
+  that started it, the number that proved it broken, and the number that proved it fixed. Click any
+  thumbnail to open the full illustrated report.</p>
+
+  <p>This game was built by an AI agent fleet, working to one standing bar: that a skeptical soldier
+  reading a field manual would recognise the behaviour as real — and ask <em>"an AI built this?"</em>.
+  Software is usually shipped with the scaffolding hidden. We do the opposite. This archive ships
+  <em>inside</em> the game, beside the Field Manual, because the way it was made — measure first,
+  fan out specialists, then attack your own answer — is itself part of the thing. Read it as a
+  logbook: the valley pushed back, and each chapter is what pushing back looked like.</p>
+
+  <div class="statstrip">
+    <div class="s"><b>5</b><span>days · Jun 3–7</span></div>
+    <div class="s"><b>23</b><span>chapters</span></div>
+    <div class="s"><b>10</b><span>full reports</span></div>
+    <div class="s"><b>17</b><span>tracked issues</span></div>
+    <div class="s"><b>20+</b><span>test harnesses</span></div>
+    <div class="s"><b>1</b><span>deterministic clock</span></div>
+  </div>
+
+  <div class="callout">
+    <div class="h">How to read a chapter</div>
+    Every entry follows the same arc: <strong>the problem</strong> (usually a player's own words),
+    <strong>the shape of the work</strong> (how the fix was approached — that's the craft), the
+    <strong>before→after numbers</strong> that make "fixed" provable rather than a vibe, and a link to
+    the <strong>full report</strong> where one exists. Red is the old number; <span class="good">green</span>
+    is the new one.
+  </div>
+
+  <h2 id="method">The five moves</h2>
+  <p>Almost every chapter below is some combination of these. They are the project's working doctrine —
+  the reason the fixes held instead of thrashing.</p>
+  <div class="method">
+    <div class="step"><div class="n">01</div><h4>Metricize first</h4><p>"Feels off" is not actionable until it's a number. Write a headless harness that reproduces the complaint, and baseline it before touching code.</p></div>
+    <div class="step"><div class="n">02</div><h4>Fan out specialists</h4><p>For open problems, dispatch many independent agents on one axis each, judge their output against a rubric, then synthesize — never one draft iterated.</p></div>
+    <div class="step"><div class="n">03</div><h4>Build a fair oracle</h4><p>To ask "did it really work?", compute ground truth independently (a BFS flood that obeys the mover's own rules) and act on the gap it exposes.</p></div>
+    <div class="step"><div class="n">04</div><h4>Adversarially verify</h4><p>Your first answer is a hypothesis. A separate skeptical pass re-reads the code and tries to break the fix — it has caught regressions a green author-run missed.</p></div>
+    <div class="step"><div class="n">05</div><h4>Prove on held-out seeds</h4><p>Tune on one set of procedural valleys, prove the win on a fresh set you never touched. A win only on the tuned set is a curve-fit until proven.</p></div>
+  </div>
+
+  <h2 id="reports">All the full reports</h2>
+  <p>Each chapter below links its own write-up inline — but here is the complete set in one place. Every
+  one opens the original illustrated report <strong>in full</strong>, exactly as it was written when the
+  work shipped: the charts, the annotated screenshots (click any image to enlarge it), and — for the
+  soundscape — playable before/after audio.</p>
+  <div class="reportgrid">
+    <a class="rep" href="reports/2026-06-03-movement/report.html"><span class="rd">2026-06-03</span><span class="rt">Squad movement rebuild</span><span class="rs">Four layered bugs ended by one "navigate globally, steer locally" locomotion layer.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-04-visual-overhaul/report.html"><span class="rd">2026-06-04</span><span class="rt">The map art bible — 160 SVG assets</span><span class="rs">The studio art bible: the design system, before/after, and all 160 assets rendered live.</span><span class="go">Open art bible →</span></a>
+    <a class="rep" href="reports/2026-06-05-pathfinding/report.html"><span class="rd">2026-06-05</span><span class="rt">The 30%-reached gap</span><span class="rs">The router was already good — fatigue, not pathfinding, was eating the march.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-06-firemission-realism/report.html"><span class="rd">2026-06-06</span><span class="rt">Call-for-fire realism</span><span class="rs">The squad stopped dropping mortars on itself: densest-cluster aimpoint + danger-close gate.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-06-world-scale-realism/report.html"><span class="rd">2026-06-06</span><span class="rt">World-map scale audit</span><span class="rs">The soldiers were 36× too big — a render lie over an already-authentic sim. Full scorecard.</span><span class="go">Open full audit →</span></a>
+    <a class="rep" href="reports/2026-06-06-atmospherics/report.html"><span class="rd">2026-06-06</span><span class="rt">Civilian atmospherics</span><span class="rs">The valley learned a daily rhythm — and to go quiet before an ambush.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-06-deploy-loading-screen/report.html"><span class="rd">2026-06-06</span><span class="rt">The deploy loading screen</span><span class="rs">Profiling the 6.5-second frozen button, then staging the work behind real feedback.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-06-fivex-campaign/report.html"><span class="rd">2026-06-06</span><span class="rt">The 5× campaign</span><span class="rs">Five file-disjoint waves — combat, audio, game-feel, COIN, scale — verified across deployments.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-07-soundscape/report.html"><span class="rd">2026-06-07</span><span class="rt">Soundscape — 20× immersion</span><span class="rs">From mono-and-silent to a living canyon: reverb, ambient bed, occlusion, 5-layer gunfire. Playable A/B audio.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
+  </div>
+
+  <!-- ============================== ACT I ============================== -->
+  <section class="act">
+    <div class="actkick">Act I · June 3–5</div>
+    <h2>Making the valley walkable &amp; legible</h2>
+    <p class="actsub">Before anything else could matter, a squad had to be able to leave the gate, cross
+    the ground, and arrive — and the player had to be able to see it happen.</p>
+  </section>
+
+  <article class="chapter" id="c-2026-06-03-movement">
+    <div class="shot">
+      <a href="reports/2026-06-03-movement/report.html"><img src="assets/2026-06-03-movement.png" alt="Traced squad march around the COP, before vs after" loading="lazy"></a>
+      <div class="cap">The squad's actual traced path around the outpost — the diagram that made the bug obvious.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-03</span></div>
+      <h3>The squad declared "on station" 300 m from the village</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">Terrain</span><span class="tag">UX</span></div>
+      <p>A player ordered a squad to the village just right of the gate. It hugged the perimeter wire,
+      bumped it, and "accomplished its mission" without ever reaching the village. On the default seed
+      <code>korengal</code> it stalled 152 m short and called itself on-station 300 m from the objective.</p>
+      <p class="shape"><b>The shape:</b> metricize first — a headless harness reproduced the failure across
+      seven adversarial seeds, four root causes were confirmed against the live code with dumped data, then
+      all four were replaced by one unified "navigate globally, steer locally" locomotion layer.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">seeds reaching objective</span><span class="b">2/7</span><span class="ar">→</span><span class="a">5/7</span></span>
+        <span class="m"><span class="lbl">korengal on-station gap</span><span class="b">300 m</span><span class="ar">→</span><span class="a">on objective</span></span>
+        <span class="m"><span class="lbl">227 m route computed as</span><span class="b">555 m</span><span class="ar">→</span><span class="a">goes around</span></span>
+        <span class="m"><span class="lbl">access-road bulldozed footprint</span><span class="b">6213 m²</span><span class="ar">→</span><span class="a">~450 m²</span></span>
+      </div>
+      <p class="quote">"Navigate globally, steer locally" — one locomotion rebuild to end four layered bugs hiding in plain sight.</p>
+      <a class="readmore" href="reports/2026-06-03-movement/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-04-terrain">
+    <div class="shot">
+      <img src="assets/2026-06-04-terrain.png" alt="The valley with a properly sited outpost" loading="lazy">
+      <div class="cap">The valley after the generation pass — the outpost now sits where a real one would.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>Villagers in the wire, gates that faced cliffs — the COP was its own enemy</h3>
+      <div class="tags"><span class="tag">Terrain</span><span class="tag">UX</span><span class="tag">Realism</span></div>
+      <p>The outpost was generating itself into traps: gates opened onto impassable slopes, faced away
+      from every village, and buildings let soldiers walk through walls. Worst of all, calm civilians
+      were strolling into the HESCO wire — 4,467 times per audit run, with no panic anywhere.</p>
+      <p class="shape"><b>The shape:</b> one harness (<code>copaudit.ts</code>) metricized all five open
+      outpost issues plus the wire-pin bug in a single table, with a separate <code>reachability.ts</code>
+      probe as an orthogonal fairness check. The fix was in the <em>generation</em>, not the behaviour.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">villager wire-pin ticks</span><span class="b">4467</span><span class="ar">→</span><span class="a">0</span></span>
+        <span class="m"><span class="lbl">gate egress blocked</span><span class="b">1/9</span><span class="ar">→</span><span class="a">0/16</span></span>
+        <span class="m"><span class="lbl">gate faces &gt;90° from villages</span><span class="b">7/9</span><span class="ar">→</span><span class="a">0/16</span></span>
+        <span class="m"><span class="lbl">perimeter ring continuity</span><span class="b">90%</span><span class="ar">→</span><span class="a">98%</span></span>
+      </div>
+      <p class="quote">4,467 calm civilians, ambling into the wire at routine waypoints — fixed by fixing the generation, not the behaviour.</p>
+      <p class="norep">Resolved tracked issues 001–005. Engineering record: <code>docs/progress/2026-06-04-terrain/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-04-movement">
+    <div class="shot">
+      <img src="assets/2026-06-04-movement.png" alt="Clean route to the far village after the A* rebuild" loading="lazy">
+      <div class="cap">After the corridor-A* rebuild: a direct route instead of a spiral around the outpost.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>The navigator dutifully walked a 718 m spiral to a 391 m objective</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">Terrain</span><span class="tag">UX</span></div>
+      <p>Squads sent to a far village would orbit the outpost in a spiral, string into a 100 m accordion
+      snake, and spin in place at over 400°/s at the first awkward waypoint. The pathfinder was returning
+      routes that looped 1.5 times around the COP to connect two points 15 m apart.</p>
+      <p class="shape"><b>The shape:</b> two new harnesses turned four bugs into hard numbers, then a
+      corridor-constrained full-resolution A* replaced the broken coarse-plus-repair pathfinder, and a
+      wake-following cohesion model replaced the flickering breadcrumb follower. Verified with before/after
+      trajectory renders.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">route length ÷ crow-flies</span><span class="b">1.77</span><span class="ar">→</span><span class="a">~1.1</span></span>
+        <span class="m"><span class="lbl">loopy routes (&gt;2.5×)</span><span class="b">14%</span><span class="ar">→</span><span class="a">2%</span></span>
+        <span class="m"><span class="lbl">navigator heading jitter</span><span class="b">443°/s</span><span class="ar">→</span><span class="a">0–2°/s</span></span>
+        <span class="m"><span class="lbl">point-man wall-grind ticks</span><span class="b">2286</span><span class="ar">→</span><span class="a">~16</span></span>
+      </div>
+      <p class="quote">The navigator dutifully walked every metre of a 718 m spiral to reach a village 391 m away.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-04-movement/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-04-squad-command">
+    <div class="shot">
+      <img src="assets/2026-06-04-squad-command.jpeg" alt="Assault overlays during an AI-run firefight" loading="lazy">
+      <div class="cap">The squad fights itself: base-of-fire and maneuver overlays during an all-AI assault.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>You have the watch — the day individual soldier control died</h3>
+      <div class="tags"><span class="tag">UX</span><span class="tag">Combat</span><span class="tag">COIN</span></div>
+      <p>The game had a command path that contradicted its own design: players could micro-manage
+      individual men during a firefight. That gutted the central tension — set the conditions before
+      contact, then live with them. Combat had to be 100% AI once rounds crack.</p>
+      <p class="shape"><b>The shape:</b> a ground-up deletion of the old per-soldier order path and a fresh
+      squad-leader coordinator state machine (react → hold / suppress / assault / break), verified by a new
+      SOP-response matrix harness and a cover-discipline probe, then balance-checked across 12 firefights.</p>
+      <div class="metrics">
+        <span class="m stat">balance: 12/12 firefights stable</span>
+        <span class="m stat">0.83 KIA · 5.08 WIA · 0 civcas · 0 stranded</span>
+      </div>
+      <p class="quote">You set the conditions beforehand and live with them — doctrine locks the moment rounds crack.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-04-squad-command/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-04-realism">
+    <div class="shot">
+      <img src="assets/2026-06-04-realism.png" alt="The simulation running with newly-activated systems" loading="lazy">
+      <div class="cap">Finished systems — enemy indirect fire, bleed-out, wind ballistics — finally switched on.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>64 candidates, 10 survivors: waking the dead code</h3>
+      <div class="tags"><span class="tag">Realism</span><span class="tag">Combat</span><span class="tag">COIN</span></div>
+      <p>The sim was honest in skeleton but full of finished systems nobody had switched on — enemy
+      indirect fire, IED teams, and spotters built with zero callers; civilian casualties tallied but
+      never read; wind stored but touching no ballistics. A 5.56 round wounded the same at 800 m as
+      point-blank, and the insurgency could be ground to zero by attrition alone.</p>
+      <p class="shape"><b>The shape:</b> fan-out discovery — 10 subsystem-expert agents proposed gaps, a
+      judge ranked 64 candidates to 10 (rejecting anything already modelled), each measured with a probe
+      before/after, then hardened by two adversarial review waves that ran their own experiments.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">M4 terminal damage @ 500 m</span><span class="b">30.7</span><span class="ar">→</span><span class="a">14.2</span></span>
+        <span class="m"><span class="lbl">insurgent strength, hostile valley (14 d)</span><span class="b">66</span><span class="ar">→</span><span class="a">80</span></span>
+        <span class="m"><span class="lbl">CIVCAS strike attitude hit</span><span class="b">−23</span><span class="ar">→</span><span class="a">−35</span></span>
+        <span class="m stat">dense-canopy night detect: eye 0% · thermal 41%</span>
+      </div>
+      <p class="quote">Realism by mechanism, not by fiat — the right casualty ratio fell out of the systems interacting.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-04-realism/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-04-combat-visual">
+    <div class="shot">
+      <img src="assets/2026-06-04-combat-visual.png" alt="Combat overview with new fire-mission reticles and suppression cues" loading="lazy">
+      <div class="cap">A firefight you can read: fire-mission reticles, suppression arrows, casualty markers.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>Indirect fire was a silent flat disc — now it announces itself</h3>
+      <div class="tags"><span class="tag">Render</span><span class="tag">Combat</span><span class="tag">UX</span></div>
+      <p>Every piece of combat information — incoming mortars, suppression direction, casualties, IEDs —
+      was invisible or a featureless coloured blob. A player could not tell where fire came from, whether
+      a soldier was pinned or merely suppressed, or that a round was about to land until it silently went
+      off as a flat orange disc.</p>
+      <p class="shape"><b>The shape:</b> design-workflow first — 8 agents (4 design lenses → a 3-judge panel)
+      produced a Combat Visual Language before any code. Reading real sim ticks then revealed two
+      plan-changing facts (indirect rounds detonate instantly; arc progress is exact), and the cues shipped
+      as a render-only layer.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">81 in-flight rounds frame cost</span><span class="b">31.27 ms</span><span class="ar">→</span><span class="a">31.64 ms</span></span>
+        <span class="m stat">fx-probe: 7/7 hard checks pass</span>
+        <span class="m stat">frag arc progress monotonic [0.00 … 0.93]</span>
+      </div>
+      <p class="quote">The hardest part was realising indirect rounds never fly — so the reticle had to read the sim's intent, not its projectiles.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-04-combat-visual/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-04-visual-overhaul">
+    <div class="shot">
+      <a href="reports/2026-06-04-visual-overhaul/report.html"><img src="assets/2026-06-04-visual-overhaul.png" alt="The tactical map after the sprite overhaul" loading="lazy"></a>
+      <div class="cap">From wireframe boxes to a real outpost. Opens the studio art bible — all 160 assets, live.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-04</span></div>
+      <h3>Blue rectangles to bas-relief: 160 hand-authored SVGs remake the map</h3>
+      <div class="tags"><span class="tag">Render</span><span class="tag">UX</span></div>
+      <p>The tactical map was primitive canvas shapes — blue rectangles for soldiers, wireframe boxes for
+      buildings, coloured dots for everything else. Nothing about the visual layer said this was a
+      defence-grade infantry sim. The outpost looked like labelled wireframes; villages were a house glyph
+      and a name.</p>
+      <p class="shape"><b>The shape:</b> a background multi-agent workflow with one agent per sprite family —
+      each rendered its own SVG and critiqued the rasterised PNG before returning — followed by a four-lens
+      art-director pass driving a fix round. Verified live across every zoom band.</p>
+      <div class="metrics">
+        <span class="m stat">160 SVG assets across 16 families</span>
+        <span class="m stat">116 fps at high zoom, sim running</span>
+        <span class="m stat">units → top-down soldier sprites per role + LOD symbols</span>
+      </div>
+      <p class="quote">Every asset was seen and critiqued by the agent that drew it before a human ever looked at the screen.</p>
+      <a class="readmore" href="reports/2026-06-04-visual-overhaul/report.html">Open the art bible →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-05-batch">
+    <div class="shot">
+      <img src="assets/2026-06-05-batch.png" alt="The redesigned UI overview" loading="lazy">
+      <div class="cap">One of eight: the command interface redesign — a fuller right column, a used bottom strip.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-05</span></div>
+      <h3>Eight patches in one day: the day the valley stopped being broken</h3>
+      <div class="tags"><span class="tag">Terrain</span><span class="tag">Movement</span><span class="tag">UX</span></div>
+      <p>Squads marched out the gate, looped back, and got stuck. Villages spawned inside the wire.
+      Weapons fired off the edge of the world — 7,200 m range on a 3,620 m map. The road network was a
+      series of dead-straight trenches. Eight separate problems, each measured and fixed in one session.</p>
+      <p class="shape"><b>The shape:</b> metricize across eight axes at once with a stack of headless
+      harnesses, then write each fix as a single-writer change to one file so every metric delta is
+      individually attributable. A tiered road network and a route-quality fix were the headline wins.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">route-quality mean ratio</span><span class="b">1.26</span><span class="ar">→</span><span class="a">1.01</span></span>
+        <span class="m"><span class="lbl">village/COP footprint overlap</span><span class="b">2/24</span><span class="ar">→</span><span class="a">0/24</span></span>
+        <span class="m"><span class="lbl">road network connectivity</span><span class="b">36%</span><span class="ar">→</span><span class="a">59%</span></span>
+        <span class="m"><span class="lbl">trench "trough" cells</span><span class="b">3600</span><span class="ar">→</span><span class="a">~0</span></span>
+      </div>
+      <p class="quote">Weapons were firing 7,200 m on a 3,620 m map — the map was realistic; the numbers just hadn't been checked.</p>
+      <p class="norep">Resolved tracked issue 008. Engineering record: <code>docs/progress/2026-06-05-batch/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-05-pathfinding">
+    <div class="shot">
+      <a href="reports/2026-06-05-pathfinding/report.html"><img src="assets/2026-06-05-pathfinding.png" alt="Traced arrival at the far village after the fatigue fix" loading="lazy"></a>
+      <div class="cap">The far village, finally reached. The fix was the movement economy, not the router.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-05</span></div>
+      <h3>The router was fine — fatigue was eating the march</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">Terrain</span><span class="tag">Methodology</span></div>
+      <p>Squads were "setting up short" 273 m from their objective, or stalling halfway across the valley.
+      Only 36% of <em>physically reachable</em> villages were ever reached, and just 13% of those directly
+      opposite the gate. Everyone assumed the A* router was broken.</p>
+      <p class="shape"><b>The shape:</b> a fair oracle — an adversarial harness scored real-sim arrival
+      against an 8-connected BFS ground truth, and per-tick traces apportioned blame to the exact tick. That
+      overturned the hypothesis: fatigue saturation, not the router, was eating the march.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">arrival among reachable</span><span class="b">36%</span><span class="ar">→</span><span class="a">76%</span></span>
+        <span class="m"><span class="lbl">opposite-gate REAR bucket</span><span class="b">13%</span><span class="ar">→</span><span class="a">50%</span></span>
+        <span class="m"><span class="lbl">network connectivity</span><span class="b">59%</span><span class="ar">→</span><span class="a">72%</span></span>
+        <span class="m stat">router was already good — mean ratio 1.01</span>
+      </div>
+      <p class="quote">The router was already good — a router rewrite would have fixed nothing.</p>
+      <a class="readmore" href="reports/2026-06-05-pathfinding/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <!-- ============================== ACT II ============================== -->
+  <section class="act">
+    <div class="actkick">Act II · June 6</div>
+    <h2>The deep systems &amp; realism</h2>
+    <p class="actsub">With the valley walkable, the work turned to the things that make it a
+    <em>simulation</em> — the river, the firefight, the population, the sound, and the soul of
+    counterinsurgency — culminating in one integrated campaign-wide pass.</p>
+  </section>
+
+  <article class="chapter alt" id="c-2026-06-06-river-navigation">
+    <div class="shot">
+      <img src="assets/2026-06-06-river-navigation.png" alt="A squad crossing the river at a ford" loading="lazy">
+      <div class="cap">A squad fords the river. Before this, in 28% of valleys the far bank was unreachable.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The river was an impassable chasm splitting the valley</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">Terrain</span><span class="tag">Methodology</span></div>
+      <p>The river bisected the valley as a deeply-incised, cliff-walled chasm with zero crossings — in
+      28% of seeds the two banks were entirely separate passable components, so patrols simply could not
+      reach the far side. Stranded squads, unreachable villages, a planner that gave up — all of it
+      followed from that one structural failure.</p>
+      <p class="shape"><b>The shape:</b> a fast static structural audit (no sim) baselined the break, a
+      fan-out stuck-case hunt found every stranding class, and the fix targeted the generation root cause —
+      a walkable floodplain crossed at fords and footbridges — plus a river-aware foot planner. An
+      adversarial pass re-measured everything on fresh held-out seeds.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">planner returns no route</span><span class="b">30%</span><span class="ar">→</span><span class="a">2%</span></span>
+        <span class="m"><span class="lbl">banks in split components</span><span class="b">28%</span><span class="ar">→</span><span class="a">0%</span></span>
+        <span class="m"><span class="lbl">squads that return home</span><span class="b">23%</span><span class="ar">→</span><span class="a">81%</span></span>
+        <span class="m"><span class="lbl">worst-tick stall</span><span class="b">473 ms</span><span class="ar">→</span><span class="a">~29 ms</span></span>
+      </div>
+      <p class="quote">The adversarial pass earned its keep: it caught a civilian-bazaar regression stalling the tick at 473 ms before a shot was fired.</p>
+      <p class="norep">Resolved tracked issue 010. Engineering record: <code>docs/progress/2026-06-06-river-navigation/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-06-movement-realism">
+    <div class="shot">
+      <img src="assets/2026-06-06-movement-realism.png" alt="A squad in a 360-degree security halt" loading="lazy">
+      <div class="cap">A 360° security halt that forms like a real squad — and keeps scanning, not freezing.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>A frozen turret where a security halt should be</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">UX</span><span class="tag">Realism</span></div>
+      <p>Squads setting up 360° security marched men straight through each other to reach raw ring slots —
+      and once halted, soldiers snapped their facing at 700°/s and froze, a dead turret instead of a
+      scanning perimeter. Spacing was double doctrine. The whole thing read as mechanical, not military.</p>
+      <p class="shape"><b>The shape:</b> metricize first with two harnesses, then a three-expert research
+      workflow (FM/ATP 3-21.8, game-AI steering, crowd-sim) converged on the fix — slot assignment by
+      nearest, a settle that scans rather than snaps — re-measured in isolation, determinism confirmed.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">max position churn</span><span class="b">3.7</span><span class="ar">→</span><span class="a">1.1</span></span>
+        <span class="m"><span class="lbl">heading jitter</span><span class="b">110°/s</span><span class="ar">→</span><span class="a">16°/s</span></span>
+        <span class="m"><span class="lbl">settle time</span><span class="b">40.1 s</span><span class="ar">→</span><span class="a">27.4 s</span></span>
+        <span class="m"><span class="lbl">halted scan motion</span><span class="b">0 (frozen)</span><span class="ar">→</span><span class="a">8°/s (live)</span></span>
+      </div>
+      <p class="quote">"The hardest part of command is watching" — the 360° now forms like a real squad, not a lattice snapping into place.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-06-movement-realism/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-06-cop-interior">
+    <div class="shot">
+      <img src="assets/2026-06-06-cop-interior.png" alt="The outpost interior with guaranteed building clearance" loading="lazy">
+      <div class="cap">The outpost interior, now navigable — buildings spaced so courtyards never seal.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The TOC was a dead-end courtyard — squads just kept grinding the wall</h3>
+      <div class="tags"><span class="tag">Terrain</span><span class="tag">Movement</span><span class="tag">UX</span></div>
+      <p>A player reported a squad stuck on buildings inside the outpost — men grinding the TOC wall
+      forever. It looked like a movement bug, but it was a terrain-generation bug the COP audit's own
+      metrics were blind to: buildings placed with zero guaranteed clearance were sealing interior
+      courtyards the pathfinder could not enter.</p>
+      <p class="shape"><b>The shape:</b> metricize with two new harnesses and a render probe that drew the
+      sealed courtyard in red, then a multi-agent workshop diagnosed the blind spot in the audit oracle
+      itself (open space ≠ connected space), and a second adversarial pass verified zero regression.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">seeds with unreachable posts</span><span class="b">~42/60</span><span class="ar">→</span><span class="a">0/60</span></span>
+        <span class="m"><span class="lbl">valley-2533 grind/600 s</span><span class="b">1169</span><span class="ar">→</span><span class="a">26</span></span>
+        <span class="m"><span class="lbl">survey-44 grind/600 s</span><span class="b">12808</span><span class="ar">→</span><span class="a">26</span></span>
+        <span class="m"><span class="lbl">minimum building gap</span><span class="b">0 m</span><span class="ar">→</span><span class="a">≥10 m</span></span>
+      </div>
+      <p class="quote">The audit said 80% open — but open space and connected space are not the same thing.</p>
+      <p class="norep">Resolved tracked issue 012. Engineering record: <code>docs/progress/2026-06-06-cop-interior/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-06-firemission-realism">
+    <div class="shot">
+      <a href="reports/2026-06-06-firemission-realism/report.html"><img src="assets/2026-06-06-firemission-realism.png" alt="Mortar aimpoint before vs after the densest-cluster fix" loading="lazy"></a>
+      <div class="cap">Before/after of the mortar aimpoint — averaging all enemies put rounds on the squad.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The squad stopped dropping mortars on itself</h3>
+      <div class="tags"><span class="tag">Combat</span><span class="tag">AI</span><span class="tag">Realism</span></div>
+      <p>A player report: "the squad called a mortar mission much too close to them, nowhere near the
+      enemy." Both halves were real — the AI averaged all enemy positions (landing rounds on the squad in
+      an L-shaped ambush), and the danger-close gate existed but never actually stopped the call, producing
+      a genuine US fratricide.</p>
+      <p class="shape"><b>The shape:</b> metricize first — a probe intercepted every AI call-for-fire across
+      40 deployments, scoring the aimpoint against independent ground truth, then let rounds fall to count
+      real fratricide. The fix: a densest-cluster aimpoint, a real danger-close withhold, and an FDC
+      check-fire.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">danger-close calls</span><span class="b">3–4%</span><span class="ar">→</span><span class="a">0%</span></span>
+        <span class="m"><span class="lbl">fratricide events</span><span class="b">1</span><span class="ar">→</span><span class="a">0</span></span>
+        <span class="m"><span class="lbl">nearest friendly to impact</span><span class="b">10 m</span><span class="ar">→</span><span class="a">69 m</span></span>
+        <span class="m stat">off-target vs living enemy: 0% (held-out)</span>
+      </div>
+      <p class="quote">It found a one-line averaging mistake and a missing safety the way a soldier would: by measuring where the rounds actually fell.</p>
+      <a class="readmore" href="reports/2026-06-06-firemission-realism/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-06-world-scale-realism">
+    <div class="shot">
+      <a href="reports/2026-06-06-world-scale-realism/report.html"><img src="assets/2026-06-06-world-scale-realism.png" alt="The outpost at default zoom showing figure scale" loading="lazy"></a>
+      <div class="cap">The scale audit. Opens the full scorecard — every dimension of the sim vs the real Korengal.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The soldiers were 36 metres wide</h3>
+      <div class="tags"><span class="tag">Render</span><span class="tag">Realism</span><span class="tag">UX</span></div>
+      <p>A player felt the scale "doesn't feel true to life." A cited 13-agent research pass confirmed the
+      worst offender: the renderer painted each soldier roughly 21 m wide at the default zoom — 36× his real
+      0.6 m footprint — so a 9-man squad at textbook 5.5 m spacing fused into a single blob dominating the
+      170 m outpost. The sim was authentic; the renderer was lying about it.</p>
+      <p class="shape"><b>The shape:</b> a live-app probe applied the renderer's exact clamp formulas per
+      zoom, cross-referenced against a 13-agent real-world research pass (Korengal geography, FM/ATP 3-21.8,
+      first-hand accounts), producing a verbatim scorecard of the sim against reality.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">figure vs true size (default zoom)</span><span class="b">36×</span><span class="ar">→</span><span class="a">17×</span></span>
+        <span class="m"><span class="lbl">figure vs true (tactical zoom)</span><span class="b">12×</span><span class="ar">→</span><span class="a">3×</span></span>
+        <span class="m"><span class="lbl">squad figures overlap</span><span class="b">true</span><span class="ar">→</span><span class="a">false</span></span>
+      </div>
+      <p class="quote">The sim was already authentic; the renderer was lying about it — a 36× exaggeration hiding correct numbers underneath.</p>
+      <a class="readmore" href="reports/2026-06-06-world-scale-realism/report.html">Read the full audit →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-06-coin-real-game">
+    <div class="shot">
+      <img src="assets/2026-06-06-coin-real-game.png" alt="The COIN strategic HUD" loading="lazy">
+      <div class="cap">The counterinsurgency HUD — attitudes, cooperation, CERP, directives — finally load-bearing.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The strategy layer that punished patience and rewarded body-count</h3>
+      <div class="tags"><span class="tag">COIN</span><span class="tag">Campaign</span><span class="tag">Simulation</span></div>
+      <p>The game's central claim — "you can win every firefight and still lose the valley" — was
+      mechanically false. Careful counterinsurgency and a pure body-count run scored almost identically.
+      Projects never completed because no element stayed to hold security, so every funded build sabotaged
+      itself. CERP only counted toward zero. Directive deadline-and-penalty code was never read anywhere.</p>
+      <p class="shape"><b>The shape:</b> a campaign-loop harness compared careful-COIN vs body-count across
+      seeds and game-day windows as the authoritative ledger, then a coherent engine wave fixed each root
+      cause in isolation — and a later pass fixed the <em>instrument</em> itself, which had been
+      over-marching careful patrols into ambushes.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">careful Δ mean attitude</span><span class="b">0.1 (flat)</span><span class="ar">→</span><span class="a">+13.5</span></span>
+        <span class="m"><span class="lbl">projects complete / tour</span><span class="b">0</span><span class="ar">→</span><span class="a">2.8</span></span>
+        <span class="m"><span class="lbl">careful vs body-count score spread</span><span class="b">~0</span><span class="ar">→</span><span class="a">36.0</span></span>
+        <span class="m"><span class="lbl">CERP ever rose</span><span class="b">no</span><span class="ar">→</span><span class="a">yes</span></span>
+      </div>
+      <p class="quote">The harness meant to prove COIN worked was itself broken — it over-marched careful patrols into ambushes, doubling KIA and inverting the spread.</p>
+      <p class="norep">Resolved tracked issue 015. Engineering record: <code>docs/progress/2026-06-06-coin-real-game/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-06-atmospherics">
+    <div class="shot">
+      <a href="reports/2026-06-06-atmospherics/report.html"><img src="assets/2026-06-06-atmospherics.png" alt="The civilian atmospherics report" loading="lazy"></a>
+      <div class="cap">The diurnal-rhythm &amp; melt-away report — the calm-before-the-ambush tell, measured.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The valley never slept — until it learned to go quiet before the shooting</h3>
+      <div class="tags"><span class="tag">Realism</span><span class="tag">COIN</span><span class="tag">UX</span></div>
+      <p>The valley was diurnally flat — civilians wandered 24/7 at constant population, day and night
+      identical. Worse, the flagship counterinsurgency tell the tutorial explicitly teaches — civilians
+      melting away before an ambush — did not exist in the engine. A patient player had nothing to read.</p>
+      <p class="shape"><b>The shape:</b> a probe with an independent oracle measured outdoor occupancy by
+      hour and pre-contact distance-to-home, tuned on one seed and proven on a held-out one, with
+      same-seed determinism asserted by hashing civilian positions across two identical runs.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">outdoor occupancy at night</span><span class="b">100% (flat)</span><span class="ar">→</span><span class="a">~0%</span></span>
+        <span class="m"><span class="lbl">midday outdoor</span><span class="b">—</span><span class="ar">→</span><span class="a">≥62%</span></span>
+        <span class="m"><span class="lbl">melt cohort closes home-distance</span><span class="b">0%</span><span class="ar">→</span><span class="a">~50% before any shot</span></span>
+      </div>
+      <p class="quote">The fields thin over a few seconds — that thinning is the absence an alert player learns to read.</p>
+      <a class="readmore" href="reports/2026-06-06-atmospherics/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-06-procedural-audio">
+    <div class="shot">
+      <img src="assets/2026-06-06-procedural-audio.png" alt="The in-game audio controls" loading="lazy">
+      <div class="cap">Every sound synthesized at runtime — no audio files, no audio library, fully deterministic.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The silence that made you realise: no game sounds here at all</h3>
+      <div class="tags"><span class="tag">Audio</span><span class="tag">Render</span><span class="tag">UX</span></div>
+      <p>The game had no audio whatsoever — no crack-thump of incoming rounds, no SAW rip against a PKM
+      hammer from the high ground, no mortar shot-and-splash, no radio net under the firefight. The genre's
+      spine was missing, and the player was watching a silent simulation.</p>
+      <p class="shape"><b>The shape:</b> ground-up procedural synthesis with no binary assets and no npm
+      dependency — a strict pure/browser split (a deterministic cue collector in the sim half; Web Audio
+      node graphs in the browser half), verified headless by byte-identical replay and live against a debug
+      ring buffer.</p>
+      <div class="metrics">
+        <span class="m stat">1520 cues scheduled · 0 double-fires</span>
+        <span class="m stat">two replays of one firefight: byte-identical (5983 cues)</span>
+        <span class="m stat">lib/sim has ZERO audio imports</span>
+      </div>
+      <p class="quote">Every sound is synthesized procedurally — no binary assets, no npm audio dependency.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-06-procedural-audio/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-06-deploy-loading-screen">
+    <div class="shot">
+      <a href="reports/2026-06-06-deploy-loading-screen/report.html"><img src="assets/2026-06-06-deploy-loading-screen.png" alt="The deploy loading screen" loading="lazy"></a>
+      <div class="cap">The staged loading screen that replaced a 6.5-second frozen button.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>The frozen button that swallowed six seconds</h3>
+      <div class="tags"><span class="tag">UX</span><span class="tag">Render</span></div>
+      <p>Clicking Deploy froze the browser for roughly 6.5 seconds before the game appeared — no spinner,
+      no progress, nothing — because a 4096×4096 relief bake (16.7 million pixels) ran synchronously inside
+      the click handler before React could ever paint a loading screen.</p>
+      <p class="shape"><b>The shape:</b> profile every deploy phase over the DevTools protocol to find the
+      villain, then stage the work behind a loading screen with double-rAF yields and split the monolithic
+      bake into 40 progressive bands — verified byte-identical across 5 seeds. An honest fix: feedback, not
+      raw speed.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">feedback after click</span><span class="b">frozen</span><span class="ar">→</span><span class="a">0.2 ms</span></span>
+        <span class="m"><span class="lbl">progress updates during bake</span><span class="b">0</span><span class="ar">→</span><span class="a">42 samples</span></span>
+        <span class="m stat">total click→playable ~6.5 s (goal was feedback, not speed)</span>
+      </div>
+      <p class="quote">The deploy is now covered by feedback — it is honestly not faster, and the report says so.</p>
+      <a class="readmore" href="reports/2026-06-06-deploy-loading-screen/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-06-fivex-campaign">
+    <div class="shot">
+      <a href="reports/2026-06-06-fivex-campaign/report.html"><img src="assets/2026-06-06-fivex-campaign.png" alt="A night firefight after the integrated campaign wave" loading="lazy"></a>
+      <div class="cap">A night firefight after the five-wave pass. Opens the full illustrated campaign report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>Five waves, one campaign: the firefight, the audio, the valley, and the soul of COIN — at once</h3>
+      <div class="tags"><span class="tag">Combat</span><span class="tag">COIN</span><span class="tag">Render</span></div>
+      <p>The game still played like a prototype: US soldiers died at a 5:1 disadvantage, the strategic
+      layer was indistinguishable from a body-count run, soldiers were painted 36× too large, and the
+      valley was silent and diurnally flat. This pass tied the loose threads of the day into one verified
+      campaign-wide release.</p>
+      <p class="shape"><b>The shape:</b> a goal-driven orchestration — a 12-domain recon fan-out produced 63
+      ranked hypotheses, then five file-disjoint implementation waves (combat soul, audio, game-feel, COIN,
+      scale), each ending in its own adversarial verify gated by the full done-gate suite.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">US:enemy exchange ratio</span><span class="b">~5:1 against</span><span class="ar">→</span><span class="a">~even / favorable</span></span>
+        <span class="m"><span class="lbl">COIN tour-score spread</span><span class="b">0.5</span><span class="ar">→</span><span class="a">30.3</span></span>
+        <span class="m"><span class="lbl">suppression pinned fraction</span><span class="b">0.000</span><span class="ar">→</span><span class="a">27–36%</span></span>
+        <span class="m"><span class="lbl">squad figures overlap</span><span class="b">true</span><span class="ar">→</span><span class="a">false</span></span>
+      </div>
+      <p class="quote">You can win every firefight and still lose the valley — and now the scoreboard finally proves it.</p>
+      <a class="readmore" href="reports/2026-06-06-fivex-campaign/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <!-- ============================== ACT III ============================== -->
+  <section class="act">
+    <div class="actkick">Act III · June 7</div>
+    <h2>Cinema &amp; polish</h2>
+    <p class="actsub">The last pass turned a correct simulation into one that <em>looks and sounds</em> like
+    the place it models — weather, the light a muzzle throws on the hillside, the punch of a near-miss,
+    and a canyon that echoes.</p>
+  </section>
+
+  <article class="chapter alt" id="c-2026-06-07-atmospherics">
+    <div class="shot">
+      <img src="assets/2026-06-07-atmospherics.png" alt="A night detonation lighting the relief" loading="lazy">
+      <div class="cap">A detonation briefly lights the relief at night — and the figures are now true-scale.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-07</span></div>
+      <h3>The valley was a weatherless diagram — now it has weather, dark, and a muzzle's light</h3>
+      <div class="tags"><span class="tag">Render</span><span class="tag">Combat</span><span class="tag">UX</span></div>
+      <p>The battlefield looked like a CAD schematic: no weather, no lighting from gunfire, no sense of
+      scale, and every soldier painted as a 21-metre blob. A night firefight was indistinguishable from a
+      daytime diagram. This pass added rain, fog, snow and dust, night-light from fires and muzzles,
+      wind-driven smoke, camera punch — and shipped the true-scale figures.</p>
+      <p class="shape"><b>The shape:</b> a render-side cinematic pass that is pure read-out of existing sim
+      state — no writes back into the deterministic engine — verified with the same live-app scale probe,
+      resolving the cheap "representation" half of the scale issue.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">figure vs true (default)</span><span class="b">36×</span><span class="ar">→</span><span class="a">17×</span></span>
+        <span class="m"><span class="lbl">soldier as % of outpost</span><span class="b">0.126</span><span class="ar">→</span><span class="a">~0.010</span></span>
+        <span class="m"><span class="lbl">squad figures overlap</span><span class="b">true</span><span class="ar">→</span><span class="a">false</span></span>
+      </div>
+      <p class="quote">A detonation should briefly light the relief — not just add a dot to a diagram.</p>
+      <p class="norep">Resolved tracked issue 014 (render half). Engineering record: <code>docs/progress/2026-06-07-atmospherics/</code>.</p>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-07-soundscape">
+    <div class="shot">
+      <a href="reports/2026-06-07-soundscape/report.html"><img src="assets/2026-06-07-soundscape.png" alt="Before/after firefight spectrogram" loading="lazy"></a>
+      <div class="cap">A firefight spectrogram, before vs after. Opens the full report — with playable A/B audio.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-07</span></div>
+      <h3>From mono-and-silent to a living canyon: a 20× soundscape rebuild</h3>
+      <div class="tags"><span class="tag">Audio</span><span class="tag">Realism</span><span class="tag">Render</span></div>
+      <p>The earlier audio pass put sound in the game — but it was combat-only, essentially <em>mono</em>,
+      had <em>no reverb</em>, and fell <em>silent between firefights</em>. The valley didn't breathe. This
+      pass rebuilt it into a living place: a canyon that echoes, a wind/river/generator/wildlife bed keyed
+      to the sim's time-of-day and weather, terrain that muffles fire behind a ridge, and 5-layer weapon
+      synthesis with a correct 5.56-vs-7.62 timbre tell.</p>
+      <p class="shape"><b>The shape:</b> a 6-agent research fan-out (gunfire DSP, canyon reverb, ambient
+      design, spatialization, adaptive mixing, valley acoustics) → an additive bus architecture → three
+      parallel module builds → an offline oracle (<code>audio-render.ts</code>) + spectrogram viz tuned to
+      all-green. The adversarial pass caught a real oracle bug (a voice counter that never decremented,
+      so the firefight was measured on only its first 32 cues).</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">firefight stereo correlation</span><span class="b">0.981 (mono)</span><span class="ar">→</span><span class="a">0.392 (wide)</span></span>
+        <span class="m"><span class="lbl">ambient calm bed</span><span class="b">−120 dB (silent)</span><span class="ar">→</span><span class="a">−42.6 dB (alive)</span></span>
+        <span class="m"><span class="lbl">firefight reverb tail</span><span class="b">2450 ms</span><span class="ar">→</span><span class="a">7100 ms (canyon)</span></span>
+        <span class="m"><span class="lbl">weapon timbre tell</span><span class="b">M4 ≈ AK</span><span class="ar">→</span><span class="a">M4 6860 &gt; AK 6212 Hz</span></span>
+      </div>
+      <p class="quote">100% procedural — Web Audio only, zero audio assets, the reverb impulse is generated noise — and deterministic.</p>
+      <a class="readmore" href="reports/2026-06-07-soundscape/report.html">Read the full report (with playable A/B audio) →</a>
+    </div>
+  </article>
+
+  <!-- ============================== METHOD ============================== -->
+  <section class="act">
+    <div class="actkick">The method itself</div>
+    <h2>How the machine that built this was built</h2>
+    <p class="actsub">The doctrine in "The five moves" above is not an afterthought — it was itself
+    mined, tournamented, and verified. This is the most meta chapter, and the most important.</p>
+  </section>
+
+  <article class="chapter" id="c-methodology">
+    <div class="shot">
+      <a href="reports/methodology/report.html"><img src="assets/methodology.png" alt="The CLAUDE.md build explainer" loading="lazy"></a>
+      <div class="cap">The full explainer of how the project's operating doctrine (CLAUDE.md) was built.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-06</span></div>
+      <h3>147 MB of transcripts distilled into one file that every agent reads first</h3>
+      <div class="tags"><span class="tag">Methodology</span><span class="tag">UX</span></div>
+      <p>After 23 real build sessions the project had accumulated 147 MB of transcripts encoding hard-won
+      patterns — verify-as-a-number, fan-out orchestration, adversarial passes — but none of it was
+      reachable to a fresh agent starting cold. Every new session re-discovered the codebase and sometimes
+      re-proposed approaches already measured and rejected.</p>
+      <p class="shape"><b>The shape:</b> a five-workflow pipeline (Mine → Orient → Generate → Tournament →
+      Finalize) extracted the corpus signal, generated five candidate operating philosophies in parallel,
+      ran each through an adversarial critic and a 3-judge panel, then synthesized a champion from the best
+      spine with grafts from the runners-up.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">transcript → corpus</span><span class="b">147 MB</span><span class="ar">→</span><span class="a">464 KB</span></span>
+        <span class="m"><span class="lbl">raw → ranked techniques</span><span class="b">96</span><span class="ar">→</span><span class="a">24</span></span>
+        <span class="m stat">tournament: champion 193/210 vs runner-up 192/210</span>
+      </div>
+      <p class="quote">A CLAUDE.md is not documentation — it is latent-space conditioning: mined, distilled, and won.</p>
+      <a class="readmore" href="reports/methodology/report.html">Read the explainer →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-dev-archive">
+    <div class="shot">
+      <img src="assets/dev-archive.png" alt="The development archive's own front page" loading="lazy">
+      <div class="cap">This page, documenting itself — the practice is now part of the done-gate.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-07</span></div>
+      <h3>The archive that documents itself — making the work visible</h3>
+      <div class="tags"><span class="tag">Methodology</span><span class="tag">UX</span></div>
+      <p>The reports above had been piling up under <code>docs/</code> — which never ships. A player
+      deploying the game would never see any of it. So the scattered record was pulled into this one
+      chronological archive, published into the part of the tree that <em>does</em> ship, and wired into
+      the Field Manual and the title-screen menu. Transparency was made a feature, not an accident.</p>
+      <p class="shape"><b>The shape:</b> a survey fan-out (one reader per chapter, returning verbatim
+      numbers under a strict schema) fed a hand-written synthesis; then the published layout was rendered
+      through a real static server and every link asserted to resolve before it was called done — and the
+      practice was written into <code>CLAUDE.md</code> so it can't be skipped next time.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">reports reachable at deploy</span><span class="b">0</span><span class="ar">→</span><span class="a">9</span></span>
+        <span class="m"><span class="lbl">development story</span><span class="b">~18 folders</span><span class="ar">→</span><span class="a">1 archive, 21 chapters</span></span>
+        <span class="m"><span class="lbl">broken links</span><span class="b">—</span><span class="ar">→</span><span class="a">0 / 30</span></span>
+      </div>
+      <p class="quote">Software usually hides its scaffolding. Here, showing the work is the work — so the archive ships inside the game.</p>
+      <p class="norep">Engineering record: <code>docs/progress/2026-06-07-dev-archive/</code>.</p>
+    </div>
+  </article>
+
+  <div class="callout" style="margin-top:48px">
+    <div class="h">A note on honesty</div>
+    Where a fix was partial, the report says so — the deploy got <em>feedback</em>, not raw speed; the
+    world-scale audit fixed the cheap render half and deferred the expensive simulation half. Numbers
+    here are quoted verbatim from the engineering record under <code>docs/progress/</code> and the issue
+    ledger under <code>docs/issues/</code>. Nothing was rounded up to "fixed."
+  </div>
+
+  <div class="footer">
+    In the Mountains — Development Archive · The story is the product ·
+    <a href="../index.html">Field Manual</a> · <a href="../tutorial.html">Tutorial</a> · <a href="/">Return to game</a>
+  </div>
+</main>
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>
