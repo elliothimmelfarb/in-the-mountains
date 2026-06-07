@@ -26,6 +26,8 @@ const OUT = process.argv[2] || "docs/progress/ux-audit-latest.json";
 // optional: --shots <dir> captures a full-viewport PNG per audited state for the judge panel.
 const shotsIdx = process.argv.indexOf("--shots");
 const SHOTS_DIR = shotsIdx >= 0 ? process.argv[shotsIdx + 1] : null;
+// --demo fires sample toasts before the HUD capture (for the report only — never a scored run)
+const DEMO = process.argv.includes("--demo");
 const PORT = 9334; // distinct from shoot.mjs's 9333
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const URL = "http://localhost:3000";
@@ -303,6 +305,9 @@ async function auditState(name, setupExpr) {
     await evalJS(`window.__ITM.getState().newCampaign('ux-audit', 120)`, true);
     for (let i = 0; i < 120; i++) { const s = await evalJS(`(window.__ITM.getState().screen)`); if (s === 'deploy' && await evalJS(`!!window.__ITM.getState().world`)) break; await sleep(120); }
     await sleep(400);
+    if (DEMO) {
+      await evalJS(`(()=>{const st=window.__ITM.getState();st.pushToast('CERP approved — clinic at Darbart ($5k). Secure the site.','good');st.pushToast('1st Squad — stepping off','info');st.pushToast('▲ CONTACT — 2nd Squad taking fire vicinity Saret','crit');return 'ok'})()`);
+    }
     states.push(await auditState("hud", `(()=>{const st=window.__ITM.getState();const sq=st.world.platoon.squads[1];if(sq)st.selectSquad(sq.id);return 'hud'})()`));
 
     // 3) VILLAGE PANEL — open the first village
