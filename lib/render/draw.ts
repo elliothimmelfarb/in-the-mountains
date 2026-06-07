@@ -70,37 +70,6 @@ function unitSpriteId(faction: Faction, role: Role, suspect: boolean): string | 
   return null;
 }
 
-function roleGlyph(role: string): string {
-  switch (role) {
-    case "saw_gunner":
-    case "auto_rifleman":
-    case "machinegunner":
-    case "mg_gunner":
-      return "//"; // automatic weapon
-    case "grenadier":
-      return "◇";
-    case "marksman":
-    case "sniper":
-    case "marksman_acm":
-      return "+";
-    case "medic":
-      return "✚";
-    case "rto":
-    case "jtac":
-      return "¥";
-    case "squad_leader":
-    case "team_leader":
-    case "platoon_leader":
-    case "platoon_sergeant":
-    case "commander":
-      return "▲";
-    case "rpg_gunner":
-      return "!";
-    default:
-      return "";
-  }
-}
-
 export function drawUnit(
   ctx: CanvasRenderingContext2D,
   cam: Camera,
@@ -190,15 +159,6 @@ export function drawUnit(
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2);
       ctx.fill();
-    }
-    // role glyph
-    const glyph = roleGlyph(u.role);
-    if (glyph && (u.faction === "us" || u.faction === "ana") && cam.ppm > 4) {
-      ctx.fillStyle = "#0c0d0a";
-      ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(glyph, 0, 0.5);
     }
     ctx.restore();
   }
