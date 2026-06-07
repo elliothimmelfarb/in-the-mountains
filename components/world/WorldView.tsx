@@ -777,6 +777,9 @@ export default function WorldView() {
       <canvas
         ref={canvasRef}
         className="block"
+        tabIndex={0}
+        role="application"
+        aria-label="Tactical map. Drag to pan, scroll to zoom, click a soldier to select his squad or a village to open it. Press C to jump to contact, H for controls."
         onMouseDown={(e) => {
           if (e.button === 1) return;
           const [sx, sy] = localXY(e);
