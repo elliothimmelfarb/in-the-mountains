@@ -76,6 +76,8 @@ interface GameStore {
   toasts: Toast[];
   pushToast: (text: string, sev?: ToastSev) => void;
   dismissToast: (id: number) => void;
+  helpOpen: boolean; // transient: the keyboard-shortcut / controls reference overlay
+  toggleHelp: (on?: boolean) => void;
   jacketId: string | null;
   loadProgress: LoadProgress | null; // non-null while the deploy/loading screen is up
 
@@ -366,6 +368,8 @@ export const useGame = create<GameStore>((set, get) => ({
   pushToast: (text, sev = "info") =>
     set((s) => ({ toasts: [...s.toasts, { id: ++_toastId, text, sev, born: _nowMs }].slice(-TOAST_MAX) })),
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  helpOpen: false,
+  toggleHelp: (on) => set((s) => ({ helpOpen: on ?? !s.helpOpen })),
   jacketId: null,
   loadProgress: null,
   layout: loadLayout(),
