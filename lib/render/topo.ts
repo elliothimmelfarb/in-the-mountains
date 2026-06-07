@@ -505,6 +505,174 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
   }
 }
 
+// ---- WEATHER (atmospheric overlay, drawn over terrain + decoration, under units) ----
+//
+// The sim already computes a full weather model (label / precip / visibility / wind) but
+// the map drew nothing but a flat night wash. This renders that weather as restrained,
+// in-palette atmosphere — rain streaks, drifting fog/cloud, falling snow that thickens on
+// the high crests, blowing dust — so a Rain day FEELS like rain and Fog actually closes
+// the valley in. Pure render: reads world.state.weather + the live wind vector
+// (sim.weather.windX/windY); writes nothing back to lib/sim.
+//
+// Restraint contract (ART_BIBLE §9 / wave guardrails): weather is ATMOSPHERE, exempt
+// from the NW cast-shadow rule (it's not an object), but stays inside the locked dusty
+// palette, NEVER strobes, and the summed alpha (veil + particles) is capped so it never
+// obscures the tactical read. Particle POSITIONS are hashed off a frozen screen grid +
+// a wall-clock phase, so they animate smoothly without per-frame Math.random shimmer.
+
+/** The render-side view of the weather the sim computes (decoupled from World). */
+export interface WeatherView {
+  label: string;       // "Clear" | "Hazy" | "Overcast" | "Rain" | "Fog" | "Snow"
+  precip: boolean;
+  visibilityM: number; // 600 (Fog) … 4000 (Clear)
+  wind: number;        // m/s, prevailing speed
+  windX: number;       // live drift vector x (sim.weather.windX)
+  windY: number;       // live drift vector y (sim.weather.windY)
+  minElev: number;     // terrain.minElev — for the snow-line on the crests
+  elevRange: number;   // terrain.maxElev - terrain.minElev
+  elevAt?: (wx: number, wy: number) => number; // optional: real elevation sampler (snow gate)
+}
+
+/** Cosmetic wall-clock seconds (render-only; never feeds back into lib/sim). */
+function wxNow(): number {
+  return (typeof performance !== "undefined" ? performance.now() : 0) / 1000;
+}
+/** Cheap deterministic hash → [0,1) for frozen-grid particle scatter (no shimmer). */
+function whash(a: number, b: number): number {
+  let h = (a | 0) * 374761393 + (b | 0) * 668265263;
+  h = (h ^ (h >> 13)) * 1274126177;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+
+/**
+ * Draw the active weather as an atmospheric overlay. Call AFTER drawTerrain/drawDecoration
+ * (so it sits over the relief) and BEFORE the unit/tactical layer (so it never hides the
+ * fight). `night` is 1-ambientLight; weather alpha is damped at night so it doesn't fight
+ * the night wash.
+ */
+export function drawWeather(ctx: CanvasRenderingContext2D, cam: Camera, w: WeatherView, night = 0) {
+  if (w.label === "Clear") return; // crisp valley — draw nothing
+  const t = wxNow();
+  // visibility → "thickness": Fog 600 m strongest, Hazy 2600 m faint.
+  const thick = clamp01(1 - w.visibilityM / 4000);
+  // night damp: weather recedes into the dark so it doesn't double up on the night wash.
+  const nightK = 0.6 + 0.4 * (1 - night);
+  // wind heading + speed (live drift vector), with a gentle floor so still air still drifts.
+  const wmag = Math.hypot(w.windX, w.windY);
+  const wang = wmag > 1e-3 ? Math.atan2(w.windY, w.windX) : 1.3; // default: down-right
+  const wspd = Math.max(2.5, w.wind);
+
+  // --- 1) ATMOSPHERIC VEIL: a flat tint that drops apparent visibility (the "weather is
+  // present" read even on a precip-free Overcast/Hazy day). Fog = strong cool grey veil;
+  // Hazy/Overcast = a light cool veil; Snow = a faint bright veil; blowing dust = warm. ---
+  let veilCol = "176,172,162"; // smoke-grey (ART_BIBLE smoke palette)
+  let veilA = 0;
+  const dusty = w.label === "Hazy" && w.wind > 5; // map "blowing dust" onto a windy Hazy
+  if (w.label === "Fog") veilA = 0.04 + thick * 0.16;
+  else if (w.label === "Overcast") veilA = 0.06 + thick * 0.05;
+  else if (dusty) { veilCol = "164,150,110"; veilA = 0.07 + thick * 0.06; } // warm haze (topo bake haze hue)
+  else if (w.label === "Hazy") { veilCol = "182,176,166"; veilA = 0.05 + thick * 0.04; }
+  else if (w.label === "Snow") { veilCol = "210,214,222"; veilA = 0.04 + thick * 0.05; }
+  else if (w.label === "Rain") { veilCol = "150,160,170"; veilA = 0.05 + thick * 0.05; }
+  if (veilA > 0.005) {
+    ctx.save();
+    ctx.fillStyle = `rgba(${veilCol},${(veilA * nightK).toFixed(3)})`;
+    ctx.fillRect(0, 0, cam.vw, cam.vh);
+    ctx.restore();
+  }
+
+  // --- 2) DRIFTING FOG / LOW CLOUD: a few big soft radial blobs panning with the wind, so
+  // visibility reads as physically moving cloud, not just a flat filter. (Fog mainly; a
+  // couple of lighter ones on Overcast so the ceiling feels low.) ---
+  if (w.label === "Fog" || w.label === "Overcast") {
+    const blobs = w.label === "Fog" ? 3 : 2;
+    const span = Math.max(cam.vw, cam.vh);
+    ctx.save();
+    for (let i = 0; i < blobs; i++) {
+      // each blob pans slowly along the wind heading; wraps across the viewport.
+      const phase = (t * wspd * (w.label === "Fog" ? 3.0 : 1.6) + i * 977) ;
+      const drift = ((phase % (span + 600)) - 300);
+      const bx = cam.vw * (0.2 + 0.3 * i) + Math.cos(wang) * drift;
+      const by = cam.vh * (0.35 + 0.22 * (i % 2)) + Math.sin(wang) * drift * 0.5
+                 + Math.sin(t * 0.15 + i) * 18; // gentle vertical breathing
+      const R = span * (0.45 + 0.18 * i);
+      const a = (w.label === "Fog" ? 0.10 : 0.05) * (0.6 + thick) * nightK;
+      const grad = ctx.createRadialGradient(bx, by, 0, bx, by, R);
+      grad.addColorStop(0, `rgba(${veilCol},${a.toFixed(3)})`);
+      grad.addColorStop(1, `rgba(${veilCol},0)`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(bx, by, R, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // --- 3) PRECIP PARTICLES: rain streaks / snow flakes on a frozen screen grid so they
+  // never shimmer; each cell carries one particle that falls (down + along the wind) and
+  // wraps. Density ∝ thickness; alpha low per particle so the mass reads as weather. ---
+  if (w.label === "Rain" || w.label === "Snow" || dusty) {
+    const snow = w.label === "Snow";
+    // streak direction: rain steep along wind, snow gentle, dust near-horizontal.
+    const fall = snow ? 0.9 : dusty ? 0.15 : 1.0;           // vertical bias
+    const along = (w.windX / wspd) * (snow ? 0.5 : dusty ? 1.4 : 0.45); // wind shear
+    // grid cell size in px → density; smaller cell = denser. Rain dense, snow medium.
+    const cell = snow ? 46 : dusty ? 58 : 26;
+    const cols = Math.ceil(cam.vw / cell) + 1;
+    const rows = Math.ceil(cam.vh / cell) + 1;
+    const fallPxS = snow ? 70 : dusty ? 90 : 520; // fall speed (px/s)
+    const len = snow ? 0 : dusty ? 12 : 18;        // streak length (px); snow = dot
+    ctx.save();
+    ctx.lineCap = "round";
+    for (let gy = 0; gy < rows; gy++) {
+      for (let gx = 0; gx < cols; gx++) {
+        const seed = whash(gx, gy);
+        // per-cell density gate (thicker weather → more cells populated). Rain/snow keep a
+        // high base so the field reads as real precipitation, not an occasional speck.
+        if (seed > 0.6 + thick * 0.38) continue;
+        // SNOW gates by elevation: thickens on the high crests, thins on the floor. We use
+        // the screen position → world position → elevation vs the bake's snow-line constant.
+        const baseX = gx * cell + seed * cell;
+        const baseY = gy * cell + whash(gy, gx) * cell;
+        // animate: progress down the column with a per-cell phase, wrap over the viewport.
+        const phase = seed * 1000;
+        const prog = (t * fallPxS + phase) % (cam.vh + 80);
+        const px = baseX + along * prog + (snow ? Math.sin(t * 1.3 + phase) * 10 : 0);
+        const py = (baseY + prog) % (cam.vh + 80) - 40;
+        if (snow) {
+          // SNOW THICKENS ON THE CRESTS: gate flake density by the real elevation under this
+          // screen point vs the bake's snow-line (the same constant makeBake uses for the
+          // baked snow caps), so falling snow concentrates on the high ground and thins to
+          // nothing on the valley floor — the storm reads as "snowing on the peaks."
+          if (w.elevAt) {
+            const wx = (px - cam.vw / 2) / cam.ppm + cam.cx;
+            const wy = (py - cam.vh / 2) / cam.ppm + cam.cy;
+            const snowLine = w.minElev + w.elevRange * 0.55; // a touch below the bake cap → flurries reach mid-slope
+            const e = w.elevAt(wx, wy);
+            const hi = clamp01((e - snowLine) / Math.max(1, w.elevRange * 0.45));
+            // keep a faint valley flurry (0.2) rising to full on the crests (1.0)
+            if (whash(gx + 31, gy + 17) > 0.2 + hi * 0.8) continue;
+          }
+          const r = 1.4 + seed * 1.8;
+          ctx.fillStyle = `rgba(240,244,252,${(0.8 * nightK).toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(px, py, r, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          const a = (dusty ? 0.18 : 0.30) * nightK;
+          ctx.strokeStyle = dusty ? `rgba(176,162,124,${a})` : `rgba(176,190,200,${a})`;
+          ctx.lineWidth = dusty ? 1.5 : 1.1;
+          ctx.beginPath();
+          ctx.moveTo(px, py);
+          ctx.lineTo(px - along * len, py - fall * len);
+          ctx.stroke();
+        }
+      }
+    }
+    ctx.restore();
+  }
+}
+
 /** A faint UTM-style grid with labels, drawn over terrain. */
 export function drawGrid(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, spacingM = 200) {
   ctx.save();
