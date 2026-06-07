@@ -261,7 +261,7 @@ async function auditState(name, setupExpr) {
       writeFileSync(`${SHOTS_DIR}/${name}.png`, Buffer.from(shot.data, "base64"));
       // hi-detail 2x crops of the two dense strips (CommandBar top + OrderBar bottom)
       if (name === "hud") {
-        for (const [sel, tag] of [[".panel.h-12, .panel.border-x-0", "commandbar"], [".contact-accent", "orderbar"]]) {
+        for (const [sel, tag] of [[".panel.h-12, .panel.border-x-0", "commandbar"], [".contact-accent", "orderbar"], ['[class~="w-[344px]"]', "rightcol"]]) {
           const rj = await evalJS(`(()=>{const e=document.querySelector('${sel}');if(!e)return null;const r=e.getBoundingClientRect();return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});})()`);
           if (!rj) continue;
           const r = JSON.parse(rj);
