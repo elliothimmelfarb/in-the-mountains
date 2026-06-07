@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import { useGame, getAudio } from "@/state/store";
-import { Land } from "@/lib/sim/terrain";
+import { Land, villageHamlet } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
@@ -258,12 +258,20 @@ export default function WorldView() {
       const sel = st.selectedVillage === v.id;
       const pid = v.attitude > 20 ? "pin-village-good" : v.attitude < -20 ? "pin-village-hostile" : "pin-village-neutral";
 
-      // qalat compound footprint fades in at tactical zoom (pin fades out under it)
+      // qalat HAMLET footprint fades in at tactical zoom (pin fades out under it): a CLUSTER
+      // of compound sprites (R3), one per qalat, placed from the SAME villageHamlet layout
+      // the worldgen stamped (S4) — so the painted compounds sit over the real stamped ones,
+      // and a village reads as a hamlet of buildings, not a lone monolithic box.
       const qA = lodAlpha(cam.ppm, 0.7, 1.6);
-      const tier = v.population < 140 ? 0 : v.population < 340 ? 1 : 2;
-      const qid = tier === 0 ? "qalat-small" : tier === 1 ? "qalat-medium" : "qalat-large";
-      const qW = tier === 0 ? 24 : tier === 1 ? 36 : 50;
-      if (qA > 0.02 && hasSprite(qid)) drawWorldSprite(ctx, cam, qid, c.x, c.y, { widthM: qW, alpha: qA });
+      const tv = terrain.villages.find((t) => t.id === v.id);
+      const hamletM = (tv?.size ?? 6) * terrain.cellSize;
+      if (qA > 0.02 && tv) {
+        for (const cmp of villageHamlet({ id: v.id, size: tv.size, population: v.population })) {
+          const wc = terrain.cellCenter(v.cx + cmp.dx, v.cy + cmp.dy);
+          const qid = cmp.r >= 4 ? "qalat-large" : cmp.r >= 3 ? "qalat-medium" : "qalat-small";
+          if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: cmp.r * 2 * terrain.cellSize, alpha: qA });
+        }
+      }
       const pinA = 1 - qA * 0.82;
 
       if (sel) {
@@ -274,7 +282,7 @@ export default function WorldView() {
         ctx.stroke();
       }
       if (pinA > 0.04 && hasSprite(pid)) {
-        drawScreenSprite(ctx, pid, x, y - (qA > 0.1 ? qW * cam.ppm * 0.5 : 0), 28, { alpha: pinA });
+        drawScreenSprite(ctx, pid, x, y - (qA > 0.1 ? hamletM * cam.ppm * 0.5 : 0), 28, { alpha: pinA });
       } else if (!hasSprite(pid)) {
         const col = v.attitude > 20 ? "#6fae54" : v.attitude < -20 ? "#c0392b" : "#e0a72b";
         ctx.fillStyle = col;
