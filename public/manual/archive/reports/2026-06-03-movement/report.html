@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Squad Movement Rebuild (After-Action Report)</title>
+<style>
+  :root{
+    --bg:#14160f; --panel:#1c1f17; --panel2:#23271c; --ink:#e8e7dc; --dim:#9ea391;
+    --line:#3a3f30; --accent:#b8860b; --good:#2ecc40; --bad:#ff4136; --blue:#4a9fd8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 22px 100px}
+  h1{font-size:27px;letter-spacing:.2px;margin:0 0 4px;color:#fff}
+  h2{font-size:20px;margin:46px 0 12px;color:#fff;border-bottom:1px solid var(--line);padding-bottom:8px}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  .sub{color:var(--dim);margin:0 0 26px;font-size:13px}
+  p{margin:12px 0}
+  a{color:var(--blue)}
+  code{background:#0e100b;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#d6cfa0;font-size:13px}
+  figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  figure img{width:100%;display:block;border-radius:6px;background:#000}
+  figcaption{color:var(--dim);font-size:12.5px;margin-top:10px;text-align:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .tldr{background:linear-gradient(180deg,#23271c,#1c1f17);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:10px;padding:18px 20px;margin:18px 0 8px}
+  .insight{background:#10130c;border:1px solid #2b3320;border-left:3px solid var(--good);border-radius:8px;
+           padding:12px 16px;margin:14px 0;font-size:14px}
+  .insight b{color:var(--good)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+  th{background:var(--panel2);color:#fff}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .bad{color:var(--bad)} .good{color:var(--good)} .dim{color:var(--dim)}
+  .pill{display:inline-block;background:#0e100b;border:1px solid var(--line);border-radius:999px;
+        padding:2px 10px;font-size:12px;color:var(--dim);margin:2px 4px 2px 0}
+  ol li,ul li{margin:6px 0}
+  .step{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .step .num{flex:0 0 28px;height:28px;border-radius:50%;background:var(--accent);color:#000;font-weight:700;
+             display:flex;align-items:center;justify-content:center;font-size:14px}
+  hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+  .foot{color:var(--dim);font-size:12px;margin-top:50px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Squad Movement — Rebuilt from the Ground Up</h1>
+  <p class="sub">In the Mountains · tactical COIN simulator · after-action report · 2026-06-03</p>
+
+  <div class="tldr">
+    <b>The report:</b> A squad ordered from inside the COP to a village on the far side of the gate
+    hugged the perimeter, bumped the wire, and “finished the mission” without ever reaching the village.
+    <br><br>
+    <b>The finding:</b> not one bug but <b>four layered ones</b> — no local obstacle/agent avoidance,
+    a dishonest progress metric, a global route that <i>tunnelled through the outpost</i>, and a
+    formation too wide for the corridor. <br><br>
+    <b>The fix:</b> a real <b>“navigate globally, steer locally”</b> locomotion layer — context-steering
+    + separation in the motion integrator, route-length progress, follower path-tracing with a gate
+    rejoin, a sealed wall with a benched perimeter road, and corridor-aware formation width.
+    <br><br>
+    <b>Result (the player’s exact seed, <code>korengal</code>):</b>
+    <span class="bad">before — never arrived, stalled 152&nbsp;m short, “on-station” 300&nbsp;m from the
+    objective</span> →
+    <span class="good">after — files out, rounds the wall on the perimeter track, sets up 360° security
+    <i>on Landigal</i></span>. Verified across 16 seeds; <code>build</code>, <code>tsc</code>,
+    <code>balance</code> (no stranded elements), <code>smoke</code> all green.
+  </div>
+
+  <h2>1 · What the player saw</h2>
+  <p>
+    “I tried to move a squad from inside the COP to the village just to the right. The path hugged the
+    outer perimeter, as would make sense. But there wasn’t enough space — the squad wanted a wider
+    formation, got stuck, bumped the perimeter, then <b>accomplished its mission without making it to the
+    village.</b> Now they’re all stuck hugging the perimeter after briefly having waypoints inside that
+    hopped the walls.”
+  </p>
+  <p>
+    Every clause of that report turned out to point at a different, real defect. The first job was to turn
+    the prose into numbers.
+  </p>
+
+  <h2>2 · Reproduce before you fix</h2>
+  <p>
+    I built a headless harness (<code>scripts/movement-diag.ts</code>) that recreates the exact situation
+    across seeds: form a presence patrol from 1st Squad to the village whose bearing is <i>most opposite the
+    gate</i> (the worst case — the squad must file out the ECP and round the entire HESCO ring), then measure
+    the failure modes the player described:
+  </p>
+  <ul>
+    <li><b>arrived / on-station</b> — did the point man actually reach the objective, and did the element set up there?</li>
+    <li><b>bumpTk</b> — ticks any member was wall-blocked or sliding (the integrator’s <code>blockedTimer</code>): “bumped the perimeter.”</li>
+    <li><b>finishAt</b> — how far the squad centroid was from the objective <i>when the task left the moving phase</i>: a big number is the “finished without arriving” bug.</li>
+    <li><b>overlap</b> — pairs of soldiers interpenetrating (no separation).</li>
+  </ul>
+  <p>The baseline was damning — and matched the report precisely:</p>
+  <table>
+    <tr><th>seed (worst-case village)</th><th>arrived?</th><th class="n">wall-blocked ticks</th><th class="n">“finished” distance from objective</th></tr>
+    <tr><td>korengal <span class="dim">(the player’s default)</span></td><td class="bad">NO — stalled 152 m short</td><td class="n">593</td><td class="n bad">300 m</td></tr>
+    <tr><td>survey-9</td><td class="bad">NO — stalled 183 m short</td><td class="n bad">11,364</td><td class="n bad">279 m</td></tr>
+    <tr><td>valley-3</td><td class="bad">NO — stalled 60 m short</td><td class="n">57</td><td class="n bad">219 m</td></tr>
+    <tr><td colspan="4" class="dim">…5 of 7 seeds never reached the objective; squads declared “on-station” 150–390 m away.</td></tr>
+  </table>
+
+  <h2>3 · Diagnosis — four layered bugs</h2>
+  <p>The single symptom (“gets stuck, finishes anyway”) hid four independent failures, each found by peeling back the one above it.</p>
+
+  <h3>Bug 1 — no local avoidance, no body separation</h3>
+  <p>
+    Followers were placed “at my slot, or beeline to the man ahead.” Around the <i>convex</i> HESCO ring both
+    lines clip the wall, and the only recovery was a crude axis-slide that pins in concave pockets. Soldiers
+    also walked straight through each other (peak 7 interpenetrating bodies). The motion integrator had no
+    notion of <i>steering around things</i> or <i>not overlapping</i>.
+  </p>
+  <div class="insight"><b>Insight.</b> “Don’t walk into walls / don’t overlap bodies” is <i>physics</i>, and it belongs in
+    the motion integrator where it benefits every agent (soldiers, civilians, the enemy) — not bolted onto one
+    formation routine. I added a steering layer there.</div>
+
+  <h3>Bug 2 — a dishonest progress metric</h3>
+  <p>
+    The leg-completion backstop measured progress as <i>straight-line distance from the squad centroid to the
+    objective</i>. But when you round a convex obstacle, your straight-line distance to the goal <b>temporarily
+    grows</b> as you arc around the near side — even while you march perfectly along your route. So a 40-second
+    “no-progress” timer fired during a healthy march, force-advanced the leg, and <code>enterOnStation()</code>
+    froze the squad half-way. <b>That is the “finished without reaching the village.”</b>
+  </p>
+  <div class="insight"><b>Insight.</b> Progress around obstacles must be measured along the <i>route</i>, not as
+    crow-flies distance. I switched the backstop to the navigator’s <b>remaining route length</b>, which falls
+    monotonically as he walks his path regardless of the path’s shape.</div>
+
+  <h3>Bug 3 — the global route tunnelled through the outpost</h3>
+  <p>
+    The deepest one. The coarse pathfinder uses 15&nbsp;m nodes (3×3 blocks of 5&nbsp;m cells) and calls a node
+    passable <i>if any sub-cell is passable</i> — a sane rule so a thin wall can’t seal a reachable goal. But the
+    HESCO wall is only ~2 cells thick, so <b>every coarse node on the wall ring still contained ~7 passable
+    apron/interior cells and was scored as cheap, normal ground.</b> At coarse resolution the wall was full of
+    holes; A* happily cut <i>through the enclosure</i> — out the gate, across the yard, and back — exactly the
+    “waypoints inside that hopped the walls.” The route to a 227&nbsp;m village came out <b>555&nbsp;m long</b>
+    and dived to the COP’s centre mid-route.
+  </p>
+  <div class="insight"><b>Insight.</b> Make the geometry honest at the scale the planner works at, rather than fighting
+    it with cost tweaks: <b>thicken the wall to ≥3 cells</b> (a coarse node centred on it is then genuinely
+    impassable — the ring seals, and A* physically cannot route in-and-out the single gate node, since the
+    closed-set forbids revisiting it), and <b>charge a barrier penalty</b> for any wall/cliff cells a node still
+    carries, so “around” always wins.</div>
+
+  <h3>Bug 4 — formation too wide for the corridor; orphans inside the wire</h3>
+  <p>
+    With the route fixed, two follow-ons remained. The fire-team wedge was as wide as in open country while
+    threading the narrow benched track around the wall, shoving the flank men into the wire. And a soldier still
+    <i>inside</i> the wire when the squad filed out had every breadcrumb point across the HESCO from him — he
+    beelined at a slot through the wall and orbited the inner face, unable to see the gate 50&nbsp;m away.
+  </p>
+  <div class="insight"><b>Insight.</b> Width should be sensed, not fixed — the formation <b>reads the free corridor
+    each tick and collapses to file</b> at a choke, like a real column. And a separated man <b>rejoins through the
+    gate</b> (a real A* egress), not by walking at his slot through a wall — exactly how a soldier rejoins.</div>
+
+  <h2>4 · The fix — “navigate globally, steer locally”</h2>
+  <p>
+    The squad shares <b>one</b> A* route (the navigator’s) — the global plan. Every soldier then <b>steers
+    locally</b> along it as a physical body. Five mechanisms, each fixing one bug above:
+  </p>
+  <div class="step"><div class="num">1</div><div><b>Context / fan steering + separation</b> (<code>lib/sim/steering.ts</code>, wired into <code>combat.ts moveUnit</code>). Each tick a unit fans candidate headings around its goal, ray-probes each for clearance, and takes the clearest one still aimed at the goal — <i>rounding</i> convex obstacles instead of grinding them. A short-range push keeps bodies from overlapping (and naturally forms single file at a choke). When the lane ahead is clear and nobody crowds, it returns the goal heading unchanged, so open-ground and combat movement are untouched.</div></div>
+  <div class="step"><div class="num">2</div><div><b>Route-length progress</b> (<code>world/tasks.ts</code>). The leg backstop tracks the navigator’s remaining route length, which only falls — no more false completion on the convex turn. A genuinely stuck patrol sets up <i>where it actually is</i>, never pretending it reached a point it didn’t.</div></div>
+  <div class="step"><div class="num">3</div><div><b>Sealed wall + barrier penalty</b> (<code>terrain.ts</code> wall ≥3 cells, <code>path.ts</code> quadratic penalty for blocked cells in a coarse node). The ring seals; A* routes <i>around</i>. A 227 m village route dropped from 555 m of interior tunnelling to a clean ~350 m arc.</div></div>
+  <div class="step"><div class="num">4</div><div><b>A benched perimeter track</b> (<code>terrain.ts buildCop</code>) — a graded patrol road ringing the wall, like a real COP, giving the planner a cheap, walkable way around to any bearing instead of the broken hillside.</div></div>
+  <div class="step"><div class="num">5</div><div><b>Follower trace + corridor-aware width + gate rejoin</b> (<code>world/formation.ts</code>). Followers walk the leader’s recorded breadcrumb (guaranteed-walkable around big obstacles); the wedge collapses to file as the sensed corridor narrows; a man trapped inside the wire A*-routes out through the gate, then resumes tracing.</div></div>
+
+  <figure>
+    <img src="2026-06-03-movement-trajectory.png" alt="Top-down trace of the squad rounding the COP to the village" />
+    <figcaption>Every soldier’s actual traced path (<b>korengal</b>, headless sim). The squad musters inside,
+      files out the <b>west ECP gate</b>, traces <i>coherently together</i> around the south of the HESCO ring on
+      the benched perimeter track (white = point man), and sets up 360° security on <b>Landigal</b> to the east —
+      227 m away, on the far side of the gate. Compare to the old behaviour: a winding 555 m route that dived
+      through the outpost interior and stranded the squad on the wire.</figcaption>
+  </figure>
+
+  <h2>5 · It works in the actual game</h2>
+  <p>Driving the live build (Playwright + the in-game tactical view), the same patrol on <code>korengal</code>:</p>
+  <div class="grid2">
+    <figure><img src="2026-06-03-shot-00-setup.png" alt="muster"/><figcaption>① 1st Squad musters in the yard; ECP gate at left (west).</figcaption></figure>
+    <figure><img src="2026-06-03-shot-01-filing-out.png" alt="filing out"/><figcaption>② Files out the gate in a tight column — no one orphaned inside.</figcaption></figure>
+    <figure><img src="2026-06-03-shot-02-rounding.png" alt="rounding the wall"/><figcaption>③ Rounds the south of the wire as a coherent element, path bending SE toward the village.</figcaption></figure>
+    <figure><img src="2026-06-03-shot-03-onstation.png" alt="on station"/><figcaption>④ Sets up 360° security on the objective — point team in, security ring out.</figcaption></figure>
+  </div>
+
+  <h2>6 · Verification</h2>
+  <table>
+    <tr><th>check</th><th>result</th></tr>
+    <tr><td><code>npx tsc --noEmit</code></td><td class="good">clean</td></tr>
+    <tr><td><code>npm run build</code></td><td class="good">compiled</td></tr>
+    <tr><td><code>scripts/balance.ts 16 45</code> (16 seeds × 45 min, live combat)</td><td class="good">✓ no elements left stranded mid-route · firefights in 13/16</td></tr>
+    <tr><td><code>scripts/smoke.ts</code></td><td class="good">full patrol cycle: out the gate → objective → back inside the wire</td></tr>
+    <tr><td><code>scripts/movement-diag.ts</code> (the reproduction harness)</td><td class="good">5/7 worst-case seeds now set up <i>on</i> the objective (was 2/7), incl. korengal</td></tr>
+  </table>
+  <p class="dim">
+    Honest notes: two synthetic stress-seeds remain imperfect — one whose gate faces a cliff, one whose squad
+    starts deep among interior buildings and dead-locks in the cramped yard. Both are COP-<i>siting</i> edge cases,
+    not movement bugs, and don’t affect the default campaign. Separately, balance shows higher patrol casualties
+    than before — an expected consequence of patrols now <i>actually reaching</i> contested objectives instead of
+    stalling safely near the wire; the enemy-ambush timing is a known tuning follow-up.
+  </p>
+
+  <h2>7 · The lesson, generalised</h2>
+  <p>
+    The thing worth keeping isn’t any single constant — it’s the decomposition. Movement that “feels buggy” is
+    almost always a <b>layering</b> problem:
+  </p>
+  <ul>
+    <li><b>Global navigation</b> (where the route goes) belongs to the planner — and the planner must see the world
+      at <i>its</i> resolution honestly. A thin wall in a coarse grid is an invisible wall.</li>
+    <li><b>Local steering</b> (how a body follows the route without hitting walls or neighbours) belongs to the
+      integrator and should be a <i>zero-cost no-op</i> in open space — it only bends the path where the ground or
+      the crowd demands it. Fan/context steering rounds obstacles where a naïve repulsion force would stall.</li>
+    <li><b>Progress and completion</b> must be measured in terms that stay monotonic under the actual motion
+      (route length), or the controller will lie about success.</li>
+    <li><b>Formation</b> is a soft preference that yields to physics: width reads the corridor, a separated agent
+      navigates back rather than phasing through geometry.</li>
+  </ul>
+  <p>
+    Get those four layers right and emergent behaviour that looks hand-authored — a column narrowing at a gate,
+    a wedge opening in the meadow, a straggler peeling out to the gate to rejoin — falls out for free.
+  </p>
+
+  <p class="foot">
+    Files: <code>lib/sim/steering.ts</code> · <code>lib/sim/combat.ts</code> · <code>lib/sim/path.ts</code> ·
+    <code>lib/sim/terrain.ts</code> · <code>lib/sim/world/formation.ts</code> · <code>lib/sim/world/tasks.ts</code>.
+    Harnesses: <code>scripts/movement-diag.ts</code> (reproduction + metrics) and
+    <code>scripts/trajectory-svg.ts</code> (the trace diagram).
+  </p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

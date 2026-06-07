@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Deploy Loading Screen — In the Mountains</title>
+<style>
+  :root { --bg:#0c0d0a; --panel:#15170f; --panel2:#1c1f14; --ink:#d8d2be; --inkdim:#8d8a72; --amber:#e0a72b; --line:#2c301d; --good:#6fae54; --rust:#c0392b; --us:#5b9bd8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+  .stencil { font-family: "Courier New", monospace; letter-spacing:.35em; text-transform:uppercase; color:var(--inkdim); font-size:12px; }
+  h1 { font-size: 44px; font-weight:900; letter-spacing:-.01em; line-height:1.02; margin:.2em 0 .1em; }
+  h1 .amber { color:var(--amber); }
+  h2 { font-size:24px; font-weight:800; margin:2.2em 0 .5em; border-bottom:1px solid var(--line); padding-bottom:.3em; }
+  h3 { font-size:16px; color:var(--amber); margin:1.6em 0 .3em; font-family:"Courier New",monospace; letter-spacing:.04em; }
+  .lede { color:var(--inkdim); font-size:18px; font-style:italic; max-width:62ch; }
+  a { color:var(--amber); }
+  code, .mono { font-family:"Courier New",monospace; }
+  code { background:var(--panel2); padding:1px 5px; border-radius:3px; font-size:13px; color:#e8d9a8; }
+  pre { background:#0a0b07; border:1px solid var(--line); border-left:3px solid var(--amber); padding:14px 16px; overflow:auto; font-size:12.5px; line-height:1.5; border-radius:4px; }
+  pre .c { color:#6f7a55; } pre .k { color:var(--us); } pre .s { color:var(--good); }
+  table { border-collapse:collapse; width:100%; margin:1em 0; font-size:13.5px; }
+  th,td { border:1px solid var(--line); padding:7px 11px; text-align:left; }
+  th { background:var(--panel2); color:var(--amber); font-family:"Courier New",monospace; font-size:12px; letter-spacing:.04em; }
+  td.n { text-align:right; font-family:"Courier New",monospace; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:18px 22px; }
+  .callout { background:linear-gradient(180deg,#161a0f,#12150d); border:1px solid var(--line); border-left:3px solid var(--amber); border-radius:5px; padding:14px 18px; margin:1.2em 0; }
+  .callout .h { color:var(--amber); font-family:"Courier New",monospace; font-size:12px; letter-spacing:.1em; text-transform:uppercase; margin-bottom:.3em; }
+  .grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin:1.2em 0; }
+  figure { margin:0; }
+  figure img { width:100%; border:1px solid var(--line); border-radius:5px; display:block; background:#000; }
+  figcaption { color:var(--inkdim); font-size:12px; margin-top:6px; font-family:"Courier New",monospace; }
+  .big { font-size:34px; color:var(--amber); font-weight:900; font-family:"Courier New",monospace; }
+  .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:1.4em 0; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:16px; text-align:center; }
+  .kpi .v { font-size:26px; color:var(--amber); font-weight:900; font-family:"Courier New",monospace; }
+  .kpi .l { color:var(--inkdim); font-size:11.5px; margin-top:4px; }
+  .strike { color:var(--rust); text-decoration:line-through; opacity:.7; }
+  .win { color:var(--good); }
+  hr { border:0; border-top:1px solid var(--line); margin:2.4em 0; }
+  .foot { color:var(--inkdim); font-size:12px; margin-top:3em; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="stencil">Establishing Combat Outpost · Engineering Report · 2026-06-06</div>
+  <h1>The Deploy <span class="amber">Loading Screen</span></h1>
+  <p class="lede">"They click Deploy and nothing happens for several seconds before the game screen.
+  I'd like a loading screen — a spinner, a progress bar if we have one, and a list of what's
+  happening."</p>
+
+  <div class="kpis">
+    <div class="kpi"><div class="v">0.2&nbsp;ms</div><div class="l">until the loading screen paints<br>(was: a frozen button)</div></div>
+    <div class="kpi"><div class="v">40 steps</div><div class="l">the bar advances through the<br>~6&nbsp;s relief bake (was: frozen)</div></div>
+    <div class="kpi"><div class="v">instant</div><div class="l">first deploy frame<br>(pre-warmed, no freeze)</div></div>
+  </div>
+
+  <h2>1 · Why nothing happened for several seconds</h2>
+  <p>Clicking <b>Deploy</b> called <code>newCampaign()</code>, which did <em>all</em> of the deploy
+  work <b>synchronously inside the click handler</b> and only then switched the screen. JavaScript is
+  single-threaded: while that work runs, the browser cannot paint. So React never got a chance to
+  show anything — the button just sat there, frozen, until the work was done.</p>
+
+  <p>To find where the seconds actually went, I drove the real running app over the Chrome DevTools
+  Protocol and timed every phase. The result named a villain I did <em>not</em> expect:</p>
+
+  <table>
+    <tr><th>Deploy phase</th><th>Cost</th><th>Where</th></tr>
+    <tr><td>Terrain heightmap (512², rivers, roads)</td><td class="n">~319 ms</td><td class="mono">createTerrain()</td></tr>
+    <tr><td>Platoon, villages, civilians, COP</td><td class="n">~6 ms</td><td class="mono">createWorld()</td></tr>
+    <tr><td><b>Relief bake — a 4096² (16.7&nbsp;M-pixel) shaded map</b></td><td class="n"><b>~5,900 ms</b></td><td class="mono">bakeTerrain()</td></tr>
+    <tr><td>Sprite atlas (164 SVGs)</td><td class="n">~265 ms</td><td class="mono">loadSprites()</td></tr>
+    <tr><td><b>Total click → playable</b></td><td class="n"><b>~6.5 s</b></td><td>all frozen, zero feedback</td></tr>
+  </table>
+
+  <div class="callout">
+    <div class="h">The hidden villain</div>
+    The relief bake renders the whole valley to a 4096×4096 offscreen bitmap — one pixel at a time,
+    ~16.7 million of them. And it was <b>lazy</b>: it fired on the <em>first animation frame after</em>
+    the deploy screen mounted. So even a naive loading screen would have flipped to the game and then
+    frozen solid on the bake. The fix had to <b>move the bake into the loading screen</b> and show
+    progress through it.
+  </div>
+
+  <h2>2 · The fix — stage the work, and yield to a paint between each step</h2>
+  <p>The core trick is small and worth understanding. To make a loading screen actually appear, you
+  must let the browser <b>paint</b> before you start the heavy work — and a single
+  <code>requestAnimationFrame</code> fires <em>before</em> the paint, not after. So we wait for
+  <b>two</b> frames (the previous commit is guaranteed on-screen by the second one):</p>
+
+<pre><span class="c">// state/store.ts — wait for the browser to ACTUALLY paint, not just schedule a frame</span>
+<span class="k">const</span> nextPaint = () =&gt; <span class="k">new</span> Promise(res =&gt;
+  requestAnimationFrame(() =&gt; requestAnimationFrame(() =&gt; res())));
+
+<span class="c">// each phase: show it as "active" + PAINT, THEN run the (often blocking) work</span>
+steps[i].status = <span class="s">"active"</span>;
+snap(i / phases.length);
+<span class="k">await</span> nextPaint();          <span class="c">// the spinner + label are on screen first</span>
+<span class="k">await</span> phases[i].run(report); <span class="c">// now block — the user is watching it happen</span></pre>
+
+  <p>Three pieces make the deploy stageable without changing a single simulated value:</p>
+
+  <h3>a. A terrain seam (determinism-safe)</h3>
+  <p>Generation used to build its own terrain internally. I exposed <code>createTerrain(seed)</code>
+  and let <code>createWorld(seed, days, terrain?)</code> accept a pre-built one, so the heightmap is
+  its own visible phase and is built exactly once. The terrain carries its own independent RNG, so
+  reusing a same-seed terrain leaves every other draw in the same order — the resulting world is
+  <b>byte-identical</b>. Proven across 5 seeds before anything else was built.</p>
+
+  <h3>b. A progressive relief bake</h3>
+  <p>The 6-second bake was one tight pixel loop. I split it into a shared <code>processRows(y0,y1)</code>
+  used by two drivers: the original synchronous <code>bakeTerrain</code> (for the live-draw fallback)
+  and a new <code>bakeTerrainProgressive</code> that bakes in 40 row-bands, <b>reports 0→1 and yields
+  a frame between bands</b>, and writes into the <em>same</em> cache the renderer reads. So the bar
+  fills smoothly through the bake — and because the cache is warm, the first deploy frame is a pure
+  cache hit instead of a 6-second freeze.</p>
+
+  <h3>c. The screen itself</h3>
+  <p>A phase checklist (live spinner / ✓ / ○), a "PHASE n / N" + percentage, a gliding progress bar,
+  a faint military map-grid (the valley being plotted onto a map sheet), and a rotating field-manual
+  line. It reuses the menu's exact palette so the deploy feels continuous.</p>
+
+  <h2>3 · What it looks like</h2>
+  <div class="grid">
+    <figure><img src="01-menu-before.png" alt="menu"><figcaption>Before — the menu. Clicking Deploy used to freeze here.</figcaption></figure>
+    <figure><img src="02-loading-hero.png" alt="loading screen"><figcaption>The loading screen: checklist, spinner on the active phase, live % + bar.</figcaption></figure>
+    <figure><img src="03-loading-live-1.png" alt="live mid-bake"><figcaption>A real frame mid-deploy — the bar climbing through the relief bake.</figcaption></figure>
+    <figure><img src="04-deploy-after.png" alt="deploy"><figcaption>After — the deploy screen, terrain painted instantly from the warm cache.</figcaption></figure>
+  </div>
+
+  <h2>4 · How it was verified</h2>
+  <p>Headless capture over CDP (an <b>isolated</b> Chrome so it never fights the editor's browser),
+  with rAF throttling disabled — headless backgrounds the tab and throttles
+  <code>requestAnimationFrame</code> to ~1 Hz, which would corrupt both the timing and the yields.
+  Timing was read <b>page-side</b> through <code>window.__ITM.subscribe</code>, because Node-side
+  polling blocks behind the very main thread the bake is hogging.</p>
+
+  <table>
+    <tr><th>Metric</th><th>Before</th><th>After</th></tr>
+    <tr><td>Feedback after the click</td><td class="strike">none — frozen button</td><td class="win">loading screen @ 0.2 ms</td></tr>
+    <tr><td>Progress updates during the 5.9 s bake</td><td class="strike">0 (frozen)</td><td class="win">42 samples, 40 distinct % (50→75%)</td></tr>
+    <tr><td>First deploy frame</td><td class="strike">~5.9 s bake freeze</td><td class="win">instant (warm cache)</td></tr>
+    <tr><td>Determinism (5 seeds)</td><td>—</td><td class="win">byte-identical</td></tr>
+    <tr><td>Total click → playable</td><td class="n">~6.5 s</td><td class="n">~6.5 s <span style="color:var(--inkdim)">(goal was feedback, not speed)</span></td></tr>
+  </table>
+  <p style="color:var(--inkdim);font-size:13px">Standing checks: <span class="mono">tsc · build · lint (changed files clean) · smoke (SMOKE OK) · balance (no stalls)</span> all green.</p>
+
+  <h2>5 · Honest residual</h2>
+  <p>The deploy is now <em>covered</em> by feedback — it is not <em>faster</em>. The ~6 s relief bake
+  is the dominant cost and was <b>deliberately left alone</b>: shrinking it is a real trade-off (bake
+  resolution vs. how crisp the relief stays when you zoom in, or moving the bake off-thread / caching
+  it between sessions). That's its own measured pass, logged as
+  <code>docs/issues/011-deploy-relief-bake-cost.md</code>.</p>
+
+  <div class="foot">
+    Files: <span class="mono">lib/sim/world/create.ts</span>, <span class="mono">lib/render/topo.ts</span>,
+    <span class="mono">state/store.ts</span>, <span class="mono">components/screens/LoadingScreen.tsx</span>,
+    <span class="mono">components/GameRoot.tsx</span>, <span class="mono">components/world/WorldView.tsx</span>.
+    Numbers from a headless <span class="mono">--disable-gpu</span> harness (software canvas); a real
+    GPU browser's bake is faster but still seconds. — In the Mountains
+  </div>
+
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

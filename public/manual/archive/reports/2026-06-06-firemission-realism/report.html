@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Call-for-fire realism — In the Mountains (2026-06-06)</title>
+<style>
+  :root { --bg:#0f100b; --panel:#1b1d15; --ink:#e8e6d6; --dim:#9a9c88; --line:#3a3d2e;
+          --bad:#e0432b; --good:#3fa34d; --accent:#e0a72b; --blue:#4a86c9; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .wrap { max-width:920px; margin:0 auto; padding:40px 24px 80px; }
+  h1 { font-size:30px; margin:0 0 6px; letter-spacing:-0.5px; }
+  h2 { font-size:21px; margin:42px 0 12px; border-bottom:1px solid var(--line); padding-bottom:6px; }
+  h3 { font-size:16px; margin:26px 0 8px; color:var(--accent); }
+  .sub { color:var(--dim); font-size:14px; margin:0 0 8px; }
+  code,.mono { font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:13px; }
+  code { background:#000; padding:1px 5px; border-radius:4px; color:#cfe; }
+  .quote { background:var(--panel); border-left:3px solid var(--accent); padding:12px 16px;
+           border-radius:0 8px 8px 0; margin:14px 0; font-style:italic; color:#d9d7c6; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:18px 20px; margin:16px 0; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:13.5px; }
+  th,td { border:1px solid var(--line); padding:7px 10px; text-align:left; }
+  th { background:#23261c; color:var(--dim); font-weight:600; }
+  td.n { text-align:right; font-family:"SF Mono",ui-monospace,monospace; }
+  .bad { color:var(--bad); font-weight:700; } .good { color:var(--good); font-weight:700; }
+  figure { margin:18px 0; } img { width:100%; border:1px solid var(--line); border-radius:10px; display:block; }
+  figcaption { color:var(--dim); font-size:13px; margin-top:8px; text-align:center; }
+  .pill { display:inline-block; font-size:12px; padding:2px 9px; border-radius:99px; border:1px solid var(--line); color:var(--dim); margin-right:6px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  ul { margin:8px 0; padding-left:22px; } li { margin:4px 0; }
+  .foot { color:var(--dim); font-size:12.5px; margin-top:48px; border-top:1px solid var(--line); padding-top:14px; }
+  @media (max-width:680px){ .grid2{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>The squad stopped dropping mortars on itself</h1>
+  <p class="sub">In the Mountains · call-for-fire realism pass · 2026-06-06 · issue
+    <a href="../../index.html" style="color:var(--accent)">013</a></p>
+  <p><span class="pill">SOLO → metricize → fix → adversarial-verify</span><span class="pill">engine-only change</span></p>
+
+  <div class="quote">"A squad called a [mortar] mission much too close to them, nowhere near the enemy."<br>
+    — the player report that started this.</div>
+
+  <p>Two complaints in one sentence, and <strong>both were real and measurable</strong>. Under the
+  game's hands-off combat model the AI raises a call-for-fire and the commander approves or denies it —
+  so an AI that proposes a bad grid is a bug in the squad leader's brain. This pass turned the fuzzy
+  report into hard numbers, found the two mechanisms, fixed them as one doctrine-shaped gate, and proved
+  the win on seeds it was never tuned on.</p>
+
+  <h2>1 · Metricize first (no fix without a number)</h2>
+  <p>A new probe, <code>scripts/fire-mission-probe.ts</code>, drives 40 deployments into contact,
+  <strong>intercepts every AI call-for-fire at the instant it is raised</strong>, and scores the
+  proposed aimpoint against independent ground truth: distance to the nearest friendly, distance to the
+  nearest observed/living enemy, and the weapon's danger-close radius. In <em>approve</em> mode it also
+  lets the rounds fall and counts real <strong>fratricide</strong> — friendlies wounded or killed with
+  <code>casualtyByFaction === "us"</code> (the blast in <code>detonate()</code> is faction-blind, so
+  this is genuine, not cosmetic).</p>
+
+  <table>
+    <tr><th>metric (40 seeds, HEAD)</th><th>deny mode</th><th>approve (rounds land)</th><th>what it means</th></tr>
+    <tr><td><code>d_friendly</code> min</td><td class="n bad">23 m</td><td class="n bad">10 m</td><td>closest a round was called to a friendly (81 mm lethal radius = 24 m)</td></tr>
+    <tr><td>danger-close %</td><td class="n">3%</td><td class="n">4%</td><td>aimpoint inside <code>blast×2.5</code> of a friendly — <em>"much too close"</em></td></tr>
+    <tr><td>on-friendlies %</td><td class="n">0%</td><td class="n bad">1%</td><td>aimpoint inside the <em>lethal</em> blast of a friendly</td></tr>
+    <tr><td>projection %</td><td class="n">9%</td><td class="n bad">32%</td><td>fired on a grid with <strong>no enemy observed at all</strong></td></tr>
+    <tr><td>off-target % (vs seen enemy)</td><td class="n bad">18%</td><td class="n bad">52%</td><td>aimpoint &gt;60 m from the nearest enemy the squad can see — <em>"nowhere near the enemy"</em></td></tr>
+    <tr><td><strong>US fratricide / 40 deps</strong></td><td class="n">—</td><td class="n bad">1</td><td>a friendly hit by an AI-called mortar</td></tr>
+  </table>
+
+  <h2>2 · The two mechanisms</h2>
+  <div class="grid2">
+    <div class="panel">
+      <h3 style="margin-top:0">"Nowhere near the enemy"</h3>
+      <p>The aimpoint was <code>threatCentroid</code> — the <strong>average of every visible enemy</strong>.
+      On a two-sided / L-shaped ambush (fire coming from two directions) the average of the two groups
+      lands <em>between</em> them — which is right where the squad is. And the only guard
+      (<code>threatIsReal</code>) let a "shot-at-from-a-direction" contact through with no PID, so it
+      would fire on a <strong>projected 120 m guess</strong>.</p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">"Much too close"</h3>
+      <p>Nothing stopped the AI from proposing a grid inside its own danger-close radius.
+      <code>isDangerClose()</code> existed but only <em>labelled</em> the round "DANGER CLOSE" — it never
+      <em>prevented</em> the call. So the squad could, and did, drop high explosive on itself.</p>
+    </div>
+  </div>
+
+  <h2>3 · The fix — one doctrine-shaped gate</h2>
+  <p>A real forward observer obeys two hard rules; the AI now enforces both, so it
+  <strong>never proposes a grid a commander would refuse</strong> (FM 3-09 <em>Call for Fire</em>,
+  ATP 3-21.8):</p>
+  <ul>
+    <li><strong>PID the target.</strong> New <code>fireAimpoint()</code> aims at the centroid of the
+      <strong>densest cluster of currently-observed enemies</strong> (cluster radius 35 m) — never the
+      global centroid, never a projection. No eyes on → no mission.</li>
+    <li><strong>Danger close is the commander's call, not a default.</strong>
+      <code>maybeRequestFires()</code> withholds the request if the aimpoint is within
+      <code>blast×2.5</code> of <em>any</em> friendly. When the only target is danger-close the squad
+      fights with organic weapons or breaks contact. (This also stops calling fire onto an objective
+      the maneuver element is assaulting onto — the same geometry.)</li>
+    <li><strong>FDC check-fire</strong> (in <code>stepFireMissions</code>): aborts a friendly mission's
+      remaining rounds if troops maneuver within a round's lethal blast of the impact point after the
+      mission is cleared — the dynamic case the call-time gate can't foresee.</li>
+  </ul>
+
+  <figure>
+    <img src="aimpoint-before-after.png" alt="Before/after aimpoint on a two-sided contact">
+    <figcaption>The same two-sided contact (squad blue, enemy red). <strong>Before:</strong> the
+    all-enemies centroid lands on the squad — 19 m from a friendly (inside the 24 m lethal ring) and
+    154 m from either enemy group. <strong>After:</strong> the densest-cluster aimpoint sits on the
+    4-man group with 183 m of standoff. Dashed ring = 60 m danger-close, solid = 24 m lethal blast.</figcaption>
+  </figure>
+
+  <h2>4 · The result (same probe, same seeds)</h2>
+  <table>
+    <tr><th>metric</th><th>HEAD → After (deny)</th><th>HEAD → After (approve)</th></tr>
+    <tr><td><code>d_friendly</code> min</td><td class="n">23 → <span class="good">40 m</span></td><td class="n">10 → <span class="good">69 m</span></td></tr>
+    <tr><td>danger-close %</td><td class="n">3% → <span class="good">0%</span></td><td class="n">4% → <span class="good">0%</span></td></tr>
+    <tr><td>on-friendlies %</td><td class="n">0% → <span class="good">0%</span></td><td class="n">1% → <span class="good">0%</span></td></tr>
+    <tr><td>off-target vs <em>living</em> enemy (tick-robust)</td><td class="n">→ <span class="good">0%</span></td><td class="n">→ <span class="good">0%</span></td></tr>
+    <tr><td><strong>US fratricide / 40 deps</strong></td><td class="n">—</td><td class="n">1 → <span class="good">0</span></td></tr>
+  </table>
+  <p>The aimpoint now sits on a <em>living</em> enemy in every case (<code>d_enemy_live</code> median
+  ~2 m). A residual ~5% "projection" in the probe is a <strong>measurement artifact</strong> — PID
+  existed when the AI decided (mid-tick) but lapsed one tick later when the probe samples — proven by
+  the tick-robust metric <code>offLive% = 0%</code>. The AI never fires on a guess.</p>
+
+  <div class="panel">
+    <h3 style="margin-top:0">Held-out proof (no curve-fit)</h3>
+    <p>Re-run on an <strong>entirely different family of valleys</strong> (<code>hold-0..29</code> — the
+    prefix seeds the whole procedural generator, so different mountains, rivers, villages, spawns):
+    <strong>88 requests → danger-close 0%, on-friendlies 0%, off-living-enemy 0%, min standoff 55 m.</strong>
+    The two constants (cluster radius 35 m, <code>blast×2.5</code>) are doctrinal, not fit to the tuning
+    seeds — which is why they transfer.</p>
+  </div>
+
+  <h2>5 · Verification (don't trust yourself)</h2>
+  <ul>
+    <li><strong>Standing checks green:</strong> <code>tsc</code> ✓, <code>next build</code> ✓,
+      <code>smoke.ts</code> (no-NaN + serialize round-trip) ✓, <code>balance.ts</code> 12×50 ✓
+      (KIA 0.75, <strong>0 civilian casualties</strong>, no stalls).</li>
+    <li><strong>Independent adversarial review:</strong> a fresh agent re-read the code and tried to
+      break it across six attack lines (remaining danger-close paths, projection/stale ghosts,
+      determinism, check-fire correctness, wrongful denial, serialization). Verdict:
+      <em>"fix is sound," 90% confidence</em>, no new bugs. It surfaced the deliberate
+      <code>blast×2.5</code> (withhold) vs <code>blast×1.3</code> (check-fire abort) asymmetry, now
+      documented.</li>
+    <li><strong>Live app:</strong> the game boots and renders combat with the change; the fire-support
+      HUD (60 mm / 81 mm mortar, GUN, HELLFIRE, 9-LINE MEDEVAC) is intact. The reticle render path is
+      unchanged — only which cell it points at.</li>
+  </ul>
+  <figure>
+    <img src="live-combat.png" alt="Live game with the fire-support HUD">
+    <figcaption>The live build at a combat zoom — the approve/deny fire-support toolkit the player uses.</figcaption>
+  </figure>
+
+  <h2>6 · Restraint logged</h2>
+  <p>I deliberately did <strong>not</strong> add an "in-extremis danger-close override" that would let
+  the AI call fire on itself when about to be overrun. That reintroduces exactly the reported failure
+  mode, and the automatic <em>break-contact safety</em> already pulls a combat-ineffective squad off the
+  X. The AI's job is to never propose a grid a commander would refuse; choosing to accept
+  danger-close risk stays a human decision.</p>
+
+  <p class="foot">Files: <code>lib/sim/ai/squad-combat.ts</code> (<code>fireAimpoint</code> +
+  danger-close gate), <code>lib/sim/combat.ts</code> (FDC check-fire). Probe:
+  <code>scripts/fire-mission-probe.ts</code>. Verbatim numbers: <code>baseline-{deny,approve}.txt</code>,
+  <code>after-{deny,approve}.txt</code> in this folder. — Could an AI really have done this? It found a
+  one-line averaging mistake and a missing safety the way a soldier would: by measuring where the rounds
+  actually fell, not by guessing.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How the CLAUDE.md was built — In the Mountains</title>
+<style>
+  :root{
+    --bg:#14130e; --bg2:#1b1a13; --panel:#201e16; --panel2:#262318;
+    --ink:#e8e2cf; --dim:#a59c80; --faint:#6f684f; --line:#3a3526;
+    --rust:#b5532a; --amber:#e0a72b; --olive:#7a7e4c; --blood:#9c2c20; --teal:#6fae9f;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#14130e,#100f0a 60%);color:var(--ink);
+    font-family:var(--sans);line-height:1.6;font-size:16px}
+  a{color:var(--amber);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 46px;border-bottom:1px solid var(--line);
+    background:radial-gradient(900px 360px at 18% -8%,rgba(181,83,42,.16),transparent 60%);}
+  .kicker{font-family:var(--mono);letter-spacing:.32em;text-transform:uppercase;
+    color:var(--rust);font-size:12px;margin-bottom:16px}
+  h1{font-size:42px;line-height:1.08;margin:0 0 14px;letter-spacing:-.01em}
+  h1 .sub{color:var(--dim);font-weight:400}
+  .lede{font-size:19px;color:var(--dim);max-width:760px}
+  .meta{margin-top:26px;font-family:var(--mono);font-size:12.5px;color:var(--faint);
+    display:flex;gap:22px;flex-wrap:wrap}
+  .meta b{color:var(--olive);font-weight:600}
+  section{padding:48px 0;border-bottom:1px solid var(--line)}
+  h2{font-size:13px;font-family:var(--mono);letter-spacing:.22em;text-transform:uppercase;
+    color:var(--amber);margin:0 0 10px}
+  h2 .n{color:var(--faint);margin-right:10px}
+  h3{font-size:25px;margin:.1em 0 .5em;letter-spacing:-.01em}
+  h4{font-size:17px;margin:1.4em 0 .3em;color:var(--ink)}
+  p{margin:.7em 0;color:#d6cfb8}
+  .muted{color:var(--dim)}
+  code{font-family:var(--mono);font-size:.86em;background:#000;color:var(--amber);
+    padding:1px 6px;border-radius:4px;border:1px solid var(--line)}
+  .grid{display:grid;gap:16px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:760px){.g2,.g3{grid-template-columns:1fr}}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:12px;padding:20px 22px}
+  .card h4{margin-top:0}
+  .tag{font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 8px;border-radius:20px;border:1px solid var(--line);color:var(--dim)}
+  .pill-row{display:flex;gap:8px;flex-wrap:wrap;margin:.4em 0}
+  /* pipeline */
+  .pipe{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin:18px 0}
+  @media(max-width:760px){.pipe{grid-template-columns:1fr}}
+  .stage{background:#000;border:1px solid var(--line);border-left:3px solid var(--rust);
+    border-radius:9px;padding:13px 14px;position:relative}
+  .stage .s-n{font-family:var(--mono);font-size:11px;color:var(--rust)}
+  .stage .s-t{font-weight:700;margin:3px 0 5px;font-size:15px}
+  .stage .s-d{font-size:12.5px;color:var(--dim);line-height:1.4}
+  .stage:nth-child(2){border-left-color:var(--amber)} .stage:nth-child(2) .s-n{color:var(--amber)}
+  .stage:nth-child(3){border-left-color:var(--olive)} .stage:nth-child(3) .s-n{color:var(--olive)}
+  .stage:nth-child(4){border-left-color:var(--teal)} .stage:nth-child(4) .s-n{color:var(--teal)}
+  .stage:nth-child(5){border-left-color:var(--blood)} .stage:nth-child(5) .s-n{color:var(--blood)}
+  .flow{font-family:var(--mono);color:var(--faint);font-size:13px;text-align:center;margin:6px 0}
+  ol.essence{counter-reset:e;list-style:none;padding:0;margin:0}
+  ol.essence li{counter-increment:e;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px 14px 52px;margin:10px 0;position:relative}
+  ol.essence li::before{content:counter(e,decimal-leading-zero);position:absolute;left:14px;top:13px;
+    font-family:var(--mono);color:var(--rust);font-weight:700;font-size:15px}
+  ol.essence b{color:var(--ink)}
+  .cat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px 18px;margin-top:10px}
+  @media(max-width:760px){.cat-grid{grid-template-columns:1fr}}
+  .cat-grid .row{display:flex;gap:10px;align-items:baseline;font-size:14px;padding:5px 0;
+    border-bottom:1px dotted var(--line)}
+  .cat-grid .rk{font-family:var(--mono);color:var(--faint);width:22px;text-align:right;flex:none}
+  .cat-grid .ct{font-family:var(--mono);font-size:10px;color:var(--olive);flex:none;width:96px;text-transform:uppercase}
+  callout,.callout{display:block;background:rgba(224,167,43,.07);border:1px solid var(--line);
+    border-left:3px solid var(--amber);border-radius:8px;padding:14px 18px;margin:16px 0;color:#e8e2cf}
+  .callout b{color:var(--amber)}
+  .stat{display:flex;gap:26px;flex-wrap:wrap;margin:18px 0}
+  .stat .s{background:#000;border:1px solid var(--line);border-radius:10px;padding:14px 18px;min-width:120px}
+  .stat .v{font-size:27px;font-weight:800;color:var(--amber);font-family:var(--mono)}
+  .stat .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+  table{width:100%;border-collapse:collapse;margin:12px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--olive)}
+  td code{font-size:.82em}
+  .toc{position:sticky;top:0;background:rgba(16,15,10,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:20;font-family:var(--mono);font-size:12px}
+  .toc .wrap{display:flex;gap:18px;padding:11px 22px;overflow-x:auto}
+  .toc a{color:var(--dim);white-space:nowrap}
+  .toc a:hover{color:var(--amber)}
+  footer{padding:40px 0 70px;color:var(--faint);font-size:13px;font-family:var(--mono)}
+  .anatomy .card{border-left:3px solid var(--olive)}
+  .why{color:var(--teal);font-size:13.5px;font-family:var(--mono);margin-top:6px}
+  .placeholder{opacity:.6;font-style:italic}
+</style>
+</head>
+<body>
+<nav class="toc"><div class="wrap">
+  <a href="#idea">① The idea</a>
+  <a href="#process">② The process</a>
+  <a href="#concepts">③ The concepts</a>
+  <a href="#catalog">④ The catalog</a>
+  <a href="#anatomy">⑤ CLAUDE.md anatomy</a>
+  <a href="#tournament">⑥ The tournament</a>
+  <a href="#maintain">⑦ Keeping it alive</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">Field note · build record</div>
+  <h1>How this repo's <code style="font-size:.62em">CLAUDE.md</code> was built<br><span class="sub">— and why every line is in it</span></h1>
+  <p class="lede">The <code>CLAUDE.md</code> is the first thing every Claude reads before touching this
+  project. It is not documentation — it is <b>latent-space conditioning</b>: a compressed prior that
+  steers all downstream work. So it wasn't written. It was <b>mined, distilled, and won</b> — from 23
+  real sessions of building this game, through a pipeline of five multi-agent workflows.</p>
+  <div class="meta">
+    <span><b>Source</b> 23 sessions · 147 MB transcripts</span>
+    <span><b>Method</b> 5 workflows · ~35 subagents</span>
+    <span><b>Output</b> 1 CLAUDE.md + this explainer</span>
+    <span><b>Built in</b> an isolated git worktree</span>
+  </div>
+</div></header>
+
+<section id="idea"><div class="wrap">
+  <h2><span class="n">01</span>The idea — a CLAUDE.md is a prior, not a README</h2>
+  <h3>Condition the latent space, don't just inform the reader</h3>
+  <p>Every model response is a sample from a distribution. The text you put in front of the model
+  before it works <em>reshapes that distribution</em> — it raises the probability of some behaviours
+  (reproduce the bug as a number; fan out and verify) and lowers others (patch by vibes; declare
+  victory early). A good <code>CLAUDE.md</code> is therefore engineered like a prompt, not filed like
+  a doc. The user's word for the distilled store of proven moves was the <b>"quantum DS"</b> — the
+  latent layer we wanted future work to collapse out of.</p>
+  <div class="callout"><b>The design tension.</b> The file has to do two jobs that pull in opposite
+  directions: be a <b>personality file</b> (cast the reader as the orchestrator-owner of the project)
+  <em>and</em> an <b>orientation file</b> (what the repo is, the standards, the toolchain) — while
+  staying short enough to actually be read and <b>durable enough not to rot</b>. Most of the process
+  below exists to resolve that tension with evidence instead of opinion.</p>
+  <div class="stat">
+    <div class="s"><div class="v">147MB→464KB</div><div class="l">transcript → corpus</div></div>
+    <div class="s"><div class="v">96→24</div><div class="l">raw → ranked techniques</div></div>
+    <div class="s"><div class="v">5</div><div class="l">candidate philosophies</div></div>
+    <div class="s"><div class="v">3+5</div><div class="l">judges + adversaries</div></div>
+  </div>
+</div></section>
+
+<section id="process"><div class="wrap">
+  <h2><span class="n">02</span>The process — five workflows, owner in the loop between each</h2>
+  <h3>Mine → Orient → Generate → Tournament → Finalize</h3>
+  <p>It was deliberately <b>not</b> one mega-workflow. Splitting into five lets the orchestrator read
+  each result, persist it as an artifact, and tune the next phase — and re-fire any single phase
+  cheaply if a result disappoints. Control flow stays deterministic; judgement stays human-shaped.</p>
+  <div class="pipe">
+    <div class="stage"><div class="s-n">WORKFLOW 1</div><div class="s-t">MINE</div><div class="s-d">7-lens multi-modal sweep over the corpus → dedup/rank synthesis → completeness critic. Output: the Technique Catalog.</div></div>
+    <div class="stage"><div class="s-n">WORKFLOW 2</div><div class="s-t">ORIENT</div><div class="s-d">5 parallel readers map the repo → a grounding lead that <em>verifies every referenced artifact exists</em>. Output: orientation brief + ground-truth manifest.</div></div>
+    <div class="stage"><div class="s-n">WORKFLOW 3</div><div class="s-t">GENERATE</div><div class="s-d">5 candidates drafted in parallel, each a distinct organizing philosophy, all fed the catalog + brief + owner read.</div></div>
+    <div class="stage"><div class="s-n">WORKFLOW 4</div><div class="s-t">TOURNAMENT</div><div class="s-d">Adversarial critic per candidate → 3-judge comparative panel → champion synthesis → red-team that re-verifies ground truth.</div></div>
+    <div class="stage"><div class="s-n">WORKFLOW 5</div><div class="s-t">FINALIZE</div><div class="s-d">Write CLAUDE.md, re-verify against the repo, build this explainer, commit in the worktree.</div></div>
+  </div>
+  <div class="flow">corpus ─▶ catalog.md ─┐  &nbsp; brief.md ─┐ &nbsp; ──▶ 5 candidates ──▶ champion ──▶ CLAUDE.md</div>
+  <h4>Why a fresh extraction step came first</h4>
+  <p>147 MB of JSONL is mostly tool-result noise — file dumps, diffs, screenshots. The signal the user
+  asked for (prompting techniques) lives in two narrow slices: human-typed messages and the
+  <code>Task</code>/<code>Workflow</code> prompts the assistant authored. A deterministic Node
+  extractor (<code>extract-corpus.mjs</code>) pulled just those, unwrapped goal-hook boilerplate to its
+  pure intent, and split the result into three streams — <b>user prompts</b> (144), <b>orchestration
+  prompts</b> (32), <b>task decompositions</b> (60). 464 KB small enough that every mining agent could
+  read its whole slice instead of guessing from a fragment.</p>
+</div></section>
+
+<section id="concepts"><div class="wrap">
+  <h2><span class="n">03</span>The concepts — the orchestration patterns, and why each one</h2>
+  <div class="grid g2">
+    <div class="card"><span class="tag">pattern</span><h4>Multi-modal sweep</h4>
+      <p class="muted">Mining is a retrieval-precision problem. One agent on a blended blob surfaces
+      generic advice. Seven agents, each with a single analytical lens (autonomy framing; verification
+      demands; orchestration shapes; decomposition…), each read a focused slice. Each is blind to the
+      others, so <b>coverage beats redundancy</b>. Synthesis dedups across them.</p></div>
+    <div class="card"><span class="tag">pattern</span><h4>Survey → Judge → Synthesize</h4>
+      <p class="muted">The repo's own canonical orchestration move (mined straight from the corpus):
+      generate N independent single-axis proposals, score them against an explicit rubric, then
+      synthesize <em>one</em> output — top candidate as the spine, best ideas of the rest grafted on.
+      Used here to pick the CLAUDE.md.</p></div>
+    <div class="card"><span class="tag">pattern</span><h4>Adversarial verify</h4>
+      <p class="muted">A separate, skeptical pass whose job is to <em>refute</em>, not admire. Each
+      candidate got a critic hunting staleness traps, vague directives, contradictions, and lines that
+      would mislead a fresh Claude. Findings the synthesis must fix — not flattery.</p></div>
+    <div class="card"><span class="tag">pattern</span><h4>Ground-truth manifest (anti-staleness)</h4>
+      <p class="muted">The orientation lead and the red-team both ran <code>ls</code>/<code>grep</code>
+      against the live repo before any path or command entered the file. A <code>CLAUDE.md</code> that
+      references a script that doesn't exist is worse than silence — so nothing unverified survives.</p></div>
+    <div class="card"><span class="tag">pattern</span><h4>Structured output contracts</h4>
+      <p class="muted">Every mining/judging agent returned a strict JSON schema (validated at the
+      tool-call layer, so the model retries on mismatch) — not prose to be re-parsed. The catalog and
+      scores arrive as data the orchestrator can compute on.</p></div>
+    <div class="card"><span class="tag">pattern</span><h4>Owner in the loop</h4>
+      <p class="muted">Between each workflow the orchestrator read the result, cross-checked it against
+      an <em>independent</em> read of the corpus (<code>owner-read.md</code>), and persisted artifacts.
+      The agents propose; the owner decides. No black box.</p></div>
+  </div>
+</div></section>
+
+<section id="catalog"><div class="wrap">
+  <h2><span class="n">04</span>The catalog — the "quantum DS" distilled from 23 sessions</h2>
+  <h3>Ten essence principles every Claude internalizes first</h3>
+  <p class="muted">Mined from the corpus, deduped and ranked, then sharpened by a completeness critic.
+  These are the irreducible core; the full ranked catalog of 24 (with [Sxx] evidence) lives in
+  <code>catalog.md</code>.</p>
+  <ol class="essence">
+    <li><b>Turn the fuzzy feeling into a hard number.</b> "Feels off / too mechanical / stuck" isn't actionable until it's a metric. Baseline on HEAD first, fix, re-measure. No fix claimed without a before→after number.</li>
+    <li><b>Build a mover-faithful ground-truth oracle.</b> An independent check (BFS reachability) is the only thing that catches the system lying about its own success — but it must honour the real consumer's exact rules, or it over-counts.</li>
+    <li><b>Distrust your first answer; prove wins on held-out seeds.</b> "Done" is a hypothesis. Run a skeptical pass that traces one concrete failing path; re-measure headline numbers on seeds you never tuned on.</li>
+    <li><b>State results numbers-first, with a "what's still imperfect".</b> Lead with the unflattering figure; call partial wins partial; log the risky change you correctly skipped and why.</li>
+    <li><b>When stuck, instrument and dump — never speculate.</b> Localize every cause to file:line and the exact tick. Patched the same area twice with no movement? Stop and propose a rebuild — thrashing means change approach.</li>
+    <li><b>You own it end-to-end.</b> Standing authority to rebuild any subsystem; default to acting, not asking; run goals to completion. Sky-high bar, simplest architecture that hits it.</li>
+    <li><b>Ground every realism claim in a cited source, then map to code.</b> Doctrine/physics → the file:line gap → concrete parameters → the harness metric that verifies it. Realism is checkable, not vibes.</li>
+    <li><b>Audit the harness before trusting a green metric.</b> A passing number is not a passing system. Confirm it asserts the real success condition and doesn't conflate "slow" with "stuck".</li>
+    <li><b>Continuity lives in artifacts, not chat.</b> Docs/wiki/manual/issues/progress are the done-gate. Mine git log + issues for what was already tried; never re-attempt a refuted approach.</li>
+    <li><b>Keep the standing checks green; commit only when asked.</b> Work on <code>main</code> by default — branch or worktree only when the owner asks (or to deconflict parallel agents, one-writer-per-file); <code>tsc</code>/<code>build</code>/<code>smoke</code>/<code>balance</code> green. Spend freely on rigor — under-investing in it is the only expensive mistake.</li>
+  </ol>
+  <h4>The 24 ranked techniques, by category</h4>
+  <div class="cat-grid">
+    <div class="row"><span class="rk">1</span><span class="ct">verify</span><span>Turn the Fuzzy Feeling into a Hard Number</span></div>
+    <div class="row"><span class="rk">2</span><span class="ct">verify</span><span>Mover-Faithful Ground-Truth Oracle</span></div>
+    <div class="row"><span class="rk">3</span><span class="ct">verify</span><span>Prove It on Fresh, Held-Out Seeds</span></div>
+    <div class="row"><span class="rk">4</span><span class="ct">comms</span><span>Honest Results: Numbers First, Residual Named</span></div>
+    <div class="row"><span class="rk">5</span><span class="ct">verify</span><span>Adversarial Verify as a Separate Pass</span></div>
+    <div class="row"><span class="rk">6</span><span class="ct">verify</span><span>Instrument & Dump to file:line</span></div>
+    <div class="row"><span class="rk">7</span><span class="ct">verify</span><span>Audit the Harness Itself</span></div>
+    <div class="row"><span class="rk">8</span><span class="ct">mindset</span><span>Step-Back Confidence Check → Rebuild</span></div>
+    <div class="row"><span class="rk">9</span><span class="ct">mindset</span><span>You Own It End-to-End</span></div>
+    <div class="row"><span class="rk">10</span><span class="ct">quality</span><span>The Astonishment Bar + Simplicity Tie-Breaker</span></div>
+    <div class="row"><span class="rk">11</span><span class="ct">quality</span><span>Ground Realism in Cited Sources</span></div>
+    <div class="row"><span class="rk">12</span><span class="ct">orchestr</span><span>Survey → Judge → Synthesize</span></div>
+    <div class="row"><span class="rk">13</span><span class="ct">orchestr</span><span>Subagent Prompt Contract</span></div>
+    <div class="row"><span class="rk">14</span><span class="ct">orchestr</span><span>Recon Phase + Do-Not-Re-Try List</span></div>
+    <div class="row"><span class="rk">15</span><span class="ct">verify</span><span>Verify in the Real App, Not Just the Sim</span></div>
+    <div class="row"><span class="rk">16</span><span class="ct">process</span><span>Docs/Tutorials/Issues Current as Done-Gate</span></div>
+    <div class="row"><span class="rk">17</span><span class="ct">process</span><span>Continuity Lives in Artifacts</span></div>
+    <div class="row"><span class="rk">18</span><span class="ct">verify</span><span>Standing Checks + Exhaustive Types</span></div>
+    <div class="row"><span class="rk">19</span><span class="ct">decomp</span><span>Plan Spine: Baseline→Diagnose→Fix→Verify</span></div>
+    <div class="row"><span class="rk">20</span><span class="ct">decomp</span><span>Each Task Bundles Build+Wire+Verify</span></div>
+    <div class="row"><span class="rk">21</span><span class="ct">process</span><span>Branch/Worktree + Parallel Deconfliction</span></div>
+    <div class="row"><span class="rk">22</span><span class="ct">verify</span><span>Build Whatever You Need to Verify</span></div>
+    <div class="row"><span class="rk">23</span><span class="ct">quality</span><span>Self-Critique Render Loop in the Agent</span></div>
+    <div class="row"><span class="rk">24</span><span class="ct">verify</span><span>Re-baseline When Inputs Shift</span></div>
+  </div>
+</div></section>
+
+<section id="anatomy" class="anatomy"><div class="wrap">
+  <h2><span class="n">05</span>Anatomy of the final CLAUDE.md — why every section exists</h2>
+  <h3>Seven sections, ordered by what a fresh Claude needs first</h3>
+  <p class="muted">The final file is 142 lines. It opens with <b>identity</b>, ends with <b>pointers</b>,
+  and orders everything in between by urgency. Each block resolves a specific job — and each was kept
+  because the tournament's judges and adversaries argued it earned its place.</p>
+
+  <div class="grid g2">
+    <div class="card"><h4>Preamble — identity + the bar + the caveat</h4>
+      <p class="muted">Casts the reader as the <b>orchestrator-owner</b> (the personality job), sets the
+      emotional quality bar (<i>"holy shit, an AI built this?"</i>), licenses fun as a real criterion,
+      and front-loads the one Next.js caveat. The bare <code>@AGENTS.md</code> line <em>inlines</em>
+      that caveat into context every session — pointer + guarantee. It also tells the reader to
+      <b>translate the owner's speech-to-text dictation into an engineered prompt</b> before acting —
+      read intent, not transcript.</p>
+      <div class="why">↳ encodes: You-Own-It-End-to-End · The Astonishment Bar · the AGENTS.md hook · read-intent-not-transcript</div></div>
+
+    <div class="card"><h4>§1 · The Decision Protocol</h4>
+      <p class="muted">A table that routes the reader to the right <em>work-shape</em> — solo /
+      metricize / survey-judge-synthesize / tournament / adversarial-verify — <b>before</b> touching
+      code. This is the literal answer to "what should every Claude see first": pick the shape, then
+      act. Grafted from the <code>console</code> candidate; it was the panel's #1 must-graft.</p>
+      <div class="why">↳ encodes: Don't-Trust-Yourself-Orchestrate · when-to-fan-out</div></div>
+
+    <div class="card"><h4>§2 · What This Is (60-second orientation)</h4>
+      <p class="muted">The orientation job: the soul (one master clock, "win every firefight and still
+      lose the valley," combat is 100% AI) plus architecture-at-a-glance and the three-layer/one-bridge
+      rule. Specifics that rot are <em>pointed at</em> (DESIGN.md, Architecture.md), not copied.</p>
+      <div class="why">↳ encodes: orientation · pillars · architecture pointers (anti-staleness)</div></div>
+
+    <div class="card"><h4>§3 · The Laws (non-negotiable, evergreen)</h4>
+      <p class="muted">Ten durable principles — the catalog's <b>essence</b>, distilled. No fix without
+      a number; prove on held-out seeds; the oracle obeys the mover's rules; thrashing → rebuild;
+      continuity lives in artifacts; never work on main. These hold regardless of code churn.</p>
+      <div class="why">↳ encodes: the 10 essence principles (all evergreen)</div></div>
+
+    <div class="card"><h4>§4 · Playbooks (concrete, numbered moves)</h4>
+      <p class="muted">The laws turned into executable SOP — Verification, Bug-hunt, Orchestration,
+      Verify-in-real-app, Plan-spine, Delivery. This is the section that <b>won the tournament</b> for
+      the <code>laws</code> skeleton: judges scored it 10/10 on "techniques as standing procedure."</p>
+      <div class="why">↳ encodes: Survey→Judge→Synthesize · Subagent Contract · Instrument-and-Dump · the verification suite</div></div>
+
+    <div class="card"><h4>§5 · Build Whatever You Need to Verify</h4>
+      <p class="muted">An explicit license: writing harnesses/probes is core work, never a detour;
+      name throwaways <code>scratch-*</code> and delete them, but record the reproduction technique.
+      Removes the hesitation that makes "verify as a number" not happen.</p>
+      <div class="why">↳ encodes: Build-Whatever-You-Need · Spend-Freely-on-Rigor</div></div>
+
+    <div class="card"><h4>§6 · The Done-Gate</h4>
+      <p class="muted">Defines "done": standing checks green (<code>tsc</code>/<code>build</code>/<code>smoke</code>/<code>balance</code>),
+      docs as a first-class deliverable, dated records, and commit conventions. The red-team made the
+      mandatory trailer <b>explicit</b> after verifying nothing auto-adds it.</p>
+      <div class="why">↳ encodes: Standing-Checks · Docs-as-Done-Gate · honest commit bodies</div></div>
+
+    <div class="card"><h4>§7 · Deeper Pointers + gotchas</h4>
+      <p class="muted">The anti-staleness tail: every volatile detail quarantined behind a pointer
+      ("don't memorize the list — <code>ls scripts/</code>"), plus hard-won gotchas (TIC latch,
+      reachability-snapping, <code>LAND_COUNT</code>) that close with <i>"trust the code over the
+      docs — including this file."</i></p>
+      <div class="why">↳ encodes: Continuity-in-Artifacts · pointers-not-copies · reality-wins</div></div>
+  </div>
+
+  <div class="callout"><b>The closing line is load-bearing.</b> <i>"Do not stop until the goal is
+  verifiably complete — then iterate one more time… When this file and reality disagree, reality wins —
+  fix this file."</i> It fuses the user's "don't stop until done" with the catalog's "iterate once
+  more" <em>and</em> makes the file self-correcting — the single best defense against staleness.</div>
+</div></section>
+
+<section id="tournament"><div class="wrap">
+  <h2><span class="n">06</span>The tournament — how the winner was chosen</h2>
+  <h3>Five philosophies, five adversaries, three judges, one synthesis</h3>
+  <p class="muted">Each candidate got a dedicated <b>adversarial critic</b> hunting staleness traps and
+  misleads, then a <b>3-judge panel</b> scored all five comparatively across seven dimensions (max
+  210). The result was a near photo-finish — proof the upstream catalog + brief were strong inputs.</p>
+
+  <table>
+    <tr><th>Candidate</th><th>Score /210</th><th>Judges' verdict</th></tr>
+    <tr><td><b>laws</b> — Laws + Playbooks</td><td><code>193</code> 🏆</td><td>Perfect 10s on technique-SOP, actionability, anti-staleness. The playbooks read like SOP a fresh Claude can execute step-by-step. <b>Chosen as the spine.</b></td></tr>
+    <tr><td><b>opord</b> — Commander-Intent</td><td><code>192</code></td><td>Strongest identity + voice; OPORD framing is native to a COIN sim. Lacked an explicit when-to-fan-out rule.</td></tr>
+    <tr><td><b>console</b> — Operating Manual</td><td><code>187</code></td><td>The DECISION PROTOCOL table was the single best actionability artifact in the field — grafted into the winner.</td></tr>
+    <tr><td><b>firstfive</b> — First Five Minutes</td><td><code>185</code></td><td>Best progressive-disclosure ordering + quarantined pointers tail. Voice the most conventional.</td></tr>
+    <tr><td><b>manifesto</b> — Minimalist</td><td><code>168</code></td><td>Warmest voice, best caveat hook — but thinnest on orchestration depth; lower actionability.</td></tr>
+  </table>
+
+  <h4>The synthesis recipe — better than any single candidate</h4>
+  <p class="muted">The synthesis lead didn't just crown the winner; it built a champion from the
+  panel's <code>must_graft</code> list — the spine of one candidate with the best organ of each other:</p>
+  <div class="grid g2">
+    <div class="card"><span class="tag">spine</span><h4>laws</h4><p class="muted">10 evergreen Laws + numbered Playbooks — the durable + actionable core.</p></div>
+    <div class="card"><span class="tag">graft</span><h4>console → §1</h4><p class="muted">The Decision Protocol table + the tournament shape, as the entry point.</p></div>
+    <div class="card"><span class="tag">graft</span><h4>opord → voice</h4><p class="muted">"The bar is the success condition, not a metaphor" + commander tone.</p></div>
+    <div class="card"><span class="tag">graft</span><h4>firstfive + manifesto</h4><p class="muted">The length self-budget, the §7 pointers tail, and "the one caveat that breaks people."</p></div>
+  </div>
+
+  <div class="callout"><b>The red-team earned its keep.</b> The final pass didn't just polish — it ran
+  <code>ls</code>/<code>grep</code> against the live repo and <b>caught real factual errors</b> the
+  drafts had inherited: the <code>civClear</code> ROE gate is a method on <code>CombatSim</code> in
+  <code>combat.ts</code>, <em>not</em> in <code>friendly.ts</code> as the brief stated; and the
+  mandatory commit trailer is <em>not</em> auto-added — the author must include it. Both corrections
+  survive in the shipped file. This is the catalog's own law #1 in action: <i>a green claim is a
+  hypothesis until an independent pass confirms it.</i> (The owner then re-verified every high-risk
+  claim a third time before shipping.)</div>
+</div></section>
+
+<section id="maintain"><div class="wrap">
+  <h2><span class="n">07</span>Keeping it alive — the anti-staleness design</h2>
+  <p>A <code>CLAUDE.md</code> dies the day it references something that no longer exists. Three design
+  choices fight that:</p>
+  <div class="grid g3">
+    <div class="card"><h4>Principles over specifics</h4><p class="muted">The bulk is evergreen technique
+      (verify-as-a-number, orchestrate-don't-trust-yourself) that holds regardless of code churn.</p></div>
+    <div class="card"><h4>Pointers, not copies</h4><p class="muted">Volatile detail (architecture,
+      weapon tables) stays in <code>docs/</code> and is <em>pointed to</em>, never duplicated — one
+      source of truth, so the file can't contradict the code.</p></div>
+    <div class="card"><h4>Verified ground truth</h4><p class="muted">Every script/command/path was
+      confirmed to exist by Bash before it went in, and is re-checkable by re-running the ORIENT
+      workflow whenever the repo shifts.</p></div>
+  </div>
+</div></section>
+
+<footer><div class="wrap">
+  Built in worktree <code>in-the-mountains-claudemd</code> (branch <code>claude-md-orchestrator</code>).
+  Provenance: <code>docs/claude-md-build/</code> — corpus, catalog.md, brief.md, owner-read.md, the five
+  workflow scripts, and the tournament results.
+</div></footer>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>

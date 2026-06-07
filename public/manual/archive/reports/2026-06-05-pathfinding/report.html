@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — One Waypoint, Always (Squad Pathfinding After-Action Report)</title>
+<style>
+  :root{
+    --bg:#14160f; --panel:#1c1f17; --panel2:#23271c; --ink:#e8e7dc; --dim:#9ea391;
+    --line:#3a3f30; --accent:#b8860b; --good:#2ecc40; --bad:#ff4136; --blue:#4a9fd8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace;
+       -webkit-font-smoothing:antialiased}
+  .wrap{max-width:980px;margin:0 auto;padding:40px 22px 100px}
+  h1{font-size:27px;letter-spacing:.2px;margin:0 0 4px;color:#fff}
+  h2{font-size:20px;margin:46px 0 12px;color:#fff;border-bottom:1px solid var(--line);padding-bottom:8px}
+  h3{font-size:16px;margin:26px 0 8px;color:var(--accent)}
+  .sub{color:var(--dim);margin:0 0 26px;font-size:13px}
+  p{margin:12px 0}
+  a{color:var(--blue)}
+  code{background:#0e100b;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:#d6cfa0;font-size:13px}
+  figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+  figure img{width:100%;display:block;border-radius:6px;background:#000}
+  figcaption{color:var(--dim);font-size:12.5px;margin-top:10px;text-align:center}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .tldr{background:linear-gradient(180deg,#23271c,#1c1f17);border:1px solid var(--line);border-left:3px solid var(--accent);
+        border-radius:10px;padding:18px 20px;margin:18px 0 8px}
+  .insight{background:#10130c;border:1px solid #2b3320;border-left:3px solid var(--good);border-radius:8px;
+           padding:12px 16px;margin:14px 0;font-size:14px}
+  .insight b{color:var(--good)}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13px}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left}
+  th{background:var(--panel2);color:#fff}
+  td.n{text-align:right;font-variant-numeric:tabular-nums}
+  .bad{color:var(--bad)} .good{color:var(--good)} .dim{color:var(--dim)}
+  .pill{display:inline-block;background:#0e100b;border:1px solid var(--line);border-radius:999px;
+        padding:2px 10px;font-size:12px;color:var(--dim);margin:2px 4px 2px 0}
+  ol li,ul li{margin:6px 0}
+  .step{display:flex;gap:12px;align-items:flex-start;margin:10px 0}
+  .step .num{flex:0 0 28px;height:28px;border-radius:50%;background:var(--accent);color:#000;font-weight:700;
+             display:flex;align-items:center;justify-content:center;font-size:14px}
+  hr{border:0;border-top:1px solid var(--line);margin:40px 0}
+  .foot{color:var(--dim);font-size:12px;margin-top:50px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>One Waypoint, Always — Squad Pathfinding</h1>
+  <p class="sub">In the Mountains · tactical COIN simulator · after-action report · 2026-06-05 · branch <code>fix/one-waypoint-always</code></p>
+
+  <div class="tldr">
+    <b>The mission:</b> a single mission waypoint must “just work” every time the objective is <i>physically
+    reachable</i> — especially when placed on the far side of the COP from its one gate — and must fail
+    <i>honestly</i> when it isn’t. No squad “setting up short” and passing it off as success.
+    <br><br>
+    <b>The reproduction (verify, don’t assume):</b> a new adversarial harness
+    (<code>scripts/opposite-gate.ts</code>) sends a real patrol to every village, buckets them by bearing
+    from the gate, and scores arrival against an 8-connected BFS ground truth from the gate. Baseline:
+    of the villages a perfect mover could reach, the squad reached <b class="bad">36%</b> — and only
+    <b class="bad">13%</b> of those directly opposite the gate.
+    <br><br>
+    <b>The finding (and it overturns the hypothesis):</b> the router was <i>already good</i>
+    (<code>route-quality</code> mean 1.01, routes end ~20–40 m from the objective). The dominant loss was
+    <b>movement economy</b> — fatigue saturated to 1.0 on any long march and pinned the squad at ~0.55×
+    speed forever, while routes crawled cross-country at moveCost 0.2–0.6 instead of riding the road net.
+    Connectivity was real but <i>pocket-specific</i> (a COP on a cliff-walled bench: gate flood = 2% of the map).
+    <br><br>
+    <b>The fix — three evidence-ranked changes:</b> (1) retune fatigue so a routine patrol <i>plateaus</i>
+    while climbs/rushes still tire (combat fatigue preserved); (2) a generation-time <b>connectivity guard</b>
+    that benches a graded ≥3-cell Track from the gate to every reachable village (and around cliffs to
+    pocketed ones, leaving the truly walled-off honestly unreachable); (3) ride that network (roadBias).
+    <br><br>
+    <b>Result:</b> arrival-among-reachable
+    <span class="bad">36%</span> → <span class="good">38/50 (76%)</span>,
+    opposite-gate bucket <span class="bad">13%</span> → <span class="good">4/8 (50%)</span>,
+    network connectivity <span class="bad">59%</span> → <span class="good">72%</span>;
+    <code>tsc</code>/<code>build</code> green, deterministic, <code>copaudit</code> egress
+    <b>1/16 → 0/16</b>, <code>balance</code> no stranding. Honest residual: a far village &gt;1.5 km is a
+    45-min march, past the 25-min tactical window — it now <i>arrives</i>, just slowly.
+  </div>
+
+  <h2>1 · The mission, stated as a number</h2>
+  <p>
+    “Move a squad to one waypoint and have it work” is a feeling. The first job was to make it a metric. The
+    movement-diag harness from the <a href="../2026-06-03-movement/report.html">June&nbsp;3 rebuild</a> already
+    sent a patrol to the village <i>most opposite the gate</i>; this pass adds the honest scoring it lacked —
+    a ground truth for what is even <i>possible</i>.
+  </p>
+  <p><b>New harness — <code>scripts/opposite-gate.ts</code>.</b> For each seed it:</p>
+  <ul>
+    <li>floods passable ground 8-connected from the gate-outside cell — the <b>BFS ground truth</b>: a village
+      is <span class="pill">REACHABLE</span> iff a perfect mover could get within 50 m of it on foot;</li>
+    <li>forms a real presence patrol to every village in a fresh world and ticks the continuous sim until the
+      point man <b>arrives</b> or the sim’s <i>own</i> stall backstop fires (not an arbitrary wall-clock);</li>
+    <li>buckets villages by bearing from the gate — <b>REAR &gt;120°</b> is “diametrically opposite,” the
+      adversarial worst case — and reports <b>arrived-among-reachable</b>, the REAR sub-rate, and any
+      <b>false success</b> (arrived where the flood says walled-off — a metric error; must stay 0).</li>
+  </ul>
+  <div class="insight"><b>Insight.</b> The honest denominator is the BFS flood, not the village count. “100% of
+    reachable” is the only fair target — where the ground itself is walled off, the right behaviour is a flagged
+    <i>refusal</i>, not a faked arrival. Reporting both keeps “long march”, “thin pocket”, and “genuinely
+    unreachable” from being lumped together as one number.</div>
+
+  <h2>2 · Baselines, captured verbatim before touching anything</h2>
+  <p>Every harness, at <code>e22c1a9</code>, saved under
+    <code>docs/progress/2026-06-05-pathfinding/baseline/</code>:</p>
+  <table>
+    <tr><th>Harness</th><th>Baseline @ e22c1a9</th><th>What it measures</th></tr>
+    <tr><td><code>opposite-gate.ts 12</code></td><td class="bad">arr-among-reachable 18/50 (36%); REAR 1/8 (13%); router-NULL 19/61; false-OK 0</td><td>the headline — real-sim arrival vs BFS truth</td></tr>
+    <tr><td><code>reachability.ts 12</code></td><td class="bad">18/61 (30%) in 1500 s; worst-miss ~900–1380 m</td><td>fair all-villages arrival, tactical window</td></tr>
+    <tr><td><code>network-probe.ts 12</code></td><td class="bad">netVil 36/61 (59%); 3071 trough cells</td><td>village↔network connectivity</td></tr>
+    <tr><td><code>movement-diag.ts</code></td><td class="bad">3/7 OK (survey-2/7 short, survey-9 stuck, ridge-11 short)</td><td>the most-opposite village per seed</td></tr>
+    <tr><td><code>route-quality.ts</code></td><td>mean 1.01, max 5.10, loopy 2%</td><td>route shape (already healthy)</td></tr>
+    <tr><td><code>copaudit.ts 16</code></td><td>egress 1/16, portal 1/16, overlap 0, gate&gt;90° 0</td><td>no-regression guard (issues 001–005)</td></tr>
+  </table>
+
+  <h2>3 · Diagnosis — instrument, don’t speculate (and the hypothesis was half wrong)</h2>
+  <p>
+    The goal named three suspects: generation/connectivity, single-gate egress, router-fallback quality. Rather
+    than assume, I traced one reachable-but-missed village to the tick (<code>scripts/lead-trace.ts</code>) and
+    apportioned blame across the sweep (<code>scripts/why-short.ts</code>). The evidence reordered the suspects.
+  </p>
+
+  <h3>Root cause 1 — movement economy (the dominant, unhypothesised cause)</h3>
+  <p>
+    <code>survey-0 → Babiyal</code> is BFS-reachable and the router returns a clean route that ends 21 m from
+    the objective. Yet the point man <b>never blocks</b> (<code>blockedTimer=0</code> the whole march) and still
+    finishes 896 m short. The trace shows why: <b>fatigue saturates to 1.00 by t≈900 s and pins there</b>
+    (speed <code>×(1−fatigue·0.45)</code> ⇒ a permanent −45%), and the route runs over Terrace/Scrub/DryWash at
+    moveCost <b>0.2–0.6</b>, not the Track network (0.96). Net ~0.3–0.5 m/s; a 1.5 km route can’t finish in the
+    window. This is ~75% of the reachable-but-missed villages.
+  </p>
+  <div class="insight"><b>Insight.</b> No static probe could see this — <code>route-quality</code>,
+    <code>network-probe</code>, <code>copaudit</code> all inspect the grid and call the world healthy. It only
+    appears in the <i>continuous sim</i> over a long march. That is exactly why the repo law is “turn it into a
+    hard number with a headless harness,” and why a router rewrite would have fixed nothing.</div>
+
+  <h3>Root cause 2 — COP-in-a-pocket (real, but pocket-specific)</h3>
+  <p>
+    <code>survey-5</code> is the pure case: the COP sits on a bench whose gate flood reaches <b>2% of the map</b>;
+    3 of 4 villages are genuinely BFS-unreachable and the router correctly returns a best-effort route to the
+    pocket edge (an honest refusal). <code>ensureGatePortal</code> only floods a <code>radius+12</code> window, so
+    it proves the gate opens locally but never that it connects to the valley, the MSR, or the villages.
+  </p>
+
+  <h3>Root cause 3 — the router was already good (hypothesis refuted)</h3>
+  <p>
+    <code>route-quality</code> mean ratio is 1.01; <code>findPath</code> ends 20–40 m from the objective with no
+    loops; <code>blockedTimer=0</code> throughout. The corridor-A* rebuild from June&nbsp;3 holds. The 31% of
+    villages where the coarse router returns NULL split ~11 genuinely unreachable + ~8 reachable-but-coarse-
+    disconnected — a connectivity problem, not a router-quality one. <b>No router rewrite was warranted.</b>
+  </p>
+  <p class="dim">Miss split of the 32 reachable-but-missed: ~24 movement-economy (slow), ~8 coarse-disconnect/pocket.</p>
+
+  <h2>4 · The fix — three changes, ranked by measured impact-per-risk</h2>
+  <div class="step"><div class="num">1</div><div><b>Fatigue economy</b> (<code>lib/sim/combat.ts</code>). Penalty <code>0.45→0.32</code>; flat-march accrual <code>0.0012→0.0007</code> with the slope term <i>raised</i> <code>0.004→0.006</code> and an <b>exertion-gated recovery-while-moving</b> (<code>−dt·0.001·(1−clamp(slope·2.2 + rush·0.6))</code>). A routine patrol now <b>plateaus</b> at a working fatigue; a steep climb or a rush still saturates it, so combat fatigue (ballistics MOA, composure) is preserved. <span class="dim">Measured alone: arr-among-reachable 36%→48%.</span></div></div>
+  <div class="step"><div class="num">2</div><div><b>Generation-time connectivity guard</b> (<code>terrain.ts ensureNetworkConnectivity</code>, after <code>ensureGatePortal</code>). For each village it runs the patrol planner from the gate: if <code>findPath</code> reaches it, a <b>benched ≥3-cell Track</b> is laid along that exact route (rides moveCost 0.96, guaranteed coarse-pathable); if the coarse router can’t thread it, a bounded Dijkstra over <b>gradeable</b> ground carves a benched Track <b>around</b> the cliffs to the gate’s reachable component. No gradeable route within ~700 m ⇒ left genuinely unreachable (honest). Deterministic — no RNG, so save/load rebuilds identically.</div></div>
+  <div class="step"><div class="num">3</div><div><b>Ride the network</b> (<code>world/formation.ts</code>). Patrol <code>roadBias 0.25→0.55</code>. The design panel had measured roadBias as a <i>non-lever</i> — but that was <i>before</i> the guard guaranteed a continuous gate→village Track to ride. With the lane present, the bias becomes the second movement lever.</div></div>
+  <div class="step"><div class="num">4</div><div><b>Gate-portal egress</b> (<code>terrain.ts ensureGatePortal</code>) — added after a user hit “squad cannot leave COP” on a diagonal-gate seed (<code>valley-5293</code>; pre-existing, reproduces at <code>e22c1a9</code>). The guard had verified the gate with a hand-rolled coarse <i>flood</i> that has no corner-cut rule, while <code>findPath</code> <b>forbids a diagonal step through a wall corner</b> — so a diagonal gate read “connected” (corner cut) but could not be transited, stranding the squad inside the wire. Now the guard probes the <b>full <code>muster → gateOutside</code> egress with the real <code>findPath</code></b> and widens the gate + diagonal interior lane until the planner transits it. <span class="dim">Result: valley-5293 leadOut 78→134 m (egresses); survey egress 15/16 OK; no regression (smoke OK, copaudit egress 0/16).</span></div></div>
+  <div class="step"><div class="num">★</div><div><b>Honest metric</b> (<code>scripts/opposite-gate.ts</code>). The window now ends on the <i>sim’s own</i> STUCK_S backstop (route-remaining flat), not an arbitrary clock — so “slow but arriving” and “genuinely stuck” are distinguished, and a tactical (≤1500 s) sub-count is reported alongside arrival-eventually.</div></div>
+
+  <div class="insight"><b>Insight.</b> The reverted negatives from issue 008 are honoured. This is <i>not</i> the
+    raw-largest-component COP constraint (it gates on <b>network</b> reachability and <b>repairs</b>, never
+    rejects a good bench), <i>not</i> a straight-line accessibility term (the carve routes around cliffs over a
+    gradeable surface), and adds no steeper cross-valley profile.</div>
+
+  <h2>5 · Results — before → after</h2>
+  <table>
+    <tr><th>Metric (DoD)</th><th>Before @ e22c1a9</th><th>After @ d7b6394</th><th>Verdict</th></tr>
+    <tr><td>opposite-gate · arrived-among-reachable</td><td class="bad">18/50 (36%)</td><td class="good">38/50 (76%)</td><td>2.1× (36%→76%)</td></tr>
+    <tr><td>opposite-gate · REAR (opposite the gate)</td><td class="bad">1/8 (13%)</td><td class="good">4/8 (50%)</td><td>the adversarial bucket</td></tr>
+    <tr><td>opposite-gate · false success</td><td>0</td><td>0</td><td>metric stays sound</td></tr>
+    <tr><td>reachability (1500 s tactical window)</td><td class="bad">18/61 (30%)</td><td>25/61 (41%)</td><td>tactical-window arrival (far villages exceed 25 min)</td></tr>
+    <tr><td>network-probe · villages networked</td><td class="bad">36/61 (59%)</td><td class="good">44/61 (72%)</td><td>more roads to ride</td></tr>
+    <tr><td>movement-diag · most-opposite village</td><td class="bad">3/7 OK</td><td>4/7 OK (survey-9 STUCK→OK)</td><td>worst-case per seed, strict 1200 s/25 m</td></tr>
+    <tr><td>route-quality · mean / max ratio / loopy</td><td>1.01 / 5.10 / 2%</td><td>0.86 / 3.10 / 2%</td><td>max detour down</td></tr>
+    <tr><td>copaudit · egress / portal / overlap</td><td>1/16 · 1/16 · 0</td><td class="good">0/16 · 1/16 · 0</td><td>egress improved, no regress</td></tr>
+    <tr><td>egress.ts</td><td>5/5 OK</td><td class="good">5/5 OK</td><td>holds (squad ranges further)</td></tr>
+    <tr><td>tsc · build · smoke · balance</td><td>green · green · OK · no-strand</td><td class="good">green · green · OK · no-strand</td><td>all green</td></tr>
+  </table>
+  <p class="dim">network-probe trough cells rose 3071→3523: the guard benches real patrol corridors on steep
+    ground (legitimate cuts), distinct from the gratuitous water-trail trenches issue 008 referred to; benching
+    is what makes the Track ~1.3× faster than a Track left on the cross-slope (it is the difference between a
+    borderline far village arriving and not). The ~0 trough goal is a separate light-tread concern across all
+    trails, pre-existing and out of scope here.</p>
+
+  <h2>6 · Seeing it — before / after</h2>
+  <p>The same seed, the same village most opposite the gate, rendered straight from the headless sim
+    (<code>scripts/trajectory-svg.ts</code>): white = the point man’s traced path, colours = each soldier,
+    grey/brown = the road/track network, yellow = the HESCO wire.</p>
+  <figure>
+    <div class="grid2">
+      <div><img src="traj-before-survey-9.png" alt="survey-9 before"><div class="dim" style="text-align:center;font-size:12px;margin-top:6px">BEFORE — point man stalls halfway, never sets up (on-station never)</div></div>
+      <div><img src="traj-after-survey-9.png" alt="survey-9 after"><div class="dim" style="text-align:center;font-size:12px;margin-top:6px">AFTER — files out, rides the carved Track, sets up on Babiyal (916 s)</div></div>
+    </div>
+    <figcaption><code>survey-9</code> — the documented “STUCK” case. Before: the squad files out and grinds to a
+      halt well short. After: a benched Track corridor (the connectivity guard) carries it the full 335 m to the
+      objective.</figcaption>
+  </figure>
+  <figure>
+    <div class="grid2">
+      <div><img src="traj-before-survey-2.png" alt="survey-2 before"><div class="dim" style="text-align:center;font-size:12px;margin-top:6px">BEFORE — sets up 273 m short of a 411 m objective</div></div>
+      <div><img src="traj-after-survey-2.png" alt="survey-2 after"><div class="dim" style="text-align:center;font-size:12px;margin-top:6px">AFTER — reaches the objective</div></div>
+    </div>
+    <figcaption><code>survey-2</code> — the documented “SET UP SHORT” case.</figcaption>
+  </figure>
+  <figure>
+    <img src="live-survey9-onstation.png" alt="live game survey-9 on-station">
+    <figcaption>The same thing in the <b>live product</b> (driven via <code>window.__ITM</code> + Playwright):
+      <code>survey-9</code>, a presence patrol ordered from the COP (bottom) to Babiyal — the village
+      diametrically opposite the NE gate. The squad files out, rides the carved Track corridor, and at
+      t≈916 s sets up 360° security <b>on the objective</b> (all 9 pax, lead 18 m from the village edge).</figcaption>
+  </figure>
+
+  <h2>7 · Method — how the answer was found</h2>
+  <p>The work was run as a measured, multi-agent pipeline, not a guess-and-edit loop:</p>
+  <div class="step"><div class="num">1</div><div><b>Recon &amp; reproduce.</b> Walked the pathfinding git history and the issue catalogue (001/002/005/006/008), honoured the recorded negatives, and captured every baseline verbatim before any change.</div></div>
+  <div class="step"><div class="num">2</div><div><b>Adversarial harness + ground truth.</b> Built <code>opposite-gate.ts</code> (BFS truth + real-sim arrival), then <code>why-short.ts</code> / <code>lead-trace.ts</code> to apportion blame to the tick — which refuted the router/egress hypothesis and surfaced the fatigue+road-economy cause.</div></div>
+  <div class="step"><div class="num">3</div><div><b>Design panel (4 agents).</b> Three independent design proposals (movement-first, generation-first, holistic) under different emphases, then an adversarial chief-engineer that <i>re-ran the harnesses itself</i>, red-teamed each against the documented negatives and combat-realism, and <b>measured roadBias to be a non-lever</b> — pre-empting a wasted change.</div></div>
+  <div class="step"><div class="num">4</div><div><b>Implement &amp; re-measure each change in isolation.</b> Fatigue alone (36→48%), then the guard (which a re-run caught doing <i>nothing</i> the first two attempts — a silent no-op found only because <code>network-probe</code> didn’t move), then road-riding. Each landed only after its metric moved.</div></div>
+  <div class="step"><div class="num">5</div><div><b>Verify everything green</b> and on a branch: <code>tsc</code>, <code>build</code>, determinism, <code>smoke</code>, <code>balance</code>, and the full no-regression <code>copaudit</code>.</div></div>
+
+  <h2>8 · Honest closing — what’s provably solved, what stays hard</h2>
+  <p><b>Provably solved (with numbers):</b></p>
+  <ul>
+    <li>Arrival-among-reachable <span class="bad">36%</span> → <span class="good">38/50 (76%)</span>; opposite-gate bucket <span class="bad">13%</span> → <span class="good">4/8 (50%)</span>; <b>false success stays 0</b> (the metric never lies).</li>
+    <li>Network connectivity 59% → 72%; the worst pocket (<code>survey-5</code>) goes 0/4 → 4/4 connected.</li>
+    <li>The squad now <b>rides a road</b> to its objective and <b>fails honestly</b> where the ground is walled off.</li>
+    <li>No regression: <code>copaudit</code> egress improved 1/16→0/16; <code>balance</code> no stranding, no NaN; deterministic save/load.</li>
+  </ul>
+  <p><b>What stays hard (stated plainly):</b></p>
+  <ul>
+    <li><b>Distance vs the tactical clock.</b> A village &gt;1.5 km behind a cliff is a genuine 40–60-min foot
+      march. It now <i>arrives</i> (counted in arrival-eventually), but not inside the 25-min tactical window —
+      which is realistic, and is why the harness reports both. In-game time-warp covers it.</li>
+    <li><b>netVil at 72%, not 100%.</b> The remaining un-networked villages are either truly cliff-walled
+      (correctly left unreachable) or connect via Trail webs the Road-rooted metric doesn’t credit; pushing to
+      100% risks gratuitous carving. Tracked as a residual.</li>
+    <li><b>Trough cells rose</b> (benched corridors on steep ground). Legitimate cuts, but the “~0” aspiration
+      for <i>all</i> trails is a separate light-tread pass.</li>
+    <li><b>One coarse-portal seed</b> (<code>copaudit</code> portal 1/16) and the BFS ceiling itself (&lt;100% on
+      cliff-pocket seeds) remain — generation hardening, tracked in the issues.</li>
+  </ul>
+
+  <p class="foot">Harnesses: <code>scripts/{opposite-gate,reachability,network-probe,movement-diag,route-quality,copaudit,egress,smoke,balance,why-short,lead-trace,trajectory-svg}.ts</code>.
+    Reproduce: <code>npx tsx scripts/opposite-gate.ts 12</code>. Code: <code>lib/sim/{combat,terrain}.ts</code>,
+    <code>lib/sim/world/formation.ts</code>. Branch <code>fix/one-waypoint-always</code>.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script></body>
+</html>
