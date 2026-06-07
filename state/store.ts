@@ -7,6 +7,9 @@ import { World, createWorld, createTerrain, loadWorld, applyWorldEventChoice, Mi
 import { bakeTerrainProgressive } from "@/lib/render/topo";
 import { loadSprites } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
+// Procedural audio is a RENDER-SIDE OBSERVER (like lib/render/combat-fx.ts): the bridge owns
+// the real-time loop, so it drives the audio tick. lib/sim imports NOTHING from lib/audio.
+import { AudioEngine } from "@/lib/audio";
 
 export type Screen = "menu" | "loading" | "deploy" | "tourend";
 
@@ -65,6 +68,16 @@ interface GameStore {
   persistPanelLayout: () => void; // call on pointer-up / after toggle
   markCombatSeen: (maxId: number) => void;
 
+  // ---- audio (UI preference; persisted in itm-ui-v1, NOT the campaign save) ----
+  audioMuted: boolean;
+  audioVolume: number;
+  setAudioVolume: (v: number) => void;
+  toggleAudioMute: () => void;
+
+  // ---- call-for-fire auto-pause (UI preference; itm-ui-v1, NOT the campaign save) ----
+  autoPauseOnFire: boolean;
+  toggleAutoPauseOnFire: () => void;
+
   // save
   savedExists: boolean;
   refreshSave: () => void;
@@ -110,6 +123,7 @@ interface GameStore {
   selectVillage: (id: string | null) => void;
   conductKLE: (villageId: string) => void;
   fundProject: (villageId: string, type: string) => void;
+  secureBuild: (villageId: string) => void; // assign the active squad to garrison a project site
   requestResupply: (kind: "convoy" | "air") => void;
   recallTask: (taskId: number) => void;
   setJacket: (id: string | null) => void;
@@ -141,6 +155,17 @@ let _nowMs = 0;
 let _saveTimer = 0;
 // Rising-edge latch for "troops in contact": TIC is a ONE-WAY switch to 1× real time.
 let _wasInContact = false;
+// Rising-edge latch for a NEW call-for-fire: when one appears we auto-PAUSE (if the player has
+// the option on) so the commander reads the call before the rounds matter — an urgency cue, not a
+// speed change. We deliberately do NOT auto-restore speed after (TIC's drop is the one-way latch
+// that owns speed); the latch only fires on the 0→1 edge so a standing request never re-pauses.
+let _hadFireRequest = false;
+
+// The single render-side audio engine (module-scope, mirrors combat-fx.ts's module state).
+// SSR-safe: it touches no browser global until unlock() runs inside a user gesture. WorldView
+// grabs it via getAudio() to push the camera each RAF and wire the unlock-on-gesture listener.
+const audio = new AudioEngine();
+export const getAudio = () => audio;
 
 function hasSaveOnDisk(): boolean {
   try {
@@ -163,15 +188,32 @@ export interface PanelLayout {
   collapsed: Record<string, boolean>;
   heights: Record<string, number>;
   seenCombatId: number;
+  // Audio is a per-device UI preference — it lives in the UI-layout blob (itm-ui-v1), NOT the
+  // campaign save (itm-save-v2), so it never enters the save-migration path (the two-localStorage
+  // gotcha). Default volume 0.6, unmuted: the player who turns sound on should get the genre.
+  audioMuted: boolean;
+  audioVolume: number;
+  // Auto-pause the clock the instant the AI raises a NEW call-for-fire, so the commander reads the
+  // call before clearing/denying. A UI preference (same blob as audio), default ON — it's the
+  // urgency cue that makes the approve/deny lever land. It NEVER restores speed afterward.
+  autoPauseOnFire: boolean;
 }
+const AUDIO_VOLUME_DEFAULT = 0.6;
 function loadLayout(): PanelLayout {
-  const base: PanelLayout = { collapsed: {}, heights: {}, seenCombatId: 0 };
+  const base: PanelLayout = { collapsed: {}, heights: {}, seenCombatId: 0, audioMuted: false, audioVolume: AUDIO_VOLUME_DEFAULT, autoPauseOnFire: true };
   try {
     if (typeof window === "undefined") return base;
     const r = window.localStorage.getItem(LAYOUT_KEY);
     if (!r) return base;
     const p = JSON.parse(r) as Partial<PanelLayout>;
-    return { collapsed: p.collapsed ?? {}, heights: p.heights ?? {}, seenCombatId: p.seenCombatId ?? 0 };
+    return {
+      collapsed: p.collapsed ?? {},
+      heights: p.heights ?? {},
+      seenCombatId: p.seenCombatId ?? 0,
+      audioMuted: p.audioMuted ?? false,
+      audioVolume: typeof p.audioVolume === "number" ? p.audioVolume : AUDIO_VOLUME_DEFAULT,
+      autoPauseOnFire: p.autoPauseOnFire ?? true,
+    };
   } catch {
     return base;
   }
@@ -296,6 +338,12 @@ export const useGame = create<GameStore>((set, get) => ({
   savedExists: false,
   tutorial: false,
   tutorialStep: 0,
+  // mirror the persisted UI-layout audio prefs into top-level slots for easy HUD subscription;
+  // the engine is synced to them on the first user gesture (it has no context before unlock).
+  audioMuted: loadLayout().audioMuted,
+  audioVolume: loadLayout().audioVolume,
+  // call-for-fire auto-pause preference, mirrored top-level for HUD subscription (read in frame()).
+  autoPauseOnFire: loadLayout().autoPauseOnFire,
 
   refreshSave: () => set({ savedExists: hasSaveOnDisk() }),
 
@@ -303,6 +351,7 @@ export const useGame = create<GameStore>((set, get) => ({
     const s = seed && seed.length ? seed : `valley-${Math.floor(performance.now())}`;
     _acc = 0;
     _wasInContact = false;
+    _hadFireRequest = false;
     let terrain!: ReturnType<typeof createTerrain>;
     let world!: World;
     await runDeploy(
@@ -354,6 +403,7 @@ export const useGame = create<GameStore>((set, get) => ({
     }
     _acc = 0;
     _wasInContact = false;
+    _hadFireRequest = false;
     let world!: World;
     await runDeploy(
       set,
@@ -484,6 +534,31 @@ export const useGame = create<GameStore>((set, get) => ({
       }
     }
 
+    // CALL-FOR-FIRE AUTO-PAUSE: latch the 0→1 edge of a pending fire request and PAUSE on it
+    // (when the player has the option on) so the commander reads the call before clearing/denying.
+    // Tracked every frame so toggling the option mid-flight can't replay a stale edge; only the
+    // rising edge pauses (a standing request never re-pauses). We pause ONLY — never touch speed
+    // (TIC owns the one-way speed drop) and never auto-restore. Banner makes the call unmissable.
+    const hasFireReq = !!w.state.fireRequest;
+    if (hasFireReq && !_hadFireRequest && get().autoPauseOnFire && !get().paused) {
+      set({ paused: true, banner: `▲ CALL FOR FIRE — ${w.state.fireRequest!.label}: clear or deny` });
+    }
+    _hadFireRequest = hasFireReq;
+
+    // AUDIO: a render-side observer of the just-ticked sim. Always called so the mapper's
+    // high-water marks never go stale (identical to noteCombatEffects running every frame);
+    // the engine SCHEDULES sound only when running & !paused & !warp. Pos/pan come from the
+    // camera WorldView pushes each RAF. The combat log/effects/fire-missions are the seam.
+    // Read warp/paused FRESH (post-set): the contact-latch may have just cleared warp this
+    // frame (TIC kicking off a firefight), and the audio gate must reflect that — otherwise
+    // the firefight's first frame would be silenced by the stale `st.warp` captured up top.
+    const af = get();
+    const nowContact = w.inContact();
+    audio.tick(
+      { effects: w.sim.effects, log: w.sim.log, fireMissions: w.sim.fireMissions, inContact: nowContact },
+      { running, paused: af.paused, warp: af.warp, inContact: nowContact },
+    );
+
     // periodic HUD refresh + autosave
     if (_nowMs - _lastSyncMs > 110) {
       _lastSyncMs = _nowMs;
@@ -543,7 +618,12 @@ export const useGame = create<GameStore>((set, get) => ({
     // formPatrol derives the movement technique from the SOP; the 4th arg is a fallback only.
     const task = world.formPatrol(ids, planRoute, planMission, "patrol", planSOP);
     if (task) {
-      set({ planRoute: [], planning: false, banner: `${task.label} ordered`, tick: get().tick + 1 });
+      // BOOTS-PAUSED FIX (#31): the deploy screen comes up PAUSED so the player can plan the
+      // first patrol with the clock stopped. The moment they step an element off, the clock must
+      // RUN — leaving it paused made the game look frozen ("I gave the order and nothing happened").
+      // We only un-pause; we never touch speed/warp here (TIC's one-way latch and the player's
+      // speed choice are owned elsewhere). Re-pausing later is still the player's call (Space).
+      set({ paused: false, planRoute: [], planning: false, banner: `${task.label} ordered`, tick: get().tick + 1 });
       get().saveCampaign();
     }
   },
@@ -598,6 +678,22 @@ export const useGame = create<GameStore>((set, get) => ({
     if (p) set({ tick: get().tick + 1 });
     get().saveCampaign();
   },
+  // Assign the active squad to SECURE a project site (the patrol-level "garrison this build"
+  // order — TARGET 1). Mirrors conductKLE: only free/ready members of the active squad go, the
+  // World API does the reachability-aware routing + open-ended hold (NO map-canvas gesture, NO
+  // beeline). Like Step Off it un-pauses the clock — committing an element starts time running.
+  secureBuild: (villageId) => {
+    const { world } = get();
+    if (!world) return;
+    const ids = get().patrolIds(); // busy-aware ready members of the active squad (+officers if attached)
+    if (ids.length === 0) {
+      set({ banner: "No element free to secure the site." });
+      return;
+    }
+    const t = world.secureBuild(ids, villageId, "tactical", get().planSOP);
+    if (t) set({ paused: false, banner: t.label, tick: get().tick + 1 });
+    get().saveCampaign();
+  },
   requestResupply: (kind) => {
     const { world } = get();
     if (!world) return;
@@ -623,6 +719,27 @@ export const useGame = create<GameStore>((set, get) => ({
     if (maxId <= get().layout.seenCombatId) return;
     set((st) => ({ layout: { ...st.layout, seenCombatId: maxId } }));
     persistLayout(get().layout);
+  },
+
+  // ------------------------------------------------------------------ audio prefs
+  setAudioVolume: (v) => {
+    const vol = Math.max(0, Math.min(1, v));
+    audio.setMasterVolume(vol);
+    set((st) => ({ audioVolume: vol, layout: { ...st.layout, audioVolume: vol } }));
+    persistLayout(get().layout); // itm-ui-v1 only — never the campaign save
+  },
+  toggleAudioMute: () => {
+    const muted = !get().audioMuted;
+    audio.setMuted(muted);
+    set((st) => ({ audioMuted: muted, layout: { ...st.layout, audioMuted: muted } }));
+    persistLayout(get().layout);
+  },
+
+  // ------------------------------------------------------------------ call-for-fire auto-pause
+  toggleAutoPauseOnFire: () => {
+    const on = !get().autoPauseOnFire;
+    set((st) => ({ autoPauseOnFire: on, layout: { ...st.layout, autoPauseOnFire: on } }));
+    persistLayout(get().layout); // itm-ui-v1 only — never the campaign save
   },
 
   // ------------------------------------------------------------------ time
