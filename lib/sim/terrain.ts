@@ -109,8 +109,8 @@ export interface TerrainConfig {
   size: number; // cells per side
   cellSize: number; // meters per cell
   seed: number | string;
-  floorSouth: number; // elevation at south mouth (m)
-  floorNorth: number; // elevation at north head (m)
+  floorSouth: number; // elevation at the SOUTH head — the HIGH end (m)
+  floorNorth: number; // elevation at the NORTH mouth — the LOW end; the valley drains north into the Pech (m)
   ridgeHeight: number; // height of crests above local floor (m)
 }
 
@@ -118,8 +118,14 @@ export const DEFAULT_TERRAIN: TerrainConfig = {
   size: 512, // 512 × 5 m = 2.56 km valley resolved to 5 m
   cellSize: 5,
   seed: "korengal",
-  floorSouth: 1550,
-  floorNorth: 2000,
+  // Korengal drains NORTH into the Pech: the north mouth is the LOW end, the
+  // south head the HIGH end. North is y=0 (see line ~145 / floorElevAtRow), and
+  // generation lerps floorNorth→floorSouth over y — so the low end sits at the
+  // north, matching the real valley. (These values + the lerp arg order were
+  // previously transposed: the names read "inverted" though the terrain drained
+  // north correctly. Renamed truthfully; the generated elevation is unchanged.)
+  floorSouth: 2000,
+  floorNorth: 1550,
   ridgeHeight: 780,
 };
 
@@ -235,7 +241,8 @@ export class Terrain {
 
     for (let y = 0; y < size; y++) {
       const ty = y / (size - 1);
-      const floor = lerp(floorSouth, floorNorth, ty) + ridgeNoise.fbm(2, ty * 4, 3) * 40;
+      // ty=0 is the NORTH mouth (low), ty=1 the SOUTH head (high) → drains north.
+      const floor = lerp(floorNorth, floorSouth, ty) + ridgeNoise.fbm(2, ty * 4, 3) * 40;
       const cx = this.centerX[y];
       for (let x = 0; x < size; x++) {
         const dxCells = x - cx;
@@ -571,7 +578,7 @@ export class Terrain {
 
   floorElevAtRow(y: number): number {
     const ty = clamp01(y / (this.size - 1));
-    return lerp(this.config.floorSouth, this.config.floorNorth, ty);
+    return lerp(this.config.floorNorth, this.config.floorSouth, ty);
   }
 
   /** Valley-floor centerline x (cells) at a given row — the river's track. */
