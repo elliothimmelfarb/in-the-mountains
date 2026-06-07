@@ -43,10 +43,10 @@ const MOVEMENTS: MovementSOP[] = ["stealth", "patrol", "fast"];
 const CONTACTS: ContactSOP[] = ["hold", "suppress", "assault", "break"];
 const ROES: ROE[] = ["hold", "tight", "free"];
 
-function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%" }: { label: ReactNode; value: number; color?: string; max?: number; suffix?: string }) {
+function Bar({ label, value, color = "#6b7a3a", max = 100, suffix = "%", title }: { label: ReactNode; value: number; color?: string; max?: number; suffix?: string; title?: string }) {
   const pct = Math.max(0, Math.min(100, (value / max) * 100));
   return (
-    <div className="flex items-center gap-2 text-[11px] font-mono">
+    <div className="flex items-center gap-2 text-[11px] font-mono" title={title}>
       <div className="w-[80px] text-inkdim shrink-0 inline-flex items-center gap-1">{label}</div>
       <div className="flex-1 h-2.5 bg-bg border border-line relative overflow-hidden">
         <div className="h-full" style={{ width: pct + "%", background: color }} />
@@ -87,6 +87,36 @@ function roleAbbr(role: string): string {
   };
   return map[role] ?? role.slice(0, 3).toUpperCase();
 }
+
+// Tooltip expansions — every abbreviation / glyph in the roster spells itself out on hover.
+const ROLE_FULL: Record<string, string> = {
+  platoon_leader: "Platoon Leader", platoon_sergeant: "Platoon Sergeant", squad_leader: "Squad Leader",
+  team_leader: "Team Leader", rifleman: "Rifleman", grenadier: "Grenadier",
+  saw_gunner: "Automatic Rifleman (SAW)", auto_rifleman: "Automatic Rifleman", machinegunner: "Machine Gunner",
+  marksman: "Designated Marksman", sniper: "Sniper", medic: "Combat Medic",
+  rto: "Radio-Telephone Operator", jtac: "Joint Terminal Attack Controller (calls fires)", engineer: "Combat Engineer",
+};
+const roleFull = (role: string) => ROLE_FULL[role] ?? role.replace(/_/g, " ");
+const STATUS_LABEL: Record<string, string> = {
+  ready: "Ready for duty", rest: "Resting / refitting", wounded: "Wounded in action (WIA)", kia: "Killed in action (KIA)",
+};
+// What each SOP option actually does — so the segmented control teaches itself on hover.
+const MOVEMENT_DESC: Record<string, string> = {
+  stealth: "Stealth — hug cover and concealment; hardest to spot, slowest.",
+  patrol: "Patrol — standard tactical movement, balanced pace.",
+  fast: "Fast — take roads/tracks; quickest but most exposed.",
+};
+const CONTACT_DESC: Record<string, string> = {
+  hold: "Hold & return fire — hold the ground and fire back.",
+  suppress: "Suppress & call fires — pin the enemy and call for support.",
+  assault: "Assault — set a base of fire and maneuver a team onto the enemy.",
+  break: "Break contact — peel back to a rally point.",
+};
+const ROE_DESC: Record<string, string> = {
+  hold: "Weapons Hold — fire only in self-defense.",
+  tight: "Weapons Tight — engage positively-identified threats; keep fire off civilians.",
+  free: "Weapons Free — engage known enemy without further clearance.",
+};
 
 // ---------------------------------------------------------------- log split predicate
 // One shared partition used by Combat Log, Command Log, and the Contact Feed — every log
@@ -779,11 +809,11 @@ function RightColumn() {
         <div className="flex-1 min-h-0 overflow-y-auto border-b border-line"><VillagePanel villageId={selectedVillage!} /></div>
       ) : (
         <>
-          <DockPanel id="orders" title="Squad Orders" defaultHeight={300} right={<DeployBadge />}><SquadOrdersBody /></DockPanel>
+          <DockPanel id="orders" title="Squad Orders" defaultHeight={360} right={<DeployBadge />}><SquadOrdersBody /></DockPanel>
           <DockPanel id="taskorg" title="Task Organization" grow><TaskOrgBody /></DockPanel>
         </>
       )}
-      <DockPanel id="logistics" title="Logistics" defaultHeight={196} last
+      <DockPanel id="logistics" title="Logistics" defaultHeight={182} last
         right={<><LogiBadge /><span onClick={(e) => e.stopPropagation()}><ResupplyButtons /></span></>}>
         <LogisticsBody />
       </DockPanel>
@@ -802,13 +832,13 @@ function DeployBadge() {
 }
 
 // A segmented button group — one row of the SOP card.
-function Seg<T extends string>({ label, options, value, labelOf, onChange, disabled }: { label: string; options: T[]; value: T; labelOf: (v: T) => string; onChange: (v: T) => void; disabled?: boolean }) {
+function Seg<T extends string>({ label, options, value, labelOf, descOf, onChange, disabled }: { label: string; options: T[]; value: T; labelOf: (v: T) => string; descOf?: (v: T) => string; onChange: (v: T) => void; disabled?: boolean }) {
   return (
     <div className="mb-1">
       <div className="text-inkdim text-[9px] font-mono mb-0.5">{label}</div>
       <div className="flex gap-0.5 flex-wrap">
         {options.map((o) => (
-          <button key={o} disabled={disabled} onClick={() => onChange(o)} className={`tac-btn text-[10px] px-1.5 py-0.5 ${value === o ? "active" : ""} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
+          <button key={o} disabled={disabled} onClick={() => onChange(o)} title={descOf ? descOf(o) : labelOf(o)} className={`tac-btn text-[10px] px-1.5 py-0.5 ${value === o ? "active" : ""} ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}>
             {labelOf(o)}
           </button>
         ))}
@@ -820,14 +850,14 @@ function Seg<T extends string>({ label, options, value, labelOf, onChange, disab
 // The squad's standing operating procedure: how they move, what they do on contact, the ROE.
 function SopCard({ sop, onChange, locked }: { sop: SquadSOP; onChange: (patch: Partial<SquadSOP>) => void; locked?: boolean }) {
   return (
-    <div className="border border-line bg-bg p-1.5 mb-1.5">
-      <div className="flex justify-between items-center mb-1">
+    <div className="border border-line bg-bg p-1 mb-1">
+      <div className="flex justify-between items-center mb-0.5">
         <div className="stencil text-[9px] text-amber">Squad SOP</div>
         {locked && <span className="text-rust text-[9px] font-mono">LOCKED · in contact</span>}
       </div>
-      <Seg label="MOVEMENT" options={MOVEMENTS} value={sop.movement} labelOf={(m) => MOVEMENT_SOP_LABEL[m]} disabled={locked} onChange={(m) => onChange({ movement: m })} />
-      <Seg label="ON CONTACT" options={CONTACTS} value={sop.contact} labelOf={(c) => CONTACT_SOP_LABEL[c]} disabled={locked} onChange={(c) => onChange({ contact: c })} />
-      <Seg label="RULES OF ENGAGEMENT" options={ROES} value={sop.roe} labelOf={(r) => ROE_LABEL[r]} disabled={locked} onChange={(r) => onChange({ roe: r })} />
+      <Seg label="MOVEMENT" options={MOVEMENTS} value={sop.movement} labelOf={(m) => MOVEMENT_SOP_LABEL[m]} descOf={(m) => MOVEMENT_DESC[m]} disabled={locked} onChange={(m) => onChange({ movement: m })} />
+      <Seg label="ON CONTACT" options={CONTACTS} value={sop.contact} labelOf={(c) => CONTACT_SOP_LABEL[c]} descOf={(c) => CONTACT_DESC[c]} disabled={locked} onChange={(c) => onChange({ contact: c })} />
+      <Seg label="RULES OF ENGAGEMENT" options={ROES} value={sop.roe} labelOf={(r) => ROE_LABEL[r]} descOf={(r) => ROE_DESC[r]} disabled={locked} onChange={(r) => onChange({ roe: r })} />
     </div>
   );
 }
@@ -876,9 +906,9 @@ function SquadOrdersBody() {
       ) : (
         <>
           {!activeTask && (
-            <div className="flex flex-wrap gap-1 mb-1.5">
+            <div className="flex flex-wrap gap-1 mb-1">
               {MISSIONS.map((mt) => (
-                <button key={mt} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
+                <button key={mt} title={`${MISSION_LABEL[mt]} mission`} className={`tac-btn inline-flex items-center gap-1 text-[10px] px-2 py-1 ${planMission === mt ? "active" : ""}`} onClick={() => setMission(mt)}><Icon name={`ico-${mt}`} size={12} />{MISSION_LABEL[mt]}</button>
               ))}
             </div>
           )}
@@ -918,21 +948,32 @@ function TaskOrgBody() {
         const tasked = world.state.tasks.some((t) => t.memberIds.some((id) => sq.memberIds.includes(id)));
         const active = sq.id === activeSquadId;
         return (
-          <div key={sq.id} className="mb-2.5">
-            <button className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`} onClick={() => selectSquad(sq.id)}>
-              <span className="font-semibold inline-flex items-center gap-1.5">{active && <span>▸</span>}{sq.name}</span>
-              <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1">●deployed</span>}{readyCount}/{members.length} ready</span>
+          <div key={sq.id} className="mb-1.5">
+            {/* clicking the active squad again COLLAPSES it (deselect) — no need to pick another */}
+            <button
+              className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`}
+              onClick={() => selectSquad(active ? null : sq.id)}
+              aria-expanded={active}
+              title={active ? "Collapse this squad" : "Select & expand this squad"}
+            >
+              <span className="font-semibold inline-flex items-center gap-1.5">
+                <span className="text-[9px] transition-transform inline-block" style={{ transform: active ? "rotate(90deg)" : "none" }}>▸</span>
+                {sq.name}
+              </span>
+              <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1" title="An element of this squad is deployed">●deployed</span>}{readyCount}/{members.length} ready</span>
             </button>
             {active && (
-              <div className="grid grid-cols-1 gap-0.5 mt-0.5">
+              <div className="grid grid-cols-1 gap-px mt-0.5">
                 {members.map((mm) => (
-                  <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-1 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
-                    <span className="font-mono text-inkdim w-9 shrink-0">{mm.rank}</span>
-                    <span className="text-ink flex-1 truncate">{mm.name.split(" ").pop()}</span>
-                    <Icon name={roleIcon(mm.role)} size={12} className="text-inkdim" />
-                    <span className="text-inkdim font-mono">{roleAbbr(mm.role)}</span>
-                    <button title="Service record" aria-label={`Service record — ${mm.rank} ${mm.name}`} onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber shrink-0 inline-flex items-center justify-center w-6 h-6">ⓘ</button>
+                  <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-0.5 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
+                    <span title={STATUS_LABEL[mm.status] ?? mm.status} className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
+                    <span className="font-mono text-inkdim w-9 shrink-0" title={`Rank: ${mm.rank}`}>{mm.rank}</span>
+                    <span className="text-ink flex-1 truncate" title={`${mm.rank} ${mm.name} — ${roleFull(mm.role)}`}>{mm.name.split(" ").pop()}</span>
+                    <span className="inline-flex items-center gap-1 text-inkdim shrink-0" title={roleFull(mm.role)}>
+                      <Icon name={roleIcon(mm.role)} size={12} />
+                      <span className="font-mono">{roleAbbr(mm.role)}</span>
+                    </span>
+                    <button title="Open service record" aria-label={`Service record — ${mm.rank} ${mm.name}`} onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber shrink-0 inline-flex items-center justify-center w-6 h-6">ⓘ</button>
                   </div>
                 ))}
               </div>
@@ -1038,15 +1079,15 @@ function cerpNextHint(world: NonNullable<ReturnType<typeof useGame.getState>["wo
   return ` · next stipend ~${days}d`;
 }
 
-const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: number; icon: string }[] = [
-  { key: "ammo_556", label: "5.56mm", max: 24000, warn: 6000, icon: "ico-ammo" },
-  { key: "ammo_762", label: "7.62mm", max: 9000, warn: 2000, icon: "ico-ammo" },
-  { key: "mortar_60", label: "60mm", max: 120, warn: 20, icon: "ico-mortar" },
-  { key: "mortar_81", label: "81mm", max: 80, warn: 15, icon: "ico-mortar" },
-  { key: "construction", label: "build mat.", max: 80, warn: 12, icon: "ico-construction" },
-  { key: "medical", label: "med kits", max: 44, warn: 8, icon: "ico-medical" },
-  { key: "water", label: "water", max: 600, warn: 100, icon: "ico-water" },
-  { key: "food", label: "food", max: 560, warn: 100, icon: "ico-food" },
+const SUPPLY_ROWS: { key: keyof Supplies; label: string; max: number; warn: number; icon: string; desc: string }[] = [
+  { key: "ammo_556", label: "5.56mm", max: 24000, warn: 6000, icon: "ico-ammo", desc: "5.56mm rifle & SAW ammunition" },
+  { key: "ammo_762", label: "7.62mm", max: 9000, warn: 2000, icon: "ico-ammo", desc: "7.62mm machine-gun ammunition" },
+  { key: "mortar_60", label: "60mm", max: 120, warn: 20, icon: "ico-mortar", desc: "60mm mortar rounds" },
+  { key: "mortar_81", label: "81mm", max: 80, warn: 15, icon: "ico-mortar", desc: "81mm mortar rounds" },
+  { key: "construction", label: "build mat.", max: 80, warn: 12, icon: "ico-construction", desc: "Construction materials for CERP projects" },
+  { key: "medical", label: "med kits", max: 44, warn: 8, icon: "ico-medical", desc: "Medical supplies / IFAKs" },
+  { key: "water", label: "water", max: 600, warn: 100, icon: "ico-water", desc: "Drinking water (gallons)" },
+  { key: "food", label: "food", max: 560, warn: 100, icon: "ico-food", desc: "Rations (man-days)" },
 ];
 
 // Convoy/Air request buttons — live in the Logistics dock header right slot. The wrapper in
@@ -1085,7 +1126,7 @@ function LogisticsBody() {
         {SUPPLY_ROWS.map((row) => {
           const val = s[row.key];
           const low = val < row.warn;
-          return <Bar key={row.key} label={<><Icon name={row.icon} size={11} className="text-inkdim" />{row.label}</>} value={val} max={row.max} suffix="" color={low ? "#c0392b" : "#6b7a3a"} />;
+          return <Bar key={row.key} title={`${row.desc} — ${val.toLocaleString()} on hand${low ? " (LOW)" : ""}`} label={<><Icon name={row.icon} size={11} className="text-inkdim" />{row.label}</>} value={val} max={row.max} suffix="" color={low ? "#c0392b" : "#6b7a3a"} />;
         })}
       </div>
       <div className="text-[10px] text-inkdim mt-2 font-mono">CERP funds: <span className="text-amber">${world.state.cerp.toLocaleString()}</span>{cerpNextHint(world)}</div>
