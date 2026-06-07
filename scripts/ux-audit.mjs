@@ -28,6 +28,8 @@ const shotsIdx = process.argv.indexOf("--shots");
 const SHOTS_DIR = shotsIdx >= 0 ? process.argv[shotsIdx + 1] : null;
 // --demo fires sample toasts before the HUD capture (for the report only — never a scored run)
 const DEMO = process.argv.includes("--demo");
+// --a11y runs adversarial keyboard-behaviour assertions (focus trap, Esc-to-close)
+const A11Y = process.argv.includes("--a11y");
 const PORT = 9334; // distinct from shoot.mjs's 9333
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const URL = "http://localhost:3000";
@@ -261,7 +263,7 @@ async function auditState(name, setupExpr) {
       writeFileSync(`${SHOTS_DIR}/${name}.png`, Buffer.from(shot.data, "base64"));
       // hi-detail 2x crops of the two dense strips (CommandBar top + OrderBar bottom)
       if (name === "hud") {
-        for (const [sel, tag] of [[".panel.h-12, .panel.border-x-0", "commandbar"], [".contact-accent", "orderbar"], ['[class~="w-[344px]"]', "rightcol"]]) {
+        for (const [sel, tag] of [[".panel.h-12, .panel.border-x-0", "commandbar"], [".contact-accent", "orderbar"], ['[class~="w-[344px]"]', "rightcol"], ['[class~="w-[280px]"]', "leftcol"]]) {
           const rj = await evalJS(`(()=>{const e=document.querySelector('${sel}');if(!e)return null;const r=e.getBoundingClientRect();return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});})()`);
           if (!rj) continue;
           const r = JSON.parse(rj);
@@ -315,6 +317,45 @@ async function auditState(name, setupExpr) {
 
     // 4) SOLDIER JACKET — open a service record modal
     states.push(await auditState("jacket", `(()=>{const st=window.__ITM.getState();const m=st.world.platoon.members[0];if(m)st.setJacket(m.id);return 'jacket'})()`));
+
+    // adversarial keyboard-behaviour assertions (focus trap + Esc-to-close)
+    if (A11Y) {
+      const checks = await evalJS(`(async()=>{
+        const st=()=>window.__ITM.getState();
+        const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+        const out={};
+        const m=st().world.platoon.members[0];
+        st().setJacket(m.id); await sleep(400);
+        out.jacketOpened = !!document.querySelector('[role=dialog][aria-modal=\"true\"]');
+        out.focusMovedIntoJacket = !!(document.activeElement && document.activeElement.closest('[role=dialog]'));
+        document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})); await sleep(400);
+        out.jacketClosedByEsc = st().jacketId===null;
+        st().toggleHelp(true); await sleep(400);
+        out.helpOpened = st().helpOpen===true && !!document.querySelector('[role=dialog]');
+        out.focusMovedIntoHelp = !!(document.activeElement && document.activeElement.closest('[role=dialog]'));
+        document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true})); await sleep(400);
+        out.helpClosedByEsc = st().helpOpen===false;
+        return out;
+      })()`, true);
+      const pass = Object.values(checks).every(Boolean);
+      console.log("\\n=== A11Y BEHAVIOUR ===");
+      for (const [k, v] of Object.entries(checks)) console.log(" ", (v ? "PASS" : "FAIL").padEnd(5), k);
+      console.log(pass ? "ALL A11Y CHECKS PASS" : "SOME A11Y CHECKS FAILED");
+    }
+
+    // focus-ring proof: simulate keyboard modality so :focus-visible fires, focus a transport
+    // button, and crop the command bar so the amber ring is visible in a still.
+    if (SHOTS_DIR && DEMO) {
+      const rj = await evalJS(`(()=>{
+        window.dispatchEvent(new KeyboardEvent('keydown',{key:'Tab',bubbles:true}));
+        const b=document.querySelector('.panel.border-x-0 button.tac-btn');
+        if(!b) return null; b.focus();
+        const r=b.closest('.panel').getBoundingClientRect();
+        return JSON.stringify({x:r.x,y:r.y,width:r.width,height:r.height});
+      })()`);
+      await sleep(250);
+      if (rj) { const r = JSON.parse(rj); const c = await send("Page.captureScreenshot", { format: "png", clip: { x: r.x, y: r.y, width: r.width, height: r.height, scale: 2 }, captureBeyondViewport: true }); writeFileSync(`${SHOTS_DIR}/focus-ring.png`, Buffer.from(c.data, "base64")); }
+    }
 
     // optional: capture the Help overlay for the report
     if (SHOTS_DIR && DEMO) {
