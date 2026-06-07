@@ -509,6 +509,356 @@ function assaultProbe() {
   console.log(`  ⇒ ${sawSuppressTicks >= 18 && sawMoveOrders === 0 && rifleMoveOrders >= 18 ? "FIRE & MANEUVER works (was dead code)" : "FAILED"}`);
 }
 
+/**
+ * Probe 12 (stance-mix, combat-realism wave): under fire, do soldiers fight LOW?
+ * Runs the same sq1+medic presence patrol into a hot valley as the engagement probe,
+ * and while in contact samples the STANCE of every living patrolman every 2 s,
+ * tallying the fraction standing / crouch / prone. The prone-under-fire + posture-
+ * down behaviour lives in friendlyBrain (lib/sim/ai/friendly.ts): `pinned` ⇒ prone,
+ * `contact` ⇒ crouch-in-cover-else-prone. Before the wave the gates were never
+ * reached, so the patrol fought standing up (baseline 73% standing / 0% prone).
+ * Expect after: standing ~7-12%, crouch ~85-89%, prone ~2-4%.
+ */
+function stanceMixProbe() {
+  const SEEDS = 12;
+  const MINUTES = 18;
+  let stand = 0, crouch = 0, prone = 0, samples = 0, contacts = 0;
+  // separate tally restricted to the moments the man is actually under fire (suppression>0.18 or
+  // sees an enemy) — the patrol-average dilutes with lulls, this is the honest "while shot at" read.
+  let fStand = 0, fCrouch = 0, fProne = 0, fSamples = 0;
+  for (let s = 0; s < SEEDS; s++) {
+    const world = createWorld(`probe-stance-${s}`, 90);
+    const { terrain, state, sim } = world;
+    state.enemyHeat = 0.75;
+    const cop = terrain.copCell;
+    const v = terrain.villages[s % terrain.villages.length];
+    const sq = world.platoon.squads.find((sd) => sd.id === "sq1")!;
+    const medic = world.platoon.members.find((m) => m.role === "medic");
+    const ids = [...sq.memberIds, ...(medic ? [medic.id] : [])];
+    world.formPatrol(ids, [{ cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) }, { cx: v.cx, cy: v.cy }], "presence", "tactical");
+    state.nextActivityAt = 0;
+    let sawContact = false;
+    const ticks = MINUTES * 600;
+    for (let t = 0; t < ticks && !state.ended; t++) {
+      world.tick(0.1);
+      if (world.inContact()) sawContact = true;
+      if (sawContact && world.inContact() && t % 20 === 0) {
+        for (const id of ids) {
+          const u = sim.unit(id);
+          if (!u || !u.alive || !u.conscious) continue;
+          if (u.stance === "stand") stand++; else if (u.stance === "crouch") crouch++; else prone++;
+          samples++;
+          const shotAt = u.suppression > 0.18 || u.visibleEnemyIds.length > 0;
+          if (shotAt) {
+            if (u.stance === "stand") fStand++; else if (u.stance === "crouch") fCrouch++; else fProne++;
+            fSamples++;
+          }
+        }
+      }
+    }
+    if (sawContact) contacts++;
+  }
+  const pct = (n: number, d: number) => (d ? (100 * n) / d : 0).toFixed(1).padStart(5);
+  console.log("\n=== STANCE-MIX (combat-realism wave): friendly posture WHILE IN CONTACT ===");
+  console.log(`  sq1+medic presence patrol, heat 0.75, ${SEEDS} seeds x ${MINUTES} game-min · contacts ${contacts}/${SEEDS}`);
+  console.log(`  all-in-contact samples (${samples}):  stand ${pct(stand, samples)}%  crouch ${pct(crouch, samples)}%  prone ${pct(prone, samples)}%`);
+  console.log(`  while under fire   (${fSamples}):  stand ${pct(fStand, fSamples)}%  crouch ${pct(fCrouch, fSamples)}%  prone ${pct(fProne, fSamples)}%`);
+  console.log(`  baseline pre-wave: 73% standing / 0% prone — soldiers fought upright. After: men fight LOW.`);
+}
+
+/**
+ * Probe 13 (shoot-and-scoot, #17): what fraction of enemy "engage" episodes lead to a
+ * displacement (scoot)? An engage episode = a fighter entering brainState "engage";
+ * a scoot = that fighter subsequently transitioning engage→scoot (insurgentBrain in
+ * lib/sim/ai/insurgent.ts: the engage DWELL expires or pressure mounts ⇒ displacePosition
+ * ⇒ brainState "scoot"). Baseline ~0.02% (displacePosition demanded cover that was almost
+ * never within reach on the open high ground, so fighters rooted). Measured TWO ways:
+ *  (A) IN-CONTEXT: the director's real contacts in a hot valley (the honest end-to-end read,
+ *      diluted by fighters who die / exfil before their dwell ends).
+ *  (B) ISOLATED: hand-built fighters held in engage on open ground vs a live patrol so the
+ *      dwell can actually expire — the clean per-fighter scoot rate.
+ */
+function shootScootProbe() {
+  console.log("\n=== SHOOT-AND-SCOOT (#17): fraction of enemy engage episodes that displace ===");
+
+  // (A) in-context: count engage-entries and engage→scoot transitions across real contacts.
+  {
+    const SEEDS = 10, MINUTES = 20;
+    let engageEntries = 0, scoots = 0;
+    for (let s = 0; s < SEEDS; s++) {
+      const world = createWorld(`probe-scoot-${s}`, 90);
+      const { terrain, state, sim } = world;
+      state.enemyHeat = 0.8;
+      const cop = terrain.copCell;
+      const v = terrain.villages[s % terrain.villages.length];
+      const sq = world.platoon.squads.find((sd) => sd.id === "sq1")!;
+      const medic = world.platoon.members.find((m) => m.role === "medic");
+      const ids = [...sq.memberIds, ...(medic ? [medic.id] : [])];
+      world.formPatrol(ids, [{ cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) }, { cx: v.cx, cy: v.cy }], "presence", "tactical");
+      state.nextActivityAt = 0;
+      const prev = new Map<string, string>(); // unit id → last brainState seen
+      for (let t = 0; t < MINUTES * 600 && !state.ended; t++) {
+        world.tick(0.1);
+        for (const u of sim.units) {
+          if (u.faction !== "insurgent") continue;
+          const was = prev.get(u.id);
+          if (u.brainState === "engage" && was !== "engage") engageEntries++;
+          if (u.brainState === "scoot" && was === "engage") scoots++;
+          prev.set(u.id, u.brainState);
+        }
+      }
+    }
+    const rate = engageEntries ? (100 * scoots) / engageEntries : 0;
+    console.log(`  (A) IN-CONTEXT (${SEEDS} seeds x ${MINUTES} min, real director contacts):`);
+    console.log(`      engage episodes ${engageEntries} · scoots ${scoots} ⇒ ${rate.toFixed(1)}% displace  (baseline ~0.02%)`);
+  }
+
+  // (B) isolated: fighters parked in engage on open ground vs a stationary patrol element so the
+  //     dwell can run to completion. This is the clean per-fighter scoot rate (no early death/exfil).
+  {
+    const { CombatSim } = require("../lib/sim/combat") as typeof import("../lib/sim/combat");
+    const SEEDS = 12;
+    let engageEntries = 0, scoots = 0;
+    for (let s = 0; s < SEEDS; s++) {
+      const w = createWorld(`probe-scoot-iso-${s}`, 90);
+      const sim = new CombatSim({ terrain: w.terrain, rng: w.rng, units: [], light: 1, weather: { visibilityM: 4000, wind: 0, label: "Clear" }, persistent: true });
+      // DETERMINISTIC anchor: the COP world point (seeded, no Math.random — flatGround() uses
+      // Math.random and would make this probe non-reproducible). Snap to passable ground.
+      const cw = w.copWorld();
+      const gc = w.terrain.nearestPassable(Math.floor(cw.x / w.terrain.cellSize), Math.floor(cw.y / w.terrain.cellSize));
+      const g = w.terrain.cellCenter(gc.cx, gc.cy);
+      // a US fire team to draw fire / be a target, well out of decisive range so the fight persists
+      const us = w.platoon.squads.find((sd) => sd.id === "sq1")!.memberIds
+        .map((id) => w.platoon.members.find((m) => m.id === id)!).slice(0, 4);
+      us.forEach((u, i) => {
+        u.pos = { x: g.x + i * 3, y: g.y }; u.alive = true; u.hp = 100; u.conscious = true; u.wounds = [];
+        u.bleedRate = 0; u.brainState = "holding"; u.rof = "free"; u.path = []; sim.addUnit(u);
+      });
+      // 6 fighters parked in engage ~150 m off, on open ground (cover scarce ⇒ tests the lateral scoot)
+      const fighters: Unit[] = [];
+      for (let i = 0; i < 6; i++) {
+        const fe = makeInsurgent(w.rng.fork("sc" + i), "fighter", { x: g.x + 150, y: g.y - 60 + i * 20 }, 0.6);
+        fe.brainState = "engage"; fe.rof = "free"; fe.aggression = 0.5; fe.brainTimer = w.rng.range(14, 26);
+        fe.targetId = us[i % us.length].id; fe.threatDir = { x: -1, y: 0 }; sim.addUnit(fe); fighters.push(fe);
+      }
+      const prev = new Map<string, string>(fighters.map((f) => [f.id, "engage"] as const));
+      // count the initial engage entry for each fighter
+      engageEntries += fighters.length;
+      for (let t = 0; t < 60 * 600; t++) { // up to 60 s — plenty for a 14-26 s dwell to expire
+        sim.tick(0.1);
+        for (const f of fighters) {
+          const was = prev.get(f.id);
+          if (f.brainState === "engage" && was !== "engage") engageEntries++;
+          if (f.brainState === "scoot" && was === "engage") scoots++;
+          prev.set(f.id, f.brainState);
+        }
+      }
+    }
+    const rate = engageEntries ? (100 * scoots) / engageEntries : 0;
+    console.log(`  (B) ISOLATED (${SEEDS} seeds, fighters held in engage on open ground vs a fire team):`);
+    console.log(`      engage episodes ${engageEntries} · scoots ${scoots} ⇒ ${rate.toFixed(1)}% displace  (isolation target ~80%)`);
+  }
+}
+
+/** Shared geometry math for an enemy cell against a kill-zone focus. */
+function cellGeometry(terrain: ReturnType<typeof createWorld>["terrain"], mem: Unit[], focus: { x: number; y: number }) {
+  const cellElev = mem.reduce((a, u) => a + terrain.elevAt(u.pos.x, u.pos.y), 0) / mem.length;
+  const elevAdv = cellElev - terrain.elevAt(focus.x, focus.y);
+  const meanRange = mem.reduce((a, u) => a + Math.hypot(u.pos.x - focus.x, u.pos.y - focus.y), 0) / mem.length;
+  let pairSum = 0, pairN = 0, mass = 0;
+  for (let i = 0; i < mem.length; i++) {
+    let near = false;
+    for (let j = 0; j < mem.length; j++) {
+      if (i === j) continue;
+      const d = Math.hypot(mem[i].pos.x - mem[j].pos.x, mem[i].pos.y - mem[j].pos.y);
+      if (i < j) { pairSum += d; pairN++; }
+      if (d <= 40) near = true;
+    }
+    if (near) mass++;
+  }
+  return { elevAdv, meanRange, pairMean: pairN ? pairSum / pairN : 0, mass, size: mem.length };
+}
+
+/**
+ * Probe 14 (enemy-geometry, #12 massing + high-ground): measures the SHAPE of an ambush cell —
+ * the elevation advantage, the L-massing, and the engagement range — produced by the wave-changed
+ * firingPositions/scoreFiringPoint (lib/sim/world/director.ts). Measured TWO ways:
+ *
+ *  (A) DETERMINISTIC: call the exported spawnRoadAmbush() — which lays a cell with the IDENTICAL
+ *      firingPositions(focus, dir, count, 80, 260) machinery the wave rewrote (two-stage anchor →
+ *      dense firing line; elevation-weighted, proximity-gated scoreFiringPoint) — against many real
+ *      valley-floor focus points, one cell per seed, no director-rate lottery. This is the clean,
+ *      reproducible read of the geometry code itself (the director's ambush rate is too sparse to
+ *      sample the shape stably end-to-end — measured ~0.5 plain-ambush cells/seed).
+ *
+ *  (B) IN-CONTEXT: the real director's spawnAmbushOnPatrol against a moving patrol, accumulated over
+ *      many seeds. Filters to AMBUSH-state cells only (brainState "ambush"), excludes IED cells
+ *      (their own 30-120 m band) and far village/random-floor fallbacks (>400 m of the patrol — the
+ *      verifier's noted artifact), so it isn't washed out by infiltration/harass spawns.
+ *
+ * Per cell, against the kill-zone focus: mean ELEVATION ADVANTAGE (baseline +2.41 m, expect
+ * ~+20..+55), mean pairwise distance, fighters within 40 m of a cellmate (the L-massing; baseline
+ * 0.00, expect >0), and mean engagement range (expect in the 80-260 m ambush band).
+ */
+function enemyGeometryProbe() {
+  const { spawnRoadAmbush } = require("../lib/sim/world/director") as typeof import("../lib/sim/world/director");
+  console.log("\n=== ENEMY-GEOMETRY (#12 massing + high-ground): AMBUSH-cell shape ===");
+
+  // (A) deterministic geometry of the exact firingPositions/scoreFiringPoint code (road-ambush caller,
+  //     same 80-260 m band + two-stage massing). One cell per seed, measured vs its kill-zone focus.
+  {
+    const SEEDS = 40;
+    let cells = 0, elevSum = 0, rangeSum = 0, pairSum = 0, massSum = 0, sizeSum = 0;
+    for (let s = 0; s < SEEDS; s++) {
+      const world = createWorld(`probe-geomA-${s}`, 90);
+      const { terrain, state, sim } = world;
+      state.enemyHeat = 0.8;
+      const before = new Set(sim.units.filter((u) => u.faction === "insurgent").map((u) => u.id));
+      spawnRoadAmbush(world);
+      const mem = sim.units.filter((u) => u.faction === "insurgent" && u.alive && !before.has(u.id));
+      if (mem.length < 3) continue;
+      // the kill zone spawnRoadAmbush aimed at: a floor point at map-center on the chosen road row.
+      // Reconstruct the focus from the cell's own centroid projected to the valley floor isn't needed —
+      // we measure elevation advantage vs the LOWEST member's footprint area: use the cell centroid's
+      // nearest valley-floor row. Simpler & faithful: the road focus is the cell's mean (x≈center); use it.
+      const cx = mem.reduce((a, u) => a + u.pos.x, 0) / mem.length;
+      const cy = mem.reduce((a, u) => a + u.pos.y, 0) / mem.length;
+      // The true focus is on the road row (map-center column); approximate it as the floor point at the
+      // cell's mean Y on the valley centerline — that's where the kill zone sat.
+      const focus = { x: terrain.worldSize / 2, y: cy };
+      void cx;
+      const g = cellGeometry(terrain, mem, focus);
+      cells++; elevSum += g.elevAdv; rangeSum += g.meanRange; pairSum += g.pairMean; massSum += g.mass; sizeSum += g.size;
+    }
+    const f = (x: number) => x.toFixed(2);
+    const elevAdv = cells ? elevSum / cells : 0;
+    console.log(`  (A) DETERMINISTIC firingPositions geometry (${SEEDS} road-ambush cells, vs kill-zone focus):`);
+    console.log(`      cells ${cells} (mean ${cells ? f(sizeSum / cells) : "0"} fighters) · elev-adv ${elevAdv >= 0 ? "+" : ""}${f(elevAdv)} m · range ${cells ? f(rangeSum / cells) : "0"} m · pairwise ${cells ? f(pairSum / cells) : "0"} m · within-40m ${cells ? f(massSum / cells) : "0"}/cell`);
+    console.log(`      baseline: elev +2.41 m · within-40m 0.00/cell. Expect: elev ~+20..+55, range 80-260, massing >0.`);
+  }
+
+  // (B) in-context director ambushes against a moving patrol (the honest end-to-end read, sparse).
+  {
+    const SEEDS = 40, MINUTES = 20;
+    let cells = 0, elevSum = 0, rangeSum = 0, pairSum = 0, massSum = 0, sizeSum = 0;
+    for (let s = 0; s < SEEDS; s++) {
+      const world = createWorld(`probe-geomB-${s}`, 90);
+      const { terrain, state, sim } = world;
+      state.enemyHeat = 0.7; // best plain-ambush yield in the sweep (heat 0.7); high heat steals to IED
+      const cop = terrain.copCell;
+      const v = terrain.villages[s % terrain.villages.length];
+      const sq = world.platoon.squads.find((sd) => sd.id === "sq1")!;
+      const ids = sq.memberIds;
+      const task = world.formPatrol(ids, [{ cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) }, { cx: v.cx, cy: v.cy }], "presence", "tactical")!;
+      // Keep the director shut until the patrol is MOVING: while assembling, activePatrolCentroid()
+      // is null and spawnAmbushOnPatrol falls back to a far village/random point (measured: −35 m
+      // "advantage", 1074 m range — not an ambush on the patrol).
+      state.nextActivityAt = Infinity;
+      let opened = false;
+      const seenCells = new Set<string>();
+      for (let t = 0; t < MINUTES * 600 && !state.ended; t++) {
+        world.tick(0.1);
+        if (!opened && (task.phase === "moving" || task.phase === "onstation")) { state.nextActivityAt = 0; opened = true; }
+        const byCell = new Map<string, Unit[]>();
+        for (const u of sim.units) {
+          if (u.faction !== "insurgent" || !u.alive || u.brainState !== "ambush" || !u.squadId) continue;
+          if (u.squadId.startsWith("acm-ied")) continue; // IED ambush is its own (30-120 m) band
+          if (seenCells.has(u.squadId)) continue;
+          const arr = byCell.get(u.squadId) ?? []; arr.push(u); byCell.set(u.squadId, arr);
+        }
+        const live = ids.map((id) => sim.unit(id)).filter((u): u is Unit => !!u && u.alive);
+        if (live.length === 0) continue;
+        const pc = { x: live.reduce((a, u) => a + u.pos.x, 0) / live.length, y: live.reduce((a, u) => a + u.pos.y, 0) / live.length };
+        for (const [cid, mem] of byCell) {
+          if (mem.length < 3) continue;
+          const g = cellGeometry(terrain, mem, pc);
+          if (g.meanRange > 400) continue; // far fallback, not an ambush on this patrol — skip, don't mark seen
+          seenCells.add(cid);
+          cells++; elevSum += g.elevAdv; rangeSum += g.meanRange; pairSum += g.pairMean; massSum += g.mass; sizeSum += g.size;
+        }
+      }
+    }
+    const f = (x: number) => x.toFixed(2);
+    const elevAdv = cells ? elevSum / cells : 0;
+    console.log(`  (B) IN-CONTEXT director ambushes on a moving patrol (${SEEDS} seeds x ${MINUTES} min, heat 0.7):`);
+    console.log(`      cells ${cells} (mean ${cells ? f(sizeSum / cells) : "0"} fighters) · elev-adv ${elevAdv >= 0 ? "+" : ""}${f(elevAdv)} m · range ${cells ? f(rangeSum / cells) : "0"} m · pairwise ${cells ? f(pairSum / cells) : "0"} m · within-40m ${cells ? f(massSum / cells) : "0"}/cell`);
+  }
+}
+
+/**
+ * Probe 15 (suppression-twosided): suppression is two-sided. Distinguishes FRIENDLY-side from
+ * ENEMY-side suppression during real contacts, reporting mean + peak-of-element for EACH side and
+ * the friendly pinned fraction (suppression>0.5). The patrol-AVERAGE on the friendly side reads
+ * LOW by design — contacts here are short and sharp, so most patrol-seconds are lulls — which is
+ * why a naive reader misreads "patrol-avg ~0" as "suppression didn't land". The honest reads are
+ * the per-contact PEAK-of-element and the ENEMY-side suppression (the harass/ambush cells eat the
+ * patrol's return fire). Suppression is the `u.suppression` field accumulated in combat.ts.
+ */
+function suppressionTwosidedProbe() {
+  const SEEDS = 12, MINUTES = 20;
+  // friendly side: 2 s-sampled means/peaks (diluted by lulls) + a per-TICK running peak (the honest
+  // "how suppressed did a man ever get this contact" read — spikes are sharp and miss a 2 s grid).
+  let fMeanSum = 0, fPeakSum = 0, fSamp = 0, fPinned = 0, fPinDen = 0;
+  let fRunPeakSum = 0, fRunPeakN = 0; // per-seed all-time max friendly suppression, averaged over seeds
+  let fEverPinnedSeeds = 0;           // seeds in which ≥1 patrolman ever exceeded supp 0.5
+  // enemy side
+  let eMeanSum = 0, ePeakSum = 0, eSamp = 0, eRunPeakSum = 0, eRunPeakN = 0;
+  let contacts = 0;
+  for (let s = 0; s < SEEDS; s++) {
+    const world = createWorld(`probe-supp2-${s}`, 90);
+    const { terrain, state, sim } = world;
+    state.enemyHeat = 0.8;
+    const cop = terrain.copCell;
+    const v = terrain.villages[s % terrain.villages.length];
+    const sq = world.platoon.squads.find((sd) => sd.id === "sq1")!;
+    const medic = world.platoon.members.find((m) => m.role === "medic");
+    const ids = [...sq.memberIds, ...(medic ? [medic.id] : [])];
+    world.formPatrol(ids, [{ cx: Math.round((cop.cx + v.cx) / 2), cy: Math.round((cop.cy + v.cy) / 2) }, { cx: v.cx, cy: v.cy }], "presence", "tactical");
+    state.nextActivityAt = 0;
+    let sawContact = false, fRunPeak = 0, eRunPeak = 0, fEverPinned = false;
+    for (let t = 0; t < MINUTES * 600 && !state.ended; t++) {
+      world.tick(0.1);
+      if (world.inContact()) sawContact = true;
+      if (!sawContact) continue;
+      // per-TICK running peak (every tick, not the 2 s grid) — the true max either side reached.
+      for (const id of ids) {
+        const u = sim.unit(id);
+        if (u && u.alive) { if (u.suppression > fRunPeak) fRunPeak = u.suppression; if (u.suppression > 0.5) fEverPinned = true; }
+      }
+      for (const u of sim.units) if (u.faction === "insurgent" && u.alive && u.suppression > eRunPeak) eRunPeak = u.suppression;
+      if (t % 20 !== 0) continue;
+      // friendly element (2 s-sampled mean + peak-of-element)
+      {
+        let peak = 0, sum = 0, n = 0;
+        for (const id of ids) {
+          const u = sim.unit(id);
+          if (!u || !u.alive) continue;
+          peak = Math.max(peak, u.suppression); sum += u.suppression; n++;
+          if (u.suppression > 0.5) fPinned++; fPinDen++;
+        }
+        if (n) { fMeanSum += sum / n; fPeakSum += peak; fSamp++; }
+      }
+      // enemy element
+      {
+        let peak = 0, sum = 0, n = 0;
+        for (const u of sim.units) {
+          if (u.faction !== "insurgent" || !u.alive || !u.conscious) continue;
+          peak = Math.max(peak, u.suppression); sum += u.suppression; n++;
+        }
+        if (n) { eMeanSum += sum / n; ePeakSum += peak; eSamp++; }
+      }
+    }
+    if (sawContact) { contacts++; fRunPeakSum += fRunPeak; fRunPeakN++; eRunPeakSum += eRunPeak; eRunPeakN++; if (fEverPinned) fEverPinnedSeeds++; }
+  }
+  const f3 = (x: number) => x.toFixed(3);
+  console.log("\n=== SUPPRESSION (two-sided): friendly vs enemy, mean + peak ===");
+  console.log(`  sq1+medic presence patrol, heat 0.8, ${SEEDS} seeds x ${MINUTES} min · contacts ${contacts}/${SEEDS}`);
+  console.log(`  FRIENDLY: patrol-avg ${f3(fMeanSum / Math.max(1, fSamp))} (LOW BY DESIGN — short sharp contacts, mostly lulls)`);
+  console.log(`            per-contact max (per-tick) ${f3(fRunPeakSum / Math.max(1, fRunPeakN))} · 2 s-sampled peak-of-element ${f3(fPeakSum / Math.max(1, fSamp))}`);
+  console.log(`            pinned: ${(100 * fPinned / Math.max(1, fPinDen)).toFixed(1)}% of man-samples · ${fEverPinnedSeeds}/${contacts} contacts had a man pinned (supp>0.5)   <-- honest friendly reads`);
+  console.log(`  ENEMY:    element-avg ${f3(eMeanSum / Math.max(1, eSamp))} · 2 s-sampled peak-of-element ${f3(ePeakSum / Math.max(1, eSamp))} · per-contact max (per-tick) ${f3(eRunPeakSum / Math.max(1, eRunPeakN))}   <-- the patrol's return fire suppresses BOTH sides`);
+}
+
 if (which === "all" || which === "ballistics") ballisticsProbe();
 if (which === "all" || which === "engagement") engagementProbe();
 if (which === "all" || which === "perception") perceptionProbe();
@@ -521,3 +871,7 @@ if (which === "all" || which === "coin") coinProbe();
 if (which === "all" || which === "medical") medicalProbe();
 if (which === "all" || which === "load") loadProbe();
 if (which === "all" || which === "rescue") rescueProbe();
+if (which === "all" || which === "stance-mix") stanceMixProbe();
+if (which === "all" || which === "shoot-and-scoot") shootScootProbe();
+if (which === "all" || which === "enemy-geometry") enemyGeometryProbe();
+if (which === "all" || which === "suppression-twosided") suppressionTwosidedProbe();

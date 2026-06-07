@@ -61,8 +61,13 @@ async function shot(name) {
 }
 
 // ---------- the render clamp formulas, copied verbatim from lib/render/draw.ts ----------
-const figurePx = (ppm) => Math.max(15, Math.min(40, ppm * 7));
-const dotR = (ppm) => Math.max(4.5, Math.min(13, 0.95 * ppm));
+// AFTER the R1 fix: figure tracks a 1.6 m footprint with a small 7 px legibility floor / 26 px
+// cap (was clamp(ppm*7,15,40)); NATO dot floor dropped to 3 px / cap 9 (was 4.5/13).
+const figurePx = (ppm) => Math.max(7, Math.min(26, ppm * 1.6));
+const dotR = (ppm) => Math.max(3, Math.min(9, 0.7 * ppm));
+// Below FIG_FADE0 a squad is ONE icon (R2), so individuals don't overlap there at all; the
+// squadFiguresOverlap metric below is only MEANINGFUL at/above tactical zoom where men resolve.
+const FIG_FADE0 = 2.5;
 
 (async () => {
   try {
@@ -120,17 +125,23 @@ const dotR = (ppm) => Math.max(4.5, Math.min(13, 0.95 * ppm));
       const copPx = G.cop.diameterM * ppm;
       const squadSpanM = (SQUAD_N - 1) * DISPERSION_M;
       const squadSpanPx = squadSpanM * ppm;
-      const figuresOverlap = (fpx * SQUAD_N) > squadSpanPx; // do 9 figures fit in their real span?
+      // R2: below FIG_FADE0 the renderer draws ONE squad icon, not 9 men — so individuals
+      // can't overlap there at all. The geometric overlap test is only the real read at/above
+      // tactical zoom, where men actually resolve. Report both: the raw geometric test AND the
+      // effective on-screen result given the squad-icon LOD.
+      const figuresOverlapGeom = (fpx * SQUAD_N) > squadSpanPx; // do 9 figures fit in their real span?
+      const squadIconLOD = ppm < FIG_FADE0;                     // R2 collapses to one icon here
+      const figuresOverlap = squadIconLOD ? false : figuresOverlapGeom; // effective on screen
       const screenWm = VW / ppm, screenHm = VH / ppm;
       return {
-        ppm, figurePx: +fpx.toFixed(1), figureGroundM: +figGroundM.toFixed(1),
+        ppm, lod: squadIconLOD ? "squad-icon" : "figures", figurePx: +fpx.toFixed(1), figureGroundM: +figGroundM.toFixed(1),
         figureVsTrue: +(figGroundM / SOLDIER_TRUE_M).toFixed(0) + "x oversized",
         dotDiamPx: +dpx.toFixed(1), dotGroundM: +dotGroundM.toFixed(1),
         trueSoldierPx: +trueSoldierPx.toFixed(2),
         copDiameterPx: Math.round(copPx),
         soldierFigVsCop: +(fpx / copPx).toFixed(3), // fraction of COP a soldier figure occupies
         squadSpanPx: Math.round(squadSpanPx), squadFiguresWidthPx: Math.round(fpx * SQUAD_N),
-        squadFiguresOverlap: figuresOverlap,
+        squadFiguresOverlap: figuresOverlap, squadFiguresOverlapGeom: figuresOverlapGeom,
         screenCoverM: `${Math.round(screenWm)}x${Math.round(screenHm)}`,
       };
     });
@@ -148,8 +159,8 @@ const dotR = (ppm) => Math.max(4.5, Math.min(13, 0.95 * ppm));
     console.log("villages", G.villages.map(v => `${v.name}(pop${v.population},r${v.radiusM}m)`).join(", "));
     console.log("COP->village", G.copVillDist.map(d => `${d.name}:${d.m}m`).join(", "));
     console.log("village-village gap min/max", G.villageGap);
-    console.log("\nppm | figPx | figGroundM | figVsTrue | dotGroundM | COPpx | soldier/COP | squadSpanPx | 9figPx | overlap | screenM");
-    for (const p of projection) console.log(`${p.ppm} | ${p.figurePx} | ${p.figureGroundM} | ${p.figureVsTrue} | ${p.dotGroundM} | ${p.copDiameterPx} | ${p.soldierFigVsCop} | ${p.squadSpanPx} | ${p.squadFiguresWidthPx} | ${p.squadFiguresOverlap} | ${p.screenCoverM}`);
+    console.log("\nppm | LOD | figPx | figGroundM | figVsTrue | dotGroundM | COPpx | soldier/COP | squadSpanPx | 9figPx | overlap(eff) | overlap(geom) | screenM");
+    for (const p of projection) console.log(`${p.ppm} | ${p.lod} | ${p.figurePx} | ${p.figureGroundM} | ${p.figureVsTrue} | ${p.dotGroundM} | ${p.copDiameterPx} | ${p.soldierFigVsCop} | ${p.squadSpanPx} | ${p.squadFiguresWidthPx} | ${p.squadFiguresOverlap} | ${p.squadFiguresOverlapGeom} | ${p.screenCoverM}`);
     console.log("REAL soldier(0.6m)/COP(170m) fraction =", out.constants.realSoldierVsCopFraction);
 
     // ---------- SCREENSHOTS ----------
