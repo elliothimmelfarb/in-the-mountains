@@ -909,6 +909,16 @@ export class World {
     const br = Math.atan2(ay - center.y, ax - center.x);
     const fdist = Math.max(wireM + 22, Math.min(dist({ x: ax, y: ay }, center), wireM + 110));
     const aim = { x: center.x + Math.cos(br) * fdist, y: center.y + Math.sin(br) * fdist };
+    // The mortar fires from the PIT, which has a ~70 m minimum range (weapons.ts mortar60). If the
+    // assault has closed inside that dead zone, push the aimpoint outward FROM THE PIT so the
+    // approved fire actually lands instead of silently failing the range check (combat.ts).
+    const pit = this.terrain.cellCenter(cop.mortarPit.cx, cop.mortarPit.cy);
+    const MIN_R = 75; // 70 m min range + margin
+    if (dist(pit, aim) < MIN_R) {
+      const pb = Math.atan2(aim.y - pit.y, aim.x - pit.x);
+      aim.x = pit.x + Math.cos(pb) * MIN_R;
+      aim.y = pit.y + Math.sin(pb) * MIN_R;
+    }
     const cx = Math.floor(aim.x / this.terrain.cellSize);
     const cy = Math.floor(aim.y / this.terrain.cellSize);
     this.requestCopFires("mortar60", cx, cy, `${assault.length} fighters in the wire — FPF, danger close`);

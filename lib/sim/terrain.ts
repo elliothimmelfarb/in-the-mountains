@@ -1085,24 +1085,32 @@ export class Terrain {
     // crew-served weapons + towers + interlocking sectors by that geometry (not blind index).
     this.analyzeFightingPositions(fightingPositions, c, R);
 
-    // 6b) Mortar pit — dug in to the REAR of the yard for defilade (ATP 3-21.8 / FM 3-22.90).
-    //     This is the indirect-fire ORIGIN (world.ts points copPos here) and a real installation.
+    // 6b) Mortar pit — dug in to the rear of the yard for defilade (ATP 3-21.8 / FM 3-22.90), but
+    //     held CLOSE to centre: the 60 mm has a 70 m MIN range, the wire is only ~60 m, so an
+    //     offset pit can't range its own near approaches. A ≤3-cell (15 m) rear offset keeps the
+    //     whole just-outside-the-wire assault band within minimum range from the gun.
     const mortarPit = this.nearestPassable(
-      Math.round(c.cx - gateDir.x * 4),
-      Math.round(c.cy - gateDir.y * 4),
+      Math.round(c.cx - gateDir.x * 3),
+      Math.round(c.cy - gateDir.y * 3),
       5
     );
     // 6c) Final Protective Fires registered on the MOST DANGEROUS avenue — the sector with the
-    //     most dead space (where attackers can close under cover), a point just outside the wire.
+    //     most dead space. Pushed OUT just far enough that it clears the mortar's 70 m minimum
+    //     range FROM THE PIT (else the watch would request fire the tube physically can't deliver).
     const worst = fightingPositions.reduce(
       (a, b) => (b.deadSpaceFrac > a.deadSpaceFrac ? b : a),
       fightingPositions[0] ?? { facing: ga + Math.PI, deadSpaceFrac: 0 }
     );
     const fpfBear = worst ? worst.facing : ga + Math.PI;
-    const fpf = {
-      cx: Math.round(c.cx + Math.cos(fpfBear) * (R + 4)),
-      cy: Math.round(c.cy + Math.sin(fpfBear) * (R + 4)),
-    };
+    let fpf = { cx: Math.round(c.cx + Math.cos(fpfBear) * (R + 4)), cy: Math.round(c.cy + Math.sin(fpfBear) * (R + 4)) };
+    for (let extra = 0; extra <= 12; extra++) {
+      const rr = R + 4 + extra;
+      const fx = Math.round(c.cx + Math.cos(fpfBear) * rr);
+      const fy = Math.round(c.cy + Math.sin(fpfBear) * rr);
+      fpf = { cx: fx, cy: fy };
+      const dM = Math.hypot(fx - mortarPit.cx, fy - mortarPit.cy) * this.cellSize;
+      if (dM >= 85) break; // ≥ 70 m min range + margin
+    }
 
     // gateOutside is the FAR END of the flat ECP apron (issue 001): a benched cell
     // at ~R+5, clear of the wall (so a 15 m coarse node sits cleanly on it — issue
