@@ -127,7 +127,7 @@
 
   <div class="statstrip">
     <div class="s"><b>6</b><span>days · Jun 3–8</span></div>
-    <div class="s"><b>24</b><span>chapters</span></div>
+    <div class="s"><b>25</b><span>chapters</span></div>
     <div class="s"><b>11</b><span>full reports</span></div>
     <div class="s"><b>17</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
@@ -171,6 +171,7 @@
     <a class="rep" href="reports/2026-06-07-soundscape/report.html"><span class="rd">2026-06-07</span><span class="rt">Soundscape — 20× immersion</span><span class="rs">From mono-and-silent to a living canyon: reverb, ambient bed, occlusion, 5-layer gunfire. Playable A/B audio.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-07-world-scale-complete/report.html"><span class="rd">2026-06-07</span><span class="rt">World scale, finished</span><span class="rs">The audit's deferred half, shipped: COP 170→120 m, platoon 35→41, villages monolith→hamlet, honest gradient — adversarially verified, with the stall hunt the static pass missed.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-ui-ux/report.html"><span class="rd">2026-06-08</span><span class="rt">The command surface, re-cut</span><span class="rs">461→1 measured UX defects: keyboard focus rings, a 12px legibility floor, promoted campaign meters, command toasts, an accessible modal + in-game controls. Five expert judges, unanimous.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-08-soldier-scale/report.html"><span class="rd">2026-06-08</span><span class="rt">Soldier-scale realism</span><span class="rs">Hours-long progressive census + a dwell event-roll, an autonomous squad flank with bounding overwatch (0→100%), and one honest revert: a switchback-pathing fix measured against its own baseline, found to stall a squad, and backed out.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -805,6 +806,28 @@
       </div>
       <p class="quote">The literal 20× lives on the objective axis — a 461× defect reduction, reproduced deterministically — and an independent expert panel unanimously confirmed the direction and magnitude.</p>
       <a class="readmore" href="reports/2026-06-08-ui-ux/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-08-soldier-scale">
+    <div class="shot">
+      <a href="reports/2026-06-08-soldier-scale/report.html"><img src="assets/2026-06-08-soldier-scale.png" alt="A squad caught mid-flank: a base of fire pins the enemy while a maneuver element bounds to a covered flank" loading="lazy"></a>
+      <div class="cap">Caught mid-assault: a 4-man base of fire pins the enemy while a 4-man maneuver element bounds to a covered flank — the squad-leader AI's call, no player order. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-08</span></div>
+      <h3>Soldier-scale realism: hours-long dwell, an autonomous flank — and one honest revert</h3>
+      <div class="tags"><span class="tag">Sim</span><span class="tag">Combat AI</span><span class="tag">COIN</span><span class="tag">Restraint</span></div>
+      <p>At soldier-scale zoom, four things "didn't feel right." Each was turned into a number first. Village dwell was minutes where doctrine is hours, and the census <em>teleported</em> to "done" on arrival; in a firefight the whole squad sat on a base of fire while one man shuffled — it never flanked unless hand-told, and even then it rushed the front. And a squad ordered up a mountain ringed the spur instead of climbing.</p>
+      <p class="shape"><b>The shape:</b> three headless probes baselined on HEAD; population-driven progressive census + a dwell event-roll the player warps through; the squad-leader AI given the maneuver decision (develop-timer SOP lever, covered-flank routing, bounding overwatch) with KIA held flat. The fourth — switchback pathing — was built, measured against a clean HEAD worktree on held-out seeds, found to <b>regress the most load-bearing movement system</b> (a new stall) for a below-target gain, and <b>reverted</b>, then logged as two tracked issues + a reproduction probe.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">on-station dwell</span><span class="b">150–1100 s</span><span class="ar">→</span><span class="a">1–8 h (16–37×)</span></span>
+        <span class="m"><span class="lbl">contacts squad flanks unbidden</span><span class="b">0%</span><span class="ar">→</span><span class="a">22–48%</span></span>
+        <span class="m"><span class="lbl">bounding-overwatch discipline</span><span class="b">0%</span><span class="ar">→</span><span class="a">100%</span></span>
+        <span class="m"><span class="lbl">OP detour fix</span><span class="b">×3.13 ready</span><span class="ar">→</span><span class="a">reverted (kept green)</span></span>
+      </div>
+      <p class="quote">The wins are nice; the revert is the tell — an agent measured its own plausible fix, found it traded a below-target gain for a movement regression, and backed it out.</p>
+      <a class="readmore" href="reports/2026-06-08-soldier-scale/report.html">Read the full report →</a>
     </div>
   </article>
 
