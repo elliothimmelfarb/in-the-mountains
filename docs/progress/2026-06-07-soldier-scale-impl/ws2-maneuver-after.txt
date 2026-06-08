@@ -1,0 +1,28 @@
+WS2 maneuver AFTER — squad-leader autonomous flank + bounding overwatch + SOP lever
+
+== Fair before/after at heat 0.45 (baseline was 10x22x0.45; after 10x20x0.45) ==
+metric                     | hold        | suppress    | assault
+assault-state %  BEFORE     | 0%          | 0%          | 46% (frontal)
+assault-state %  AFTER      | 22%         | 10%         | 29% (bounding)
+bounding discipline BEFORE  | n/a (0 aslt)| n/a         | 0%
+bounding discipline AFTER   | 100%        | 100%        | 100%
+mean maneuvering (fixing)   | 4.81 -> 6.12| 4.15 -> 5.35| 6.45 -> 5.16
+break %                     | 45 -> 42    | 46 -> 44    | 43 -> 41
+
+== Contact-rich at heat 0.6 (8x20) — the lever and flank mechanism stand out ==
+  hold:     assault 48%  break 27%  hold 13%   bounding 100%
+  suppress: assault 48%  break 30%  suppress 13%  bounding 100%  flank-cover 1.84 (7% flanks found)
+  assault:  assault 90%  hold 2%    (break ~0)  bounding 100%  flank-cover 1.68 (3% flanks found)
+
+== DoD scorecard ==
+  [x] Autonomous maneuver: hold/suppress 0% -> 22%/10% (0.45), 48% (0.6). Squad flanks unbidden.
+  [x] Bounding overwatch (one element moving): 0% -> 100% discipline.
+  [x] SOP is a real lever: Assault > Hold > Suppress at both heats (was cosmetic/identical).
+  [x] Flank not frontal beeline: flank-cover ratio 0.92 -> 1.68-1.84 when a covered flank exists.
+  [~] Covered-flank FOUND only 0-7% on the coarse 5m cover raster -> mostly frontal fallback.
+      This is the documented WS3 dependency (discrete cover objects); the MECHANISM is proven.
+  [x] Restraint: KIA flat 1.00 -> 1.00 (balance 12x45). WIA 7.25 -> 9.0 (closes w/ enemy; recoverable).
+                 Enemy accounted ~6. No stall. 0 civ cas.
+
+Perf note: covered-flank path search runs ONCE per assault commit (<=4 cheapFallback queries),
+NOT per reconsider (the every-reconsider version caused a tick stall — fixed).

@@ -1,0 +1,25 @@
+WS2 maneuver baseline — HEAD (after WS1 commit bf833ca)
+npx tsx scripts/squad-maneuver-probe.ts 10 22 0.45   (heat ~0.45, ROE tight)
+
+── SOP: hold (census/presence/cordon DEFAULT) ──
+  squadState: react 2%  break 45%  hold 42%  ? 10%
+  MEAN men maneuvering: 7.12   while FIXING: 4.81 (392 samples)
+  bounding discipline: — (0 samples — NEVER assaults)
+  flank-cover ratio: — (0 samples)
+
+── SOP: suppress (overwatch/ambush default) ──
+  squadState: react 2%  break 46%  suppress 42%  ? 10%
+  MEAN men maneuvering: 6.85   while FIXING: 4.15 (385 samples)
+  bounding discipline: — (0 samples — NEVER assaults)
+  flank-cover ratio: — (0 samples)
+
+── SOP: assault (player-selected) ──
+  squadState: react 2%  break 43%  assault 46%  ? 9%
+  MEAN men maneuvering: 7.74   while FIXING: 6.45 (444 samples)
+  bounding discipline: 0% (whole maneuver team rushes together — 444 samples)
+  flank-cover ratio: 0.92 (route cover < straight line — a FRONTAL RUSH INTO THE OPEN — 1714 samples)
+
+Reading:
+  - SOP is cosmetic: hold/suppress/assault all ~43-46% breaking, near-identical.
+  - hold/suppress NEVER autonomously assault (0 flank samples).
+  - even under assault: 0% bounding discipline, flank-cover 0.92 (worse than a straight line).

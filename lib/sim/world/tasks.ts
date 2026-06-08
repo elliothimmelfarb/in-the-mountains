@@ -312,6 +312,9 @@ function releaseCombat(w: World, t: Task, members: Unit[]) {
   t.bofIds = undefined;
   t.mnvrIds = undefined;
   t.rallyPt = undefined;
+  t.flankPt = undefined;
+  t.boundPair = undefined;
+  t.boundUntil = undefined;
   const sop = t.sop ?? defaultSOP(t.missionType);
   const baseRof = t.missionType === "ambush" || t.missionType === "overwatch" ? "hold" : "free";
   for (const m of members) {

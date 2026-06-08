@@ -511,7 +511,10 @@ export default function WorldView() {
           ctx.closePath();
           ctx.fill();
         }
-        const objPt = t.squadState === "break" ? t.rallyPt : t.threatPt;
+        // The maneuver arrow points where the element is ACTUALLY going: its covered FLANK objective
+        // when assaulting (so the player sees the flank, not a frontal line to the enemy), the rally
+        // when breaking, else the threat.
+        const objPt = t.squadState === "break" ? t.rallyPt : t.squadState === "assault" ? (t.flankPt ?? t.threatPt) : t.threatPt;
         if (mnvr.length && objPt) {
           const mc = unitsCentroid(mnvr);
           const [mcx, mcy] = worldToScreen(cam, mc.x, mc.y);

@@ -5,6 +5,8 @@ import { centroidOf } from "../world/helpers";
 import { Unit } from "../entities";
 import { getWeapon } from "../weapons";
 import { dist, Vec2, norm, sub, add, scale, len } from "../vec";
+import { clamp, lerp } from "../rng";
+import { findPath } from "../path";
 
 /**
  * The SQUAD-COMBAT COORDINATOR — the squad leader's tactical brain.
@@ -61,6 +63,9 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
     t.bofIds = undefined;
     t.mnvrIds = undefined;
     t.rallyPt = undefined;
+    t.flankPt = undefined;
+    t.boundPair = undefined;
+    t.boundUntil = undefined;
     stampReact(w, members, threat, sop);
     w.log(`${t.label}: CONTACT — ${enemyCount > 0 ? `enemy to the ${w.bearingDesc(threat)}` : "taking fire"}.`, "contact");
     w.interrupt(`${t.label} IN CONTACT`);
@@ -78,22 +83,34 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
 
   switch (t.squadState) {
     case "react": {
-      // Orient done — commit to the SOP's standing drill.
-      const next =
-        sop.contact === "assault" ? "assault" :
-        sop.contact === "suppress" ? "suppress" :
-        sop.contact === "break" ? "break" : "hold";
-      if (next === "break") enterBreak(w, t, members, threat, false);
+      // React to contact = get down, orient, return fire in the SOP's FIXING posture. The maneuver
+      // decision comes a beat LATER (the hold/suppress case upgrades to assault once the leader has
+      // read the fight) — a squad doesn't launch an assault in the first second of contact, and
+      // deferring it is also what lets the SOP bite: at first contact effFrac≈1 so every SOP would
+      // commit, but mid-fight (partly suppressed) the SOP's commit threshold actually differentiates.
+      if (sop.contact === "break") enterBreak(w, t, members, threat, false);
       else {
-        t.squadState = next;
-        t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
-        if (next === "assault") assignElements(w, t, members, threat);
-        runState(w, t, members, threat, enemyCount, eff, sop);
+        t.fixSince = w.state.clock; // start the SOP-keyed develop-the-situation timer
+        commitDrill(w, t, members, threat, sop.contact === "suppress" ? "suppress" : "hold", enemyCount, eff, sop);
       }
       break;
     }
     case "hold":
-    case "suppress":
+    case "suppress": {
+      // Keep reading the fight: the instant fire superiority is achievable AND a covered flank opens,
+      // commit the maneuver element — without waiting for a player order. A squad that just sits until
+      // told to maneuver has failed the most basic infantry standard.
+      const next = chooseDrill(w, t, members, threat, enemyCount, eff, sop);
+      if (next === "assault") {
+        commitDrill(w, t, members, threat, "assault", enemyCount, eff, sop);
+        w.log(`${t.label}: fire superiority gained — maneuvering on the ${w.bearingDesc(t.flankPt ?? threat)} flank.`, "radio");
+      } else {
+        t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
+        runState(w, t, members, threat, enemyCount, eff, sop);
+        maybeRequestFires(w, t, members, eff, sop);
+      }
+      break;
+    }
     case "assault":
     case "break":
       t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
@@ -104,6 +121,137 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
       t.squadState = "react";
       t.squadTimer = 0;
   }
+}
+
+/**
+ * The squad-leader's drill decision. SOP sets the AGGRESSION (how readily he commits the maneuver
+ * element); the tactical picture decides whether he actually can. Order of preference:
+ *   assault-via-flank  — fire superiority is achievable AND a covered flank exists (and two fire
+ *                        teams to bound with). The doctrinal answer when you're winning the firefight.
+ *   suppress / hold    — fix the enemy (call fires under suppress); set conditions for a later flank.
+ *   break              — only if the SOP orders it (the automatic break-safety handles ineffective).
+ * Stores the chosen covered-flank objective on t.flankPt as a side effect.
+ */
+function chooseDrill(w: World, t: Task, members: Unit[], threat: Vec2, enemyCount: number, eff: Eff, sop: SquadSOP): "assault" | "suppress" | "hold" | "break" {
+  if (sop.contact === "break") return "break";
+  const fixing = sop.contact === "suppress" ? "suppress" : "hold";
+  // SOP LEVER (robust to the bimodal effFrac problem): the squad must FIX and develop the situation
+  // for an SOP-keyed time before it may commit the assault. Assault commits at once; hold develops
+  // first; suppress develops longest (and meanwhile calls fires) — so many contacts resolve before
+  // the cautious SOPs ever assault. That is what makes Hold ≠ Assault, not cosmetic.
+  if (w.state.clock - (t.fixSince ?? w.state.clock) < developTime(sop)) return fixing;
+  // The DECISION is otherwise cheap (no path search): commit when the squad can gain fire superiority
+  // and has two fire teams to bound with. Covered-flank vs frontal route is decided at commit.
+  const sq = buildSquad(w, members);
+  const twoTeams = sq.teams.filter((tm) => tm.ids.length > 0).length >= 2;
+  if (twoTeams && assessFireSuperiority(members, enemyCount, eff)) return "assault";
+  return fixing;
+}
+
+/** SOP-keyed "develop the situation" delay before the squad may commit a maneuver (game-seconds).
+ *  Assault closes immediately; hold fixes and reads the fight first; suppress prefers to keep fixing
+ *  and call fires, committing the assault only in a long, decisive contact. */
+function developTime(sop: SquadSOP): number {
+  return sop.contact === "assault" ? 0 : sop.contact === "suppress" ? 18 : 7; // hold = 7 s
+}
+
+/** Adopt a drill: stamp it, and for an assault assign the base-of-fire / maneuver split, find the
+ *  covered flank to route to (frontal fallback if none), and start the bounding-overwatch clock so
+ *  only one buddy pair moves at a time. The flank search runs ONCE here, not every reconsider. */
+function commitDrill(w: World, t: Task, members: Unit[], threat: Vec2, drill: "assault" | "suppress" | "hold", enemyCount: number, eff: Eff, sop: SquadSOP) {
+  t.squadState = drill;
+  t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
+  if (drill === "assault") {
+    assignElements(w, t, members, threat);
+    // Prefer a covered flank; null → stampAssault routes frontally (the fallback when no flank exists).
+    t.flankPt = findCoveredFlank(w, members, threat, aggressionOf(sop)) ?? undefined;
+    t.boundPair = 0;
+    t.boundUntil = w.state.clock + w.rng.range(3, 5);
+  }
+  runState(w, t, members, threat, enemyCount, eff, sop);
+}
+
+/** SOP → maneuver aggression (how readily the leader commits the assault). assault commits eagerly;
+ *  suppress prefers to fix and call fires; hold sits between (it will still flank when clearly ahead). */
+function aggressionOf(sop: SquadSOP): number {
+  return sop.contact === "assault" ? 1.0 : sop.contact === "suppress" ? 0.35 : 0.6;
+}
+
+/** Can the squad gain the fire superiority an assault needs? Requires an organic automatic weapon up
+ *  (to generate the base of fire's suppression), a PID'd enemy to assault, at least parity in effective
+ *  shooters, and that the squad isn't itself pinned. (The SOP lever lives in the develop-timer, not
+ *  here — so a squad never assaults out of a position it can't actually move from.) */
+function assessFireSuperiority(members: Unit[], enemyCount: number, eff: Eff): boolean {
+  if (enemyCount === 0) return false; // no observed enemy → nothing to assault (no PID)
+  const haveAuto = members.some((m) => m.alive && m.conscious && AUTO_ROLES.has(m.role) && m.suppression < 0.7);
+  if (!haveAuto) return false;
+  const force = eff.effective / Math.max(1, enemyCount);
+  return force >= 1.0 && eff.effFrac >= 0.6;
+}
+
+/**
+ * Find a COVERED flank objective, or null. Probes a point off each side of the enemy (perpendicular
+ * to the approach axis), routes to it with the cover-biased planner, and accepts the side whose route
+ * is MEANINGFULLY more covered than the straight line to the threat (and clears an absolute cover
+ * floor, so "more cover than bare dirt" doesn't qualify). The gate is SOP-keyed: hold needs a clearly
+ * better flank; assault accepts a modest one. Returns the chosen flank point.
+ */
+function findCoveredFlank(w: World, members: Unit[], threat: Vec2, aggression: number): Vec2 | null {
+  const terrain = w.sim.terrain;
+  const live = members.filter((m) => m.alive && m.conscious);
+  const c = centroidOf(live.length ? live : members);
+  const toT = sub(threat, c);
+  const d = len(toT);
+  if (d < 25 || d > 320) return null; // too close (frontal anyway) / beyond a practical assault
+  const approach = norm(toT);
+  const perp = { x: -approach.y, y: approach.x };
+  const straight = meanCoverLine(terrain, c, threat);
+  // Accept a flank whose cover-biased route is meaningfully more covered than the straight line. The
+  // gate is RELATIVE (not an absolute floor) so it still finds the best available approach on the
+  // coarse 5 m cover raster; WS3's discrete cover objects will make the absolute gain much larger.
+  const gate = lerp(1.25, 1.06, aggression); // hold ~1.15×, assault 1.06× the straight-line cover
+  let best: Vec2 | null = null;
+  let bestCover = Math.max(0.04, straight * gate);
+  // Sample both sides at two offsets and pick the most-covered cover-biased route (≤4 path queries,
+  // run ONCE per assault commit — never per reconsider).
+  for (const s of [1, -1]) {
+    for (const frac of [0.55, 0.8]) {
+      const sideDist = clamp(d * frac, 30, 80);
+      const raw = add(threat, scale(perp, s * sideDist));
+      const flankPt = terrain.passablePoint(raw.x, raw.y);
+      const path = findPath(terrain, c, flankPt, { coverBias: 0.85, cheapFallback: true });
+      if (!path.length) continue;
+      const routeCover = meanCoverPath(terrain, c, path);
+      if (routeCover > bestCover) {
+        bestCover = routeCover;
+        best = flankPt;
+      }
+    }
+  }
+  return best;
+}
+
+/** Mean cover sampled along the straight segment a→b. */
+function meanCoverLine(terrain: World["sim"]["terrain"], a: Vec2, b: Vec2): number {
+  const steps = 6;
+  let sum = 0;
+  for (let i = 0; i <= steps; i++) {
+    const p = add(a, scale(sub(b, a), i / steps));
+    sum += terrain.coverAt(p.x, p.y);
+  }
+  return sum / (steps + 1);
+}
+
+/** Mean cover along a multi-waypoint route from `start`. */
+function meanCoverPath(terrain: World["sim"]["terrain"], start: Vec2, path: Vec2[]): number {
+  if (!path.length) return terrain.coverAt(start.x, start.y);
+  let sum = 0, segs = 0, from = start;
+  for (const wp of path) {
+    sum += meanCoverLine(terrain, from, wp);
+    segs++;
+    from = wp;
+  }
+  return sum / Math.max(1, segs);
 }
 
 const NON_COMBAT = new Set(["garrison", "moving", "idle", "assembling", "holding", "treating", "aiding", ""]);
@@ -156,13 +304,31 @@ function stampBaseOfFire(w: World, members: Unit[], threat: Vec2, sop: SquadSOP,
   }
 }
 
-/** ASSAULT: base-of-fire element pins the enemy while the maneuver element fire-and-moves
- *  onto the objective. The per-man bound (auto-rifle base of fire, riflemen close) is run
- *  by friendlyBrain's assault path; here we set the split, the objective, and screening smoke. */
+/** ASSAULT: base-of-fire element pins the enemy while the maneuver element fire-and-moves onto a
+ *  COVERED FLANK (not a frontal beeline at the centroid — a frontal rush is doctrinally wrong). The
+ *  maneuver element bounds by buddy pairs — only ONE pair moves at a time while the other overwatches,
+ *  swapping on a 3–5 s clock. The per-man bound (auto-rifle base of fire, riflemen close) is run by
+ *  friendlyBrain's assault path; here we set the split, the flank objective, the bound, and smoke. */
 function stampAssault(w: World, t: Task, members: Unit[], threat: Vec2, sop: SquadSOP) {
   if (!t.bofIds || !t.mnvrIds) assignElements(w, t, members, threat);
   const bof = new Set(t.bofIds ?? []);
-  const mnvr = new Set(t.mnvrIds ?? []);
+  const mnvrIds = t.mnvrIds ?? [];
+  const flankPt = t.flankPt ?? threat;
+
+  // Bounding overwatch: which buddy pair of the maneuver element is rushing right now. Swap on a
+  // 3–5 s clock so only one element is ever moving (the other lays overwatch on the objective).
+  if ((t.boundUntil ?? 0) <= w.state.clock) {
+    t.boundPair = 1 - (t.boundPair ?? 0);
+    t.boundUntil = w.state.clock + w.rng.range(3, 5);
+  }
+  const liveMnvr = mnvrIds
+    .map((id) => w.sim.unit(id))
+    .filter((u): u is Unit => !!u && u.alive && u.conscious);
+  const half = Math.ceil(liveMnvr.length / 2);
+  // Sort by distance to the flank so the buddy pairs are spatially coherent (leaders/closest bound first).
+  liveMnvr.sort((a, b) => dist(a.pos, flankPt) - dist(b.pos, flankPt));
+  const movingPair = new Set((t.boundPair ? liveMnvr.slice(half) : liveMnvr.slice(0, half)).map((m) => m.id));
+
   let screened = false;
   for (const m of members) {
     if (!m.alive || !m.conscious) continue;
@@ -172,16 +338,32 @@ function stampAssault(w: World, t: Task, members: Unit[], threat: Vec2, sop: Squ
       m.rof = sop.roe === "hold" ? "free" : "suppress";
       m.orderTarget = { ...threat };
       seekCover(w, m, threat);
-    } else if (mnvr.has(m.id)) {
-      // close with the enemy; friendlyBrain runs the fire-and-maneuver bound per man
-      m.brainState = "moving";
-      m.orderType = "assault";
-      m.orderTarget = { ...threat };
-      m.rof = perManRof(m, sop, false, AUTO_ROLES.has(m.role)); // honor weapons-hold even while bounding
-      // route around walls/terrain (walkTo falls back to A* when the lane is blocked)
-      if (m.path.length === 0 && dist(m.pos, threat) > 3) w.sim.walkTo(m, threat);
-      // screen the bound with smoke if it crosses open ground (throttled across the squad)
-      if (!screened && exposedRun(w, m.pos, threat) && smokeIfNeeded(w, t, m, threat)) screened = true;
+    } else if (mnvrIds.includes(m.id)) {
+      if (movingPair.has(m.id)) {
+        // This buddy pair bounds — covered approach to the flank, then turn IN onto the enemy for
+        // the final assault. friendlyBrain runs the per-man fire-and-move; the cover-biased pathTo
+        // (not a beeline) is what makes the route an actual flank.
+        const obj = dist(m.pos, flankPt) > 28 ? flankPt : threat;
+        m.brainState = "moving";
+        m.orderType = "assault";
+        m.orderTarget = { ...obj };
+        m.rof = perManRof(m, sop, false, AUTO_ROLES.has(m.role)); // honor weapons-hold even while bounding
+        if (m.path.length === 0 && dist(m.pos, obj) > 3) {
+          w.sim.pathTo(m, obj, { coverBias: 0.6, concealBias: 0.3, cheapFallback: true });
+        }
+        // screen the bound with smoke if it crosses open ground (throttled across the squad)
+        if (!screened && exposedRun(w, m.pos, threat) && smokeIfNeeded(w, t, m, threat)) screened = true;
+      } else {
+        // The other pair OVERWATCHES — holds from cover and suppresses the objective so the moving
+        // pair is covered. This is the bounding discipline: one element moves, one supports.
+        m.brainState = "holding";
+        m.orderType = undefined;
+        m.rof = sop.roe === "hold" ? "free" : "suppress";
+        m.orderTarget = { ...threat };
+        m.path = [];
+        m.moving = false;
+        seekCover(w, m, threat);
+      }
     } else {
       // SL + attachments: hold the center, self-defense, ready to consolidate casualties
       m.brainState = "holding";
