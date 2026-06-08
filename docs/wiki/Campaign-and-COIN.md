@@ -38,7 +38,15 @@ Strategic orders are `Task`s that progress on the clock:
   out the gate**, then **moves to its objective as a squad** — the squad leader and two fire teams in
   a doctrinal formation (see Simulation Systems → Squad movement), terrain-routed (A*) at the squad's
   movement tempo — **dwells** in a 360° security halt on the objective (mission effects accrue), then
-  **returns** through the gate. The squad carries a **SOP** — its standing orders for the patrol. If a
+  **returns** through the gate. **Dwell is hours, not minutes** (`dwellFor` — census/cordon a
+  population-driven 2–8 h half-day, KLE 1–2 h, an OP 5 h, ambush 4 h, presence ~1 h): real operations
+  take real time, and the player **warps** the patient hours (skip-to-event halts on a decision). The
+  **census is progressive** (`village.censusProgress` climbs with time on station; "done" trips only at
+  1) — recall early and it's partial, and it persists for a follow-up. While an element works a
+  census/cordon/shura, a throttled **dwell event-roll** surfaces a decision — a weapons-cache find, a
+  biometric watch-list hit, the FET gap at the women's quarters, a herder's solatia grievance (the
+  *Restrepo* "Cow Incident"), a squirter bolting the cordon — each a `PendingEvent` the warp loop stops
+  on. The squad carries a **SOP** — its standing orders for the patrol. If a
   `sop` is supplied it is **authoritative** (the movement technique derives from it via `sopTechnique`,
   overriding the bare `technique` argument); otherwise the SOP is seeded from the mission type
   (`defaultSOP`). Combat AI takes over the instant rounds crack — it runs the SOP's on-contact drill
@@ -148,4 +156,6 @@ patient hearts-and-minds tour and a reckless body-count tour produce **meaningfu
 
 Occasional decision points that **pause time** until you choose: walk-in informant, sick child,
 elder complaint/solatia, resupply window. Each trades resources, risk, attitudes, intel, or
-confidence — there are no free choices.
+confidence — there are no free choices. A second pool, `makeDwellEvent`, fires **on-station** while a
+squad works a census/cordon/shura (cache find, biometric hit, FET gap, grievance, squirter, MEDCAP,
+tip) — same modal machinery, gated by mission and never the same kind twice in a row.
