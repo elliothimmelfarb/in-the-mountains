@@ -1,0 +1,40 @@
+seed          egress  ring%  gate→vil  portal  open%  solid?  seatBad  pockets  vilGap  vil∩  wireHits
+smoke-test      PASS    100        0°       Y     64       Y        0        0    226m     0         0
+korengal        PASS    100        5°       Y     64       Y        0        0    166m     0         0
+survey-2        PASS     85        4°       Y     64       Y        0        0     43m     0         0
+survey-7        PASS    100        8°       Y     67       Y        0        0     78m     0         0
+survey-9        PASS     90       52°       Y     66       Y        0        0     90m     0         0
+valley-3        PASS    100        6°       Y     64       Y        0        0     60m     0         0
+ridge-11        PASS    100       15°       Y     64       Y        0        0     69m     0         0
+delta-5         PASS    100       46°       Y     69       Y        0        0     75m     0         0
+bravo-2         PASS    100       34°       Y     70       Y        0        0    156m     0         0
+
+summary over 9 seeds:
+  egress blocked:    0 / 9 (issue 001)
+  avg perimeter ring open%: 97 (issue 001)
+  gate faces >90° from nearest village: 0 / 9 (issue 002)
+  gate portal disconnected: 0 / 9 (issue 005)
+  village/COP footprint OVERLAP: 0 / 9 (item: village intersects COP — must be 0)
+  seeds with village-core cells in COP clearance: 0 / 9 (must be 0)
+  total civilian wire-pin ticks: 0 (villager bug)
+  seeds with an unreachable garrison post: 0 / 9 (issue 012 — must be 0)
+
+DEFENSE AUDIT — the COP as a strongpoint (ATP 3-21.8):
+seed          gateOW  secGap°  secCov%  mortFPF  fpfDist  asltCov%  hvtSep  mgSpread  threat
+smoke-test        no      48°       50       NO      60m        72     25m      135°    none
+korengal          no      48°       50       NO      60m        72     25m      180°    m240
+survey-2          no      48°       50        Y      89m        75     25m      135°    none
+survey-7          no      48°       49       NO      67m        78     27m       45°   rifle
+survey-9          no      46°       51        Y      71m       100     30m       45°   rifle
+valley-3          no      48°       50       NO      60m        72     25m       45°    none
+ridge-11          no      48°       50        Y      89m        75     25m      180°    mk19
+delta-5           no      46°       51       NO      65m        81     30m       90°   rifle
+bravo-2           no      46°       51        Y      79m        75     25m      135°    m240
+
+defense summary over 9 seeds:
+  [1] gate NOT overwatched by fire: 9 / 9 (must be 0 — ATP 3-21.8 ECP overwatch)
+  [2] perimeter sector gap >25°: 9 / 9 (avg gap 47° — interlocking fires want ~0)
+  [3] FPF NOT rangeable by the mortar: 5 / 9 (must be 0; avg assault-band coverage 78% — the watch requests unfirable fire)
+  [4] HVT separation <30 m (82mm frag margin): 7 / 9 (avg 26 m — disperse C2/ammo/aid)
+  [5] threat avenue (nearest village) NOT held by a heavy gun: 6 / 9 (weight the M2/M240/Mk19 toward the danger)
+  (diagnostic) heavy guns clustered <45° apart: 0 / 9 (avg 110° — already well spread)
