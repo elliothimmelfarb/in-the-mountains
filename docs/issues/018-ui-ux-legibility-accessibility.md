@@ -32,11 +32,14 @@ Independent baseline read: a 5-persona expert panel scored the HUD **40/100** ov
 - Keyboard-behaviour harness: **6/6 pass** (dialogs trap focus, move focus in, close on Esc).
 - `tsc` / `npm run build` / `npx tsx scripts/smoke.ts` green.
 
+## Right-column dock rework (2026-06-08, owner feedback — RESOLVED)
+The owner reported the right column had "several issues depending on what is selected and whether things are collapsed." A 10-state matrix harness (`scripts/ux-rightpanel-matrix.mjs`) + a 5-agent workflow (23 issues → 1 unified plan) found: Logistics' fixed 182px clipped 4 of 8 supply bars in every open state; Task Org (the lone grow sink) was crushed to a ~35–103px scrolling sliver whenever a squad was selected; collapsing panels left a ~681px dead void; short viewports clipped silently. **Fix (one mechanism):** every right panel is now `auto` (content height) — Squad Orders never scrolls (owner's hard req), all 5 squads show, all 8 supply bars show; a single structural flex:1 spacer absorbs all slack (no void, shows a hint when all collapsed); the column scrolls as the graceful fallback; the village is now a real collapsible DockPanel; `DockPanel.actions` hides controls on a collapsed header. Matrix verified: per-panel scrolling 6–8 states → **0 in all 10**. Task Org no longer inline-expands; soldiers open in a dedicated accessible Roster modal (▤). (DockPanel's grow/fixed/resize branches kept — the LEFT column still uses them.)
+
 ## Residuals (for a future session — NOT done)
 1. **Colour-only status in a few places.** Roster readiness dots and village attitude bars encode state by hue (dots have hover tooltips; meters have numbers + the ENEMY hatch, but the dots/bars lack an always-visible shape/letter cue). Add a glyph fallback for full WCAG 1.4.1.
 2. **Full HUD still dense at game scale.** The ≥12px floor is real, but the bottom fire-support / contact-feed strip remains tight at 1280-wide; the hi-detail crops read best.
-3. **Right column can still scroll** when a 9-man roster is expanded (mitigated by collapse + resize, not eliminated).
-4. **Focus visibility is proven behaviourally, not in a still** (the ring only shows during live keyboard nav).
+3. **Focus visibility is proven behaviourally, not in a still** (the ring only shows during live keyboard nav).
+4. **Right column scrolls *as a whole* when all three panels are expanded taller than the viewport** — by design now (no panel clips; Squad Orders is never the clipped one), and the user can collapse a panel to remove it. Not a defect, noted for transparency.
 
 ## Relevant code
 - `scripts/ux-audit.mjs` — the metric (run with the dev server up on :3000).
