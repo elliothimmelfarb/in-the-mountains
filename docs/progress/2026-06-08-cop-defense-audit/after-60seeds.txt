@@ -1,0 +1,7 @@
+defense summary over 60 seeds:
+  [1] gate NOT overwatched by fire: 4 / 60 (must be 0 — ATP 3-21.8 ECP overwatch)
+  [2] perimeter sector gap >25°: 0 / 60 (avg gap 0° — interlocking fires want ~0)
+  [3] FPF NOT rangeable by the mortar: 0 / 60 (must be 0; avg assault-band coverage 93% — the watch requests unfirable fire)
+  [4] HVT separation <30 m (82mm frag margin): 50 / 60 (avg 27 m — disperse C2/ammo/aid)
+  [5] threat avenue (nearest village) NOT held by a heavy gun: 26 / 60 (weight the M2/M240/Mk19 toward the danger)
+  (diagnostic) heavy guns clustered <45° apart: 0 / 60 (avg 107° — already well spread)
