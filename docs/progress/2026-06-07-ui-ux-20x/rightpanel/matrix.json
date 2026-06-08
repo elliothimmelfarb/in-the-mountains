@@ -1,0 +1,394 @@
+[
+  {
+    "name": "01-no-selection",
+    "colH": 765,
+    "panelsSum": 766,
+    "overflowsColumn": false,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 81,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 88,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "02-selected-untasked",
+    "colH": 765,
+    "panelsSum": 1112,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 491,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "03-planning",
+    "colH": 765,
+    "panelsSum": 1112,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 491,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "04-hq-selected",
+    "colH": 765,
+    "panelsSum": 1072,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 451,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "05-village",
+    "colH": 765,
+    "panelsSum": 810,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Babiyal",
+        "panelH": 475,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "06-orders-collapsed",
+    "colH": 765,
+    "panelsSum": 766,
+    "overflowsColumn": false,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 141,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "07-taskorg-collapsed",
+    "colH": 765,
+    "panelsSum": 854,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 491,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "08-logistics-collapsed",
+    "colH": 765,
+    "panelsSum": 829,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 491,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "09-all-collapsed",
+    "colH": 765,
+    "panelsSum": 765,
+    "overflowsColumn": false,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 28,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 681,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  },
+  {
+    "name": "10-short-viewport",
+    "colH": 672,
+    "panelsSum": 1112,
+    "overflowsColumn": true,
+    "panels": [
+      {
+        "title": "Squad Orders",
+        "panelH": 491,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Task Organization",
+        "panelH": 286,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "Logistics",
+        "panelH": 311,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      },
+      {
+        "title": "?",
+        "panelH": 24,
+        "scrollH": 0,
+        "clientH": 0,
+        "scrolls": false,
+        "wasted": 0
+      }
+    ]
+  }
+]

@@ -1,5 +1,5 @@
 {
-  "ts": "2026-06-07T23:38:03.075Z",
+  "ts": "2026-06-08T00:37:00.096Z",
   "grandTotal": 1,
   "totalsByCategory": {
     "contrast": 0,
@@ -56,9 +56,9 @@
       },
       "total": 1,
       "counts": {
-        "textNodes": 163,
-        "interactives": 63,
-        "animated": 0
+        "textNodes": 122,
+        "interactives": 60,
+        "animated": 3
       },
       "flags": {
         "hasFocusVisibleRule": true,
@@ -96,9 +96,9 @@
       },
       "total": 0,
       "counts": {
-        "textNodes": 112,
-        "interactives": 40,
-        "animated": 0
+        "textNodes": 123,
+        "interactives": 44,
+        "animated": 3
       },
       "flags": {
         "hasFocusVisibleRule": true,
@@ -128,9 +128,9 @@
       },
       "total": 0,
       "counts": {
-        "textNodes": 135,
-        "interactives": 41,
-        "animated": 1
+        "textNodes": 146,
+        "interactives": 45,
+        "animated": 4
       },
       "flags": {
         "hasFocusVisibleRule": true,
