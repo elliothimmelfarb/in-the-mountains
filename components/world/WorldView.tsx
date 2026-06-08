@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useRef } from "react";
-import { useGame, getAudio } from "@/state/store";
+import { useGame, getAudio, getSimFrac } from "@/state/store";
 import { Land, villageHamlet } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
@@ -572,8 +572,11 @@ export default function WorldView() {
       }
     }
 
-    drawProjectiles(ctx, cam, sim.projectiles);
-    drawEffects(ctx, cam, sim.effects);
+    // sub-tick interpolation fraction — smooths fast combat motion (bullets, muzzle flashes)
+    // between the 0.1 s sim ticks the renderer would otherwise draw verbatim (teleporting).
+    const frac = getSimFrac();
+    drawProjectiles(ctx, cam, sim.projectiles, frac);
+    drawEffects(ctx, cam, sim.effects, frac);
     // indirect / CAS beaten-zone reticles (ETA countdown + danger-close hazard on our men)
     drawFireMissions(ctx, cam, sim.fireMissions, sim.playerUnits());
     // threat-bearing crescent + pinned ring on friendlies actually under fire
@@ -584,7 +587,7 @@ export default function WorldView() {
     drawCombatHaze(ctx, cam, sim.projectiles, sim.effects, windV);
     // NIGHT LIGHT: at night, muzzle flashes / tracers / blasts emit additive light into the
     // dark so a firefight is dramatic and readable (drawn over units — light spills over them).
-    drawNightLights(ctx, cam, sim.effects, sim.projectiles, night);
+    drawNightLights(ctx, cam, sim.effects, sim.projectiles, night, frac);
     // contact-onset (TIC) starburst + zoomed-out aggregate marker
     drawContactMarker(ctx, cam, sim.playerUnits());
     // off-screen contact pointer — never lose your own fight on the 2.56 km map

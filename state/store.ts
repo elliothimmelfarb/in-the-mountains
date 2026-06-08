@@ -183,6 +183,19 @@ let _wasInContact = false;
 // that owns speed); the latch only fires on the 0→1 edge so a standing request never re-pauses.
 let _hadFireRequest = false;
 
+/**
+ * The sub-tick interpolation fraction: how far (0..1) wall-time has advanced into the NEXT
+ * 0.1 s sim tick, i.e. the accumulator remainder the fixed-timestep loop leaves behind. The
+ * renderer reads this to INTERPOLATE fast combat motion (projectile position, transient-effect
+ * age) between the previous and current tick — so a 880 m/s round that the sim only places at
+ * ~3 discrete points over its flight sweeps smoothly at 60 fps instead of teleporting, and a
+ * 0.12 s muzzle flash fades across its whole on-screen life instead of being born already
+ * aged-out. It is a pure READ of loop state (Law 7: render never writes sim); paused ⇒ no tick
+ * ⇒ _acc frozen ⇒ frac frozen (motion stops cleanly). WorldView passes it into the draw calls;
+ * draw.ts never imports the store (the render layer stays React-free).
+ */
+export const getSimFrac = () => Math.max(0, Math.min(1, _acc / SIM_DT));
+
 // The single render-side audio engine (module-scope, mirrors combat-fx.ts's module state).
 // SSR-safe: it touches no browser global until unlock() runs inside a user gesture. WorldView
 // grabs it via getAudio() to push the camera each RAF and wire the unlock-on-gesture listener.
