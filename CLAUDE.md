@@ -63,7 +63,7 @@ A deep, continuous real-time sim of **counterinsurgency** at a remote US combat 
 ## 4 · PLAYBOOKS (concrete, numbered moves)
 
 ### ▶ Verification — turn the fuzzy feeling into a hard number
-1. **Metricize first.** Find or write a headless harness in `scripts/` that measures the complaint (the probe suite exists precisely for this). Each opens with a doc-comment — the bug it metricizes, its columns, a `Run:` line — **read that header before using it.**
+1. **Metricize first.** Find or write a headless harness in `scripts/` that measures the complaint (the probe suite exists precisely for this). Each opens with a doc-comment — the bug it metricizes, its columns, a `Run:` line — **read that header before using it.** Reuse an existing probe as your baseline, but **expand it or add one from a fresh angle** rather than trusting a single view (full doctrine: §5).
 2. **Baseline on HEAD before any edit**, saved verbatim to `docs/progress/<date>/`. This makes every "fixed" provable as a delta and prevents retro-fitting a flattering baseline.
 3. **Build a mover-faithful oracle.** For "did it succeed?", compute independent ground truth (BFS flood over `passableCell`) honouring the mover's anti-corner-cut rule. Compare **reachable vs reached**; act on the gap (the canonical catch: 64% reachable, 26% reached — a 38-point execution gap a naive oracle would have hidden).
 4. **Audit the harness itself.** A green metric is not a passing system. Confirm it asserts the *real* success condition (arrived AND every segment walkable, not give-up-short scored healthy) and that its window doesn't conflate "slow" with "stuck" (a village arriving at 1211 s was mislabeled STUCK). Fix the metric, then re-judge.
@@ -109,6 +109,8 @@ Numbered phases with the numeric Definition-of-Done baked into each task **title
 ## 5 · BUILD WHATEVER YOU NEED TO VERIFY
 
 Writing headless harnesses/probes/detectors is **core work, never a detour** — you are pre-authorized. Name disposable ones `scratch-*` and delete them when done (assert 0 remain via `git status`), but **record the load-bearing reproduction technique in the report** even after deleting the scratch. Cheap purpose-built oracles are how every fuzzy bug here got pinned.
+
+**Reuse prior probes/audits as a starting baseline — never stop at them.** Each existing harness sees the subject from *one* angle, so a green re-run is a hypothesis, not coverage. Always either **expand** it (more seeds, a stricter assertion, a new column, a wider window) or **build a fresh probe that attacks from a different angle** (a second independent oracle, an inverted assumption, the failure mode the first one was blind to). Converging independent angles — not re-confirming the view you already had — is how you earn complete *awareness, validation, and discovery*. (This is the completeness twin of §4 step 4 and Law 4: those keep one probe from *lying*; this keeps one probe from being silently *partial*.)
 
 ---
 
