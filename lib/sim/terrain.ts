@@ -1231,11 +1231,29 @@ export class Terrain {
       if (tower) f.tower = true;
       taken.add(f.id);
     };
-    const byAvenue = [...fps].sort((a, b) => b.avenueScore - a.avenueScore);
-    give(byAvenue[0], "m2", true); // .50 on the longest open avenue, elevated
-    give(byAvenue.find((f) => !taken.has(f.id)), "m240", true); // 240 next-longest, elevated
-    const byDead = [...fps].filter((f) => !taken.has(f.id)).sort((a, b) => b.deadSpaceFrac - a.deadSpaceFrac);
+    // The ECP overwatch tower holds the gate; the heavy guns go on the perimeter avenues.
+    const pool = fps.filter((f) => f.id !== "fp-ecp");
+    // Threat-weighted siting (ATP 3-21.8: weight the MOST DANGEROUS avenue of approach). Pure
+    // terrain reach would put the .50 on the longest open avenue even if the enemy walks in from
+    // the qalats on a different bearing — so blend the avenue score with how squarely the position
+    // faces the nearest village. The Mk19 still plunges into the worst dead ground.
+    let threatBear: number | null = null, nd = Infinity;
+    for (const v of this.villages) {
+      const d = Math.hypot(v.cx - c.cx, v.cy - c.cy);
+      if (d < nd) { nd = d; threatBear = Math.atan2(v.cy - c.cy, v.cx - c.cx); }
+    }
+    const align = (f: CopFightingPosition) => (threatBear == null ? 0 : Math.max(0, Math.cos(angleDiff(f.facing, threatBear))));
+    const heavyScore = (f: CopFightingPosition) => f.avenueScore * (1 + 0.6 * align(f));
+    const byHeavy = [...pool].sort((a, b) => heavyScore(b) - heavyScore(a));
+    give(byHeavy[0], "m2", true); // .50 — longest avenue, weighted toward the threat
+    // Guarantee a heavy gun HOLDS the threat: the M240 goes to the remaining position most squarely
+    // aligned with the nearest-village bearing (so its sector contains the avenue), else next-best avenue.
+    const byThreat = [...pool].filter((f) => !taken.has(f.id) && threatBear != null).sort((a, b) => align(b) - align(a));
+    give(byThreat[0] ?? byHeavy.find((f) => !taken.has(f.id)), "m240", true);
+    const byDead = [...pool].filter((f) => !taken.has(f.id)).sort((a, b) => b.deadSpaceFrac - a.deadSpaceFrac);
     give(byDead[0], "mk19", false); // grenade launcher plunges into the worst dead ground
+    const ecpFp = fps.find((f) => f.id === "fp-ecp");
+    if (ecpFp) ecpFp.tower = true; // restore the ECP overwatch tower (the reset above cleared it)
 
     // ---- (c) interlocking sectors with NO un-grazed frontage, INCLUDING over the gate ----
     // A sector defined around a position's radial facing does NOT line up with the perimeter
