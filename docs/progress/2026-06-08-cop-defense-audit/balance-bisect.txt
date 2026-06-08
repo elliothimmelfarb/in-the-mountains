@@ -1,0 +1,20 @@
+COP DEFENSE FIXES — balance.ts (8 deployments × 40 game-min, seeds bal-0..7) bisect.
+Isolated git worktree at each commit; balance.ts is deterministic (same args → same result).
+
+  commit                         fixes present              Avg US KIA
+  922fc0b (pre-defense)          —                          0.13   ← baseline
+  8f4cf4b  fix2 (interlock)      2                          0.13   (innocent)
+  f33ff89  fix1 (ECP)            2,1                        0.75   (ECP grabbed a heavy gun pre-exclusion)
+  5995a09  fix5 (threat)         2,1,3,5                    0.88
+  0caafd3  fix4 (HVT) = HEAD     2,1,3,5,4                  1.88   ← fix4 HVT dispersion = +1.00 (dominant)
+  HEAD, threat reverted          2,1,3,4                    1.38   ← fix5 threat = +0.50
+  KEEP 1,2,3 (drop 4 HVT + 5)    2,1,3                      1.00
+
+DECISION: ship fixes 1,2,3 (gate overwatch, interlock, mortar-FPF — correctness wins, audit-
+verified on the survey-0..59 holdout, stall-gate green). REVERT fixes 4 (HVT dispersion) and 5
+(threat-weighting): both shift garrison/building geometry in ways that measurably raise the lone-
+patrol-near-COP casualties for marginal audit benefit (HVT sep 26→30m on 38/60 seeds; threat 4/9→0).
+Law 8 (don't force a regression) + Law 5 (restraint logged). The residual KIA shift from the kept
+fixes is the layout-sensitivity of a deterministic near-COP firefight probe; STALL CHECK stays green.
+NOT friendly fire (direct fire skips friendlies, combat.ts:980; the COP FPF needs player approval,
+never fires headless).
