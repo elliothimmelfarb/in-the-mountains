@@ -200,12 +200,14 @@ export class World {
     this.tickSupplies(dt);
     this.tickSoldiers(dt);
     tickTasks(this, dt);
-    // expire an unanswered call-for-fire, or one whose squad has finished/broken contact
+    // expire an unanswered call-for-fire, or one whose squad has finished/broken contact.
+    // A COP-bound FPF request has no maneuver task, so it only expires on timeout.
     if (this.state.fireRequest) {
       const fr = this.state.fireRequest;
-      if (this.state.clock > fr.expires || !this.state.tasks.some((t) => t.id === fr.taskId)) this.state.fireRequest = null;
+      if (this.state.clock > fr.expires || (!fr.copBound && !this.state.tasks.some((t) => t.id === fr.taskId))) this.state.fireRequest = null;
     }
     tickGarrison(this, dt);
+    this.tickCopDefense();
     tickProjects(this, dt);
     tickResupplies(this);
     this.tickWeather();
@@ -846,6 +848,70 @@ export class World {
   denyFireRequest() {
     if (this.state.fireRequest) this.log(`${this.state.fireRequest.label}: call for fire denied.`, "support");
     this.state.fireRequest = null;
+  }
+
+  /** The COP's own call-for-fire (FPF) — no maneuver task, routed through the same
+   *  one-pending + cooldown + approve/deny loop as a squad's. */
+  private requestCopFires(weaponId: string, cx: number, cy: number, reason: string) {
+    if (this.state.fireRequest) return;
+    if (this.state.clock < (this.state.lastFireReqClock ?? -1e9) + 45) return; // cooldown
+    this.state.fireRequest = {
+      squadId: "cop",
+      taskId: -1,
+      label: "COP / Wire",
+      weaponId,
+      cx,
+      cy,
+      reason,
+      expires: this.state.clock + 35,
+      copBound: true,
+    };
+    this.state.lastFireReqClock = this.state.clock;
+    this.log(`COP / Wire: ${reason} — call for fire pending your approval.`, "support");
+    this.interrupt("COP requests final protective fire");
+  }
+
+  /**
+   * THE WATCH — fulfils the design pillar at the COP itself ("the hardest part of command
+   * is watching"). When the outpost is under assault — fighters massing at the wire while
+   * the garrison stands to — the TOC raises a Final Protective Fire request the player must
+   * APPROVE or DENY (the store auto-pauses on a pending request). The FPF lands on the
+   * assault as it forms, just outside the wire. It reuses the squad fire-request loop
+   * verbatim (one pending, 45 s cooldown, human clears the fire — never auto-fires), so it
+   * respects the 100%-AI-but-the-commander-approves-fires ROE. Deterministic: reads only
+   * sim state, no rng, no wall clock.
+   */
+  private tickCopDefense() {
+    const cop = this.terrain.cop;
+    if (!cop) return;
+    if (this.state.fireRequest) return; // a squad (or the COP) already has one pending
+    if (this.state.clock < (this.state.lastFireReqClock ?? -1e9) + 45) return; // cooldown
+    if ((this.state.supplies.mortar_60 ?? 0) <= 0) return; // no rounds, no FPF
+    const center = this.copWorld();
+    const wireM = cop.radius * this.terrain.cellSize;
+    // Fighters massing at the wire = an assault (not a lone sniper at distance).
+    const assault: Vec2[] = [];
+    for (const e of this.sim.livingEnemies()) {
+      const d = dist(e.pos, center);
+      if (d > wireM - 10 && d < wireM + 170) assault.push(e.pos);
+    }
+    if (assault.length < 3) return;
+    // The garrison must actually be holding the wire (else there is nothing to protect).
+    const defenders = this.platoon.members.filter(
+      (m) => m.alive && !m.evac && m.status !== "wounded" && dist(m.pos, center) < wireM + 35
+    ).length;
+    if (defenders < 2) return;
+    // FPF aimpoint: the assault's centroid, pushed onto the wire line on its bearing.
+    let ax = 0, ay = 0;
+    for (const p of assault) { ax += p.x; ay += p.y; }
+    ax /= assault.length;
+    ay /= assault.length;
+    const br = Math.atan2(ay - center.y, ax - center.x);
+    const fdist = Math.max(wireM + 22, Math.min(dist({ x: ax, y: ay }, center), wireM + 110));
+    const aim = { x: center.x + Math.cos(br) * fdist, y: center.y + Math.sin(br) * fdist };
+    const cx = Math.floor(aim.x / this.terrain.cellSize);
+    const cy = Math.floor(aim.y / this.terrain.cellSize);
+    this.requestCopFires("mortar60", cx, cy, `${assault.length} fighters in the wire — FPF, danger close`);
   }
 
   // ---------------------------------------------------------------- queries
