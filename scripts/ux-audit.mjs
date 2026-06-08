@@ -364,6 +364,12 @@ async function auditState(name, setupExpr) {
       const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
       writeFileSync(`${SHOTS_DIR}/help.png`, Buffer.from(shot.data, "base64"));
       await evalJS(`window.__ITM.getState().toggleHelp(false)`);
+      // roster modal (the on-demand soldier list)
+      await evalJS(`(()=>{const st=window.__ITM.getState();st.setRoster(st.world.platoon.squads[1].id);return 'ok'})()`);
+      await sleep(500);
+      const r2 = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+      writeFileSync(`${SHOTS_DIR}/roster.png`, Buffer.from(r2.data, "base64"));
+      await evalJS(`window.__ITM.getState().setRoster(null)`);
     }
 
     // ---- aggregate ----

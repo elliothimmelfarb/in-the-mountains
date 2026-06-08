@@ -117,6 +117,10 @@ const ROE_DESC: Record<string, string> = {
   tight: "Weapons Tight — engage positively-identified threats; keep fire off civilians.",
   free: "Weapons Free — engage known enemy without further clearance.",
 };
+// Concise SOP button labels so the card stays one row per option and the panel never scrolls;
+// the full meaning lives in the hover tooltip (descOf) above.
+const CONTACT_SHORT: Record<string, string> = { hold: "Hold", suppress: "Suppress", assault: "Assault", break: "Break" };
+const ROE_SHORT: Record<string, string> = { hold: "Hold", tight: "Tight", free: "Free" };
 
 // ---------------------------------------------------------------- log split predicate
 // One shared partition used by Combat Log, Command Log, and the Contact Feed — every log
@@ -138,39 +142,47 @@ function kindStyle(kind: string): string {
 // A dock module: stencil header (collapsible) + internally-scrolling body + bottom drag handle.
 // `grow` panels are the elastic sink (no fixed height, no handle); exactly one per column.
 function DockPanel({
-  id, title, accent = "amber", right, grow = false, defaultHeight = 130, last = false, children,
+  id, title, accent = "amber", right, actions, grow = false, auto = false, defaultHeight = 130, last = false, children,
 }: {
-  id: string; title: string; accent?: string; right?: ReactNode;
-  grow?: boolean; defaultHeight?: number; last?: boolean; children: ReactNode;
+  id: string; title: string; accent?: string; right?: ReactNode; actions?: ReactNode;
+  grow?: boolean; auto?: boolean; defaultHeight?: number; last?: boolean; children: ReactNode;
 }) {
   const collapsed = useGame((s) => !!s.layout.collapsed[id]);
   const height = useGame((s) => s.layout.heights[id]);
   const togglePanel = useGame((s) => s.togglePanel);
   const h = height ?? defaultHeight;
-  // collapsed → header only (28px); grow → flex:1; else → fixed pixel height.
+  // collapsed → header only (28px); auto → fits its content (NEVER scrolls, no handle);
+  // grow → flex:1 elastic sink; else → fixed, resizable pixel height.
   const style: CSSProperties = collapsed
     ? { height: 28, flex: "0 0 auto" }
-    : grow
-      ? { flex: "1 1 0%", minHeight: 64 }
-      : { height: h, flex: "0 0 auto", minHeight: 28 };
+    : auto
+      ? { flex: "0 0 auto" }
+      : grow
+        ? { flex: "1 1 0%", minHeight: 64 }
+        : { height: h, flex: "0 0 auto", minHeight: 28 };
   return (
     <div className="relative flex flex-col min-h-0 border-b border-line" style={style}>
       {/* Header row: a click-to-collapse button + an optional right slot that may itself hold
           interactive controls (Convoy/Air, badges). The right slot is a SIBLING of the toggle
           button — never nested inside it — so we never produce an invalid button-in-button DOM. */}
-      <div className="dock-header w-full flex items-center justify-between px-2 h-7 shrink-0 border-b border-line bg-panel select-none">
+      <div className={`dock-header w-full flex items-center justify-between px-2 h-7 shrink-0 border-b border-line select-none ${collapsed ? "bg-bg" : "bg-panel"}`}>
         <button
           onClick={() => togglePanel(id)}
           aria-expanded={!collapsed}
           className="flex items-center gap-1.5 min-w-0 flex-1 text-left hover:text-amber h-full"
         >
           <span className="text-inkdim text-[9px] transition-transform" style={{ transform: collapsed ? "rotate(-90deg)" : "none" }}>▾</span>
-          <span className={`stencil text-[10px] text-${accent}`}>{title}</span>
+          <span className={`stencil text-[10px] text-${accent} ${collapsed ? "opacity-75" : ""}`}>{title}</span>
         </button>
-        {right && <span className="text-[9px] font-mono shrink-0 ml-2">{right}</span>}
+        {/* right = always shown (badge); actions = only when expanded (so controls never overflow a collapsed header) */}
+        {(right || (actions && !collapsed)) && (
+          <span className="text-[9px] font-mono shrink-0 ml-2 inline-flex items-center gap-1">{right}{!collapsed && actions}</span>
+        )}
       </div>
-      {!collapsed && <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>}
-      {!collapsed && !grow && !last && <ResizeHandle id={id} defaultHeight={defaultHeight} />}
+      {!collapsed && (auto
+        ? <div className="shrink-0">{children}</div>
+        : <div className="flex-1 min-h-0 overflow-y-auto">{children}</div>)}
+      {!collapsed && !grow && !auto && !last && <ResizeHandle id={id} defaultHeight={defaultHeight} />}
     </div>
   );
 }
@@ -279,6 +291,7 @@ export default function DeployScreen() {
       </div>
       <EventModal />
       <SoldierJacket />
+      <RosterModal />
       <HelpOverlay />
     </div>
   );
@@ -798,25 +811,48 @@ function SquadReadout() {
 }
 
 // ---------------------------------------------------------------- right column
+// ONE allocator: every panel sizes to its CONTENT (auto) — Squad Orders never scrolls (owner's
+// hard requirement), the squad list shows in full, Logistics shows all its supply bars. A single
+// structural spacer is the column's sole flex:1 sink, so it absorbs all slack (no dead void when
+// panels collapse) and shrinks to 0 under pressure. If total content still exceeds the column
+// (a very short viewport), the COLUMN scrolls as the graceful fallback — never the protected
+// Squad Orders, which sits first. The village is just another auto DockPanel (collapse + ✕).
 function RightColumn() {
+  const world = useGame((s) => s.world)!;
   const planning = useGame((s) => s.planning);
   const selectedVillage = useGame((s) => s.selectedVillage);
+  const selectVillage = useGame((s) => s.selectVillage);
+  useGame((s) => s.tick);
+  const collapsedMap = useGame((s) => s.layout.collapsed);
   const showVillage = !!selectedVillage && !planning;
+  const v = showVillage ? world.state.villages.find((x) => x.id === selectedVillage) : null;
+  // when EVERY visible panel is collapsed, the spacer-sink fills the column — label it so the
+  // empty area reads as intentional, not a broken void.
+  const visibleIds = v ? ["village", "logistics"] : ["orders", "taskorg", "logistics"];
+  const allCollapsed = visibleIds.every((id) => collapsedMap[id]);
   return (
-    <div className="w-[344px] shrink-0 border-l border-line flex flex-col min-h-0">
-      {showVillage ? (
-        // village takes the ORDERS slot exactly as today; it's the elastic sink while open
-        <div className="flex-1 min-h-0 overflow-y-auto border-b border-line"><VillagePanel villageId={selectedVillage!} /></div>
+    <div className="w-[344px] shrink-0 border-l border-line flex flex-col min-h-0 overflow-y-auto">
+      {v ? (
+        <DockPanel id="village" title={v.name} auto
+          right={<button className="tac-btn text-[9px] px-1.5 py-0.5" onClick={(e) => { e.stopPropagation(); selectVillage(null); }} aria-label="Close village panel" title="Close — back to squads">✕</button>}>
+          <VillagePanel villageId={selectedVillage!} />
+        </DockPanel>
       ) : (
         <>
-          <DockPanel id="orders" title="Squad Orders" defaultHeight={360} right={<DeployBadge />}><SquadOrdersBody /></DockPanel>
-          <DockPanel id="taskorg" title="Task Organization" grow><TaskOrgBody /></DockPanel>
+          <DockPanel id="orders" title="Squad Orders" auto right={<DeployBadge />}><SquadOrdersBody /></DockPanel>
+          <DockPanel id="taskorg" title="Task Organization" auto><TaskOrgBody /></DockPanel>
         </>
       )}
-      <DockPanel id="logistics" title="Logistics" defaultHeight={182} last
-        right={<><LogiBadge /><span onClick={(e) => e.stopPropagation()}><ResupplyButtons /></span></>}>
+      <DockPanel id="logistics" title="Logistics" auto
+        right={<LogiBadge />}
+        actions={<span onClick={(e) => e.stopPropagation()}><ResupplyButtons /></span>}>
         <LogisticsBody />
       </DockPanel>
+      {/* the column's sole flex:1 sink — fills slack so collapsed panels never leave a void,
+          shrinks to 0 under pressure so it never competes with real content. */}
+      <div className="flex-1 min-h-0 flex items-start justify-center pt-6" aria-hidden>
+        {allCollapsed && <span className="text-inkdim/45 text-[10px] font-mono">— panels collapsed · click a header to expand —</span>}
+      </div>
     </div>
   );
 }
@@ -828,7 +864,7 @@ function DeployBadge() {
   useGame((s) => s.tick);
   const activeSq = world.platoon.squads.find((s) => s.id === activeSquadId) ?? null;
   const activeTask = activeSq ? world.state.tasks.find((t) => activeSq.memberIds.some((id) => t.memberIds.includes(id))) : null;
-  return activeTask ? <span className="text-good">● DEPLOYED</span> : <span className="text-inkdim">—</span>;
+  return activeTask ? <span className="text-good">● DEPLOYED</span> : null;
 }
 
 // A segmented button group — one row of the SOP card.
@@ -856,8 +892,8 @@ function SopCard({ sop, onChange, locked }: { sop: SquadSOP; onChange: (patch: P
         {locked && <span className="text-rust text-[9px] font-mono">LOCKED · in contact</span>}
       </div>
       <Seg label="MOVEMENT" options={MOVEMENTS} value={sop.movement} labelOf={(m) => MOVEMENT_SOP_LABEL[m]} descOf={(m) => MOVEMENT_DESC[m]} disabled={locked} onChange={(m) => onChange({ movement: m })} />
-      <Seg label="ON CONTACT" options={CONTACTS} value={sop.contact} labelOf={(c) => CONTACT_SOP_LABEL[c]} descOf={(c) => CONTACT_DESC[c]} disabled={locked} onChange={(c) => onChange({ contact: c })} />
-      <Seg label="RULES OF ENGAGEMENT" options={ROES} value={sop.roe} labelOf={(r) => ROE_LABEL[r]} descOf={(r) => ROE_DESC[r]} disabled={locked} onChange={(r) => onChange({ roe: r })} />
+      <Seg label="ON CONTACT" options={CONTACTS} value={sop.contact} labelOf={(c) => CONTACT_SHORT[c] ?? CONTACT_SOP_LABEL[c]} descOf={(c) => CONTACT_DESC[c]} disabled={locked} onChange={(c) => onChange({ contact: c })} />
+      <Seg label="RULES OF ENGAGEMENT" options={ROES} value={sop.roe} labelOf={(r) => ROE_SHORT[r] ?? ROE_LABEL[r]} descOf={(r) => ROE_DESC[r]} disabled={locked} onChange={(r) => onChange({ roe: r })} />
     </div>
   );
 }
@@ -933,54 +969,44 @@ function SquadOrdersBody() {
   );
 }
 
-// The platoon's fixed squads — pick which to command (never a man). The elastic roster.
+// The platoon's fixed squads — pick which to command (never a man). Stays COMPACT: one row
+// per squad (select it for orders); the soldier roster opens on demand in a modal (▤), so
+// this panel never grows tall enough to scroll the right column.
 function TaskOrgBody() {
   const world = useGame((s) => s.world)!;
   const activeSquadId = useGame((s) => s.activeSquadId);
   const selectSquad = useGame((s) => s.selectSquad);
-  const setJacket = useGame((s) => s.setJacket);
+  const setRoster = useGame((s) => s.setRoster);
   useGame((s) => s.tick);
   return (
-    <div className="p-2">
+    <div className="p-2 flex flex-col gap-1">
       {world.platoon.squads.map((sq) => {
         const members = sq.memberIds.map((id) => world.platoon.members.find((x) => x.id === id)).filter(Boolean) as NonNullable<ReturnType<typeof world.platoon.members.find>>[];
         const readyCount = members.filter((mm) => mm.alive && (mm.status === "ready" || mm.status === "rest")).length;
+        const wounded = members.filter((mm) => mm.status === "wounded").length;
         const tasked = world.state.tasks.some((t) => t.memberIds.some((id) => sq.memberIds.includes(id)));
         const active = sq.id === activeSquadId;
         return (
-          <div key={sq.id} className="mb-1.5">
-            {/* clicking the active squad again COLLAPSES it (deselect) — no need to pick another */}
+          <div key={sq.id} className="flex items-stretch gap-1">
             <button
-              className={`w-full flex justify-between items-center text-[11px] py-1 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`}
+              className={`flex-1 min-w-0 flex justify-between items-center text-[11px] py-1.5 px-1.5 border ${active ? "border-amber bg-[#3a4126] text-amber" : "border-line bg-bg text-ink hover:border-olive"}`}
               onClick={() => selectSquad(active ? null : sq.id)}
-              aria-expanded={active}
-              title={active ? "Collapse this squad" : "Select & expand this squad"}
+              title={active ? "Commanding this squad — click to deselect" : "Select this squad to give it orders"}
             >
-              <span className="font-semibold inline-flex items-center gap-1.5">
-                <span className="text-[9px] transition-transform inline-block" style={{ transform: active ? "rotate(90deg)" : "none" }}>▸</span>
-                {sq.name}
+              <span className="font-semibold inline-flex items-center gap-1.5 truncate">
+                <span className="shrink-0 w-2 text-center">{active ? "▸" : ""}</span>{sq.name}
               </span>
-              <span className="font-mono text-[9px] text-inkdim">{tasked && <span className="text-good mr-1" title="An element of this squad is deployed">●deployed</span>}{readyCount}/{members.length} ready</span>
+              <span className="font-mono text-[9px] text-inkdim shrink-0">
+                {tasked && <span className="text-good mr-1" title="An element of this squad is deployed">●dep</span>}
+                {wounded > 0 && <span className="text-rust mr-1" title={`${wounded} wounded`}>{wounded} WIA·</span>}
+                {readyCount}/{members.length}
+              </span>
             </button>
-            {active && (
-              <div className="grid grid-cols-1 gap-px mt-0.5">
-                {members.map((mm) => (
-                  <div key={mm.id} className={`flex items-center gap-1.5 px-1.5 py-0.5 border border-line bg-bg text-left text-[10px] ${!mm.alive ? "opacity-40" : ""}`}>
-                    <span title={STATUS_LABEL[mm.status] ?? mm.status} className={`w-1.5 h-1.5 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
-                    <span className="font-mono text-inkdim w-9 shrink-0" title={`Rank: ${mm.rank}`}>{mm.rank}</span>
-                    <span className="text-ink flex-1 truncate" title={`${mm.rank} ${mm.name} — ${roleFull(mm.role)}`}>{mm.name.split(" ").pop()}</span>
-                    <span className="inline-flex items-center gap-1 text-inkdim shrink-0" title={roleFull(mm.role)}>
-                      <Icon name={roleIcon(mm.role)} size={12} />
-                      <span className="font-mono">{roleAbbr(mm.role)}</span>
-                    </span>
-                    <button title="Open service record" aria-label={`Service record — ${mm.rank} ${mm.name}`} onClick={() => setJacket(mm.id)} className="text-inkdim hover:text-amber shrink-0 inline-flex items-center justify-center w-6 h-6">ⓘ</button>
-                  </div>
-                ))}
-              </div>
-            )}
+            <button className="tac-btn px-2 shrink-0 text-[12px]" title={`View ${sq.name} soldiers`} aria-label={`View ${sq.name} soldiers`} onClick={() => setRoster(sq.id)}>▤</button>
           </div>
         );
       })}
+      <div className="text-inkdim text-[9px] font-mono mt-1 leading-snug">Pick a squad to give it orders. <span className="text-ink2">▤</span> opens its soldiers · click a soldier on the map to select his squad.</div>
     </div>
   );
 }
@@ -990,7 +1016,6 @@ function VillagePanel({ villageId }: { villageId: string }) {
   const conductKLE = useGame((s) => s.conductKLE);
   const fundProject = useGame((s) => s.fundProject);
   const secureBuild = useGame((s) => s.secureBuild);
-  const selectVillage = useGame((s) => s.selectVillage);
   const activeSquadId = useGame((s) => s.activeSquadId);
   const patrolIds = useGame((s) => s.patrolIds);
   useGame((s) => s.tick);
@@ -1006,11 +1031,8 @@ function VillagePanel({ villageId }: { villageId: string }) {
   const securing = world.state.tasks.some((t) => t.kind === "secure" && t.secureVillageId === v.id && t.phase !== "complete");
   const canSecure = !!proj && proj.stage !== "sabotaged";
   return (
-    <div className="border-b border-line p-2 flex-1 min-h-0 overflow-y-auto">
-      <div className="flex justify-between items-center mb-2">
-        <div className="stencil text-[11px] text-amber">{v.name}</div>
-        <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => selectVillage(null)} aria-label="Close village panel">✕</button>
-      </div>
+    // header (name + ✕) is owned by the DockPanel wrapper in RightColumn now; this is just the body
+    <div className="p-2">
       <div className="text-[11px] text-inkdim mb-1 font-mono">Elder: <span className="text-ink">{v.elder}</span></div>
       <div className="text-[11px] text-inkdim mb-2 font-mono">Pop ~{v.population} · {v.censusDone ? "censused" : "no census"} · wants a {v.wants}</div>
       <div className="space-y-1.5 mb-3">
@@ -1191,6 +1213,52 @@ function SoldierJacket() {
         </div>
         {m.status === "wounded" && <div className="text-rust text-[11px] font-mono">WIA — est. {Math.ceil(m.daysToRecover)} day(s) to return.{m.wounds.length ? ` Wounds: ${m.wounds.map((w) => w.region).join(", ")}.` : ""}</div>}
         {m.status === "kia" && <div className="text-rust text-[12px]">Killed in action. Rest easy, {m.name.split(" ").pop()}.</div>}
+    </Modal>
+  );
+}
+
+// The on-demand soldier roster for one squad — the "see the individuals" path now that the
+// Task Org list stays compact. Opens from the ▤ button; each row drills into a service record.
+function RosterModal() {
+  const world = useGame((s) => s.world)!;
+  const rosterSquadId = useGame((s) => s.rosterSquadId);
+  const setRoster = useGame((s) => s.setRoster);
+  const setJacket = useGame((s) => s.setJacket);
+  useGame((s) => s.tick);
+  if (!rosterSquadId) return null;
+  const sq = world.platoon.squads.find((s) => s.id === rosterSquadId);
+  if (!sq) return null;
+  const members = sq.memberIds.map((id) => world.platoon.members.find((x) => x.id === id)).filter(Boolean) as NonNullable<ReturnType<typeof world.platoon.members.find>>[];
+  return (
+    <Modal onClose={() => setRoster(null)} labelledBy="roster-title" width="w-[440px]">
+      <div className="flex justify-between items-start mb-2">
+        <div>
+          <div className="stencil text-[10px] text-amber">Roster</div>
+          <h2 id="roster-title" className="text-ink text-lg font-bold leading-tight">{sq.name}<span className="text-inkdim text-[12px] font-normal font-mono"> · {members.filter((m) => m.alive).length}/{members.length} effective</span></h2>
+        </div>
+        <button className="tac-btn text-[10px] px-2 py-0.5" onClick={() => setRoster(null)} aria-label="Close roster">✕</button>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        {members.map((mm) => (
+          <button
+            key={mm.id}
+            onClick={() => { setRoster(null); setJacket(mm.id); }}
+            title={`Open ${mm.rank} ${mm.name}'s service record`}
+            aria-label={`${mm.rank} ${mm.name}, ${roleFull(mm.role)}, ${STATUS_LABEL[mm.status] ?? mm.status} — open service record`}
+            className={`flex items-center gap-2 px-2 py-1.5 border border-line bg-bg text-left hover:border-olive ${!mm.alive ? "opacity-40" : ""}`}
+          >
+            <span title={STATUS_LABEL[mm.status] ?? mm.status} className={`w-2 h-2 rounded-full shrink-0 ${mm.status === "ready" ? "bg-good" : mm.status === "wounded" ? "bg-rust" : mm.status === "kia" ? "bg-[#444]" : "bg-amber"}`} />
+            <span className="font-mono text-inkdim text-[11px] w-10 shrink-0">{mm.rank}</span>
+            <span className="text-ink flex-1 truncate text-[12px]">{mm.name}{mm.nickname ? <span className="text-tan italic"> “{mm.nickname}”</span> : null}</span>
+            <span className="inline-flex items-center gap-1.5 text-inkdim shrink-0" title={roleFull(mm.role)}>
+              <Icon name={roleIcon(mm.role)} size={14} />
+              <span className="font-mono text-[11px] w-8">{roleAbbr(mm.role)}</span>
+            </span>
+            <span className="text-inkdim text-[12px] shrink-0" aria-hidden>ⓘ</span>
+          </button>
+        ))}
+      </div>
+      <div className="text-inkdim text-[10px] font-mono mt-2">Click a soldier for his full service record.</div>
     </Modal>
   );
 }

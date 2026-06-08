@@ -78,6 +78,8 @@ interface GameStore {
   dismissToast: (id: number) => void;
   helpOpen: boolean; // transient: the keyboard-shortcut / controls reference overlay
   toggleHelp: (on?: boolean) => void;
+  rosterSquadId: string | null; // transient: which squad's soldier roster is open in a modal
+  setRoster: (id: string | null) => void;
   jacketId: string | null;
   loadProgress: LoadProgress | null; // non-null while the deploy/loading screen is up
 
@@ -370,6 +372,8 @@ export const useGame = create<GameStore>((set, get) => ({
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   helpOpen: false,
   toggleHelp: (on) => set((s) => ({ helpOpen: on ?? !s.helpOpen })),
+  rosterSquadId: null,
+  setRoster: (id) => set({ rosterSquadId: id }),
   jacketId: null,
   loadProgress: null,
   layout: loadLayout(),
