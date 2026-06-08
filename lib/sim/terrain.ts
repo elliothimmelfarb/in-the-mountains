@@ -1231,25 +1231,15 @@ export class Terrain {
       if (tower) f.tower = true;
       taken.add(f.id);
     };
-    // The ECP overwatch tower holds the gate; the heavy guns go on the perimeter avenues.
+    // The ECP overwatch tower holds the gate; the heavy guns go on the perimeter avenues, sited by
+    // terrain reach: the M2 on the longest open avenue, the M240 next. (A threat-weighted variant —
+    // biasing the guns toward the nearest village — was built + audit-verified but REVERTED: it
+    // moved guns onto lower-LOS positions and measurably raised patrol casualties for marginal gain.
+    // See docs/progress/2026-06-08-cop-defense-audit/. The Mk19 still plunges into the worst dead ground.)
     const pool = fps.filter((f) => f.id !== "fp-ecp");
-    // Threat-weighted siting (ATP 3-21.8: weight the MOST DANGEROUS avenue of approach). Pure
-    // terrain reach would put the .50 on the longest open avenue even if the enemy walks in from
-    // the qalats on a different bearing — so blend the avenue score with how squarely the position
-    // faces the nearest village. The Mk19 still plunges into the worst dead ground.
-    let threatBear: number | null = null, nd = Infinity;
-    for (const v of this.villages) {
-      const d = Math.hypot(v.cx - c.cx, v.cy - c.cy);
-      if (d < nd) { nd = d; threatBear = Math.atan2(v.cy - c.cy, v.cx - c.cx); }
-    }
-    const align = (f: CopFightingPosition) => (threatBear == null ? 0 : Math.max(0, Math.cos(angleDiff(f.facing, threatBear))));
-    const heavyScore = (f: CopFightingPosition) => f.avenueScore * (1 + 0.6 * align(f));
-    const byHeavy = [...pool].sort((a, b) => heavyScore(b) - heavyScore(a));
-    give(byHeavy[0], "m2", true); // .50 — longest avenue, weighted toward the threat
-    // Guarantee a heavy gun HOLDS the threat: the M240 goes to the remaining position most squarely
-    // aligned with the nearest-village bearing (so its sector contains the avenue), else next-best avenue.
-    const byThreat = [...pool].filter((f) => !taken.has(f.id) && threatBear != null).sort((a, b) => align(b) - align(a));
-    give(byThreat[0] ?? byHeavy.find((f) => !taken.has(f.id)), "m240", true);
+    const byHeavy = [...pool].sort((a, b) => b.avenueScore - a.avenueScore);
+    give(byHeavy[0], "m2", true);
+    give(byHeavy.find((f) => !taken.has(f.id)), "m240", true);
     const byDead = [...pool].filter((f) => !taken.has(f.id)).sort((a, b) => b.deadSpaceFrac - a.deadSpaceFrac);
     give(byDead[0], "mk19", false); // grenade launcher plunges into the worst dead ground
     const ecpFp = fps.find((f) => f.id === "fp-ecp");
@@ -1407,11 +1397,6 @@ export class Terrain {
    */
   private spaceCopBuildings(buildings: CopBuilding[], c: { cx: number; cy: number }, R: number, gateDir: Vec2) {
     const MIN_GAP = 2; // >=10 m walkable street between any two footprints
-    // High-value targets — command, ammo, casualty care — get extra dispersion so a single 82 mm
-    // round (~24 m frag) can't gut two of them at once (ATP 3-21.8 survivability / dispersion).
-    const HVT = new Set(["toc", "armory", "aid"]);
-    const HVT_MIN = 6; // cells (~30 m) centre-to-centre between any two HVTs (stable; higher over-constrains the most-packed seeds)
-    const centerSep = (a: CopBuilding, b: CopBuilding) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
     const solids = buildings.filter((b) => b.kind !== "motorpool"); // the motor pool is passable gravel
     const gap = (a: CopBuilding, b: CopBuilding) =>
       Math.max(Math.abs(a.cx - b.cx) - (a.hw + b.hw), Math.abs(a.cy - b.cy) - (a.hh + b.hh)); // matches minBuildingGap
@@ -1437,8 +1422,7 @@ export class Terrain {
         for (let j = i + 1; j < solids.length; j++) {
           const a = solids[i];
           const b = solids[j];
-          const hvtTooClose = HVT.has(a.kind) && HVT.has(b.kind) && centerSep(a, b) < HVT_MIN;
-          if (gap(a, b) >= MIN_GAP && !hvtTooClose) continue;
+          if (gap(a, b) >= MIN_GAP) continue;
           // gap = max(xSep, ySep): clearing EITHER axis is enough, so separate along whichever
           // axis is closest to clearing. Push both apart one cell along that axis (away from each
           // other), then re-contain. This works for any bearing — two footprints on the same radial
