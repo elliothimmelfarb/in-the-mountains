@@ -326,20 +326,77 @@ const BLD_SPRITE: Record<string, string> = {
   aid: "bld-aid", motorpool: "bld-motorpool", latrine: "bld-latrine", tower: "guard-tower",
 };
 
+/** Per-crew-served stroke colour for the sector-of-fire fan (recognition cue, not a panel). */
+const WEAPON_TINT: Record<string, string> = {
+  m2: "rgba(224,167,43,0.85)", // .50 cal — amber
+  m240: "rgba(120,170,235,0.85)", // M240 — blue
+  mk19: "rgba(120,210,140,0.85)", // Mk19 AGL — green
+  rifle: "rgba(150,160,175,0.4)",
+};
+const WEAPON_LABEL: Record<string, string> = { m2: "M2", m240: "240", mk19: "Mk19", rifle: "" };
+
 /**
- * Draw the combat outpost over the baked terrain: building sprites, the helicopter
- * LZ pad, the ECP gate, crew-served fighting positions/towers, the flag, and a couple
- * of vehicles in the motor pool. Sprites fade in at operational zoom; a wireframe
- * fallback covers the case where an asset hasn't loaded.
+ * Render-only environment for the COP: the diurnal/weather darkness, the prevailing wind
+ * vector (for animated atmosphere), and a wall-clock phase. NEVER feeds back into lib/sim —
+ * it is a pure view struct, mirroring drawWeather's. Optional so headless callers still work.
  */
-export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Terrain) {
+export interface CopEnv {
+  night: number; // 0 (full day) .. 1 (fully dark)
+  windX: number;
+  windY: number;
+  tNow: number; // wall-clock seconds (render-only animation phase)
+}
+const DEFAULT_ENV: CopEnv = { night: 0, windX: 0, windY: 0, tNow: 0 };
+
+/**
+ * Draw the combat outpost over the baked terrain: the HESCO bastion wall, building
+ * sprites, the helicopter LZ pad, the ECP gate, the comms mast, the mortar pit, the
+ * crew-served fighting positions with their interlocking sectors of fire, the flag, a
+ * couple of vehicles in the motor pool, and — at night — the warm life-signs that make
+ * the COP the one human place in a dark valley. Sprites fade in at operational zoom; a
+ * wireframe fallback covers the case where an asset hasn't loaded.
+ */
+export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Terrain, env: CopEnv = DEFAULT_ENV) {
   const cop = terrain.cop;
   if (!cop) return;
   const cs = terrain.cellSize;
   const bldA = lodAlpha(cam.ppm, 0.32, 0.7);
+  const center = terrain.cellCenter(cop.center.cx, cop.center.cy);
+  const ga = Math.atan2(cop.gateDir.y, cop.gateDir.x);
   ctx.save();
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
+
+  // ---- HESCO bastion wall: real gabion segments around the perimeter ring (under everything).
+  // The wire was only a tan terrain tint (topo.ts) — drawing hesco-straight tangent to the same
+  // ring buildCop bakes gives the COP its defining fortified silhouette. Skips the gate gap.
+  if (bldA > 0.04) {
+    const ringR = cop.radius * cs;
+    const segLen = 11; // m per gabion segment
+    const segCount = Math.max(16, Math.round((2 * Math.PI * ringR) / segLen));
+    for (let i = 0; i < segCount; i++) {
+      const a = (i / segCount) * Math.PI * 2;
+      const d = Math.abs(((a - ga + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+      if (d < 0.42) continue; // leave the ECP gate clear
+      const wx = center.x + Math.cos(a) * ringR;
+      const wy = center.y + Math.sin(a) * ringR;
+      const drew = hasSprite("hesco-straight") &&
+        drawWorldSprite(ctx, cam, "hesco-straight", wx, wy, { widthM: segLen + 1.5, alpha: bldA, rot: a + Math.PI / 2 });
+      if (!drew) {
+        const [sx, sy] = worldToScreen(cam, wx, wy);
+        const half = (segLen / 2) * cs * cam.ppm * 0.18;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(a + Math.PI / 2);
+        ctx.fillStyle = "rgba(150,138,96,0.85)";
+        ctx.strokeStyle = "rgba(40,38,28,0.7)";
+        ctx.lineWidth = 1;
+        ctx.fillRect(-half, -2.2, half * 2, 4.4);
+        ctx.strokeRect(-half, -2.2, half * 2, 4.4);
+        ctx.restore();
+      }
+    }
+  }
 
   // helicopter LZ pad (under everything else)
   {
@@ -421,6 +478,33 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     }
   }
 
+  // crew-served sectors of fire — a faint interlocking fan per position, colour-coded by
+  // weapon (amber .50 / blue 240 / green Mk19). A recognition cue that the fire plan covers
+  // the frontage; only at tactical zoom so it never clutters the operational map.
+  const secA = lodAlpha(cam.ppm, 1.0, 1.8);
+  if (secA > 0.03) {
+    for (const fp of cop.fightingPositions) {
+      if (fp.weapon === "rifle") continue;
+      const c = terrain.cellCenter(fp.cx, fp.cy);
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const fanM = Math.min(fp.avenueScore, 30) + 12; // a short local wedge hugging the wall
+      const rpx = fanM * cam.ppm;
+      ctx.save();
+      ctx.globalAlpha *= secA;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.arc(sx, sy, rpx, fp.rightLimit, fp.leftLimit);
+      ctx.closePath();
+      const tint = WEAPON_TINT[fp.weapon] ?? WEAPON_TINT.rifle;
+      ctx.fillStyle = tint.replace(/0\.\d+\)/, "0.13)");
+      ctx.fill();
+      ctx.strokeStyle = tint.replace(/0\.\d+\)/, "0.5)");
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // fighting positions / towers on the wall (static, consistent light)
   for (const fp of cop.fightingPositions) {
     const c = terrain.cellCenter(fp.cx, fp.cy);
@@ -442,6 +526,53 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       ctx.stroke();
       ctx.restore();
     }
+    // crew-served weapon tag at tactical zoom (which gun holds this sector)
+    if (secA > 0.2 && WEAPON_LABEL[fp.weapon]) {
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      ctx.fillStyle = WEAPON_TINT[fp.weapon];
+      ctx.font = "bold 8px var(--font-mono, monospace)";
+      ctx.fillText(WEAPON_LABEL[fp.weapon], sx, sy - 9);
+    }
+  }
+
+  // mortar pit — the indirect-fire installation (rear defilade). ico-mortar with a
+  // sandbag-ring wireframe fallback.
+  {
+    const mp = terrain.cellCenter(cop.mortarPit.cx, cop.mortarPit.cy);
+    const drew = bldA > 0.04 && hasSprite("ico-mortar") && drawWorldSprite(ctx, cam, "ico-mortar", mp.x, mp.y, { widthM: 6, alpha: bldA });
+    if (!drew && bldA > 0.04) {
+      const [sx, sy] = worldToScreen(cam, mp.x, mp.y);
+      const r = Math.max(4, 1.6 * cs * cam.ppm * 0.6);
+      ctx.save();
+      ctx.strokeStyle = `rgba(150,138,96,${bldA})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 3]);
+      ctx.beginPath();
+      ctx.arc(sx, sy, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }
+
+  // comms / SATCOM antenna mast by the TOC — the silhouette that says "manned outpost".
+  {
+    const toc = cop.buildings.find((b) => b.kind === "toc");
+    if (toc && bldA > 0.04) {
+      const tc = terrain.cellCenter(toc.cx, toc.cy);
+      const mx = tc.x + (toc.hw + 1.2) * cs;
+      const drew = hasSprite("antenna-array") && drawWorldSprite(ctx, cam, "antenna-array", mx, tc.y, { widthM: 5, alpha: bldA });
+      if (!drew) {
+        const [sx, sy] = worldToScreen(cam, mx, tc.y);
+        const h = Math.max(8, 3 * cs * cam.ppm);
+        ctx.strokeStyle = `rgba(40,44,40,${bldA})`;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx, sy - h);
+        ctx.stroke();
+      }
+    }
   }
 
   // the COP flag at the center (fades in as the pin marker fades out)
@@ -451,6 +582,59 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       const c = terrain.cellCenter(cop.center.cx, cop.center.cy);
       drawWorldSprite(ctx, cam, "cop-flag", c.x, c.y, { widthM: 4, alpha: flagA });
     }
+  }
+
+  // ---- night life-signs: the COP is the one warm, lit, human place in a dark valley.
+  // Additive 'lighter' pass, gated on darkness + operational zoom so day frames pay nothing.
+  if (env.night > 0.15 && bldA > 0.04) {
+    const lit = (env.night - 0.15) / 0.85; // 0 at dusk threshold .. 1 fully dark
+    ctx.save();
+    ctx.globalCompositeOperation = "lighter";
+    // warm window glow on the occupied buildings (TOC/aid/dfac brightest — always manned)
+    for (const b of cop.buildings) {
+      if (b.kind === "latrine" || b.kind === "motorpool") continue;
+      const c = terrain.cellCenter(b.cx, b.cy);
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const rad = (b.hw + b.hh + 3.5) * cs * cam.ppm;
+      const warm = (b.kind === "toc" || b.kind === "aid" || b.kind === "dfac") ? 0.6 : 0.34;
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+      g.addColorStop(0, `rgba(255,186,104,${warm * lit * bldA})`);
+      g.addColorStop(0.5, `rgba(255,170,90,${0.4 * warm * lit * bldA})`);
+      g.addColorStop(1, "rgba(255,170,90,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // cold floodlight pools over the ECP gate and the LZ pad (security/aviation lighting)
+    for (const lp of [cop.gate, cop.lz]) {
+      const gc = terrain.cellCenter(lp.cx, lp.cy);
+      const [sx, sy] = worldToScreen(cam, gc.x, gc.y);
+      const rad = 12 * cs * cam.ppm * 0.5;
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+      g.addColorStop(0, `rgba(208,224,255,${0.34 * lit * bldA})`);
+      g.addColorStop(1, "rgba(208,224,255,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // red tower hazard beacons, slow blink off the wall-clock phase
+    for (const fp of cop.fightingPositions) {
+      if (!fp.tower) continue;
+      const c = terrain.cellCenter(fp.cx, fp.cy);
+      const [sx, sy] = worldToScreen(cam, c.x, c.y);
+      const blink = 0.55 + 0.45 * Math.sin(env.tNow * 1.6 + fp.cx);
+      const rad = Math.max(4, 1.8 * cs * cam.ppm * 0.5);
+      const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+      g.addColorStop(0, `rgba(255,70,55,${0.85 * blink * lit * bldA})`);
+      g.addColorStop(1, "rgba(255,70,55,0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
   }
 
   ctx.restore();

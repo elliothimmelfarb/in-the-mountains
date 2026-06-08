@@ -340,8 +340,10 @@ export default function WorldView() {
       ctx.setLineDash([]);
     }
 
-    // COP structure (walls/buildings are baked into the relief; this is the overlay)
-    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain);
+    // COP structure (walls/buildings are baked into the relief; this is the overlay).
+    // Pass the render-only environment so the wall, life-signs and atmosphere can read the
+    // diurnal darkness, the prevailing wind, and a wall-clock phase (never feeds back to sim).
+    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain, { night, windX: windV.x, windY: windV.y, tNow: nowMs / 1000 });
 
     // record fresh combat events (blasts → scorch craters; hidden-shooter muzzles →
     // suspected pinpoints), then draw the surviving craters on the ground under units
