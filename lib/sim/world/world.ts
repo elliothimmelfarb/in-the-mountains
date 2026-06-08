@@ -59,12 +59,15 @@ export class World {
     this.rng = rng;
     this.state = state;
     this.platoon = platoon;
-    const copWorld = terrain.cellCenter(state.copCell.cx, state.copCell.cy);
+    // Indirect fire originates at the dug-in mortar PIT (rear defilade), not the COP centroid —
+    // so range/min-range/dead-space are measured from the gun, as on a real outpost.
+    const pit = terrain.cop.mortarPit;
+    const mortarOrigin = terrain.cellCenter(pit.cx, pit.cy);
     const mortars: NonNullable<CombatInit["mortars"]> = [];
     if (state.supplies.mortar_60 > 0)
-      mortars.push({ weaponId: "mortar60", rounds: state.supplies.mortar_60, copPos: copWorld });
+      mortars.push({ weaponId: "mortar60", rounds: state.supplies.mortar_60, copPos: mortarOrigin });
     if (state.supplies.mortar_81 > 0)
-      mortars.push({ weaponId: "mortar81", rounds: state.supplies.mortar_81, copPos: copWorld });
+      mortars.push({ weaponId: "mortar81", rounds: state.supplies.mortar_81, copPos: mortarOrigin });
     this.sim = new CombatSim({
       terrain,
       rng,

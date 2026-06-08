@@ -103,27 +103,26 @@ export function buildRoutine(terrain: Terrain, v: VillageState, rng: RNG): CivRo
 /** Crew-served weapons on the wall + the mortar pit, derived from the COP layout. */
 export function buildEmplacements(terrain: Terrain): Emplacement[] {
   const cop = terrain.cop;
-  const fps = cop.fightingPositions;
   const emp: Emplacement[] = [];
-  // Two heavy guns on the best wall positions.
-  (["m240", "m2"] as const).forEach((wid, i) => {
-    const fp = fps[i];
-    if (fp) emp.push({ id: `cp-${i}`, weaponId: wid, cell: { cx: fp.cx, cy: fp.cy }, manned: true });
-  });
-  // Mortar pit, dug in toward the rear of the yard (on passable ground).
-  const mp = terrain.nearestPassable(
-    Math.round(cop.center.cx - cop.gateDir.x * 3),
-    Math.round(cop.center.cy - cop.gateDir.y * 3),
-    4
-  );
-  emp.push({ id: "cp-mortar", weaponId: "mortar60", cell: { cx: mp.cx, cy: mp.cy }, manned: true });
+  // Crew-served guns sit on the positions the terrain analysis sited them on (ATP 3-21.8):
+  // the M2 on the longest avenue, the M240 next, the Mk19 over the worst dead space.
+  let i = 0;
+  for (const fp of cop.fightingPositions) {
+    if (fp.weapon === "m2" || fp.weapon === "m240" || fp.weapon === "mk19") {
+      emp.push({ id: `cp-${i++}`, weaponId: fp.weapon, cell: { cx: fp.cx, cy: fp.cy }, manned: true });
+    }
+  }
+  // Mortar pit, dug in to the rear defilade — the indirect-fire origin (cop.mortarPit).
+  emp.push({ id: "cp-mortar", weaponId: "mortar60", cell: { cx: cop.mortarPit.cx, cy: cop.mortarPit.cy }, manned: true });
   return emp;
 }
 
 /** Hand the weapons-squad gunners the crew-served guns on the perimeter. */
 export function crewEmplacements(state: WorldState, platoon: Platoon, terrain: Terrain) {
   const gunners = platoon.members.filter((m) => m.role === "machinegunner");
-  const mgEmp = state.fob.emplacements.filter((e) => e.weaponId === "m240" || e.weaponId === "m2");
+  const mgEmp = state.fob.emplacements.filter(
+    (e) => e.weaponId === "m240" || e.weaponId === "m2" || e.weaponId === "mk19"
+  );
   mgEmp.forEach((emp, i) => {
     const g = gunners[i];
     if (!g) return;
