@@ -58,13 +58,20 @@ function defenseAudit(t: any, cop: any) {
   const fps = cop.fightingPositions;
   const wireM = cop.radius * cs;
 
-  // A) gate overwatch — some FP's sector contains the gate approach AND it has LOS to it
-  const goW = t.cellCenter(cop.gateOutside.cx, cop.gateOutside.cy);
+  // A) gate overwatch — a position whose sector covers the entry AND has LOS to the ENTRY KILL
+  //    ZONE: the gate cell + its near approach (R+2). (The far staging point at R+5 can be masked
+  //    by the descending access road on a steep spur — what doctrine requires you to cover by fire
+  //    is the chokepoint where you'd engage a rush, not 85 m down a switchback.)
+  const gateW = t.cellCenter(cop.gate.cx, cop.gate.cy);
+  const nearAppr = t.cellCenter(
+    Math.round(cop.center.cx + cop.gateDir.x * (cop.radius + 2)),
+    Math.round(cop.center.cy + cop.gateDir.y * (cop.radius + 2))
+  );
   let gateOW = false;
   for (const f of fps) {
     const fpW = t.cellCenter(f.cx, f.cy);
-    const bear = Math.atan2(goW.y - fpW.y, goW.x - fpW.x);
-    if (inArc(bear, f.rightLimit, f.leftLimit) && hasLOS(t, fpW, goW)) { gateOW = true; break; }
+    const bear = Math.atan2(nearAppr.y - fpW.y, nearAppr.x - fpW.x);
+    if (inArc(bear, f.rightLimit, f.leftLimit) && hasLOS(t, fpW, gateW) && hasLOS(t, fpW, nearAppr)) { gateOW = true; break; }
   }
 
   // B) perimeter interlock — for each azimuth, is a point just outside the wire inside ANY

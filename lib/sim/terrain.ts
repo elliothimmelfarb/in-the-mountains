@@ -1050,6 +1050,37 @@ export class Terrain {
       });
       fp++;
     }
+    // 6a') ECP OVERWATCH — a dedicated tower BESIDE the gate, set a couple of cells off the
+    //      open lane just inside the wall, so its line to the entry approach threads the gap
+    //      (a flanking wall position's sightline would cross the impassable HESCO and be blocked).
+    //      ATP 3-21.8: the entry-control point is overwatched by fire. Markers are passable, so
+    //      this never narrows the egress lane.
+    {
+      const goCell = { cx: Math.round(c.cx + gateDir.x * (R + 5)), cy: Math.round(c.cy + gateDir.y * (R + 5)) };
+      // Try candidate spots beside the gate (varying depth + side) and pick the FIRST with clear
+      // ground LOS to the entry approach — so a one-sided lip or a steep road can't blind it.
+      const cands: Array<{ back: number; side: number }> = [
+        { back: 3, side: 1.5 }, { back: 3, side: -1.5 }, { back: 3, side: 1 }, { back: 3, side: -1 },
+        { back: 4, side: 2 }, { back: 4, side: -2 }, { back: 2, side: 1.5 }, { back: 2, side: -1.5 },
+      ];
+      let chosen: { cx: number; cy: number } | null = null;
+      for (const k of cands) {
+        const p = this.nearestPassable(
+          Math.round(c.cx + gateDir.x * (R - k.back) + perp.x * k.side),
+          Math.round(c.cy + gateDir.y * (R - k.back) + perp.y * k.side),
+          3
+        );
+        if (!this.inBounds(p.cx, p.cy)) continue;
+        if (!chosen) chosen = p; // fallback: the first valid spot even if LOS is imperfect
+        if (this.groundLOS(p.cx, p.cy, goCell.cx, goCell.cy)) { chosen = p; break; }
+      }
+      if (chosen) {
+        fightingPositions.push({
+          id: "fp-ecp", cx: chosen.cx, cy: chosen.cy, facing: ga, tower: true,
+          weapon: "rifle", leftLimit: ga - Math.PI / 4, rightLimit: ga + Math.PI / 4, avenueScore: 0, deadSpaceFrac: 0,
+        });
+      }
+    }
     // ATP 3-21.8 ch.5: score each position's avenue by a terrain LOS sweep, then site the
     // crew-served weapons + towers + interlocking sectors by that geometry (not blind index).
     this.analyzeFightingPositions(fightingPositions, c, R);
@@ -1124,6 +1155,28 @@ export class Terrain {
    * This is pure seeded geometry over the baked elevation — no rng, no wall clock — so it
    * regenerates bit-identically on load (it lives on `cop`, which is never serialized).
    */
+  /** Cheap terrain-elevation line of sight from an observer (eye `eyeH` above the deck) to a
+   *  ground point: blocked if any intervening cell's crest rises above the sightline. Used to
+   *  site the ECP overwatch on ground that can actually SEE the entry approach. Deterministic. */
+  private groundLOS(ax: number, ay: number, bx: number, by: number, eyeH = 1.6): boolean {
+    if (!this.inBounds(ax, ay) || !this.inBounds(bx, by)) return false;
+    const e0 = this.elev[this.idx(ax, ay)] + eyeH;
+    const D = Math.hypot(bx - ax, by - ay) * this.cellSize;
+    if (D < 1) return true;
+    const steps = Math.max(2, Math.round(Math.hypot(bx - ax, by - ay)));
+    let maxAng = -Infinity;
+    for (let i = 1; i < steps; i++) {
+      const t = i / steps;
+      const cx = Math.round(ax + (bx - ax) * t);
+      const cy = Math.round(ay + (by - ay) * t);
+      if (!this.inBounds(cx, cy)) return false;
+      const ang = (this.elev[this.idx(cx, cy)] - e0) / (D * t);
+      if (ang > maxAng) maxAng = ang;
+    }
+    const targetAng = (this.elev[this.idx(bx, by)] - e0) / D;
+    return targetAng >= maxAng - 0.02;
+  }
+
   private analyzeFightingPositions(fps: CopFightingPosition[], c: { cx: number; cy: number }, R: number) {
     if (fps.length === 0) return;
     const REF = 1830; // m — score every gun on the .50's reach so positions are comparable
