@@ -176,9 +176,6 @@ export const WEAPON_TABLE: Record<"muzzle_us" | "muzzle_insurgent" | "mg_us" | "
   },
 };
 
-/** fract(x) — the fractional part, for the golden-ratio per-shot jitter walk. */
-const fract = (x: number) => x - Math.floor(x);
-
 /**
  * Build ONE shot from the 5-LAYER stack into `out` at time `t`. This is the single unified
  * gunfire mechanism (Law 6) — a single rifle crack is just a 1-shot "burst", and the MG loop
@@ -240,28 +237,19 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       gunShot(ctx, out, crack, WEAPON_TABLE.muzzle_insurgent, cue.v, 1, true);
       return { endTime: crack + WEAPON_TABLE.muzzle_insurgent.subDur + 0.07 };
     }
+    // Belt-fed MGs (M240/M2 · PKM/DShK) carry the HEAVIER 7.62/.50 timbre but fire exactly ONE
+    // crack per cue: the sim already emits one muzzle effect PER ROUND (combat.ts fireRound) at the
+    // gun's true cyclic spacing, so the mapper sends one cue per round. The old per-cue 5-9 round
+    // burst MULTIPLIED that — an 8-round M240 burst became ~40-70 cracks, a buzzing roar instead of
+    // a recognizable hammer. Cadence is now emergent from the sim's roundTimer (Law 6), not a synth
+    // burst fighting it. (SAW/RPK are cls=lmg, size=1 → routed to muzzle_* single cracks already.)
     case "mg_us": {
-      // SAW rip — a single cue == a burst of 5-9 cracks at ~70 ms (≈850 RPM), falling gain.
-      const w = WEAPON_TABLE.mg_us;
-      const n = Math.round(j(w.burst![0], w.burst![1]));
-      const step = j(w.rpmStep![0], w.rpmStep![1]);
-      for (let i = 0; i < n; i++) {
-        // golden-ratio per-shot jitter: a burst's shots differ, but a seed reproduces them.
-        const vi = fract(cue.v * 1.618 + i * 0.618);
-        gunShot(ctx, out, crack + i * step, w, vi, 1 - (i / n) * w.falloff!, i === 0);
-      }
-      return { endTime: crack + n * step + 0.06 };
+      gunShot(ctx, out, crack, WEAPON_TABLE.mg_us, cue.v, 1, true);
+      return { endTime: crack + WEAPON_TABLE.mg_us.subDur + 0.06 };
     }
     case "mg_insurgent": {
-      // PKM hammer — slower (~95 ms, ≈650 RPM), heavier, deeper: the gun from the high ground.
-      const w = WEAPON_TABLE.mg_insurgent;
-      const n = Math.round(j(w.burst![0], w.burst![1]));
-      const step = j(w.rpmStep![0], w.rpmStep![1]);
-      for (let i = 0; i < n; i++) {
-        const vi = fract(cue.v * 1.618 + i * 0.618);
-        gunShot(ctx, out, crack + i * step, w, vi, 1 - (i / n) * w.falloff!, i === 0);
-      }
-      return { endTime: crack + n * step + 0.08 };
+      gunShot(ctx, out, crack, WEAPON_TABLE.mg_insurgent, cue.v, 1, true);
+      return { endTime: crack + WEAPON_TABLE.mg_insurgent.subDur + 0.08 };
     }
     case "nearmiss": {
       // The N-WAVE: the ballistic shockwave (separate from the muzzle report). We model the
