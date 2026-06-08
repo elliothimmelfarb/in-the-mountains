@@ -93,7 +93,17 @@ stamped into the landcover so cover, sight and pathing all respect it. A `CopLay
   the far side of the gate rounds the wire on a road instead of clawing across the broken hillside);
 - interior **structures** — TOC, two barracks, aid station, armory, chow hall, latrines — and a
   **motor pool** and **helicopter LZ** of graded gravel near the gate;
-- **crew-served fighting positions and guard towers** sited around the wall, facing out;
+- **crew-served fighting positions and guard towers**, sited around the wall by a deterministic
+  **terrain line-of-sight sweep** (`analyzeFightingPositions`, ATP 3-21.8 ch.5), not by array index.
+  Each position's outward sector is marched cell-by-cell against the baked elevation to score its
+  *avenue* (how far the gun can graze before terrain masks the ground) and its *dead-space fraction*;
+  the **M2 .50 cal** then takes the longest open avenue, the **M240** the next, and the **Mk19** —
+  whose 40 mm plunges — the *worst dead-space* sector, where direct fire fails. Towers fall on the two
+  crew-served avenues; sectors interlock. The siting is pure seeded geometry (no rng), so it rebuilds
+  bit-identically on load, and it drives the emplacements (`buildEmplacements`) the gunners actually man;
+- a **mortar pit** (`cop.mortarPit`) dug in to the rear defilade — the **firing origin** for indirect
+  (range/dead-space are measured from the gun, not the COP centroid) — and a registered **FPF**
+  (`cop.fpf`) on the most dangerous avenue, used by the COP-defense watch (below);
 - the **gate** approach (inside/outside staging points) and the **muster** yard where patrols form.
   A generation-time guard (`ensureGatePortal`) proves the squad can actually egress by probing the
   FULL `muster → gateOutside` route with the **real `findPath`** (not a hand-rolled flood), and widens
@@ -132,12 +142,18 @@ Off-task soldiers live in the COP rather than standing frozen. Each tick `tickGa
 available man by time of day and role: a **rotating guard roster** mans the wall positions and
 towers and the MG crews stay on their guns (always eyes on the wire); meal hours fill the **chow
 hall**; after dark the off-guard rack out in the **barracks**; by day leaders work the **TOC**, the
-medic keeps the **aid station**, and everyone else knocks about the yard. When fighters close on the
-wire the whole COP **stands to** and mans the nearest fighting positions, breaking to fight the
-moment they're engaged and falling back to the routine on the lull. Posts are kept on **reachable**
-ground (`reachablePoint`), and a man who somehow wedges short of his post (a tight interior, a relocated
-spot) escalates from the cheap local router to a full `findPath` after a few seconds rather than
-grinding the wall — a runtime backstop behind the generation-time connectivity guard (issue 012).
+medic keeps the **aid station**, and everyone else knocks about the yard. A rotating slice of the
+off-duty riflemen are on **work details** at the wire ("a COP is never finished") — while they work,
+the fortification stat `fob.hesco` climbs (its first writer; the squad panel reads it back as **COP
+integrity**). The garrison **stands to** both when fighters close on the wire *and* at **first/last
+light** (BMNT/EENT, the dawn/dusk windows the enemy favours), and a sentry on post **sweeps his gaze
+across his fighting position's sector** rather than staring one bearing. When fighters mass at the wire
+while the garrison holds it, the TOC raises a **Final Protective Fire** the commander must clear
+(`tickCopDefense` → the existing call-for-fire loop; *the watch* — see AI-Doctrine). All of this is
+deterministic. Posts are kept on **reachable** ground (`reachablePoint`), and a man who somehow wedges
+short of his post (a tight interior, a relocated spot) escalates from the cheap local router to a full
+`findPath` after a few seconds rather than grinding the wall — a runtime backstop behind the
+generation-time connectivity guard (issue 012).
 
 ## Pathfinding (`path.ts`)
 
