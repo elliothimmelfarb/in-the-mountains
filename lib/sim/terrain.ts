@@ -1407,6 +1407,11 @@ export class Terrain {
    */
   private spaceCopBuildings(buildings: CopBuilding[], c: { cx: number; cy: number }, R: number, gateDir: Vec2) {
     const MIN_GAP = 2; // >=10 m walkable street between any two footprints
+    // High-value targets — command, ammo, casualty care — get extra dispersion so a single 82 mm
+    // round (~24 m frag) can't gut two of them at once (ATP 3-21.8 survivability / dispersion).
+    const HVT = new Set(["toc", "armory", "aid"]);
+    const HVT_MIN = 6; // cells (~30 m) centre-to-centre between any two HVTs (stable; higher over-constrains the most-packed seeds)
+    const centerSep = (a: CopBuilding, b: CopBuilding) => Math.hypot(a.cx - b.cx, a.cy - b.cy);
     const solids = buildings.filter((b) => b.kind !== "motorpool"); // the motor pool is passable gravel
     const gap = (a: CopBuilding, b: CopBuilding) =>
       Math.max(Math.abs(a.cx - b.cx) - (a.hw + b.hw), Math.abs(a.cy - b.cy) - (a.hh + b.hh)); // matches minBuildingGap
@@ -1432,7 +1437,8 @@ export class Terrain {
         for (let j = i + 1; j < solids.length; j++) {
           const a = solids[i];
           const b = solids[j];
-          if (gap(a, b) >= MIN_GAP) continue;
+          const hvtTooClose = HVT.has(a.kind) && HVT.has(b.kind) && centerSep(a, b) < HVT_MIN;
+          if (gap(a, b) >= MIN_GAP && !hvtTooClose) continue;
           // gap = max(xSep, ySep): clearing EITHER axis is enough, so separate along whichever
           // axis is closest to clearing. Push both apart one cell along that axis (away from each
           // other), then re-contain. This works for any bearing — two footprints on the same radial
