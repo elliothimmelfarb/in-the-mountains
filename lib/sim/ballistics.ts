@@ -204,7 +204,14 @@ export function spawnProjectile(
     arcHeight: indirect ? clamp(rangeM * 0.25, 30, 400) : 0,
     alive: true,
     age: 0,
-    tracer: weapon.auto ? rng.chance(0.25) : rng.chance(0.12), // every 4th-ish round
+    // Tracers concentrate on the GUNS, not every rifle: belt-fed weapons run a tracer every
+    // 4th-5th round (loaded that way to walk fire onto target — the streams a vet reads), while
+    // a rifleman fires mostly ball with the odd tracer. Keeps the gun lines legible and the air
+    // less cluttered than spraying a tracer off every 8th carbine round. ONE rng.chance call
+    // (threshold changes, draw count doesn't) → the deterministic stream is preserved.
+    tracer: rng.chance(
+      weapon.cls === "lmg" || weapon.cls === "mmg" || weapon.cls === "hmg" ? 0.24 : weapon.auto ? 0.08 : 0.03,
+    ),
     hit: false,
   };
 }

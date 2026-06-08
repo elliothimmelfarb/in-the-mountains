@@ -818,8 +818,12 @@ export class CombatSim {
         u.burstLeft--;
         u.roundTimer = 60 / weapon.cyclicRPM;
         if (u.burstLeft <= 0) {
-          // pause between bursts (longer if low composure)
-          u.fireCooldown = this.rng.range(0.5, 1.4) * (weapon.auto ? 1 : 1.6) * (2 - u.composure);
+          // Pause between bursts — longer if low composure, and LONGER STILL under suppression.
+          // A man with rounds cracking past his head services his weapon less, not the same: he
+          // fires and gets back down. (FM 3-21.8 — the whole purpose of suppressive fire is to cut
+          // the enemy's rate of effective fire.) Capped at ×2.5 so he's slowed, never silenced.
+          const suppFactor = Math.min(2.5, 1 + u.suppression * 1.5);
+          u.fireCooldown = this.rng.range(0.5, 1.4) * (weapon.auto ? 1 : 1.6) * (2 - u.composure) * suppFactor;
           u.aimProgress = 0;
         }
       }
@@ -890,9 +894,40 @@ export class CombatSim {
       return; // still settling for a deliberate shot
     }
 
-    // begin a burst
+    // Begin a burst — its LENGTH is the man's TEMPERAMENT, not just the weapon. We reshape the
+    // SAME uniform draw (no extra rng call → the deterministic stream is preserved), in order:
+    //  1. PERSONALITY — a disciplined shooter (high composure, low aggression) squeezes controlled
+    //     bursts toward the low end of the weapon's band (US doctrine: 3-5 round bursts); a green or
+    //     hot-blooded one sprays toward the top (the ragged insurgent "spray and pray"). Same band,
+    //     reshaped by where on it the man sits.
+    //  2. SUPPRESSION — over a threshold, incoming fire further shortens the burst: you fire and duck.
+    //  3. SUPPRESS TASKING — a base-of-fire gunner ordered to rake overrides both (the assault drill
+    //     RELIES on his volume to win fire superiority), then we clamp to ammo on hand.
     const [bmin, bmax] = weapon.burst;
     let burst = this.rng.int(bmin, bmax);
+    const span = bmax - bmin;
+    const discipline = clamp01(u.composure * 0.7 + (1 - u.aggression) * 0.3); // 1 = controlled
+    if (span > 0) {
+      const t = (burst - bmin) / span; // where the uniform draw fell, 0..1
+      // gamma reshapes the SAME draw within the band. Kept MILD on purpose: US soldiers carry high
+      // composure (they sit at the SHORT end of the band) and insurgents low, so an aggressive gamma
+      // would asymmetrically cut US volume and raise enemy volume — a measured balance regression
+      // (WIA +35%). Mild gamma keeps US effective; the ragged read comes mostly from the panic spray.
+      const gamma = 0.45 + discipline * 1.9; // disc→0: bias toward bmax (spray); disc→1: toward bmin (taps)
+      burst = Math.round(bmin + Math.pow(t, gamma) * span);
+    }
+    // PANIC SPRAY: a green/hot-blooded shooter (low discipline) doesn't just sit high in the
+    // band — he mag-dumps a bit past it. Disciplined fire never over-sprays. Kept DELIBERATELY MODEST
+    // (≤+40%): a bigger over-spray reads as more "personality" but raises enemy volume of fire enough
+    // to push US casualties past the ±15% balance gate (measured: panic 0.5 → US WIA/KIA out of
+    // tolerance). The same-weapon personality is therefore bounded on purpose; the visible read comes
+    // from cross-faction weapon discipline + the composure-keyed cadence, both balance-safe. (Law 3/5.)
+    if (discipline < 0.4 && weapon.auto) {
+      burst = Math.round(burst * (1 + ((0.4 - discipline) / 0.4) * 0.4)); // up to +40% past the band
+    }
+    if (u.suppression > 0.35) {
+      burst = Math.max(bmin, Math.round(burst * (1 - 0.5 * Math.min(1, (u.suppression - 0.35) / 0.65))));
+    }
     if (u.rof === "suppress") burst = Math.min(weapon.magSize, Math.max(burst, Math.round(bmax * 1.2)));
     burst = Math.min(burst, u.ammo);
     u.burstLeft = burst;
