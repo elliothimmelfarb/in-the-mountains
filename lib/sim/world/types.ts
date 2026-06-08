@@ -106,6 +106,17 @@ export interface Task {
   mnvrIds?: string[]; // maneuver element this contact
   rallyPt?: Vec2; // break-contact / casualty-collection rally point
   threatPt?: Vec2; // the squad's current threat centroid (for the map's base-of-fire/maneuver overlay)
+  /** The covered FLANK objective the squad-leader AI routes the maneuver element to (not the
+   *  threat centroid — a frontal rush is doctrinally wrong). Surfaced to the map overlay. */
+  flankPt?: Vec2;
+  /** Bounding overwatch: which buddy pair of the maneuver element is moving (0/1) and the world
+   *  clock the current bound expires — so only one element moves at a time (3–5 s rushes). */
+  boundPair?: number;
+  boundUntil?: number;
+  /** World clock the squad entered its current FIXING posture — the SOP-keyed "develop the
+   *  situation" timer. An aggressive SOP commits the assault immediately; a cautious one fixes and
+   *  develops first (and many contacts end before it commits), so the SOP is a real behavioral lever. */
+  fixSince?: number;
   lastSmokeClock?: number; // world clock of the squad's last smoke pop (throttle)
   /** Throttle clock (seconds) for the on-station dwell event-roll. A long realistic dwell is
    *  patient hours the player WARPS through; this rolls occasionally for a moment that pulls him
