@@ -1,0 +1,209 @@
+COMBAT-FEEL AFTER (FINAL config: mild gamma 0.45+1.9, panic 0.4) — Tue Jun  9 00:07:16 WEST 2026
+balance HEAD→after (16×50): US KIA 1.69→1.50 · WIA 4.94→4.75 · enemy 5.50→4.88 · civ 2→0 · no stalls
+  (note: stronger personality settings measured WIA +35% / KIA +30% — tuned down to the safe config; Law 3/8)
+============================================================
+
+=== COMBAT-FEEL PROBE — seed=feel-0 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 701 direct rounds fired · 701 muzzle flashes · 3 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 701
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  93%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  1.9   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 701
+    VERBATIM (HEAD):  ever reach a drawable frame (k≤0.6): 0/701  (0%)  · min k seen mean 0.83 (0.83 = born past the cutoff = INVISIBLE)
+    INTERP  (fix#1):  ever reach a drawable frame: 701/701  (100%)  · mean 4.0 frames on screen · mean 4.0 distinct fade steps (smooth, not strobe)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:2.95  0.15-0.35:0.66  0.35-0.55:1.36  0.55-0.75:0.95  0.75-1.0:1.40
+      INSURGENT  0.00-0.15:2.39  0.15-0.35:0.29  0.35-0.55:0.17  0.55-0.75:0.12  0.75-1.0:0.07
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+    all weapons (mixed classes — SAW/PKM bands swamp the personality signal):
+      US         bursts:112  mean 5.73  p10 3  p90 10  max 17
+      INSURGENT  bursts:8  mean 5.00  p10 3  p90 8  max 8
+    rifles/carbines ONLY (isolates discipline — US M4/M16 vs insurgent AKM):
+      US         bursts:69  mean 4.32  p10 3  p90 6
+      INSURGENT  bursts:8  mean 5.00  p10 3  p90 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+[5] TRACER RATIO BY WEAPON CLASS  (owner: "cluttered" / tracers should read on the guns)
+      insurgent:rifle     13% tracer  (5/40)
+      us:carbine           7% tracer  (23/313)
+      us:dmr               0% tracer  (0/3)
+      us:hmg              28% tracer  (40/142)
+      us:lmg              24% tracer  (45/190)
+      us:mmg               8% tracer  (1/13)
+      (belt-fed lmg/mmg/hmg ~24% (4:1 belt); rifle/carbine ~3-8% — tracers concentrate on the guns.)
+
+[micro-A] SUPPRESSION -> rate of fire — one M4 rifleman, fixed suppression, 40 s each:
+      supp 0.0 → 2.17 rds/s   supp 0.2 → 1.68 rds/s   supp 0.4 → 1.65 rds/s   supp 0.6 → 1.23 rds/s   supp 0.8 → 1.05 rds/s
+      (HEAD: ~flat. AFTER: monotonic decline — a suppressed man services his weapon less.)
+
+[micro-B] PERSONALITY -> burst length — same M4, zero suppression, 60 s each:
+      disciplined (composure .85 / aggr .25): mean burst 4.06  (n=31)
+      ragged      (composure .45 / aggr .85): mean burst 4.33  (n=27)
+      (HEAD: identical — burst is weapon-only. AFTER: disciplined squeezes toward bmin=3, ragged toward bmax=6.)
+
+
+
+=== COMBAT-FEEL PROBE — seed=feel-1 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 636 direct rounds fired · 640 muzzle flashes · 5 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 636
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  90%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  2.3   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 640
+    VERBATIM (HEAD):  ever reach a drawable frame (k≤0.6): 0/640  (0%)  · min k seen mean 0.83 (0.83 = born past the cutoff = INVISIBLE)
+    INTERP  (fix#1):  ever reach a drawable frame: 640/640  (100%)  · mean 4.0 frames on screen · mean 4.0 distinct fade steps (smooth, not strobe)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:2.90  0.15-0.35:0.67  0.35-0.55:0.47  0.55-0.75:0.78  0.75-1.0:0.60
+      INSURGENT  0.00-0.15:3.95  0.15-0.35:0.18  0.35-0.55:1.94  0.55-0.75:0.00  0.75-1.0:0.17
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+    all weapons (mixed classes — SAW/PKM bands swamp the personality signal):
+      US         bursts:120  mean 4.84  p10 3  p90 8  max 12
+      INSURGENT  bursts:9  mean 5.44  p10 3  p90 8  max 8
+    rifles/carbines ONLY (isolates discipline — US M4/M16 vs insurgent AKM):
+      US         bursts:88  mean 3.83  p10 3  p90 6
+      INSURGENT  bursts:7  mean 5.14  p10 3  p90 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+[5] TRACER RATIO BY WEAPON CLASS  (owner: "cluttered" / tracers should read on the guns)
+      insurgent:mmg       23% tracer  (3/13)
+      insurgent:rifle     14% tracer  (5/36)
+      us:agl               0% tracer  (0/4)
+      us:carbine           6% tracer  (21/340)
+      us:lmg              28% tracer  (35/126)
+      us:mmg              27% tracer  (33/121)
+      (belt-fed lmg/mmg/hmg ~24% (4:1 belt); rifle/carbine ~3-8% — tracers concentrate on the guns.)
+
+[micro-A] SUPPRESSION -> rate of fire — one M4 rifleman, fixed suppression, 40 s each:
+      supp 0.0 → 2.17 rds/s   supp 0.2 → 1.68 rds/s   supp 0.4 → 1.65 rds/s   supp 0.6 → 1.23 rds/s   supp 0.8 → 1.05 rds/s
+      (HEAD: ~flat. AFTER: monotonic decline — a suppressed man services his weapon less.)
+
+[micro-B] PERSONALITY -> burst length — same M4, zero suppression, 60 s each:
+      disciplined (composure .85 / aggr .25): mean burst 4.06  (n=31)
+      ragged      (composure .45 / aggr .85): mean burst 4.33  (n=27)
+      (HEAD: identical — burst is weapon-only. AFTER: disciplined squeezes toward bmin=3, ragged toward bmax=6.)
+
+
+
+=== COMBAT-FEEL PROBE — seed=feel-2 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 1023 direct rounds fired · 1026 muzzle flashes · 7 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 1023
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  89%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  3.0   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 1026
+    VERBATIM (HEAD):  ever reach a drawable frame (k≤0.6): 0/1026  (0%)  · min k seen mean 0.83 (0.83 = born past the cutoff = INVISIBLE)
+    INTERP  (fix#1):  ever reach a drawable frame: 1026/1026  (100%)  · mean 4.0 frames on screen · mean 4.0 distinct fade steps (smooth, not strobe)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:1.92  0.15-0.35:0.04  0.35-0.55:0.07  0.55-0.75:0.03  0.75-1.0:0.14
+      INSURGENT  0.00-0.15:5.27  0.15-0.35:0.00  0.35-0.55:0.00  0.55-0.75:0.00  0.75-1.0:0.03
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+    all weapons (mixed classes — SAW/PKM bands swamp the personality signal):
+      US         bursts:191  mean 4.99  p10 3  p90 8  max 12
+      INSURGENT  bursts:12  mean 6.00  p10 4  p90 8  max 8
+    rifles/carbines ONLY (isolates discipline — US M4/M16 vs insurgent AKM):
+      US         bursts:128  mean 3.88  p10 3  p90 6
+      INSURGENT  bursts:11  mean 5.82  p10 4  p90 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+[5] TRACER RATIO BY WEAPON CLASS  (owner: "cluttered" / tracers should read on the guns)
+      insurgent:hmg       50% tracer  (4/8)
+      insurgent:rifle      8% tracer  (5/64)
+      us:agl               0% tracer  (0/3)
+      us:carbine           8% tracer  (39/496)
+      us:dmr              50% tracer  (1/2)
+      us:lmg              17% tracer  (34/197)
+      us:mmg              25% tracer  (63/256)
+      (belt-fed lmg/mmg/hmg ~24% (4:1 belt); rifle/carbine ~3-8% — tracers concentrate on the guns.)
+
+[micro-A] SUPPRESSION -> rate of fire — one M4 rifleman, fixed suppression, 40 s each:
+      supp 0.0 → 2.17 rds/s   supp 0.2 → 1.68 rds/s   supp 0.4 → 1.65 rds/s   supp 0.6 → 1.23 rds/s   supp 0.8 → 1.05 rds/s
+      (HEAD: ~flat. AFTER: monotonic decline — a suppressed man services his weapon less.)
+
+[micro-B] PERSONALITY -> burst length — same M4, zero suppression, 60 s each:
+      disciplined (composure .85 / aggr .25): mean burst 4.06  (n=31)
+      ragged      (composure .45 / aggr .85): mean burst 4.33  (n=27)
+      (HEAD: identical — burst is weapon-only. AFTER: disciplined squeezes toward bmin=3, ragged toward bmax=6.)
+
+
+
+=== COMBAT-FEEL PROBE — seed=feel-3 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 844 direct rounds fired · 845 muzzle flashes · 6 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 844
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  90%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  2.5   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 845
+    VERBATIM (HEAD):  ever reach a drawable frame (k≤0.6): 0/845  (0%)  · min k seen mean 0.83 (0.83 = born past the cutoff = INVISIBLE)
+    INTERP  (fix#1):  ever reach a drawable frame: 845/845  (100%)  · mean 4.0 frames on screen · mean 4.0 distinct fade steps (smooth, not strobe)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:3.30  0.15-0.35:1.08  0.35-0.55:0.94  0.55-0.75:0.93  0.75-1.0:1.45
+      INSURGENT  0.00-0.15:5.45  0.15-0.35:3.33  0.35-0.55:0.53  0.55-0.75:0.20  0.75-1.0:0.00
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+    all weapons (mixed classes — SAW/PKM bands swamp the personality signal):
+      US         bursts:162  mean 5.02  p10 3  p90 8  max 14
+      INSURGENT  bursts:3  mean 7.00  p10 6  p90 8  max 8
+    rifles/carbines ONLY (isolates discipline — US M4/M16 vs insurgent AKM):
+      US         bursts:116  mean 4.28  p10 3  p90 6
+      INSURGENT  bursts:3  mean 7.00  p10 6  p90 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+[5] TRACER RATIO BY WEAPON CLASS  (owner: "cluttered" / tracers should read on the guns)
+      insurgent:rifle     10% tracer  (2/21)
+      us:carbine          10% tracer  (50/505)
+      us:dmr               0% tracer  (0/5)
+      us:hmg              37% tracer  (26/71)
+      us:lmg              23% tracer  (37/158)
+      us:mmg              25% tracer  (21/84)
+      (belt-fed lmg/mmg/hmg ~24% (4:1 belt); rifle/carbine ~3-8% — tracers concentrate on the guns.)
+
+[micro-A] SUPPRESSION -> rate of fire — one M4 rifleman, fixed suppression, 40 s each:
+      supp 0.0 → 2.17 rds/s   supp 0.2 → 1.68 rds/s   supp 0.4 → 1.65 rds/s   supp 0.6 → 1.23 rds/s   supp 0.8 → 1.05 rds/s
+      (HEAD: ~flat. AFTER: monotonic decline — a suppressed man services his weapon less.)
+
+[micro-B] PERSONALITY -> burst length — same M4, zero suppression, 60 s each:
+      disciplined (composure .85 / aggr .25): mean burst 4.06  (n=31)
+      ragged      (composure .45 / aggr .85): mean burst 4.33  (n=27)
+      (HEAD: identical — burst is weapon-only. AFTER: disciplined squeezes toward bmin=3, ragged toward bmax=6.)
+
+

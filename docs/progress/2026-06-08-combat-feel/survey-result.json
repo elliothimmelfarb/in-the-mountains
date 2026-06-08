@@ -1,0 +1,554 @@
+{
+ "judge": {
+  "theFive": [
+   {
+    "rank": 1,
+    "title": "Expose the sim sub-tick fraction (_acc/SIM_DT) as ONE render alpha; interpolate BOTH direct-fire projectile position AND effect age from it",
+    "axis": "smoothness + fx-clutter (unified)",
+    "whyChosen": "The single highest-leverage move in the set: it resolves TWO of the owner's loudest complaints - 'bullets appear midway/teleport' and 'visual feedback is flickery' - with ONE mechanism instead of two parallel patches (Law 6). The same 0.1s quantization is the root of both (a 200 m M4 round takes only ~3 discrete p.pos values; a 0.12s muzzle flash freezes ~6 rAF frames then pops). I chose interpolation from the sim's own already-computed accumulator remainder (smoothness proposal 2) over wall-clock extrapolation (proposal 1) because the remainder is sim-truth, is exact, never overshoots impact, and freezes cleanly on pause. Zero sim mutation, zero determinism risk.",
+    "mechanism": "store.frame()'s while-loop leaves 0<=_acc<SIM_DT (store.ts:571-575) - the exact wall-time fraction into the next tick. Add export const getSimFrac = () => Math.min(1, _acc/SIM_DT). Thread frac (as a PARAM from WorldView, never importing the store into draw.ts) into both: (a) drawProjectiles direct branch (draw.ts:745): renderTraveled = clamp(p.traveled - p.speed*SIM_DT*(1-frac), 0, p.distToAim); pos = p.origin + norm(p.vel)*renderTraveled, leaving the indirect branch (draw.ts:709) untouched; (b) drawEffects (draw.ts:779): replace const k = e.t/e.ttl with k = (e.t + frac*SIM_DT)/e.ttl so a 0.12s flash ramps+fades across all ~6 frames. Pause-safe (paused => no tick => _acc constant => frozen), speed-aware (_acc folds in effSpeed).",
+    "integrationSeam": "state/store.ts:frame (add export const getSimFrac reading module _acc at store.ts:174/571); lib/render/draw.ts:drawProjectiles (renderTraveled at the p.pos read, draw.ts:745) and lib/render/draw.ts:drawEffects (the k=e.t/e.ttl at draw.ts:779); wired from components/world/WorldView.tsx:draw passing getSimFrac() into both at WorldView.tsx:575-576.",
+    "verifyMetric": "Headless: scratch-proj-smooth.ts fires M4 at 200 m, samples p.pos per 0.1 tick => assert ~3 distinct sim positions; unit-test the pure interpolation fn at 60fps sub-tick offsets => assert 12-18 monotonic positions, max jump <8 m. Effects: probe logs distinct k values one muzzle effect presents per wall-second => before=2 plateaus, after=~6 monotonic. Live: scripts/shoot.mjs SAW burst, ppm>1.2, 6-frame capture => continuous streaks + ramping flashes. tsc/build/smoke green (no sim change).",
+    "expectedBeforeAfter": "Projectile max render jump ~88 m / 3 frozen positions -> <8 m / frame, ~16 sub-tick positions. Muzzle-flash distinct brightness states per wall-second: 2 plateaus -> ~6 monotonic ramp values.",
+    "ownerComplaintAddressed": "'bullets dont look like they travel - they appear about midway between source and target; bullets should be smooth and visible the whole way' AND 'visual feedback is flickery; combat should be smooth (maybe frame rate?)'",
+    "risk": "Determinism: ZERO - render-only read of loop state, sim output byte-identical (Law 7; smoke round-trip unaffected). Coupling: pass frac as a PARAM from WorldView, not import useGame into draw.ts (would break the React-free render layer) - contained. Visual: interpolation lags exactly one tick (jitter-free under stutter, unlike extrapolation). Perf: one hypot+add per projectile/effect per frame, negligible.",
+    "unifies": "THE unifying win: one exposed alpha kills BOTH the bullet-teleport bug (smoothness axis) and the effect-flicker strobe (fx-clutter proposal 1) - same root quantization, one threaded value. Absorbs and supersedes smoothness-proposal-1 (extrapolation) as the safer variant."
+   },
+   {
+    "rank": 2,
+    "title": "Suppression cadence gate: a suppressed man fires LESS often AND in shorter, raggeder bursts",
+    "axis": "simulation (suppression-rof / realism-wildcard)",
+    "whyChosen": "The owner's most literal verbatim complaint and a first-order doctrinal error: today suppression ONLY widens dispersion (ballistics.ts:61), so a man with rounds cracking past his ear services his weapon at full volume - the inverse of what suppressive fire is FOR (FM 3-21.8: the purpose is to make the enemy CEASE/REDUCE fire). The inter-burst cooldown (combat.ts:822) folds in composure but has ZERO suppression term; burst length (combat.ts:894-898) ignores suppression. I chose the deterministic cadence+burst gate (conf 0.82-0.9) over the probabilistic hold-fire gate because hold-fire inserts an rng.next() that SHIFTS the deterministic stream for everything downstream that tick; the cadence gate only SCALES existing rng draws (ordering unchanged). Grafting burst-shortening in keeps it ONE suppression mechanism (Law 6).",
+    "mechanism": "Two edits in updateFiring, deterministic (reuse this.rng; suppression already in serialize/loadWorld - no new state). (1) Cooldown (combat.ts:822): u.fireCooldown = this.rng.range(0.5,1.4)*(weapon.auto?1:1.6)*(2-u.composure)*Math.min(2.5, 1 + u.suppression*1.5) - at supp 0.2 ~+30%, at 0.8 ~2.2x, capped so never silenced; keep the composure term. (2) Burst (combat.ts:895, AFTER the uniform draw, BEFORE the rof==='suppress' override at :896 so a tasked gunner still rakes): if (u.suppression > 0.35) burst = Math.max(bmin, Math.round(burst*(1 - 0.5*Math.min(1,(u.suppression-0.35)/0.65)))). Net: heavily-suppressed volume falls ~50-65% without going bloodless.",
+    "integrationSeam": "lib/sim/combat.ts:updateFiring - cooldown at line 822 (burst-completion branch); burst-commit between line 895 (let burst = this.rng.int(bmin,bmax)) and the rof==='suppress' override at line 896.",
+    "verifyMetric": "Headless: extend scripts/balance.ts to log per-unit rounds/min AND mean burst by suppression band {0-0.2, 0.2-0.55, 0.55-1.0} over 50 min on survey-0..39, prove on held-out survey-40..59 (Law 3). EXPECT: 0.55-1.0 band rounds/min -50-60%, mean burst -35-50%; 0-0.2 band unchanged. Balance gate: US+insurgent KIA over 12x50 within +/-15% of a fresh HEAD baseline (Law 2); STALL CHECK passes; assault drill still resolves. Live: window.__ITM, flanked element gets pinned, visibly slower intermittent bursts.",
+    "expectedBeforeAfter": "Suppressed (0.55-1.0) man rounds/min -> -50-60%; mean burst in that band -> -35-50%; unsuppressed band 0% change.",
+    "ownerComplaintAddressed": "'SUPPRESSED SOLDIERS SHOULDNT FIRE AS MUCH' (verbatim) - plus reduces clutter (fewer rounds in flight from pinned men).",
+    "risk": "Balance is the real risk (c561d29 proves combat balance is sensitive): over-suppression could starve a base-of-fire and break the assault drill (overwatch RELIES on suppressing the objective). Contain by tuning coefficients against KIA AND assault-success on the holdout, capping cooldown factor at 2.5, flooring burst at bmin. Determinism: SAFE - scales existing this.rng draws, does NOT add/remove an rng call (unlike the deferred hold-fire gate). Symmetric across factions (updateFiring shared).",
+    "unifies": "Folds two proposers' top ideas (cooldown gate + burst-length gate) into ONE coherent suppression-cadence mechanism, not two stacked patches; gives the existing render-only pinned cue a real sim consequence."
+   },
+   {
+    "rank": 3,
+    "title": "Fix the belt-fed MG double-burst: one muzzle effect = one synthesized crack",
+    "axis": "audio",
+    "whyChosen": "The clearest audio win: pure render-side, strictly CHEAPER, high impact, concrete onset metric. The sim emits one muzzle effect PER ROUND (combat.ts:925) at 60/cyclicRPM spacing - correct cadence - but mapper.ts:137-139 routes each size>=1.5 round to mg_us/mg_insurgent and synth.ts:243-258 synthesizes a 5-9 round BURST per cue, so one ~8-round M240 burst becomes ~40-70 cracks: a buzzing roar instead of a hammering ~11 Hz gun. An SME identifies a belt-fed gun by CADENCE (FM 3-22.9). Highest-confidence audio fix (0.8), zero determinism/balance/sim risk, satisfies the audio mandate.",
+    "mechanism": "Collapse the synth-side burst so cadence comes from the sim's per-round muzzle effects (Law 6 - rate-of-fire becomes emergent from combat.ts roundTimer, not a hardcoded synth burst fighting it). In synth.ts synthCue cases mg_us/mg_insurgent (synth.ts:243-258), drop the n=round(j(burst)) loop and play exactly ONE gunShot from the mg_us/mg_insurgent WeaponVoice row (keep the deeper 7.62 timbre). Mapper unchanged (faction+size routing preserved). SAW/RPK (cls lmg, size=1) already map to single cracks - unaffected. Net: 8-round M240 burst = exactly 8 cracks at ~11.5 Hz.",
+    "integrationSeam": "lib/audio/synth.ts:synthCue cases mg_us/mg_insurgent (synth.ts:243-258) - remove the internal burst loop, emit one gunShot from WEAPON_TABLE.mg_us/.mg_insurgent. No change to mapper.ts (the 1:1 effect->cue invariant asserted in audio-probe.ts is preserved). No sim change.",
+    "verifyMetric": "Add an oracle scene to scripts/audio-render.ts: feed an MMG burst as N separate mg_us cues at 60/750s spacing (matching combat.ts:819), count crack onsets via the existing detector. Before: ~6-9x round count (~40-70 onsets/8-round burst). After: exactly 8 onsets at ~11.5 Hz. Confirm firefight peakDb < 0 dBFS (fewer voices, strictly safer). Live: audio-probe.ts hotWorld - M240 reads as a discrete hammer not a roar.",
+    "expectedBeforeAfter": "Synthesized cracks for one 8-round belt-fed burst: ~40-70 (an undifferentiated roar) -> exactly 8 at ~11.5 Hz (a recognizable hammer).",
+    "ownerComplaintAddressed": "'explore all of combat - visual, simulation, AND audio' / combat should be legible not noise - belt-fed fire currently buzzes into mush.",
+    "risk": "Determinism: ZERO - pure render-side, no sim/RNG/serialize touch. Balance: none. Perf: REDUCES synthesized voices - strictly cheaper. Mix: a real MG burst now spans more discrete cues across the HDR window (the intent) - verify the per-round trim still sums under the limiter via firefight peakDb < 0 dBFS.",
+    "unifies": "Makes every weapon's rate-of-fire a single emergent property of the sim's per-round muzzle spacing (Law 6) - deletes the synth-side hardcoded burst that double-counted against the sim cadence. One invariant: one round = one crack, rifles AND belts."
+   },
+   {
+    "rank": 4,
+    "title": "Correct tracer palette: insurgent tracers burn GREEN, and concentrate tracers on the guns (belts trace, riflemen mostly dont)",
+    "axis": "visual (realism-wildcard, unified palette/ratio)",
+    "whyChosen": "A high-recognizability authenticity win the other four cant catch, doubling as declutter. Every Korengal account (Restrepo, War, The Outpost) keys on enemy GREEN tracer (Soviet-bloc chemistry: 7.62x39/x54R/12.7x108 - exactly the insurgent arsenal) vs US red/orange - yet draw.ts:752 colors insurgents orange-red, precisely backwards. Separately ballistics.ts:207 makes every semi-auto rifleman trace ~12% of rounds and treats an AKM on auto like a belt MG - wrong (US riflemen carry ball-only; the SAW/240 is the tracer source, FM 3-21.8 base-of-fire). Both defects live at the same two seams and are ONE conceptual fix. Chosen for slot 5 because the prior four already cover sim+audio+the flicker-visual, leaving the highest-value pure-authenticity visual; near-zero risk.",
+    "mechanism": "(a) Color (render-only, draw.ts:752): insurgent branch from 255,90,40 (orange-red) to a muted-but-bright green (~120,255,120 head, desaturated dim tail); keep US warm 255,220,120; keep the white-hot head dot. Self-critique the PNG >=2 rounds so green doesnt vanish against foliage; deferred below ppm 0.45 (already collapses to haze). NOTE the DO-NOT-RETRY thermal-cyan was a night AMBIENT wash - a tracer LINE is historically correct and self-limited. (b) Ratio (sim-side, ballistics.ts:207): replace the auto-flag ternary with a per-weapon-class ratio - belts (lmg/mmg/hmg) ~0.22 (4:1-5:1 belt), rifles/dmr/sniper ~0.03; optionally a data-driven weapon.tracerRatio field (exhaustive Record forces every weapon to declare it). Still one rng.chance/round, ordering unchanged.",
+    "integrationSeam": "lib/render/draw.ts:drawProjectiles - the col ternary at line 752 (optionally tint the night additive tracer-glow in combat-fx.ts to match). lib/sim/ballistics.ts:spawnProjectile - the tracer: assignment at line 207 (read weapon-class ratio; optional weapon.tracerRatio field in weapons.ts).",
+    "verifyMetric": "Color: live only - scripts/shoot.mjs two-sided TIC, before/after screenshot, enemy green / friendly red; self-critique PNG >=2 rounds vs 'green not lost against vegetation'. Ratio: headless - count tracer:true by weapon class, assert belts ~0.22, rifles ~0.03 (baseline rifles ~0.12, AKM-auto ~0.25); same-seed reproduces identical tracer flags. tsc/build green (tsc fails until every weapon gets a tracerRatio if the field is added).",
+    "expectedBeforeAfter": "Insurgent tracer hue: orange-red (255,90,40) -> green (~120,255,120). Rifleman tracer ratio: ~0.12 (semi)/0.25 (auto) -> ~0.03; belt-fed -> ~0.22 (streams concentrate on the guns).",
+    "ownerComplaintAddressed": "'explore all of combat - visual' / 'bullets should be smooth and visible the whole way' (recognizable tracers) AND 'combat is cluttered' (fewer stray rifle tracers).",
+    "risk": "Color: pure render/palette - zero determinism/balance/perf risk; only green-vs-foliage legibility, contained by self-critique and the ppm<0.45 haze gate. Ratio: cosmetic + a small render-cost saver; changing the rng.chance probability shifts the per-round value consumed but NOT the call ordering, so a given seed still reproduces (per-seed reproducibility, not cross-version identity); static weapon data needs no serialize() change. Grep e.tracer/e.size for gameplay reads before shipping.",
+    "unifies": "Two tracer defects at two seams (wrong enemy hue at draw.ts:752, role-blind ratio at ballistics.ts:207) collapse into ONE 'tracers read correctly' change - fixing authenticity (green=incoming) and clutter (streams pour from the guns, not every rifle) together."
+   },
+   {
+    "rank": 5,
+    "title": "Burst length by composure + aggression (disciplined US controlled bursts vs ragged insurgent spray)",
+    "axis": "simulation (personality)",
+    "whyChosen": "Directly answers 'explore rate of fire + personality of combatants' - a complaint none of the other four touch (rank-2 is VOLUME under fire; this is steady-state DISCIPLINE). Per-soldier composure/aggression EXIST and ARE persisted (entities.ts) but never reach burst length: a calm US rifleman and a panicked green insurgent fire identical-length bursts. FM 3-22.9: trained troops fire controlled 3-5 rd bursts; the doctrinal/first-hand complaint about poor fighters is undisciplined long full-auto spray. Chosen over the two lower-confidence personality proposals (aim-settle 0.55; target-fixation 0.42, which overlaps the REVERTED c561d29 threat-weighting and the anti-instakill spread - DEFERRED) as the cleanest, highest-confidence (0.72) personality lever, orthogonal to rank-2 (composure today affects the BETWEEN-burst pause, not burst length).",
+    "mechanism": "In updateFiring, after the uniform draw at combat.ts:895 and BEFORE the rof==='suppress' override at :896: const disc = clamp01(u.composure*0.7 + (1-u.aggression)*0.3); burst = Math.round(lerp(bmax, bmin, disc)) + this.rng.int(-1,1); then keep the suppress override and Math.min(burst, u.ammo), floored at bmin. High composure + low aggression -> short bursts near bmin (M4 [3,6] ~3-4); low composure + high aggression -> long sprays near bmax (AKM [3,8] ~6-8). Stays INSIDE the existing band. ORDER: this and the rank-2 burst-shortening edit the SAME block - sequence personality FIRST, then suppression-shortening, then the suppress override; coordinate as one writer.",
+    "integrationSeam": "lib/sim/combat.ts:updateFiring - immediately after let burst = this.rng.int(bmin, bmax) (line 895), before the rof==='suppress' override at line 896 (same block as the rank-2 suppression burst gate - coordinate ordering, one writer).",
+    "verifyMetric": "Headless: extend a combat probe to log per-burst length tagged by faction over a 50-min run on tuned seeds, prove on survey-40..59. EXPECT: US mean burst ~4.5 -> ~3.3; insurgent mean rises toward bmax under low composure - faction separation ~0 today. Balance: balance.ts 12x50, KIA delta within +/-15% (ammo/lethality drift risk); revert if KIA moves >1 sigma. Live: firefight at 1x - US short taps, insurgent longer rips.",
+    "expectedBeforeAfter": "Per-burst mean length US vs insurgent: ~identical (separation ~0) -> US ~3.3, insurgent ~toward bmax (a measurable discipline gap). KIA within +/-15% of HEAD on the holdout.",
+    "ownerComplaintAddressed": "'explore rate of fire + personality of combatants' - disciplined US controlled bursts vs ragged insurgent spray.",
+    "risk": "Balance: longer insurgent bursts = more rounds = potential KIA/ammo drift (same sensitivity that reverted c561d29). Contain by keeping modulation INSIDE the existing [bmin,bmax] band, A/B on the holdout, revert if KIA moves >1 sigma. Determinism: SAFE - reads existing persisted traits + this.rng; coordinate the added rng draw with the rank-2 burst edit (same block) so the stream is reasoned about once. NOT touching the composure->cooldown link or the suppress override.",
+    "unifies": "Routes already-existing-but-unexpressed composure/aggression traits into burst length - the one cadence dimension they never reached - making per-soldier personality visible in the sim without new state."
+   }
+  ],
+  "alsoRan": [
+   "Incoming supersonic snap voiced at the listener (audio proposal 2, conf 0.7) - STRONG, the single most-requested missing combat sound, and suppressAlong (combat.ts:1064-1072) already computes the geometry. DEFERRED only because it touches the sim emit path (new throttled effect + EffectKind) where the MG double-burst fix is pure render-side and strictly cheaper; ship MG first, then add snap (gated to player units, deterministic throttle counter).",
+   "Probabilistic pinned hold-fire gate (suppression-rof proposal 3, conf 0.6) - DEFERRED: inserts a new rng.next() that SHIFTS the deterministic stream downstream that tick (a measured balance/determinism hazard) and risks two-sided pinned stalemate. The rank-2 cadence gate achieves fire-less WITHOUT shifting the RNG stream; revisit only if rank-2 proves insufficient on the holdout, with a same-seed balance diff.",
+   "Length/velocity-scaled tracer streak (smoothness proposal 3, conf 0.6) - DEFERRED: cosmetic and secondary; rank-1 interpolation already restores continuous travel, and longer/brighter streaks risk the cluttered regression. Fold into the rank-4 tracer pass if streaks still read short.",
+   ".50/DShK heavy-calibre audio tier (audio proposal 3, conf 0.6) - DEFERRED: real authenticity (.50 currently == 7.62) but lower priority than the MG roar; add the heavy WEAPON_TABLE row + size=2.0 tier next (the exhaustive Records force the done-gate).",
+   "fx-clutter: pulse-clock freeze-on-pause (0.62), merge 3 contact cues (0.55), unify 3 per-soldier ring pulses (0.5) - DEFERRED as a focused overlay-reconciliation issue: all legitimate (cluttered/flickery) but lower-impact than the rank-1 root-cause interpolation; bundle as one pass rather than diluting the five.",
+   "Aim-settle threshold by composure+marksmanship (personality proposal 2, 0.55) - DEFERRED: conflicts with the rank-2 suppression axis (lowering settle lets suppressed men fire MORE); reconcile at the seam after rank-2 lands.",
+   "Target-fixation by composure (personality proposal 3, 0.42) - DEFERRED: HIGH overlap with the REVERTED c561d29 HVT threat-weighting and the deliberate anti-instakill spread (combat.ts:1593-1595). Honor the DO-NOT-RETRY.",
+   "Barrel-overheat / sustained-fire limit on belt-fed MGs (wildcard proposal 4, 0.5) - DEFERRED: real doctrine but new PERSISTED state (serialize/loadWorld) and balance-sensitive (c561d29); lowest priority, log as a future-realism issue.",
+   "Volume-of-fire mix lift (audio proposal 5, 0.45) - DEFERRED: lowest-confidence audio; risks compressing the deliberately somber 23 dB calm->combat range (issue-017). The MG double-burst fix already makes a big fight sound denser; revisit only if the oracle shows a real light-vs-heavy LUFS gap is still missing."
+  ],
+  "coverageCheck": "The five span all three mandated axes: VISUAL = rank 1 (projectile + effect interpolation, the flicker fix) and rank 4 (green tracers + ratio declutter); SIMULATION = rank 2 (suppression cadence) and rank 5 (personality burst length); AUDIO = rank 3 (MG double-burst). Both forced fixes present: bullet-smoothness = rank 1, suppressed-fire-less = rank 2. Owner complaints addressed: 'bullets appear midway/teleport' -> rank 1; 'flickery / smooth (frame rate?)' -> rank 1 (same alpha de-flickers effects); 'cluttered' -> rank 4 (fewer rifle tracers) + rank 2 (fewer rounds from pinned men), with the deeper overlay-reconciliation pass logged as alsoRan; 'rate of fire + personality' -> rank 5; 'SUPPRESSED SOLDIERS SHOULDNT FIRE AS MUCH' -> rank 2; 'explore all of combat incl audio' -> rank 3. ONE complaint only PARTIALLY covered: 'cluttered' - the deepest declutter (merging the 3 overlapping contact cues, unifying the 3 phase-incoherent per-soldier ring pulses, freezing cosmetic pulses on pause) is DEFERRED to a focused overlay-reconciliation issue (alsoRan) rather than crammed into the five; rank 1 + rank 2 + rank 4 reduce clutter at the source but the overlay-stacking itself is named-and-deferred, not solved here.",
+  "overallRationale": "These five transform combat feel along a single through-line: stop the 0.1s sim tick from leaking into the player's eyes and ears, and make the sim's existing-but-unexpressed state (suppression, traits, per-round cadence) actually show up. Rank 1 is the keystone - ONE exposed sub-tick alpha (_acc/SIM_DT, already computed in store.frame) interpolates BOTH bullet position AND effect age, dissolving the two loudest visual complaints (teleporting bullets + flickery) with one render-only mechanism and zero determinism risk (Law 6). Rank 3 is the audio twin of the same idea - it deletes the synth-side hardcoded MG burst and lets rate-of-fire become emergent from the sim's per-round cadence, turning a buzzing roar into a recognizable hammer. Ranks 2 and 5 push the other direction: surface sim truth the renderer was never told about - suppression that finally REDUCES volume (the doctrinal point of suppressive fire, the verbatim ask) and per-soldier composure/aggression that finally shapes burst discipline (US taps vs insurgent spray). Rank 4 corrects the one thing a Korengal vet clocks instantly - green incoming tracer vs red friendly - while concentrating tracer streams on the guns where the eye belongs. Three of the five are pure render-side (zero determinism risk); the two sim changes (rank 2, rank 5) sit in the same burst-commit block, scale existing this.rng draws without shifting the stream, and are gated on a held-out-tail KIA balance check (Law 3) before shipping. Net: smoother, quieter, more legible, more doctrinally honest combat - the bar, addressed at the root quantization rather than patched at the symptoms."
+ },
+ "surveyAxes": [
+  {
+   "axis": "smoothness",
+   "n": 3
+  },
+  {
+   "axis": "fx-clutter",
+   "n": 4
+  },
+  {
+   "axis": "suppression-rof",
+   "n": 3
+  },
+  {
+   "axis": "personality",
+   "n": 3
+  },
+  {
+   "axis": "audio",
+   "n": 4
+  },
+  {
+   "axis": "realism-wildcard",
+   "n": 4
+  }
+ ],
+ "rawProposals": [
+  {
+   "axis": "smoothness",
+   "proposals": [
+    {
+     "title": "Render-time extrapolation of direct-fire projectile position from p.vel + wall-clock dt",
+     "problem": "A direct-fire round's p.pos is only updated in stepProjectiles at the 0.1s sim tick. M4 muzzleVel=880 m/s (weapons.ts:55) advanced by p.pos=add(p.origin,scale(norm(p.vel),p.traveled)) where p.traveled+=p.speed*dt (combat.ts:947-950) \u2192 88 m per 0.1s tick. A 150-250 m shot reaches p.distToAim in 2-3 ticks, so p.pos takes only 2-3 discrete values over the whole flight. At 1x (TIC latch, store.ts:567) that 0.2-0.3s of flight spans ~12-18 rAF frames, during which drawProjectiles (draw.ts:745) reads p.pos verbatim and the tracer/tail jumps in ~88m leaps \u2014 exactly the owner's 'bullets appear about midway' and 'teleport'. The renderer never interpolates: WorldView's loop calls frame() then draw() reading sim.projectiles latest-state (WorldView.tsx:168,575).",
+     "doctrinalBasis": "n/a (UX/render) \u2014 purely a render-quantization artifact; the underlying sim flight is physically modeled correctly (constant-velocity along norm(p.vel)), only its sampling is coarse.",
+     "evidence": [
+      "lib/sim/combat.ts:947-950 stepLen=p.speed*dt; p.traveled+=stepLen; p.pos=add(p.origin,scale(norm(p.vel),p.traveled))",
+      "lib/sim/weapons.ts:55 muzzleVel:880 (m4) \u2192 88 m per 0.1s tick",
+      "lib/render/draw.ts:745 const [sx,sy]=worldToScreen(cam,p.pos.x,p.pos.y) reads pos verbatim",
+      "lib/render/draw.ts:746-766 tracer tail drawn from p.pos backward along p.vel",
+      "components/world/WorldView.tsx:168 frame(realDt) then 575 drawProjectiles(ctx,cam,sim.projectiles)",
+      "lib/sim/ballistics.ts:182-209 Projectile carries origin,pos,vel,speed,traveled,distToAim,age \u2014 all render needs to reconstruct a continuous pos"
+     ],
+     "proposedChange": "In drawProjectiles, replace the verbatim p.pos with a render-only extrapolated position. Track a module-scope wall-clock lastDrawMs in draw.ts; pass nowMs into drawProjectiles (draw() already receives nowMs, WorldView.tsx:193). Compute dtExtrap = clamp((nowMs-lastDrawMs)/1000, 0, SIM_DT) \u2014 capped at one tick so it never runs ahead of the next sim update. Render position = pos advanced by norm(p.vel)*speed*dtExtrap, then clamped so traveled+extra never exceeds p.distToAim (the round visually arrives, never overshoots its impact point). Only for !p.indirect (indirect already interpolates via age/timeToImpact, draw.ts:709 \u2014 leave it). Skip extrapolation when paused/warp (gate on a 'simAdvancing' flag the renderer can read, or simply when dtExtrap would be huge from a stalled clock the clamp already handles). This is 100% render-side: lib/sim is untouched, determinism contract intact (Law 7).",
+     "integrationSeam": "lib/render/draw.ts:drawProjectiles (add nowMs param + module lastDrawMs); caller components/world/WorldView.tsx:575 changes to drawProjectiles(ctx,cam,sim.projectiles,nowMs).",
+     "howToVerify": "Build scratch-proj-smooth.ts: drive CombatSim headless, fire an M4 at 200 m, sample p.pos each 0.1 tick \u2192 confirm only ~3 distinct positions over flight (baseline: gap of ~88m between samples). Then unit-test the extrapolation pure fn at 60fps sub-tick offsets \u2192 confirm 12-18 monotonic intermediate positions, max inter-frame jump <8m (from ~88m). Live: scripts/shoot.mjs at a firefight, zoom ppm>1.2, capture a 6-frame burst \u2192 tracers form continuous streaks, not 2-3 frozen dashes. Before: max render jump ~88m/3-frame; after: <8m/frame, fully visible path.",
+     "confidence": 0.84,
+     "alreadyModeled": "Indirect (lobbed) rounds ALREADY interpolate smoothly via prog=age/(age+timeToImpact) (draw.ts:709-738) \u2014 do NOT touch that path. The sim flight math is already constant-velocity and correct; this only resamples it render-side. p.origin/p.vel/p.speed/p.distToAim already exist on the projectile, so no new sim state is needed.",
+     "risk": "Determinism: zero (render-only, sim never reads back). Visual risk: extrapolating past arrival could draw a round beyond its impact \u2014 contained by clamping render-traveled to p.distToAim. A stalled/paused clock could extrapolate stale rounds \u2014 contained by the SIM_DT cap and a paused gate. Perf: one extra hypot+add per projectile per frame, negligible vs the existing per-round stroke calls.",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "\"bullets don't look like they travel \u2014 they appear about midway between source and target; bullets should be smooth and visible the whole way\""
+    },
+    {
+     "title": "Accumulator-fraction interpolation: expose _acc/SIM_DT as a render alpha for sub-tick projectile sampling",
+     "problem": "frame() leaves a fractional remainder in module-scope _acc after the while loop (store.ts:568-574: _acc+=realDt*effSpeed, then drains in SIM_DT steps, leaving 0<=_acc<SIM_DT). This remainder is the exact fraction of the way into the NEXT tick the wall clock currently sits \u2014 the natural interpolation alpha \u2014 but it is never exposed to the renderer (_acc is module-private, store.ts:174; only SPEEDS/getAudio/useGame are exported). Without it, drawProjectiles can only guess sub-tick offset from its own wall clock, which can drift from the sim's actual accumulator under variable frame timing or speed changes.",
+     "doctrinalBasis": "n/a (UX/render) \u2014 frame-pacing fidelity, not a doctrine claim.",
+     "evidence": [
+      "state/store.ts:174 let _acc=0 (module-private, not exported)",
+      "state/store.ts:568-574 _acc+=realDt*effSpeed; while(_acc>=SIM_DT&&slices<cap){w.tick(SIM_DT);_acc-=SIM_DT}",
+      "state/store.ts:875 window.__ITM=useGame (the existing debug seam, but _acc not on it)",
+      "lib/sim/combat.ts:947-950 traveled advances exactly speed*SIM_DT per tick \u2192 render pos at fraction f = origin+dir*speed*(traveled - SIM_DT*speed*(1-f)) reconstructs the in-between point"
+     ],
+     "proposedChange": "Export a render-readable getter for the sub-tick fraction: add `export const getSimFrac = () => clamp01(_acc / SIM_DT)` (or stash it on a render-only object). In drawProjectiles, for direct rounds compute renderTraveled = p.traveled - p.speed*SIM_DT*(1 - frac), clamped to [0, p.distToAim], and derive pos = origin + norm(vel)*renderTraveled. This INTERPOLATES backward from the just-ticked pos toward where the round was a fraction of a tick ago \u2014 sim-accurate, pause-safe (when paused frame() doesn't tick so _acc stays put and frac is constant \u2192 rounds freeze cleanly, no drift), and speed-aware (frac already folds in effSpeed). Render-side only; the getter is a read, never a write back into sim.",
+     "integrationSeam": "state/store.ts add `export const getSimFrac`; lib/render/draw.ts:drawProjectiles reads it (or receives frac as a param from WorldView.tsx:575, keeping draw.ts free of a store import to respect the render layer's React-free purity).",
+     "howToVerify": "scratch harness: simulate frame() pacing at 60fps/1x, log _acc each frame \u2192 confirm frac sweeps 0\u21921 smoothly between ticks. Compare extrapolation (proposal 1) vs this interpolation on the same fired round: interpolation lags exactly one tick behind but never overshoots and is jitter-free under stutter; extrapolation is more 'live' but can micro-overshoot. Pick by eye in scripts/shoot.mjs side-by-side. Before: 3 discrete pos; after: ~16 sub-tick-accurate pos, max jump <8m, and stutter-robust (a dropped frame doesn't lurch the round).",
+     "confidence": 0.7,
+     "alreadyModeled": "_acc ALREADY computes the correct fractional remainder every frame \u2014 this proposal only EXPOSES it; it does not add a second accumulator (doing so would double-count). The tick loop and TIC 1x clamp already pace effSpeed correctly. Do not re-derive frame timing in the renderer when _acc already holds it.",
+     "risk": "Determinism: the getter is a pure read of render-loop state; sim output is byte-identical (Law 7 holds). Coupling risk: importing the store into draw.ts would violate the React-free render layer \u2014 contained by passing frac as a param from WorldView (which already imports the store) rather than importing useGame into draw.ts. Slightly more wiring than proposal 1 for marginally better stutter-robustness; the two are mutually exclusive (pick one mechanism, not both \u2014 Law 6).",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "\"combat should be smooth (maybe frame rate?); bullets should be smooth and visible the whole way\""
+    },
+    {
+     "title": "Length-stable, velocity-scaled tracer streak so fast rounds read as visible tracks, not 18px dashes",
+     "problem": "The tracer tail is a fixed 18px screen-space length (draw.ts:749 tlen=p.tracer?18:9), independent of zoom (cam.ppm) and round speed. Combined with the pos quantization (proposals 1/2), at the moment a round IS drawn it's an 18px dash floating at one of 2-3 positions, never a continuous streak from a fixed screen length that doesn't represent the ~88m the round actually covered between frames. Even with smooth pos, an 18px tail badly under-represents a tracer's real visual persistence (a tracer burns the whole visible arc). Owner: 'bullets should be smooth and visible the whole way.'",
+     "doctrinalBasis": "n/a (UX/render). First-hand Korengal accounts (Restrepo/War) describe tracers as continuous burning lines across the valley, not point-dashes \u2014 the render should match that read, but as a presentation choice, not a sim claim.",
+     "evidence": [
+      "lib/render/draw.ts:749 const tlen = p.tracer ? 18 : 9 (fixed screen px, no ppm or speed term)",
+      "lib/render/draw.ts:750-751 bx=sx-(dirx/m)*tlen; by=sy-(diry/m)*tlen (tail = pos back-projected along vel by fixed px)",
+      "lib/render/draw.ts:756 lineWidth=p.tracer?1.8:1",
+      "lib/sim/ballistics.ts:207 tracer: weapon.auto?rng.chance(0.25):rng.chance(0.12) \u2192 only ~1 in 4-8 rounds is even a tracer, so non-tracer rounds are the 9px dashes the eye loses"
+     ],
+     "proposedChange": "Make tracer streak length proportional to the distance the round covers per visible interval at the current zoom: tlen = clamp(p.speed * SIM_DT * cam.ppm * k, minPx, maxPx) so a fast round draws a longer streak that bridges its own per-tick gap (k~0.5, min 14, max ~60px). Pair this with proposal 1 or 2 so the streak's HEAD tracks the smooth pos and the TAIL trails the genuine recent path \u2014 together they read as a continuous tracer. Keep the existing two-segment dim-tail/bright-head split (draw.ts:757-766, deliberately avoids per-frame createLinearGradient). Optionally raise the tracer chance slightly OR add a faint non-tracer streak so the 'whole way' is visible even on ball rounds \u2014 but gate behind directFade/lodAlpha (draw.ts:743) so a big fight doesn't clutter (owner also said 'cluttered').",
+     "integrationSeam": "lib/render/draw.ts:drawProjectiles, the tlen computation at line 749 and the bx/by back-projection at 750-751.",
+     "howToVerify": "Live only (pure render): scripts/shoot.mjs, capture a SAW burst (auto, 0.25 tracer chance) at ppm 0.6 vs 2.0 \u2192 before: 18px dashes regardless of zoom; after: streak length scales with zoom and bridges the inter-frame gap so the burst reads as continuous lines of fire. Self-critique per CLAUDE.md \u00a74: render \u2192 Read the PNG \u2192 judge against 'continuous, not dashed' \u2192 revise \u22652 rounds. Confirm no strobe beyond the muzzle's own rate-of-fire (DO-NOT-RETRY honored).",
+     "confidence": 0.6,
+     "alreadyModeled": "The two-segment tail (dim+bright, draw.ts:757-766) ALREADY exists specifically to avoid the per-frame gradient-allocation perf hit \u2014 do NOT reintroduce createLinearGradient per round. directFade/lodAlpha (draw.ts:743-744) ALREADY collapses direct rounds into combat-haze below ppm 0.45 \u2014 the streak change must live above that gate so it doesn't fight the declutter. tracer probability differentiation (auto vs semi) already exists in ballistics.ts:207.",
+     "risk": "Clutter regression (owner explicitly flagged 'cluttered') if streaks get too long/bright or if non-tracer streaks are added unconditionally \u2014 contain by capping maxPx, keeping the directFade gate, and NOT raising tracer brightness. This is cosmetic and secondary to proposals 1/2 (which fix the actual travel motion); shipping it alone would NOT resolve the 'appears midway' bug. Determinism: render-only, zero sim impact.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "\"bullets should be smooth and visible the whole way; combat is cluttered\""
+    }
+   ]
+  },
+  {
+   "axis": "fx-clutter",
+   "proposals": [
+    {
+     "title": "Interpolate muzzle/impact/blast effect age at render time (kill the 6-frame freeze-then-pop strobe)",
+     "problem": "Effects age in lockstep with the 0.1s sim tick (combat.ts:390 `for(const e of this.effects) e.t += dt`). A muzzle flash has ttl=0.12 (combat.ts:925) so `e.t` only ever takes ~1-2 discrete values (0, 0.1) before it is filtered out at combat.ts:391. drawEffects reads `e.t` verbatim (draw.ts:779 `const k = e.t / e.ttl`) and renders that frozen `k` for ALL ~6 rAF frames inside one sim tick, then the flash vanishes between frames. The result is the owner's 'flickery' read: every flash, impact dust, blood, blast holds one frozen brightness for 6 frames then teleports to the next stage or disappears. This is the SAME quantization family as the bullet-teleport bug, on the effect layer.",
+     "doctrinalBasis": "n/a (UX/render)",
+     "evidence": [
+      "lib/sim/combat.ts:390",
+      "lib/sim/combat.ts:391",
+      "lib/sim/combat.ts:316",
+      "lib/sim/combat.ts:925",
+      "lib/render/draw.ts:779",
+      "lib/render/draw.ts:787",
+      "components/world/WorldView.tsx:166",
+      "components/world/WorldView.tsx:576",
+      "state/store.ts:568"
+     ],
+     "proposedChange": "Render-side only, zero sim mutation. (1) In addEffect (combat.ts:316) stamp a deterministic birth time `bornS: this.timeS` onto the Effect (this is a pure sim field derived from the master clock \u2014 deterministic, and it must be added to serialize()/loadWorld() if effects persist; they are transient so likely excluded \u2014 confirm and exclude to keep the save clean). (2) Expose the store's sub-tick residual: store.frame already keeps `_acc` (state/store.ts:568) \u2014 surface the fraction `_acc/SIM_DT` (0..1) on the World or store so the renderer knows how far into the CURRENT tick wall-time has advanced. (3) In drawEffects compute the interpolated age `kReal = (e.t + alpha*SIM_DT)/e.ttl` where alpha is that residual fraction, instead of `e.t/e.ttl`. Now a 0.12s flash smoothly ramps brightness across all ~6 frames and fades out continuously instead of popping. Apply identically to the muzzle/impact/blood/blast/frag_air/ricochet cases (all read `k=e.t/e.ttl`). This is the single mechanism that de-flickers the whole effect layer \u2014 one alpha, threaded once.",
+     "integrationSeam": "lib/render/draw.ts:drawEffects (replace `const k = e.t/e.ttl` with the interpolated form); alpha sourced from state/store.ts:frame (expose `_acc/SIM_DT`) and passed through components/world/WorldView.tsx:draw into drawEffects(ctx,cam,effects,alpha). Birth-time stamp at lib/sim/combat.ts:addEffect.",
+     "howToVerify": "Headless can't see flicker, so add a probe that logs the distinct count of `k` values a single muzzle effect presents per wall-second at 60fps: before=2 plateaus, after=~6 monotonically-rising values. Live check: scripts/shoot.mjs capture a sustained SAW burst at night, eyeball the muzzle/tracer-glow continuity before/after; the flash should ramp+fade, not freeze-then-vanish. tsc/build/smoke/balance must stay green (no sim-determinism change since bornS is clock-derived).",
+     "confidence": 0.78,
+     "alreadyModeled": "The INDIRECT projectile path ALREADY interpolates correctly (draw.ts:709 `prog = p.age/(p.age+p.timeToImpact)`), and the night-light pass ALREADY reads live age `e.t/e.ttl` (combat-fx.ts:508) \u2014 but BOTH still inherit the quantized `e.t`, so they smooth position, not age. Do not claim effects are un-aged; they ARE aged, just at 0.1s granularity. The fix is sub-tick alpha, not adding aging.",
+     "risk": "Determinism: bornS must be sim-clock-derived (this.timeS), never performance.now(), or same-seed runs diverge. Perf: negligible (one add+mul per effect). Containment: keep alpha render-only, never feed it back into sim; assert smoke.ts serialize round-trip still passes.",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "visual feedback is flickery; combat should be smooth (maybe frame rate?); explore all of combat \u2014 visual"
+    },
+    {
+     "title": "Decouple cosmetic pulse clock from wall-time so paused combat stops strobing",
+     "problem": "Every animated cue in combat-fx.ts derives its pulse from `nowS()` (combat-fx.ts:34-36) which is `performance.now()/1000` \u2014 explicitly wall-time and pause-independent (the doc-comment says so). When the player PAUSES to read a cluttered firefight (the exact moment they most need a calm frozen frame), the danger-close hazard bars (sin(t*4.2), combat-fx.ts:83), pinned ring (sin(t*4.4), :254), arterial bleed ring (sin(t*5.0), :351), contact glyph (sin(t*3.2), :474), tower beacons and dashed-ring crawl ALL keep oscillating. A paused screen that still throbs reads as 'flickery' and undercuts 'the hardest part of command is watching.'",
+     "doctrinalBasis": "n/a (UX/render)",
+     "evidence": [
+      "lib/render/combat-fx.ts:34",
+      "lib/render/combat-fx.ts:83",
+      "lib/render/combat-fx.ts:254",
+      "lib/render/combat-fx.ts:351",
+      "lib/render/combat-fx.ts:474",
+      "lib/render/draw.ts:687"
+     ],
+     "proposedChange": "Drive the cosmetic clock from a render-side clock that FREEZES on pause but stays wall-smooth when running, instead of raw performance.now(). Concretely: in WorldView.draw (already receives `now` ms, WorldView.tsx:203) accumulate a `fxClock` that only advances when `effSpeed>0`/not paused (the store already knows pause state), and thread it into the combat-fx draws (or set a module-level setter `setFxClock(t)` that nowS() reads). This is still render-only and wall-smooth while running (so pulses don't get re-quantized to the sim tick), but a paused frame is dead-still. Keep the pulse FREQUENCIES as-is; only gate advancement on pause.",
+     "integrationSeam": "lib/render/combat-fx.ts:nowS (read a module fxClock instead of performance.now); set via a new setFxClock(ms) called once per frame from components/world/WorldView.tsx:draw using the store's pause/effSpeed state already read there.",
+     "howToVerify": "Live: scripts/shoot.mjs \u2014 enter a danger-close fire mission, pause, take two screenshots 500ms apart; before=hazard bars/pinned ring at different phase (throb), after=pixel-identical (frozen). No headless metric needed; this is a pause-state visual invariant. tsc/build green.",
+     "confidence": 0.62,
+     "alreadyModeled": "nowS()'s pause-independence is INTENTIONAL for smoothness while running (the comment defends it). Do not remove wall-time entirely \u2014 that would re-quantize pulses to the 0.1s tick and reintroduce stutter. The fix is narrow: freeze advancement on pause only, keep wall-smoothness when live.",
+     "risk": "Low. Must read the SAME pause/effSpeed source the sim loop uses to avoid a desync where FX freeze but units move. Contain by sourcing pause from the store, not a second flag.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "visual feedback is flickery; combat is cluttered"
+    },
+    {
+     "title": "Merge the three redundant 'contact is HERE' aggregate cues into one zoom-gated mechanism",
+     "problem": "Contact location is announced THREE overlapping ways off the same centroid: (a) the onset starburst twin-ring (combat-fx.ts:464-471, fires <1.3s), (b) the persistent pulsing contact glyph (combat-fx.ts:473-476, gated cam.ppm<1.1), and (c) the off-screen chevron pointer (combat-fx.ts:657, gated off-screen). Their gates overlap: at cam.ppm just under 1.1 with contact partly on-screen, the starburst, the glyph, AND the per-soldier threat crescents/pinned rings (drawSuppressionCues, suppression>0.08) all stack on the same cluster \u2014 three independent rust pulses at three frequencies (sin*0.5 dash crawl, sin*3.2 glyph, sin*4.4 pinned) over the same men. That phase-incoherent multi-pulse over one spot is a prime 'cluttered + flickery' source. The starburst (debounced 4s) and glyph also both pulse simultaneously during the first 1.3s of every contact.",
+     "doctrinalBasis": "n/a (UX/render)",
+     "evidence": [
+      "lib/render/combat-fx.ts:449",
+      "lib/render/combat-fx.ts:464",
+      "lib/render/combat-fx.ts:473",
+      "lib/render/combat-fx.ts:657",
+      "lib/render/combat-fx.ts:206",
+      "lib/render/combat-fx.ts:252"
+     ],
+     "proposedChange": "Define ONE legible contact-cue policy by zoom band, mutually exclusive: (1) Close zoom (cam.ppm >= ~1.1): the per-soldier threat crescents carry the read entirely \u2014 SUPPRESS the persistent aggregate glyph (already gated out) AND cap the onset starburst to a single ring (drop the inner twin-ring at :470) so it's one quiet flare, not a double pulse over men who already have crescents. (2) Mid/far zoom (ppm < ~1.1): glyph only, starburst suppressed (the men are dots \u2014 a starburst over dots is noise). (3) Off-screen: chevron only (already exclusive). Net: at most ONE aggregate contact pulse visible at any zoom, never stacked on the per-soldier layer. This is a gate-reconciliation, not new art.",
+     "integrationSeam": "lib/render/combat-fx.ts:drawContactMarker (make the onset-starburst block and the persistent-glyph block mutually exclusive by the same ppm threshold; drop the second arc at :470); no change to drawOffscreenContactPointer (already exclusive via onScreen check at :662).",
+     "howToVerify": "Headless: a probe counts simultaneous active aggregate-cue draws per frame at ppm sweep {0.5,0.9,1.1,1.6} during a TIC \u2014 before: up to 2 (starburst+glyph) stacked in 0.9-1.1 band; after: <=1 at every ppm. Live: scripts/shoot.mjs screenshot a fresh TIC at ppm=1.0 before/after; the doubled pulse over the cluster should resolve to one.",
+     "confidence": 0.55,
+     "alreadyModeled": "The glyph is ALREADY gated to ppm<1.1 (:473) and the chevron ALREADY suppresses when on-screen (:663) \u2014 partial exclusivity exists. The remaining overlap is the onset STARBURST, which has NO zoom gate and fires regardless, stacking on whatever else is shown. Don't re-cut the glyph/chevron gating; only gate+thin the starburst.",
+     "risk": "Balance/UX: over-suppressing risks the player missing a TIC onset \u2014 the whole point of the starburst. Contain by keeping a single-ring starburst at all zooms (don't delete it), just remove the second ring and forbid it co-firing with the persistent glyph.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "combat is cluttered; visual feedback is flickery"
+    },
+    {
+     "title": "Unify the per-soldier pulsing rings (pinned + arterial-bleed) onto one slow shared breath to stop phase-incoherent throb",
+     "problem": "A single wounded, pinned soldier can carry up to THREE independently-phased pulses at once: the pinned rust ring at sin(t*4.4) (combat-fx.ts:254), the arterial-bleed alert ring at sin(t*5.0) (combat-fx.ts:351), plus the danger-close friendly halo at sin(t*3.6) (combat-fx.ts:159) \u2014 all rust/amber, all on the same ~10px base ring, all at DIFFERENT frequencies. Three overlapping circles beating out of phase on one figure is visually 'busy/flickery' and the reads blur into each other (which ring means pinned vs bleeding vs danger-close?). Each is individually faithful, but they were authored separately and never reconciled to a shared rhythm.",
+     "doctrinalBasis": "n/a (UX/render)",
+     "evidence": [
+      "lib/render/combat-fx.ts:159",
+      "lib/render/combat-fx.ts:254",
+      "lib/render/combat-fx.ts:351"
+     ],
+     "proposedChange": "Adopt ONE shared slow 'combat breath' phase (e.g. a single `breath = 0.5+0.5*sin(t*2.4)` computed once from the fx clock) that ALL per-soldier ring pulses reference, and differentiate the cues by STATIC channel (color/dash/radius) not by competing pulse rate: pinned = solid rust ring, arterial = the only one that pulses (the deliberate eye-catcher, keep its faster beat as the single exception), danger-close halo = amber dashed, non-pulsing. Result: a figure shows at most one moving pulse (arterial 'evac now'), everything else is steady \u2014 the eye is drawn to the one thing that's actually time-critical. This is the 'one robust mechanism over a pile of patches' move applied to ring rhythm.",
+     "integrationSeam": "lib/render/combat-fx.ts: drawSuppressionCues (pinned block :253-267 \u2192 drop the sin pulse, draw steady), drawDangerCloseHalos (:159 \u2192 steady amber), drawCasualtyCues (:351 \u2192 keep as the sole pulse). Share one breath constant computed from the fx clock at top of each.",
+     "howToVerify": "Headless: a probe samples, for a synthetic soldier flagged pinned+arterial+danger-close, the number of distinct pulse frequencies driving rings on that figure \u2014 before=3, after=1. Live: scripts/shoot.mjs screenshot a casualty under suppression in a danger-close mission before/after; the triple-throb should resolve to a single arterial pulse on a set of steady rings. Confirm the arterial 'evac now' read is now MORE salient (it's the only mover).",
+     "confidence": 0.5,
+     "alreadyModeled": "The arterial pulse being faster than venous is INTENTIONAL urgency (combat-fx.ts:351 `arterial?5.0:3.2`) and the threat crescent already does NOT pulse (it lerps bearing, :225) \u2014 so the crescent is fine. Don't flatten the arterial cue to steady; it should remain the single deliberate pulse. The defect is the OTHER two rings also pulsing and competing with it.",
+     "risk": "UX: making the pinned ring steady could weaken the 'he's pinned' alarm \u2014 but pinned is a sustained state, not a now-or-never event, so steady is doctrinally right (you watch a pinned man, you don't scramble like a TQ). Contain by keeping rust color saturation high so steady still reads.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "combat is cluttered; visual feedback is flickery"
+    }
+   ]
+  },
+  {
+   "axis": "suppression-rof",
+   "proposals": [
+    {
+     "title": "Gate between-burst cooldown by suppression (head-down delay)",
+     "problem": "updateFiring computes the post-burst pause as `fireCooldown = rng.range(0.5,1.4)*(weapon.auto?1:1.6)*(2 - u.composure)` (combat.ts:822). It is the ONLY cadence knob and it reads composure but NOT suppression. A man with suppression=0.8 and composure still 0.5 (composure lags suppression by ~1-2s via the lerp at combat.ts:1199-1201) pauses identically to an un-suppressed man. Suppression \u2014 the instantaneous 'rounds cracking past my ear' field that ramps in 1-2s (addSuppression combat.ts:1080) \u2014 never lengthens the time a man keeps his head down between bursts. This is the exact owner complaint ('suppressed soldiers shouldn't fire as much') in its most direct, lowest-risk form.",
+     "doctrinalBasis": "FM 3-21.8 (Infantry Rifle Platoon/Squad) defines suppression as fire that 'degrades the performance of a target below the level needed to fulfill its mission... a soldier reacts by seeking cover and ceasing or reducing fire.' Korengal first-hand (Junger, 'War'; Restrepo) repeatedly: under effective fire men go down behind cover and pop up only intermittently to return fire. The doctrinal effect is REDUCED RATE OF EXPOSURE, modeled cleanly as a longer interval before the next burst.",
+     "evidence": [
+      "lib/sim/combat.ts:822 (fireCooldown formula uses (2 - u.composure), no suppression term)",
+      "lib/sim/combat.ts:1080 (suppression ramps to a man over 1-2s, capped 0.13/event)",
+      "lib/sim/combat.ts:1199-1201 (composure lerps toward target at rate 0.2-0.5*dt, so it LAGS \u2014 confirming suppression is the only fast-reacting field)",
+      "lib/sim/entities.ts:128 (suppression: 0..1, decays)",
+      "lib/sim/combat.ts:421 (suppression decays at 0.16/s \u2014 a man recovers cadence as the volume lets up)"
+     ],
+     "proposedChange": "In combat.ts:822, multiply the between-burst pause by a deterministic suppression factor: `u.fireCooldown = this.rng.range(0.5,1.4)*(weapon.auto?1:1.6)*(2 - u.composure)*(1 + u.suppression * 1.5)`. At suppression=0.2 (just 'engaged') the pause grows ~30%; at 0.8 it ~2.2x's; full-pin at ~1.0 ~2.5x. Uses this.rng (already in scope) so it stays deterministic; suppression already lives in serialize/loadWorld, no new persisted state. This alone roughly halves a heavily-suppressed man's volume without ever fully silencing him (he still pops up to fire), which keeps firefights non-bloodless.",
+     "integrationSeam": "lib/sim/combat.ts:updateFiring \u2014 exactly line 822, the burst-completion branch (u.burstLeft<=0).",
+     "howToVerify": "Headless: extend scripts/balance.ts or a scratch probe to log per-unit rounds-fired binned by suppression band (0-0.2, 0.2-0.55, 0.55-1.0) over a 50-min run on a tuned seed, then prove on the survey-40..59 holdout. EXPECT: rounds/min for the 0.55-1.0 band drops ~45-55% vs HEAD while the 0-0.2 band is unchanged (factor=1 at suppression~0). Balance gate: total US+insurgent KIA over 12 deployments x 50 min must stay within ~+/-15% of HEAD baseline (re-capture baseline first per Law 2). Live: drive the app (window.__ITM), screenshot a sustained base-of-fire vs an enemy under heavy SAW fire \u2014 the suppressed side should visibly fire in slower, more intermittent bursts.",
+     "confidence": 0.82,
+     "alreadyModeled": "The cooldown ALREADY scales with composure via (2 - u.composure), and composure ALREADY sinks under suppression (combat.ts:1199, -u.suppression*0.6). So a SECOND-ORDER suppression effect on cadence exists. But it is slow (composure lerps over seconds) and weak (a 0.8-suppressed man whose composure has only dropped to ~0.5 still pauses like a 0.7-composure man). Do NOT claim suppression is wholly absent from cadence \u2014 it is absent as a FAST, FIRST-ORDER term. The proposal adds the fast term; keep the composure term as-is.",
+     "risk": "Determinism: safe (this.rng, existing field). Balance: over-tuning the 1.5 coefficient could make heavy MG suppression too decisive and starve a base-of-fire's reciprocal volume, regressing the assault drill (which RELIES on overwatch suppressing the objective \u2014 squad-combat.ts:293-302). Contain by tuning the coefficient against balance.ts KIA AND assault-success rate, and cap the factor (e.g. min(2.5, ...)) so a man is never silenced. Symmetric across factions (updateFiring is shared) so it won't one-sidedly nerf the player.",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "SUPPRESSED SOLDIERS SHOULDN'T FIRE AS MUCH (verbatim) \u2014 the most direct cadence lever."
+    },
+    {
+     "title": "Shorten burst length under suppression (snap-shots, not raking bursts)",
+     "problem": "Burst length is `rng.int(weapon.burst[min,max])` with NO suppression input (combat.ts:894-898). A pinned man under heavy fire still rips a full 3-8 (akm) or 5-12 (saw) round burst the same as a calm gunner on a stable position. Doctrinally and from first-hand Korengal accounts, a suppressed soldier exposes for a fraction of a second and fires a hasty 1-2 round snap over cover, not a sustained raking burst. Suppression should compress both how OFTEN he fires (proposal 1) and how MUCH per exposure.",
+     "doctrinalBasis": "FM 3-21.8 / FM 7-8: under effective suppression a rifleman returns fire in short, hasty engagements from behind cover; sustained bursts require a stable, un-suppressed firing position (the role of the base-of-fire element, which is by definition the LESS-suppressed side). 'The Outpost' / Restrepo: return fire while pinned is described as quick pop-ups, not steady raking.",
+     "evidence": [
+      "lib/sim/combat.ts:894-898 (burst = rng.int(bmin,bmax); only the rof===\"suppress\" branch widens it \u2014 nothing narrows it under personal suppression)",
+      "lib/sim/weapons.ts burst ranges m4[3,6] akm[3,8] rpk[5,10] saw[6,12] (per prompt; the [min,max] is the only burst input)",
+      "lib/sim/combat.ts:896 (existing precedent that burst is already conditionally reshaped \u2014 by rof, here for suppress emphasis)"
+     ],
+     "proposedChange": "After line 895 (`let burst = this.rng.int(bmin,bmax)`), bias toward the low end under suppression: `if (u.suppression > 0.35) burst = Math.max(bmin, Math.round(burst * (1 - 0.5 * Math.min(1, (u.suppression-0.35)/0.65))));` so a 0.35-suppressed man fires near-normal, a fully-pinned man fires ~half-length bursts (floored at bmin so he never fires zero rounds when he does pop up). Order matters: apply this BEFORE the rof===\"suppress\" override at line 896 so a designated suppressing gunner (who is meant to keep volume up) is governed by his OWN suppression realistically but still floored generously by the suppress-emphasis Math.max.",
+     "integrationSeam": "lib/sim/combat.ts:updateFiring \u2014 between line 895 and 896 (the burst-commit block).",
+     "howToVerify": "Headless: same rounds-per-exposure probe \u2014 log mean burst length binned by suppression band. EXPECT: mean burst in the 0.55-1.0 band drops ~35-50% while the <0.35 band is unchanged. Combined with proposal 1, total rounds/min for a pinned man should fall ~55-65% (cooldown x burst). Balance: KIA within +/-15% of HEAD on the holdout. Live: visual confirmation that a pinned squad's tracers come in short stutters, not long rakes (addresses 'cluttered' too \u2014 fewer rounds in flight from suppressed men).",
+     "confidence": 0.7,
+     "alreadyModeled": "Burst length is ALREADY reshaped by intent \u2014 the rof===\"suppress\" branch (combat.ts:896) FORCES long bursts for a designated suppressing gunner. Do NOT re-add generic burst control or fight that branch: a tasked base-of-fire gunner SHOULD keep raking. The new term governs the man's PERSONAL suppression, distinct from his TASKED rof; keep the suppress-emphasis Math.max as the floor so the two compose correctly.",
+     "risk": "Stacking with proposal 1 could over-nerf a pinned man toward silence (cooldown longer AND bursts shorter), risking bloodless firefights. Contain: tune the two coefficients TOGETHER against balance.ts and floor burst at bmin. Interaction with the suppress-rof floor (line 896) must be ordered correctly or a suppressing gunner gets double-counted. Determinism safe (this.rng, no new state).",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "SUPPRESSED SOLDIERS SHOULDN'T FIRE AS MUCH; also reduces clutter (fewer simultaneous rounds in flight)."
+    },
+    {
+     "title": "Add a probabilistic hold-fire (keep-head-down) gate for the pinned, leaderless man",
+     "problem": "The 'pinned' state (suppression>0.55 && composure<0.4) exists as a render cue only (combat-fx.ts:252) and a stance/cover trigger in friendly.ts (the pinned&&!leaderNear block at friendly.ts:85-93 sets prone and seeks cover but explicitly comments 'still return fire occasionally if a target is right there' and falls through to normal updateFiring \u2014 i.e. it does NOT actually reduce his firing). updateFiring has NO pinned branch: a pinned man whose rof is still 'free' fires every time fireCooldown expires. There is no doctrinally-correct 'truly suppressed men sometimes don't expose at all this beat' behavior. Proposals 1-2 slow cadence but never produce a genuine cease-fire lull, which is the signature of a pinned element.",
+     "doctrinalBasis": "FM 3-21.8: the definitional success of suppression is the target CEASING fire and staying behind cover \u2014 not merely firing slower. Korengal accounts (Restrepo/War): men genuinely pinned go fully head-down for stretches, returning fire only when the volume lets up. A probabilistic skip models 'this exposure window I stayed down' without scripting it.",
+     "evidence": [
+      "lib/render/combat-fx.ts:252 (pinned = u.suppression > 0.55 && u.composure < 0.4 \u2014 RENDER ONLY, confirmed)",
+      "lib/sim/ai/friendly.ts:39 (pinned = u.composure < 0.25 || u.suppression > 0.55) and friendly.ts:85-93 (pinned&&leaderless block sets prone/cover but RETURNS without gating fire \u2014 comment 'still return fire occasionally')",
+      "lib/sim/combat.ts:808-903 (updateFiring has no pinned/suppression skip; only rof===\"hold\" at line 829 fully stops fire)",
+      "lib/sim/combat.ts:421 (suppression decays at 0.16/s so the skip self-clears as fire lets up)"
+     ],
+     "proposedChange": "At the TOP of updateFiring's new-burst path (after line 830 `if (u.fireCooldown > 0) return;`), add a deterministic keep-down gate: `if (u.suppression > 0.55 && u.composure < 0.4 && this.rng.next() < (u.suppression - 0.55) * 0.9) { u.fireCooldown = Math.max(u.fireCooldown, this.rng.range(0.4, 0.9)); return; }`. At suppression=0.55 chance~0; at 0.8 ~22%/check; near 1.0 ~40%/check \u2014 he stays down this exposure and re-checks after a short delay. Crucially gate it so a man under direct command resists better: skip the hold-fire entirely if leaderNear (mirror friendly.ts:85) OR if u.rof===\"suppress\" (a tasked gunner fights through). This is the ONE robust mechanism that produces real lulls; reuse the SAME pinned predicate already in combat-fx.ts:252 so the render cue and the sim behavior finally agree (Law 6 unification \u2014 the pinned ring will now mean something).",
+     "integrationSeam": "lib/sim/combat.ts:updateFiring \u2014 immediately after line 830, before target acquisition. Predicate sourced from the existing combat-fx.ts:252 definition (unify into a shared isPinned(u) helper so render + sim share one truth).",
+     "howToVerify": "Headless: probe the fraction of updateFiring calls that hit the new skip, binned by suppression; EXPECT ~20-40% skip rate in the 0.8+ band, ~0% below 0.55, and 0% for leaderNear/suppress-tasked men (proves the carve-outs work). Confirm rounds/min in the top band drops a further ~25% on top of proposals 1-2. Determinism: run smoke.ts twice same-seed and assert identical (the skip uses this.rng so it is in the deterministic stream \u2014 but VERIFY no divergence, since adding an rng.next() call SHIFTS the stream; this is the main risk). Balance: KIA within +/-15% on holdout; verify firefights still resolve (no eternal stalemate from both sides pinned). Live: a heavily-suppressed squad should show visible cease-fire lulls + the pinned ring, then resume as suppression decays.",
+     "confidence": 0.6,
+     "alreadyModeled": "The pinned PREDICATE already exists in two places (combat-fx.ts:252 render, friendly.ts:39 AI) and friendly.ts:85-93 ALREADY makes a pinned-leaderless man go prone and seek cover. Do NOT re-add stance/cover-seeking \u2014 that is done. What is genuinely absent is a fire-CADENCE consequence inside updateFiring. Also note rof===\"hold\" (combat.ts:829) already fully stops fire, so the mechanism for 'don't fire this tick' exists; this adds a PROBABILISTIC, suppression-scaled version that auto-clears.",
+     "risk": "HIGHEST-risk of the three: (a) inserting an rng.next() call shifts the deterministic RNG stream for everything downstream that tick \u2014 must be verified with a same-seed smoke/balance diff, and if it regresses balance the carve-outs (leaderNear, suppress-tasked) are the tuning surface. (b) Two pinned sides could under-fire into a stalemate \u2014 the leaderNear and rof===\"suppress\" carve-outs plus suppression's 0.16/s decay prevent a permanent freeze, but must be balance-verified. (c) Slight overlap with proposal 1; sequence so the skip is checked before the cooldown is set. If balance can't be held, ship proposals 1+2 only and drop this one \u2014 it is the marginal, highest-variance addition.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "SUPPRESSED SOLDIERS SHOULDN'T FIRE AS MUCH \u2014 supplies the genuine cease-fire LULL (the doctrinal endpoint of suppression) that cadence-slowing alone cannot."
+    }
+   ]
+  },
+  {
+   "axis": "personality",
+   "proposals": [
+    {
+     "title": "Modulate burst length by composure + aggression (discipline vs spray)",
+     "problem": "updateFiring draws burst purely uniformly: `let burst = this.rng.int(bmin, bmax)` (combat.ts:895) with NO trait input. A calm US rifleman and a panicked green insurgent fire identical-length bursts within the same [min,max] band. The only burst override is rof===\"suppress\" forcing it long (combat.ts:896). Per-soldier composure/aggression \u2014 which DO exist and ARE persisted \u2014 never reach burst length, so disciplined controlled fire vs ragged spray is invisible in the sim.",
+     "doctrinalBasis": "FM 3-22.9 / FM 3-21.8: trained US riflemen fire controlled 3-5 rd bursts / well-aimed semi to conserve ammo and maintain fire control; the doctrinal complaint about poorly-trained fighters (mirrored in Korengal first-hand accounts \u2014 Junger's 'War', 'The Outpost') is undisciplined long full-auto 'spray and pray' that empties a mag. Composure (steadiness under fire) shortens/controls bursts; aggression lengthens them.",
+     "evidence": [
+      "lib/sim/combat.ts:894-898",
+      "lib/sim/weapons.ts:56 (m4 burst [3,6])",
+      "lib/sim/weapons.ts:161 (akm burst [3,8])",
+      "lib/sim/entities.ts:354 (US composureMax 0.72+)",
+      "lib/sim/entities.ts:471 (insurgent composureMax 0.55+heat)",
+      "lib/sim/entities.ts:360 (US aggression gauss 0.5)",
+      "lib/sim/entities.ts:476 (insurgent aggression 0.5+heat)"
+     ],
+     "proposedChange": "In updateFiring after the uniform draw, bias burst within [bmin,bmax] by a personality factor: `const disc = clamp01(u.composure*0.7 + (1-u.aggression)*0.3); burst = Math.round(lerp(bmax, bmin, disc));` then keep the existing suppress override and `Math.min(burst,u.ammo)`. High composure + low aggression \u2192 short controlled bursts near bmin; low composure + high aggression \u2192 long sprays near bmax. Add ~\u00b11 rng jitter so it isn't deterministic-looking per man. This makes the M4's [3,6] read as ~3-4 for a disciplined trooper and the AKM's [3,8] read as ~6-8 for an aggressive low-composure fighter \u2014 exactly the US-controlled vs insurgent-ragged contrast the owner wants.",
+     "integrationSeam": "lib/sim/combat.ts updateFiring (~line 895), immediately after `let burst = this.rng.int(bmin, bmax);` and before the `if (u.rof === \"suppress\")` override.",
+     "howToVerify": "Headless: extend a combat probe (scripts/combat-*.ts or a new scratch) to log per-burst length tagged by faction over a 50-min balance run; expect US mean burst to drop from ~4.5 (mid of [3,6]) to ~3.3, insurgent mean to rise toward bmax under low composure \u2014 a clear faction separation that is ~0 today. Re-run scripts/balance.ts 12x50: KIA delta must stay within noise band (the risk is ammo/lethality drift). Live: watch a firefight at 1x and confirm US fire reads as short taps, insurgent as longer rips.",
+     "confidence": 0.72,
+     "alreadyModeled": "composure ALREADY lengthens the BETWEEN-burst pause via fireCooldown (combat.ts:822, `*(2-u.composure)`), and rof===\"suppress\" already forces long bursts (combat.ts:896). I am NOT touching either \u2014 this adds the orthogonal lever of burst LENGTH (vs the existing between-burst CADENCE), which is genuinely absent.",
+     "risk": "Balance: longer insurgent bursts = more rounds downrange = potential KIA/ammo-expenditure drift. Contain by keeping the modulation INSIDE the existing [bmin,bmax] band (no new extremes), gating with balance.ts A/B on held-out seeds (survey-40..59), and reverting if KIA moves >1 sigma. Determinism safe (uses u.composure/u.aggression + this.rng).",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "'explore rate of fire + personality of combatants' / 'disciplined US controlled bursts vs ragged insurgent spray'"
+    },
+    {
+     "title": "Fold marksmanship + composure into aim-settle gate so green/panicked men open fire sloppier",
+     "problem": "The aim-settle gate is a flat constant: a shot is allowed once `u.aimProgress` reaches 0.4 (0.85 for sniper/dmr) \u2014 `if (u.aimProgress < (weapon.cls===\"sniper\"||\"dmr\" ? 0.85 : 0.4) && !u.moving) return;` (combat.ts:889). Every soldier of every skill needs the SAME settle fraction before firing, and aimTime is purely a weapon constant. A veteran marksman and a green panicked fighter settle identically. marksmanship feeds ONLY ballistics dispersion (ballistics.ts:55), never the decision of WHEN a man judges himself settled enough to break the shot.",
+     "doctrinalBasis": "FM 3-22.9 marksmanship fundamentals: a trained shooter achieves a stable sight picture faster and breaks the shot deliberately; a green/panicked shooter either jerks the trigger early (low settle \u2192 wild rounds, the 'spray' personality) or freezes. Tying the settle threshold to composure+marksmanship makes a disciplined shooter take the beat to aim while a rattled one snaps off early \u2014 visible as the panicked man's rounds going wide first, then walking on.",
+     "evidence": [
+      "lib/sim/combat.ts:888-891",
+      "lib/sim/ballistics.ts:55-56 (marksmanship \u2192 moa only)",
+      "lib/sim/ballistics.ts:71 (aimProgress \u2192 moa: `moa *= 1 - aimProgress*0.35`)",
+      "lib/sim/entities.ts:353 (US marksmanship 0.6+)",
+      "lib/sim/entities.ts:470 (insurgent marksmanship ~0.32+heat)"
+     ],
+     "proposedChange": "Make the settle threshold personality-scaled: `const settle = base * lerp(0.7, 1.15, clamp01(u.composure*0.6 + u.marksmanship*0.4));` where base is the existing 0.4/0.85. A composed marksman demands a fuller settle (slightly slower but his dispersion is already low \u2192 tight shots); a low-composure low-skill fighter fires at a LOWER settle (sooner, but ballistics.ts:71 means low aimProgress \u2192 higher moa \u2192 his rounds genuinely scatter). This couples 'fires sooner & wilder' to the panicked personality WITHOUT new state, reusing the existing aimProgress\u2192dispersion link so the wildness is already rendered as scattered tracers.",
+     "integrationSeam": "lib/sim/combat.ts updateFiring, the `if (u.aimProgress < ... )` settle check at line 889.",
+     "howToVerify": "Headless: log per-shot aimProgress-at-fire and resulting sigma by faction/composure bucket; expect low-composure fighters to fire at mean aimProgress ~0.32 (vs 0.4) and high-composure at ~0.46, with a measurable dispersion spread between buckets that is ZERO today. balance.ts A/B: hit-rate / KIA must stay in band (lowering settle for green men slightly RAISES their miss rate \u2014 should be neutral-to-helpful for player). Live: a suppressed insurgent's first rounds visibly miss wide.",
+     "confidence": 0.55,
+     "alreadyModeled": "aimProgress ALREADY scales dispersion (ballistics.ts:71) and suppression/composure/shaken ALREADY inflate moa (ballistics.ts:61,67,69). I am NOT re-adding accuracy penalties \u2014 those exist. This changes only the WHEN-to-fire THRESHOLD per personality, which is currently a flat constant. The downstream wildness reuses the existing dispersion path.",
+     "risk": "Two-sided: lowering settle for low-composure men could let suppressed insurgents fire MORE (cuts effective settle time), partially conflicting with the separate 'suppressed shouldn't fire as much' axis \u2014 must be reconciled at the seam (that axis adds a suppression hold-fire gate that runs FIRST). Keep the threshold band narrow (0.7-1.15x). Determinism safe.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'veteran calm vs green panic' / 'personality of combatants'"
+    },
+    {
+     "title": "Add target-fixation vs spread by composure (panicked tunnel-vision, calm distributes fire)",
+     "problem": "acquireTarget (combat.ts:1574-1602) picks the best-scored visible enemy with a uniform random spread factor `0.45 + 0.55*rng.next()` (combat.ts:1595) identical for every shooter. Reacquire cadence is also flat: insurgent every 0.5-1.0s (insurgent.ts:25), friendly every tick when rof!=hold (friendly.ts:30). There is NO personality in target selection or switching \u2014 a calm veteran (who should methodically distribute fire across the threat) and a panicked man (who fixates on one threat / the nearest muzzle flash) behave identically.",
+     "doctrinalBasis": "FM 3-21.8 fire distribution + control: trained troops distribute fires across the enemy's frontage on the leader's fire commands; under acute stress (low composure, Grossman 'On Combat' tunnel-vision; Restrepo accounts of men locking onto one position) a rattled fighter target-fixates. A composed shooter's spread factor should be WIDER (samples more of the element); a low-composure one's NARROWER (locks the top-scored / nearest threat) and switches less.",
+     "evidence": [
+      "lib/sim/combat.ts:1593-1599 (uniform spread, no trait)",
+      "lib/sim/ai/friendly.ts:30 (retarget every tick)",
+      "lib/sim/ai/insurgent.ts:23-26 (retarget 0.5-1.0s)",
+      "lib/sim/entities.ts:127 (composure field, persisted via world.ts:86)"
+     ],
+     "proposedChange": "Scale the spread term by composure in acquireTarget: `const spreadAmt = 0.55 * clamp01(0.4 + u.composure*0.8); const spread = (1-spreadAmt*0.55) + spreadAmt * this.rng.next();` so high composure \u2192 wide spread (distributes fire), low composure \u2192 near-deterministic lock on the top threat (fixation). Optionally gate retarget cadence: a low-composure man holds his current target longer (skip reacquire if composure<0.4 and current target still valid) \u2014 modeling target lock. No new state; both read existing u.composure.",
+     "integrationSeam": "lib/sim/combat.ts acquireTarget (~line 1595, the `spread` computation); optional cadence guard in friendly.ts:30 / insurgent.ts:23.",
+     "howToVerify": "Headless: instrument fire-distribution entropy \u2014 count distinct targets engaged per shooter per 30s window, bucketed by composure. Expect high-composure shooters to spread across ~2-3 targets, low-composure to lock ~1 (entropy gap that is ~0 today). Cross-check KIA on balance.ts: fixation could over-concentrate fire (instakill risk the existing spread was added to PREVENT \u2014 see comment combat.ts:1593) so this must be A/B'd carefully.",
+     "confidence": 0.42,
+     "alreadyModeled": "The randomized spread weighting at combat.ts:1595 was DELIBERATELY ADDED to stop every gun converging on the single most-exposed man (the instakill problem, per the comment lines 1593-1594). Narrowing spread for low-composure men partially FIGHTS that fix \u2014 so it must stay bounded and never reach full determinism. Threat-weighting of targets is also DO-NOT-RETRY-adjacent (HVT threat-weighting regressed balance, c561d29).",
+     "risk": "HIGH overlap with the c561d29 reverted 'threat-weighting' regression and with the existing anti-instakill spread. Fixation concentrating fire could regress player KIA badly. Keep composure floor on spreadAmt generous (never <0.4 effective), A/B on held-out seeds, and be ready to drop the cadence-lock half. Lowest-confidence proposal \u2014 likely judge SHOULD defer or scope to engage-side only.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'veteran calm vs green panic' / target-switching personality"
+    }
+   ]
+  },
+  {
+   "axis": "audio",
+   "proposals": [
+    {
+     "title": "Fix the MG double-burst: stop synthesizing a 5-9 round burst per round",
+     "problem": "For MMG/HMG (M240, M2, PKM, DShK), the sim emits ONE 'muzzle' effect PER ROUND in fireRound (combat.ts:925, called once per round of u.burstLeft at combat.ts:817). The mapper turns each size>=1.5 muzzle effect into an mg_us/mg_insurgent cue (mapper.ts:137-145). But synthCue('mg_us') then schedules a 5-9 ROUND burst of cracks per cue (synth.ts:243-253). So one real M240 burst of 6-10 rounds becomes 6-10 cues x 5-9 cracks = 30-90 synthesized cracks. Sustained belt-fed fire reads as an undifferentiated buzzing roar, not a hammering ~10 Hz MG \u2014 the opposite of 'legible, not noise'. (Note: the SAW/RPK are 'lmg', size=1, so they map to single muzzle_us cracks; the 'mg_us/SAW rip' burst synth is in fact NEVER used by the SAW and ONLY ever fires for the double-counting MMG/HMG.)",
+     "doctrinalBasis": "FM 3-22.9 / FM 23-65: a belt-fed MG fires in recognizable cyclic bursts (M240 ~650-750 rpm, M2 ~485-635 rpm). An infantry SME identifies a gun by its CADENCE \u2014 a wall of cracks with no rhythm is wrong; the per-round report rate IS the weapon signature.",
+     "evidence": [
+      "lib/sim/combat.ts:925 (one muzzle effect per round)",
+      "lib/sim/combat.ts:815-826 (burst loop: fireRound per round)",
+      "lib/audio/mapper.ts:137-145 (size>=1.5 -> mg_us/mg_insurgent cue)",
+      "lib/audio/synth.ts:243-264 (mg_us/mg_insurgent each play burst of n=5-9 cracks)",
+      "lib/sim/weapons.ts:72-74 m240 cls:mmg, :78-80 m2 cls:hmg, :171-173 pkm cls:mmg, :196-198 dshk cls:hmg"
+     ],
+     "proposedChange": "Make a belt-fed muzzle effect synthesize EXACTLY ONE crack, not a burst. Two clean options: (A) Map size>=1.5 muzzle effects to a new single-crack heavy cue (e.g. 'mg_us_round') whose synth is one gunShot of the mg_us WeaponVoice row \u2014 deleting the internal burst loop for the sim-driven path. The cadence then comes naturally from the sim's per-round muzzle effects (60/cyclicRPM spacing, combat.ts:819). (B) Keep mg_us as a single crack by changing synthCue mg_us/mg_insurgent to n=1. Prefer (A): one cue=one round across ALL weapons is the unified mechanism (Law 6) \u2014 every gun's rate-of-fire becomes an emergent property of the sim's roundTimer, not a hardcoded synth-side burst that fights it.",
+     "integrationSeam": "lib/audio/synth.ts synthCue case 'mg_us'/'mg_insurgent' (collapse to a single gunShot); lib/audio/mapper.ts effectCue (keep faction+size routing, just point heavy rounds at the single-crack synth). No sim change required.",
+     "howToVerify": "Add an oracle scene to scripts/audio-render.ts that feeds an MMG burst the REALISTIC way \u2014 N separate mg_us cues at 60/750s spacing (matching combat.ts) \u2014 and count synthesized crack transients via onset detection. Before: ~6-9x the round count (30-90 onsets for an 8-round burst). After: exactly 8 onsets at ~11.5 Hz. Live: drive a firefight (audio-probe.ts hotWorld), confirm M240 reads as a discrete hammer not a roar.",
+     "confidence": 0.8,
+     "alreadyModeled": "The sim ALREADY emits one muzzle effect per round and spaces them at 60/cyclicRPM (combat.ts:819) \u2014 do NOT re-add cadence in the synth. The SAW/RPK (lmg) ALREADY correctly map to single muzzle cracks via size=1; only MMG/HMG are affected. The mapper's 1:1 effect->cue invariant (audio-probe.ts assertion A) ALREADY holds \u2014 this change keeps it.",
+     "risk": "Determinism: pure render-side, no sim/RNG/serialize touch. Balance: none (sim unchanged). Perf: REDUCES synthesized voices (fewer cracks) \u2014 strictly cheaper. Mix: a real MG burst now spans more discrete cues over the HDR window, which is the intent; verify the per-round trim still sums sanely under the limiter via the firefight scene peakDb (must stay < 0 dBFS).",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "'combat should be legible not noise' / 'explore all of combat including audio' \u2014 belt-fed fire currently buzzes into mush; this restores a recognizable MG cadence."
+    },
+    {
+     "title": "Voice the incoming round 'snap' the sim already computes for friendlies",
+     "problem": "The owner wants the 'incoming snap' (supersonic crack past your men). The sim ALREADY computes, geometrically and per-round, when a hostile round passes within crackR of each friendly (suppressAlong, combat.ts:1064-1072: crackR=max(7, suppressionRadius*2.2)), and uses it to ramp suppression \u2014 but it emits NO effect and NO audio cue. The only 'snap' today is a near-miss TAIL appended to DISTANT muzzle cues (player.ts:494, scheduleNearmissTail), keyed on the SHOOTER being >0.08s away \u2014 NOT on a round actually cracking past YOUR position. So the defining sound of being shot at in the Korengal is missing from the player's frame of reference.",
+     "doctrinalBasis": "First-hand Korengal accounts (Restrepo, War, The Outpost): the supersonic 'snap' of a round passing close \u2014 distinct from and arriving before the muzzle 'thump' \u2014 is THE sensory signature of taking effective fire. FM 3-21.8 distinguishes the crack (bow-wave overhead) from the report; a soldier registers 'snap' as 'they have me ranged'.",
+     "evidence": [
+      "lib/sim/combat.ts:1064-1072 (per-round closest-approach to each friendly within crackR \u2014 already computed, unvoiced)",
+      "lib/sim/combat.ts:1076-1082 addSuppression (the only consumer of that geometry today)",
+      "lib/audio/player.ts:494-496 + 554-583 (nearmiss is only a distant-shooter tail, not a round-past-you event)",
+      "lib/audio/cue.ts:21 (nearmiss kind exists), synth.ts:266-279 (the N-wave synth already exists and is good)"
+     ],
+     "proposedChange": "In suppressAlong, when a hostile round's closest approach d<crackR to a PLAYER (us/ana) unit AND d is below a tight snap threshold (e.g. < crackR*0.55, the 'effective near-miss' band), emit a lightweight transient effect (reuse 'frag_air' or add a 'snap' EffectKind) at that unit's position, throttled to once per N rounds per unit so a burst flinches without machine-gunning the snap. The mapper routes it to a positional 'nearmiss' cue (the N-wave synth at synth.ts:266 is already tuned). This makes the EXISTING incoming-fire computation audible at the listener's position.",
+     "integrationSeam": "lib/sim/combat.ts suppressAlong (emit effect at the near-miss site \u2014 a tiny sim addition); lib/sim/combat.ts EffectKind union (combat.ts:27, add 'snap' OR reuse frag_air); lib/audio/mapper.ts effectCue (map it to 'nearmiss' positional cue).",
+     "howToVerify": "Extend scripts/audio-probe.ts hotWorld assertion to require >=1 nearmiss/snap cue once the squad is under fire (today it never fires from the live path). Headless: count snap effects per firefight, confirm throttle caps them (no >1 per unit per ~0.3s). Live: stand a squad in a hot village, confirm an audible directional snap precedes/accompanies the muzzle thump from the ridge. Before: 0 incoming-snap cues from real fire. After: a snap on each effective near-miss, panned to the round's bearing.",
+     "confidence": 0.7,
+     "alreadyModeled": "The crack-thump SPLIT and the N-wave synth ALREADY exist (player.ts split logic, synth.ts:266-279) \u2014 do NOT rebuild the timbre. suppressAlong ALREADY computes the exact near-miss geometry \u2014 do NOT recompute it; just emit at the site it already finds. The distant-shooter nearmiss tail (player.ts:494) is a DIFFERENT thing (the report's thump tail) and should stay.",
+     "risk": "Determinism: the snap effect must use this.rng / no new RNG source, and the throttle must be deterministic per-unit (a counter, not wall-clock). New effect is transient (not serialized \u2014 Effect isn't in serialize, combat.ts:316), so no save-migration. Balance: emit-only, suppression math unchanged. Perf: throttled to flinch-rate; cheap. Containment: gate strictly to player units so the world isn't carpeted with snaps from every round in every distant firefight.",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "'explore all of combat \u2014 visual, simulation, AND audio' / incoming-fire feel \u2014 the snap is the single most-requested missing combat sound and the sim already does the hard geometry."
+    },
+    {
+     "title": "Split the .50-cal / heavy signature from the 7.62 MMG so calibre is audible",
+     "problem": "The axis names '5.56 crack vs 7.62 vs .50 vs RPG' as distinct signatures. Today the Effect carries only faction+size, and the muzzle effect tags size=1.6 for BOTH mmg (M240/PKM, 7.62) and hmg (M2/DShK, .50/12.7) (combat.ts:927). The mapper's only split is size>=1.5 (mapper.ts:137). So a .50 M2 and a 7.62 M240 are acoustically IDENTICAL (both mg_us), and DShK==PKM. The deepest, most distinctive report in the valley \u2014 the thudding .50 / DShK \u2014 has no unique voice.",
+     "doctrinalBasis": "FM 3-22.9 / first-hand accounts: the .50 (12.7mm) and DShK have a markedly deeper, slower, more concussive report than 7.62 GPMG fire \u2014 a Korengal vet distinguishes a DShK on the ridge from a PKM by ear instantly. The muzzle blast carries calibre identity; modeling 5.56/7.62 but collapsing .50 into 7.62 leaves the most identifiable heavy gun unvoiced.",
+     "evidence": [
+      "lib/sim/combat.ts:927 (size 1.6 for BOTH hmg AND mmg \u2014 no .50 vs 7.62 distinction)",
+      "lib/audio/mapper.ts:137 (mg = size>=1.5, single threshold)",
+      "lib/sim/weapons.ts:78-80 m2 cls:hmg .50, :72-74 m240 cls:mmg 7.62, :196-198 dshk cls:hmg, :171-173 pkm cls:mmg",
+      "lib/audio/synth.ts:154-177 WEAPON_TABLE has only 4 rows (us/ins x mg/rifle) \u2014 no heavy row"
+     ],
+     "proposedChange": "Give the muzzle effect a third size tier: hmg=2.0, mmg=1.6, else 1 (combat.ts:927, a one-line ternary expansion). In the mapper, route size>=1.9 to new heavy cues (mg_us_heavy / mg_insurgent_heavy); add corresponding WEAPON_TABLE rows in synth.ts tuned deeper/slower (bodyCenterHz ~1800-2100, lower formant, longer subDur, slower rpmStep ~0.10-0.12s for the M2's ~500-635 rpm vs the 7.62 ~700-750). Add KIND_TRIM/KIND_WET/KIND_LOUDNESS/KIND_PRIORITY entries (the exhaustive Records force this at compile time \u2014 the type system is the checklist). Pairs naturally with proposal 1 (one crack per round).",
+     "integrationSeam": "lib/sim/combat.ts:927 (size tiers \u2014 sim); lib/audio/mapper.ts:137-145 effectCue (third threshold); lib/audio/cue.ts CueKind union + synth.ts WEAPON_TABLE + synthCue + player.ts KIND_* Records (the compiler fails until every Record is updated \u2014 done-gate built in).",
+     "howToVerify": "scripts/audio-render.ts already measures centroidHz per cue (the brightness tell, issue-017 'M4 6860 > AK 6212'). Add heavy cues to the palette scene; assert spectral-centroid ordering: muzzle_us(brightest 5.56) > mg_us(7.62) > mg_us_heavy(.50, lowest). Before: .50 centroid == 7.62 centroid (identical cue). After: a measurable >~800 Hz separation. Live: A/B a DShK on the ridge vs a PKM, confirm the deeper concussive report.",
+     "confidence": 0.6,
+     "alreadyModeled": "The 5.56-vs-7.62 brightness split via bodyCenterHz/formantHz ALREADY exists and works (WEAPON_TABLE, issue-017 verified M4>AK) \u2014 do NOT re-tune those. The size>=1.5 MG branch ALREADY exists \u2014 this only ADDS a tier above it. Effects are NOT serialized, so the new size value needs no save-migration.",
+     "risk": "Determinism: sim change is a deterministic constant (no RNG), effects transient (not persisted). Balance: size is cosmetic on the Effect (ballistics use weaponId, not effect.size) \u2014 confirm size isn't read by any gameplay path before changing (grep e.size usage). Mix: a deeper, louder heavy report must not overpower \u2014 set KIND_LOUDNESS just above mg but below blast; verify firefight peakDb stays < 0 dBFS. Contain by re-running audio-render firefight scene.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'weapon signatures (5.56 vs 7.62 vs .50 vs RPG)' \u2014 the .50/DShK is currently indistinguishable from 7.62; this is the explicit axis ask."
+    },
+    {
+     "title": "Add a sim-driven volume-of-fire mix lift so a heavy firefight FEELS heavy",
+     "problem": "The HDR auto-mixer (player.ts:412-421) keys the loudness window off the single LOUDEST current sound, ducking everything quieter UNDER it \u2014 engineered so an IED makes the world go quiet. That's right for a blast, but it means a sustained 4-shooter firefight (many simultaneous muzzle cues of equal loudness) sounds about as intense as two men trading shots: the window pins to one muzzle's loudness regardless of how MANY guns are up. There's no audio read-out of the volume of fire / intensity of contact the sim knows about.",
+     "doctrinalBasis": "First-hand Korengal (Restrepo): the defining quality of a TIC is the WALL of fire \u2014 the cumulative density, not any single report. FM 3-21.8 'volume of fire' is a tracked battlefield quantity. The current mix flattens a 12-gun ambush to the same perceived level as a sniper exchange.",
+     "evidence": [
+      "lib/audio/player.ts:412-421 (HDR window keyed on the single loudest sound, not aggregate density)",
+      "lib/audio/player.ts:335-366 tick (no notion of recent-fire density / shooter count)",
+      "lib/audio/cue.ts:36 (cue.gain is per-event intensity, never an aggregate)",
+      "state/store.ts:612-617 (audio.tick gets effects/log/fireMissions/inContact \u2014 it COULD derive a fire-density signal from the muzzle effect rate already in the stream)"
+     ],
+     "proposedChange": "Compute a render-side 'volume of fire' scalar in AudioEngine.tick \u2014 a decaying count of muzzle/mg cues per second (EMA over the cue stream the mapper already returns, or count muzzle effects in the live array). Use it to (a) gently raise combatBus trim and/or a low rumble/roar bed under dense fire, and (b) widen the HDR window so simultaneous shooters stack rather than duck each other. Purely render-side smoothing (allowed, Law 7: a perf-clock EMA that never feeds the sim). This makes intensity-of-contact audible without touching the sim or determinism.",
+     "integrationSeam": "lib/audio/player.ts AudioEngine.tick (derive fireDensity from cues/effects before scheduling) + the HDR window update at player.ts:345/417 (widen HDR_SIZE or lift windowTop floor as a function of fireDensity). Optionally a faint 'firefight roar' bed on a new bus.",
+     "howToVerify": "scripts/audio-render.ts firefight scene measures rmsDb/lufs under load. Build a 2nd 'light contact' scene (2 shooters) vs the existing dense firefight; before: similar perceived lufs (HDR pins to one muzzle). After: the dense scene reads measurably hotter (target +4-6 LUFS spread between light and heavy contact). Confirm no clip (peakDb < 0). Live: A/B a 2-man exchange vs a full-squad ambush by ear.",
+     "confidence": 0.45,
+     "alreadyModeled": "The HDR window, ducking, and voice-stealing ALREADY exist and are deliberately tuned for the 'somber, blast-makes-it-quiet' feel (issue-017) \u2014 do NOT undo the IED-goes-quiet behavior; this must lift SUSTAINED SMALL-ARMS density only, not blasts. cue.gain ALREADY scales single-event intensity. The limiter ALREADY protects the sum (player.ts:224-231).",
+     "risk": "Determinism: render-only EMA on the perf clock \u2014 must NOT feed lib/sim (Law 7). Mix/balance: easy to overdo and destroy the somber dynamic range the soundscape campaign built; keep the lift modest (a few dB) and gate it to small-arms density so HE still ducks the world. This is the lowest-confidence proposal \u2014 verify the spread numerically and ensure the calm->combat 23 dB spread (issue-017) isn't compressed. Could be cut if the oracle shows it muddies the mix.",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'explore volume of fire' / 'explore all of combat including audio' \u2014 a big firefight currently doesn't sound bigger than a small one."
+    }
+   ]
+  },
+  {
+   "axis": "realism-wildcard",
+   "proposals": [
+    {
+     "title": "Suppressed/pinned men must fire LESS (cadence gate), not just shoot wide",
+     "problem": "A suppressed or pinned soldier fires at full rate today. updateFiring's inter-burst cooldown (combat.ts:822) is rng.range(0.5,1.4)*(auto?1:1.6)*(2-composure) \u2014 it folds in composure but has ZERO suppression term. burstLeft is committed at full length (combat.ts:894-898). The 'pinned' state (friendly.ts:39 u.composure<0.25||u.suppression>0.55) only changes movement/stance/cover decisions; it never reaches the firing path. So a man cracking rounds past gets driven to the dirt for cover but keeps servicing his weapon at the same volume, with suppression merely widening dispersion (ballistics.ts:61). This is the owner's literal verbatim complaint and a first-order doctrinal error.",
+     "doctrinalBasis": "FM 3-21.8 / FM 7-8: the PURPOSE of suppressive fire is to make the enemy stop firing and stop moving \u2014 'fix' them. Restrepo/The Outpost first-hand: under effective fire men get small and stop returning fire until the volume lifts or a leader gets them back on the gun. A pinned man poking a rifle over cover fires sporadically, not in steady bursts. Suppression that only degrades accuracy but not VOLUME inverts the doctrinal effect.",
+     "evidence": [
+      "lib/sim/combat.ts:822 (cooldown = rng.range(0.5,1.4)*(weapon.auto?1:1.6)*(2-u.composure) \u2014 no suppression factor)",
+      "lib/sim/combat.ts:894-898 (burst = rng.int(bmin,bmax); committed full regardless of suppression)",
+      "lib/sim/combat.ts:888-891 (aimProgress gate uses no suppression)",
+      "lib/sim/ballistics.ts:61 (suppression today ONLY multiplies dispersion moa by 1+supp*2.4)",
+      "lib/sim/ai/friendly.ts:39 (pinned computed for movement/cover, not firing)"
+     ],
+     "proposedChange": "Add a suppression cadence gate in updateFiring, deterministic via this.rng. (1) Inter-burst cooldown (combat.ts:822): multiply by (1 + u.suppression*K_cool) with K_cool~2.0 \u2014 a 0.6 suppression roughly doubles the pause. (2) Burst length (combat.ts:894-898): scale committed burst by (1 - u.suppression*0.5) floored at 1 \u2014 suppressed men fire shorter, ragged bursts. (3) A pinned gate: when u.suppression>0.55 && u.composure<0.4 (the SAME threshold combat-fx.ts drawSuppressionCues already renders as 'pinned'), make a deterministic this.rng.chance(suppression) test SKIP the burst this cycle and set a short re-check cooldown \u2014 so a pinned man fires only in occasional desperate snaps, not steady bursts. This unifies the existing render-only 'pinned' cue with a real sim consequence (Law 6) instead of adding a fourth special case.",
+     "integrationSeam": "lib/sim/combat.ts CombatSim.updateFiring \u2014 cooldown at :822, burst-commit at :894-898, plus a new suppression skip-gate just before the burst-begin block at :893. Pinned threshold mirrors combat-fx.ts drawSuppressionCues (suppression>0.55 && composure<0.4).",
+     "howToVerify": "Headless: extend a combat probe (scripts/combat or balance.ts) to log rounds-fired-per-man bucketed by suppression band over a 50-min fight; expect suppressed-band (supp>0.5) rounds/min to drop ~40-60% vs unsuppressed, and total friendly+enemy ammoExpended in heavy contact to fall (fewer rounds from pinned men). Confirm balance.ts STALL CHECK still passes and 50-min KIA stays within band (this is the regression risk \u2014 see below). Live: drive a TIC via window.__ITM, watch a flanked element get pinned and visibly slow/stop returning fire while the base-of-fire keeps hammering.",
+     "confidence": 0.9,
+     "alreadyModeled": "Suppression ALREADY degrades accuracy (ballistics.ts:61) and slows movement (combat.ts:659 speed*=1-supp*0.4) and lowers composure recovery (combat.ts:1199-1201). composure ALREADY lengthens the inter-burst pause (combat.ts:822). The 'pinned' visual cue ALREADY exists (combat-fx.ts). Do NOT re-add accuracy degradation or a new pinned visual \u2014 only the FIRING-VOLUME consequence is missing.",
+     "risk": "Balance: cutting suppressed men's fire reduces total outgoing rounds and could shift the casualty exchange (the c561d29 revert shows combat balance is sensitive). Contain by tuning K on the tuned seed set then proving 50-min KIA on the held-out tail (survey-40..59) before shipping; keep the pinned skip-gate probabilistic (rng.chance) so it never hard-locks a man to zero fire (which would feel dead). Determinism preserved \u2014 all randomness via this.rng.",
+     "estImpact": "high",
+     "ownerComplaintAddressed": "SUPPRESSED SOLDIERS SHOULDN'T FIRE AS MUCH (verbatim); also 'explore rate of fire + personality of combatants' and 'combat is cluttered' (fewer rounds from pinned men = less visual chaff)."
+    },
+    {
+     "title": "Insurgent tracers should burn GREEN, not orange-red \u2014 the iconic Korengal tell",
+     "problem": "drawProjectiles colors insurgent tracers/rounds orange-red (255,90,40) and US warm-yellow (255,220,120) (draw.ts:752). Real Warsaw-Pact 7.62x39 / 7.62x54R / 12.7x108 tracer compositions burn GREEN; US 5.56/7.62 tracers burn red/orange. Every Korengal first-hand account fixes on this: the enemy's green tracer arcing across the valley vs friendly red. Coloring the enemy orange-red is precisely backwards from what a vet expects and is a recognizability miss the smoothness/clutter/cadence axes won't catch.",
+     "doctrinalBasis": "First-hand Korengal/Kunar accounts (Restrepo, Junger's War, The Outpost) repeatedly describe enemy GREEN tracer (Soviet-bloc R-tracer chemistry) vs US red/orange tracer (M196/M62). This is doctrine-of-the-eye: a soldier who was there reads green = incoming, red = ours, instantly.",
+     "evidence": [
+      "lib/render/draw.ts:752 (col = us/ana ? '255,220,120' : '255,90,40' \u2014 insurgent is orange-red)",
+      "lib/render/draw.ts:717 (indirect lob uses same friendly/enemy warm split \u2014 separate, fine to leave)",
+      "lib/sim/weapons.ts:158-200 (insurgent arsenal is all 7.62x39/x54R/12.7x108 \u2014 green-tracer calibers)"
+     ],
+     "proposedChange": "Render-side only (lib/render, no sim/determinism touch). In draw.ts:752 change the insurgent branch to a green tracer, e.g. '120,255,120' for the bright head with a slightly desaturated dim tail, and keep US warm-red/orange. Keep the tracer-head dot warm-white (draw.ts:768) for both since the burning element flares white-hot at the tip regardless of color. This is a one-line palette correction with high recognizability payoff and no balance impact. (Note the DO-NOT-RETRY 'off-palette thermal-cyan night FX' was a night-overlay garishness problem \u2014 a saturated green TRACER is historically correct and self-limited to the tracer line, not an ambient night wash; pick a slightly muted green if pure green clashes with the foliage palette.)",
+     "integrationSeam": "lib/render/draw.ts drawProjectiles :752 (the col ternary). Optionally also tint the night additive tracer-glow in combat-fx.ts to match so the green reads at night too.",
+     "howToVerify": "Live: drive a TIC via node scripts/shoot.mjs / window.__ITM at a range where both sides are firing; before/after screenshot \u2014 enemy tracers read green, friendly red. Self-critique per CLAUDE.md (render output, judge, revise >=2 rounds) so the green isn't lost against vegetation. No headless metric needed (pure render); confirm npm run build + tsc green.",
+     "confidence": 0.82,
+     "alreadyModeled": "Tracers ARE faction-tinted today (draw.ts:752) and faction-distinguished by warm-vs-orange \u2014 so faction distinction exists; what's WRONG is the specific enemy hue. The tracer dot/glow and 18px tail already exist. Do NOT add a new tracer system \u2014 only correct the insurgent color value.",
+     "risk": "Pure render/palette \u2014 zero determinism/balance/perf risk. Only risk is the green clashing with the terrain palette at far zoom; contain by self-critiquing the rendered output and choosing a muted/bright-cored green, and by deferring at ppm<0.45 where tracers already collapse into combat haze (draw.ts:743).",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'bullets should be smooth and visible the whole way' / 'explore all of combat \u2014 visual' \u2014 correct tracer color is a core visual-authenticity win a vet keys on."
+    },
+    {
+     "title": "Tracer ratio should be weapon-role-scoped: belts trace, riflemen mostly don't",
+     "problem": "spawnProjectile sets tracer = weapon.auto ? rng.chance(0.25) : rng.chance(0.12) (ballistics.ts:207). That makes EVERY semi-auto rifleman (M4/M16/AKM single shots) throw a visible tracer ~12% of rounds, and treats a belt-fed MG (M240/SAW/PKM, fixed 4:1-5:1 traced belt) the same 0.25 as an AKM on auto. In reality US riflemen on M855 carry essentially no tracers (the SAW/240 gunner is the tracer source \u2014 that's the whole point of the gun marking targets); a rifleman tracer is rare. A vet sees tracers coming off every rifle and clocks it as wrong, and it adds to the 'cluttered' visual.",
+     "doctrinalBasis": "Belt-fed MGs (M249/M240/PKM/M2) load fixed ball:tracer belts ~4:1 (M240) to 5:1 \u2014 every 4th-5th round traces, by design, so the gunner can 'walk' fire and the squad reads the target. US riflemen typically carry ball-only magazines (maybe one tracer at the magazine bottom as a bingo cue); the SAW gunner does the tracing. FM 3-21.8 base-of-fire doctrine: the automatic weapon marks; riflemen engage point targets.",
+     "evidence": [
+      "lib/sim/ballistics.ts:207 (tracer: weapon.auto ? rng.chance(0.25) : rng.chance(0.12) \u2014 role-blind, uses only the auto flag)",
+      "lib/sim/weapons.ts:65-82,170-200 (belt-fed cls 'lmg'/'mmg'/'hmg' exist as a distinct class but aren't used for tracer ratio)",
+      "lib/sim/weapons.ts:53-63,158-163 (m4/m16/akm carbine/rifle \u2014 currently trace at auto-0.25 or 0.12)"
+     ],
+     "proposedChange": "Make tracer ratio a per-weapon-class property (deterministic, sim-side). Belt-fed guns (cls lmg/mmg/hmg) trace ~0.22 (4:1-5:1 belt). Carbines/rifles/DMR/sniper/pistol trace ~0.02-0.04 (rare \u2014 a rifleman's loaded tracer or none). Optionally add an explicit weapon.tracerRatio field to weapons.ts so it's data-driven and the exhaustive Record forces every weapon to declare it (CLAUDE.md compiler-guard pattern), with belts ~0.22 and rifles ~0.03. spawnProjectile reads weapon.tracerRatio instead of the auto ternary. This concentrates tracer streams on the guns (where the eye should go \u2014 the base of fire) and de-clutters the rifle fire.",
+     "integrationSeam": "lib/sim/ballistics.ts:207 spawnProjectile (replace the auto ternary with rng.chance(weapon.tracerRatio ?? roleDefault)); lib/sim/weapons.ts Weapon interface + WEAPONS table (new tracerRatio field). No persisted-state change (tracer is per-projectile, transient).",
+     "howToVerify": "Headless: count tracer:true rounds by weapon class over a fight (extend a combat probe) \u2014 expect belt-fed ~0.22 traced, rifles ~0.03. Determinism: same-seed run must reproduce identical tracer flags (it will \u2014 single rng.chance per round, ordering unchanged). Live: screenshot a base-of-fire \u2014 tracer streams now pour from the SAW/240, rifles run dark. tsc fails until every weapon gets a tracerRatio if you add the field (the intended compiler guard).",
+     "confidence": 0.72,
+     "alreadyModeled": "Tracers ARE more frequent on auto weapons today (0.25 vs 0.12, ballistics.ts:207) \u2014 so 'autos trace more' is partly modeled. What's missing is (a) belt-vs-rifle distinction (an AKM on auto is not a belt MG) and (b) riflemen tracing far too often. Do NOT claim tracers are unmodeled \u2014 refine the ratio, don't add the concept.",
+     "risk": "Low. Render/perception only (tracer is cosmetic + a small render-cost saver since fewer tracer tails). Slight determinism note: changing the rng.chance probability shifts the RNG-consumed value per round but ordering is unchanged, so the seed still reproduces (the contract is reproducibility of a given seed, not cross-version identity). Adding a weapon field needs no serialize() change (static weapon data).",
+     "estImpact": "med",
+     "ownerComplaintAddressed": "'combat is cluttered' (fewer stray rifle tracers, streams concentrated on the guns) and 'explore all of combat \u2014 visual'."
+    },
+    {
+     "title": "No barrel-overheat / sustained-fire limit on belt-fed MGs",
+     "problem": "Belt-fed guns can fire at cyclic rate indefinitely. updateFiring/fireRound apply no sustained-fire penalty: a SAW (cyclicRPM 850, burst[6,12]) or M240 can hose continuously, bounded only by reserveAmmo (combat.ts:870-884). There is no barrel-heat accumulator, no forced barrel-change pause, no cyclic-vs-sustained-rate distinction. Real GPMG/SAW doctrine forces the gunner to fire in bursts and change barrels (M240 sustained ~100 rds/min, rapid ~200 with a barrel change every ~2 min); a vet notices an MG that never pauses to swap barrels or 'talks' with its pair.",
+     "doctrinalBasis": "FM 3-22.68 / FM 3-21.8 MG employment: cyclic (~650-850 rpm) is for emergencies only; SUSTAINED rate ~100 rds/min with barrel changes prevents cook-off and barrel burnout. 'Talking guns' \u2014 paired MGs alternate bursts so one is always up while the other reloads/cools. The Outpost/Restrepo: gunners fire controlled bursts and change barrels mid-fight.",
+     "evidence": [
+      "lib/sim/combat.ts:815-826,894-898 (burst length from weapon.burst, inter-burst cooldown from :822 \u2014 no heat accumulator, no barrel-change pause)",
+      "lib/sim/weapons.ts:65-82 (m249/m240/m2 have cyclicRPM and burst but no sustainedRPM or barrelHeat fields)",
+      "lib/sim/combat.ts:870-884 (only ammo, not heat, limits sustained MG fire)"
+     ],
+     "proposedChange": "Add a per-unit heat accumulator for belt-fed weapons only (cls lmg/mmg/hmg). Each fired round adds heat; heat decays during the inter-burst cooldown. When heat crosses a barrel-change threshold (calibrate to ~ a few hundred sustained rounds), force a one-time longer pause (deterministic via this.rng, ~5-10 s 'barrel change') and reset heat \u2014 modeling the gunner swapping the barrel. This naturally produces controlled bursts and pauses instead of an endless stream, and (bonus) reduces the visual firehose the owner calls cluttered. Persist u.barrelHeat in serialize()/loadWorld() (Law 7). Keep it MG-only so rifles are untouched.",
+     "integrationSeam": "lib/sim/combat.ts updateFiring (add heat on fireRound :905-930, check threshold before burst-begin :893; longer cooldown into :822 path); lib/sim/entities.ts Unit (new barrelHeat:number, defaulted in makeUnit + ALL spawn paths); serialize()/loadWorld() must add barrelHeat.",
+     "howToVerify": "Headless: log a SAW/240 gunner's continuous-fire duration in a sustained fight \u2014 expect periodic ~5-10s gaps (barrel changes) rather than an unbroken stream; rounds-per-minute for belt-fed should converge toward the sustained rate under long contact. balance.ts STALL CHECK + 50-min KIA must stay in band on the held-out tail. Smoke must round-trip the new barrelHeat field (serialize/loadWorld).",
+     "confidence": 0.5,
+     "alreadyModeled": "Inter-burst cooldowns + finite reserveAmmo (combat.ts:870-884) ALREADY prevent a literally infinite continuous stream, and burst ranges (weapons.ts) ALREADY chunk MG fire into bursts. So MGs don't fire one unbroken beam today \u2014 they burst. Do NOT claim MGs fire infinitely; the gap is specifically the absence of HEAT/barrel-change pacing and a cyclic-vs-sustained distinction.",
+     "risk": "Medium balance + scope. Throttling MG output changes the suppression economy and casualty exchange (same sensitivity that reverted c561d29); must prove on the held-out tail. New persisted field is a determinism/serialize obligation. Lower-priority than the suppression-cadence and tracer fixes \u2014 flag as a candidate, not a must-do; an empty-handed honest call is acceptable if balance can't absorb it.",
+     "estImpact": "low",
+     "ownerComplaintAddressed": "'explore rate of fire + personality of combatants' and indirectly 'combat is cluttered' (MGs pause to change barrels instead of streaming endlessly)."
+    }
+   ]
+  }
+ ]
+}

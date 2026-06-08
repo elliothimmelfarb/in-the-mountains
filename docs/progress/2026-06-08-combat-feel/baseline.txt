@@ -1,0 +1,93 @@
+COMBAT-FEEL BASELINE (HEAD 5945288) — Mon Jun  8 22:35:50 WEST 2026
+harness: scripts/combat-feel-probe.ts <seed> <seconds>
+============================================================
+
+=== COMBAT-FEEL PROBE — seed=feel-0 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 453 direct rounds fired · 453 muzzle flashes · 4 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 453
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  93%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  1.9   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 453
+    ... that EVER reach a drawable frame (k≤0.6): 0/453  (0%)
+    ... min k the renderer ever sees (k≤0.6 is drawable): mean 0.83  (born-aged to 0.1/0.12=0.83 => past cutoff => INVISIBLE)
+    of the drawable ones: mean 0.0 frames on screen, mean 0.00 distinct fade steps (strobe if ≪ frames)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:2.34  0.15-0.35:0.61  0.35-0.55:0.87  0.55-0.75:1.72  0.75-1.0:1.34
+      INSURGENT  0.00-0.15:3.68  0.15-0.35:2.77  0.35-0.55:0.11  0.55-0.75:0.07  0.75-1.0:0.03
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+      US         bursts:70  mean 5.37  p10 3  p90 9  max 12
+      INSURGENT  bursts:9  mean 6.22  p10 3  p90 8  max 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+
+
+=== COMBAT-FEEL PROBE — seed=feel-1 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 672 direct rounds fired · 676 muzzle flashes · 5 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 672
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  90%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  2.3   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 676
+    ... that EVER reach a drawable frame (k≤0.6): 0/676  (0%)
+    ... min k the renderer ever sees (k≤0.6 is drawable): mean 0.83  (born-aged to 0.1/0.12=0.83 => past cutoff => INVISIBLE)
+    of the drawable ones: mean 0.0 frames on screen, mean 0.00 distinct fade steps (strobe if ≪ frames)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:3.55  0.15-0.35:0.86  0.35-0.55:1.05  0.55-0.75:0.95  0.75-1.0:1.33
+      INSURGENT  0.00-0.15:4.26  0.15-0.35:5.00  0.35-0.55:1.58  0.55-0.75:0.13  0.75-1.0:0.30
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+      US         bursts:103  mean 6.02  p10 3  p90 10  max 23
+      INSURGENT  bursts:6  mean 7.17  p10 3  p90 9  max 9
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+
+
+=== COMBAT-FEEL PROBE — seed=feel-2 · 120s @ 60fps · zoom 1.4px/m ===
+firefight: 922 direct rounds fired · 927 muzzle flashes · 5 enemies left
+
+[1] BULLET SMOOTHNESS  (owner: "bullets appear midway / don't travel / not smooth")
+    tracers analyzed: 922
+    per-frame screen JUMP  (px)   verbatim  median 123.2  p95 128.1  max 128.1
+                                  interp    median 20.5  p95 21.4  max 21.4
+    FROZEN frames (bullet stuck)  verbatim  91%   (interp: ~0% by construction — continuous lerp)
+    distinct on-screen positions per bullet (whole flight)  verbatim  2.4   (interp: = frames alive, smooth)
+
+[2] FX FLICKER  (owner: "visual feedback is a little flickery")
+    muzzle flashes sampled by the renderer: 927
+    ... that EVER reach a drawable frame (k≤0.6): 0/927  (0%)
+    ... min k the renderer ever sees (k≤0.6 is drawable): mean 0.83  (born-aged to 0.1/0.12=0.83 => past cutoff => INVISIBLE)
+    of the drawable ones: mean 0.0 frames on screen, mean 0.00 distinct fade steps (strobe if ≪ frames)
+
+[3] SUPPRESSION → VOLUME OF FIRE  (owner: "suppressed soldiers shouldn't be firing as much")
+    rounds per shooter-second, by shooter suppression at trigger-pull:
+      US         0.00-0.15:2.62  0.15-0.35:0.33  0.35-0.55:0.32  0.55-0.75:0.37  0.75-1.0:0.32
+      INSURGENT  0.00-0.15:3.90  0.15-0.35:0.00  0.35-0.55:0.34  0.55-0.75:0.11  0.75-1.0:0.05
+      (each cell = rounds/shooter/sec; · = no shooter-ticks observed in that bucket.
+       FLAT across buckets = suppression does NOT throttle fire (the bug). Should DECLINE rightward.)
+
+[4] BURST LENGTH BY FACTION  (owner: "rate of fire + personality of combatants")
+      US         bursts:176  mean 5.00  p10 1  p90 10  max 12
+      INSURGENT  bursts:5  mean 6.80  p10 3  p90 8  max 8
+      (personality: US should run TIGHTER/shorter controlled bursts than ragged insurgent fire.)
+
+

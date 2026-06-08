@@ -367,6 +367,20 @@ up-valley by day / katabatic down at night — `world.windVector`) drifts bullet
 **Combat-load weight** (`combatLoadKg` — the Korengal "every man a mule", ~30 kg for a rifleman to
 ~56 kg for a 240 gunner) drags movement speed and accelerates fatigue.
 
+**Fire discipline & cadence** (`updateFiring`): a burst's *length* is the man, not just the weapon.
+Each burst reshapes the same `rng.int(weapon.burst)` draw (no extra rng — determinism preserved) by a
+**discipline** score (high composure + low aggression ⇒ controlled taps toward the band's floor; green
+or hot-blooded ⇒ ragged spray toward the top, with a modest panic over-spray past it). **Suppression
+throttles volume of fire**, not just accuracy (FM 3-21.8): above a threshold it shortens the burst, and
+it stretches the between-burst cooldown (capped ×2.5 — a pinned man is slowed, never silenced). A tasked
+base-of-fire gunner (`rof === "suppress"`) overrides both to keep raking, so the assault drill still wins
+fire superiority. **Tracers** ride the guns: belt-fed weapons trace ~1-in-4, riflemen ~1-in-30 (per
+`weapon.cls`); friendly tracer renders amber, ComBloc (insurgent) tracer **green** — the "green incoming,
+red outgoing" read. *Render note:* fast combat motion (projectile position, transient-effect age) is
+**interpolated** at draw time against the loop's sub-tick fraction (`store.getSimFrac`), so an 880 m/s
+round sweeps smoothly between the 0.1 s ticks instead of teleporting, and a 0.12 s muzzle flash actually
+renders (it was previously aged past its draw cutoff within its birth tick).
+
 ## Combat tick (`combat.ts`)
 
 `CombatSim.tick(dt)` (fixed 0.1 s steps) runs, in order: timers/bleeding/suppression-decay →

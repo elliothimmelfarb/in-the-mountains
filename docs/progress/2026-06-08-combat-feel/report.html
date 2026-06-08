@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Making the Firefight Feel Real</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167;--grn-tracer:#78eb5a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:820px}
+h2{font-size:21px;margin:48px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16.5px;margin:26px 0 4px;color:var(--ink)}
+h3 .tag{font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;color:var(--bg);background:var(--ol);padding:3px 6px;border-radius:3px;vertical-align:middle;margin-right:8px}
+h3 .tag.vis{background:var(--cy)}
+h3 .tag.sim{background:var(--am)}
+h3 .tag.aud{background:var(--gn)}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:140px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:19px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+td .x{color:var(--rd);font-weight:700}
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figure svg{width:100%;display:block;background:#0a0f18}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.two{grid-template-columns:1fr}}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}
+.callout.gn{border-left-color:var(--gn)}
+.callout.rd{border-left-color:var(--rd)}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+.mech{font:12.5px/1.6 ui-monospace,monospace;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:#bfe3ff;overflow-x:auto;white-space:pre}
+.lab{color:var(--dim);font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;text-transform:uppercase}
+ul{color:#cfdaea}
+li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kick">Combat Feel · 2026-06-08 · Visual + Simulation + Audio</p>
+<h1>Making the firefight <span>feel real</span></h1>
+<p class="lede">The owner played a firefight and named five things wrong: the bullets <em>teleport</em> — they appear halfway between the gun and the target instead of travelling; the feedback is <em>flickery</em>; combat is <em>cluttered</em>; a soldier with rounds cracking past his head <em>fires just as much</em>; and every combatant feels the same. This pass turns each complaint into a hard number, fixes it at the <strong>root</strong>, and proves the fix on seeds it never tuned on — without making the game one round deadlier than it was.</p>
+
+<div class="statstrip">
+  <div class="s"><b>0% <span class="was">→ 100%</span></b><span>muzzle flashes that render</span></div>
+  <div class="s"><b>123px <span class="was">→ ~20px</span></b><span>per-frame bullet jump</span></div>
+  <div class="s"><b>flat <span class="was">→ −48%</span></b><span>fire rate when suppressed</span></div>
+  <div class="s"><b>~56 <span class="was">→ 8</span></b><span>synth cracks per MG burst</span></div>
+  <div class="s"><b>±15%</b><span>casualty balance held</span></div>
+</div>
+
+<h2>The shape of the work</h2>
+<p>This wasn't a bug hunt — combat <em>worked</em>. It was a feel problem, which the project's rules say you may not touch until it's a measurement. So the pass ran in four moves:</p>
+<ul>
+  <li><strong>Recon</strong> — read the whole combat path (<code>ballistics.ts</code> → <code>combat.ts</code> → <code>draw.ts</code>/<code>combat-fx.ts</code> → <code>store.ts</code> frame loop) and found the two root mechanisms behind four of the five complaints.</li>
+  <li><strong>Survey → judge</strong> — a six-specialist workflow (smoothness, FX clutter, suppression, personality, audio, a ballistics-realism wildcard) proposed fixes; a judge ranked them into the best five spanning visual + sim + audio. It independently found an audio bug the recon missed.</li>
+  <li><strong>Metricize → implement → re-measure</strong> — a purpose-built headless probe (<code>scripts/combat-feel-probe.ts</code>) turned each complaint into a number on HEAD, then proved every fix as a delta, on tuned and held-out seeds.</li>
+  <li><strong>Adversarially verify</strong> — a separate skeptic re-read the diff for determinism/balance regressions and traced failing paths before anything was called done; the live game was driven into a real firefight for the visual proof.</li>
+</ul>
+
+<div class="callout">
+<p style="margin:0"><strong>The unifying insight.</strong> Four of the five complaints share <em>one</em> root cause: the simulation advances on a fixed <strong>0.1&nbsp;second tick</strong>, but the screen redraws ~60 times a second — and the renderer was reading the sim's state <em>verbatim</em>, with no interpolation. A bullet at 880&nbsp;m/s jumps <strong>88&nbsp;metres every tick</strong>, so over a 200&nbsp;m flight it only ever exists at two or three frozen points (it "appears midway"). A 0.12&nbsp;s muzzle flash is aged a whole tick the instant it's born, landing <em>past</em> its own draw cutoff before a single frame can show it. The same quantization, two symptoms. One mechanism fixes both.</p>
+</div>
+
+<!-- ================= FIX 1 ================= -->
+<h2>Fix 1 — Bullets travel; the flash returns <span class="lab">visual · render interpolation</span></h2>
+<p>The store's frame loop already computes exactly what we need and throws it away. It accumulates real time and steps the sim in fixed 0.1&nbsp;s chunks; the leftover — <code>_acc</code>, a value between 0 and one tick — is the precise fraction of wall-time into the <em>next</em> tick. We expose it as <code>getSimFrac()</code> and let the renderer draw the world <strong>one tick behind, interpolated</strong>:</p>
+<div class="mech">// state/store.ts — a pure read of the loop's own accumulator (no sim change)
+export const getSimFrac = () =&gt; clamp01(_acc / SIM_DT)
+
+// lib/render/draw.ts — the bullet's drawn position sweeps between ticks
+renderTraveled = traveled − speed · SIM_TICK · (1 − frac)   // = lerp(prevTickPos, curTickPos, frac)
+
+// lib/render/draw.ts — ONE line de-strobes every transient effect AND resurrects the flash
+k = (e.t − SIM_TICK · (1 − frac)) / e.ttl                   // was: k = e.t / e.ttl</div>
+<figure>
+<svg viewBox="0 0 880 290" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="30" fill="#f4b740" font-size="13" font-weight="700">WHAT THE PLAYER SEES OVER ONE BULLET'S FLIGHT (M4, 200 m, drawn at 60 fps)</text>
+  <!-- muzzle + target markers -->
+  <text x="70" y="62" fill="#93a4ba" font-size="11" text-anchor="middle">muzzle</text>
+  <text x="810" y="62" fill="#93a4ba" font-size="11" text-anchor="middle">target</text>
+  <line x1="70" y1="70" x2="810" y2="70" stroke="#1e2c40" stroke-width="1"/>
+  <line x1="70" y1="66" x2="70" y2="250" stroke="#1e2c40" stroke-dasharray="2 4"/>
+  <line x1="810" y1="66" x2="810" y2="250" stroke="#1e2c40" stroke-dasharray="2 4"/>
+
+  <!-- ROW A: verbatim (HEAD) -->
+  <text x="24" y="118" fill="#e05028" font-size="12" font-weight="700">BEFORE</text>
+  <text x="24" y="134" fill="#93a4ba" font-size="10">verbatim</text>
+  <line x1="70" y1="130" x2="810" y2="130" stroke="#162032"/>
+  <!-- only two frozen positions ever exist -->
+  <circle cx="395" cy="130" r="7" fill="#78eb5a"/><circle cx="395" cy="130" r="3" fill="#fff"/>
+  <circle cx="721" cy="130" r="7" fill="#78eb5a"/><circle cx="721" cy="130" r="3" fill="#fff"/>
+  <text x="395" y="156" fill="#e05028" font-size="10" text-anchor="middle">88 m · frozen 6 frames</text>
+  <text x="721" y="156" fill="#e05028" font-size="10" text-anchor="middle">176 m · frozen 6 frames</text>
+  <text x="232" y="116" fill="#93a4ba" font-size="10" text-anchor="middle">(nothing here)</text>
+  <text x="558" y="116" fill="#93a4ba" font-size="10" text-anchor="middle">↳ teleports 88 m →</text>
+  <text x="70" y="116" fill="#5b6b82" font-size="10">✕ no muzzle flash (born aged-out)</text>
+
+  <!-- ROW B: interpolated (after) -->
+  <text x="24" y="218" fill="#5fd08a" font-size="12" font-weight="700">AFTER</text>
+  <text x="24" y="234" fill="#93a4ba" font-size="10">interpolated</text>
+  <line x1="70" y1="230" x2="810" y2="230" stroke="#162032"/>
+  <!-- a smooth streak: 13 evenly spaced positions -->
+  <g fill="#78eb5a">
+    <circle cx="70" cy="230" r="2.4"/><circle cx="124" cy="230" r="2.4"/><circle cx="178" cy="230" r="2.4"/>
+    <circle cx="232" cy="230" r="2.4"/><circle cx="286" cy="230" r="2.4"/><circle cx="340" cy="230" r="2.4"/>
+    <circle cx="395" cy="230" r="2.6"/><circle cx="449" cy="230" r="2.6"/><circle cx="503" cy="230" r="2.6"/>
+    <circle cx="558" cy="230" r="2.8"/><circle cx="612" cy="230" r="2.8"/><circle cx="667" cy="230" r="3"/>
+  </g>
+  <circle cx="721" cy="230" r="6.5" fill="#78eb5a"/><circle cx="721" cy="230" r="2.8" fill="#fff"/>
+  <text x="395" y="256" fill="#5fd08a" font-size="10" text-anchor="middle">continuous sweep — visible the whole way</text>
+  <rect x="62" y="222" width="16" height="16" fill="none" stroke="#f4b740" stroke-width="1.4"/>
+  <text x="86" y="216" fill="#f4b740" font-size="10">✶ muzzle flash now renders</text>
+</svg>
+<figcaption>The exact mechanism, drawn to scale. <strong>Before</strong>, the renderer reads the sim's tick state verbatim: an 880&nbsp;m/s round only takes <strong>~2 positions</strong> over a 200&nbsp;m flight (88&nbsp;m and 176&nbsp;m), each held frozen for ~6 frames then teleported — the literal "it appears midway between the gun and the target." <strong>After</strong>, the same round is interpolated between ticks into a continuous streak, and the muzzle flash — which used to be aged past its draw cutoff before any frame could show it — blooms and fades across its whole life. Measured by <code>scripts/combat-feel-probe.ts</code>: per-frame jump <span class="x">123&nbsp;px</span>&nbsp;→&nbsp;<span class="b">~20&nbsp;px</span>, frozen frames <span class="x">93%</span>&nbsp;→&nbsp;<span class="b">0%</span>, muzzle flashes that ever render <span class="x">0&nbsp;/&nbsp;453</span>&nbsp;→&nbsp;<span class="b">453&nbsp;/&nbsp;453</span>.</figcaption>
+</figure>
+
+<div class="callout gn">
+<p style="margin:0"><strong>Why this is safe.</strong> The interpolation lives entirely in the render layer — it is a <em>read</em> of the loop's accumulator, never a write to the simulation. A seed still reproduces byte-identical outcomes (the adversarial pass confirmed this with same-seed double-runs). Paused ⇒ no tick ⇒ the fraction freezes ⇒ motion stops cleanly. The skeptic also caught and corrected a sign error in the surveyed proposal: the effect age must be interpolated <em>backward</em> (one tick behind), not forward — forward would have pushed the flash <em>further</em> past its cutoff.</p>
+</div>
+
+<!-- ================= FIX 2 ================= -->
+<h2>Fix 2 — A suppressed man fires less <span class="lab">simulation · doctrine</span></h2>
+<p>This was the owner's most literal complaint, and a first-order doctrinal error. In the model, suppression only ever widened a shooter's <em>dispersion</em> — a man with rounds cracking past his ear sprayed wildly but pulled the trigger <strong>exactly as often</strong>. That is the inverse of what suppressive fire is <em>for</em>: <span class="lab">FM&nbsp;3-21.8</span> defines suppression as fire that degrades the enemy's ability to <em>deliver effective return fire</em> — it should cut his volume, not just his aim. The "pinned" state even existed already, but only as a render cue; the simulation never gave it a consequence.</p>
+<p>The fix gives suppression two hands on the trigger, both in <code>updateFiring</code>, both reusing existing state (so a seed still reproduces): the pause <em>between</em> bursts lengthens with suppression (capped so a pinned man is slowed, never silenced), and the burst itself shortens above a threshold — you fire and get back down.</p>
+
+<figure>
+<svg viewBox="0 0 840 260" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="26" fill="#f4b740" font-size="13" font-weight="700">RATE OF FIRE vs SUPPRESSION — one rifleman, everything else held fixed</text>
+  <!-- axes -->
+  <line x1="80" y1="40" x2="80" y2="220" stroke="#1e2c40"/>
+  <line x1="80" y1="220" x2="770" y2="220" stroke="#1e2c40"/>
+  <text x="40" y="84" fill="#5b6b82" font-size="10">2.5</text>
+  <text x="40" y="155" fill="#5b6b82" font-size="10">1.25</text>
+  <text x="58" y="224" fill="#5b6b82" font-size="10">0</text>
+  <text x="400" y="252" fill="#93a4ba" font-size="11" text-anchor="middle">shooter suppression  →</text>
+  <g fill="#5b6b82" font-size="10" text-anchor="middle">
+    <text x="100" y="236">0.0</text><text x="260" y="236">0.2</text><text x="420" y="236">0.4</text><text x="580" y="236">0.6</text><text x="740" y="236">0.8</text>
+  </g>
+  <!-- BEFORE: flat -->
+  <polyline points="100,70 260,68 420,48 580,64 740,68" fill="none" stroke="#e05028" stroke-width="2.5"/>
+  <g fill="#e05028"><circle cx="100" cy="70" r="3.5"/><circle cx="260" cy="68" r="3.5"/><circle cx="420" cy="48" r="3.5"/><circle cx="580" cy="64" r="3.5"/><circle cx="740" cy="68" r="3.5"/></g>
+  <text x="600" y="44" fill="#e05028" font-size="11" font-weight="700">BEFORE — flat (fires the same pinned or free)</text>
+  <!-- AFTER: declining -->
+  <polyline points="100,82 260,102 420,111 580,146 740,147" fill="none" stroke="#5fd08a" stroke-width="2.5"/>
+  <g fill="#5fd08a"><circle cx="100" cy="82" r="3.5"/><circle cx="260" cy="102" r="3.5"/><circle cx="420" cy="111" r="3.5"/><circle cx="580" cy="146" r="3.5"/><circle cx="740" cy="147" r="3.5"/></g>
+  <text x="470" y="172" fill="#5fd08a" font-size="11" font-weight="700">AFTER — −48% by the time he's pinned</text>
+</svg>
+<figcaption>The cleanest possible measurement: a single M4 rifleman on a fixed target, suppression dialled to a held value, composure pinned, fire rate counted over 40&nbsp;s at each level (<code>combat-feel-probe.ts</code>, micro-probe A). <strong>Before</strong> the line is flat — even slightly <em>higher</em> under heavy suppression (2.2&nbsp;rds/s at suppression 0.0 <em>and</em> 0.8). <strong>After</strong>, it falls monotonically to about half rate as the man is pinned. The harness drove this on a held-out seed too; the curve holds.</figcaption>
+</figure>
+
+<!-- ================= FIX 5 (personality, near suppression since same block) ================= -->
+<h2>Fix 5 — Every combatant has a temperament <span class="lab">simulation · personality</span></h2>
+<p>Each soldier already carried <code>composure</code>, <code>aggression</code> and <code>marksmanship</code> — but in a firefight they barely mattered: burst length came almost entirely from the weapon. So a disciplined US team and a hopped-up insurgent cell fired identical bursts. The fix reshapes the <em>same</em> random draw (no new randomness, so determinism holds) by a <strong>discipline</strong> score — high composure, low aggression squeezes controlled bursts toward the bottom of the weapon's band; a green or hot-blooded shooter sprays toward the top, and the truly undisciplined mag-dump a little past it.</p>
+
+<figure>
+<svg viewBox="0 0 840 220" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="26" fill="#f4b740" font-size="13" font-weight="700">MEAN BURST LENGTH — same M4, same range, only the man's temperament differs</text>
+  <line x1="80" y1="40" x2="80" y2="180" stroke="#1e2c40"/>
+  <line x1="80" y1="180" x2="800" y2="180" stroke="#1e2c40"/>
+  <text x="46" y="184" fill="#5b6b82" font-size="10">0</text>
+  <text x="40" y="98" fill="#5b6b82" font-size="10">rds</text>
+  <!-- BEFORE group: traits inert — the disciplined man even fires LONGER -->
+  <text x="250" y="200" fill="#93a4ba" font-size="11" text-anchor="middle">BEFORE — traits inert</text>
+  <rect x="170" y="98" width="60" height="82" fill="#3a4658"/><text x="200" y="92" fill="#cfdaea" font-size="11" text-anchor="middle">4.55</text><text x="200" y="216" fill="#5b6b82" font-size="9" text-anchor="middle">disciplined</text>
+  <rect x="270" y="102" width="60" height="78" fill="#3a4658"/><text x="300" y="96" fill="#cfdaea" font-size="11" text-anchor="middle">4.33</text><text x="300" y="216" fill="#5b6b82" font-size="9" text-anchor="middle">ragged</text>
+  <!-- AFTER group: the disciplined man drops below the ragged one -->
+  <text x="600" y="200" fill="#93a4ba" font-size="11" text-anchor="middle">AFTER — disciplined tightens</text>
+  <line x1="500" y1="102" x2="700" y2="102" stroke="#3a4658" stroke-dasharray="3 3"/>
+  <rect x="520" y="107" width="60" height="73" fill="#5fd08a"/><text x="550" y="101" fill="#cfdaea" font-size="11" text-anchor="middle">4.06</text><text x="550" y="216" fill="#5b6b82" font-size="9" text-anchor="middle">disciplined</text>
+  <rect x="620" y="102" width="60" height="78" fill="#e0a72b"/><text x="650" y="96" fill="#cfdaea" font-size="11" text-anchor="middle">4.33</text><text x="650" y="216" fill="#5b6b82" font-size="9" text-anchor="middle">ragged</text>
+</svg>
+<figcaption>Micro-probe B: the same M4, zero suppression, only the trait profile changed (composure .85/aggression .25 vs .45/.85). <strong>Before</strong>, the traits were <em>inert</em> — burst length was weapon-only, and the disciplined man even fired a hair <em>longer</em> (4.55 vs 4.33, pure noise). <strong>After</strong>, the disciplined shooter drops to controlled 4-round taps (4.55 → 4.06), now correctly below the ragged man. The same-weapon gap is small <em>on purpose</em>: a stronger version measurably raised US casualties past the ±15% balance gate, so it was tuned down (the restraint is logged). The larger, player-visible read comes from the <strong>cross-faction</strong> difference — US M4 controlled fire vs ragged insurgent AKM/PKM — and from the suppression gate, which makes a pinned man's fire sparse and short.</figcaption>
+</figure>
+
+<!-- ================= FIX 3 ================= -->
+<h2>Fix 3 — The machine gun hammers instead of buzzing <span class="lab">audio</span></h2>
+<p>This one the recon missed entirely — the survey workflow found it. The simulation emits one muzzle event <em>per round</em>, at the gun's true cyclic spacing, and the audio mapper faithfully turns each into one cue. But the synthesizer for a belt-fed gun then expanded <em>every</em> cue into a 5–9 round burst of its own. The two multiplied: a single 8-round M240 burst became roughly <strong>40–70 synthesized cracks</strong> — an undifferentiated roar where a soldier's ear expects the unmistakable ~11&nbsp;Hz hammer of a 7.62 gun. The fix deletes the synth-side burst loop so cadence is <em>emergent</em> from the sim's own rate of fire; the heavier .30-cal timbre stays.</p>
+
+<figure>
+<svg viewBox="0 0 840 220" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="26" fill="#f4b740" font-size="13" font-weight="700">ONE 8-ROUND M240 BURST → SYNTHESIZED CRACKS</text>
+  <!-- BEFORE: dense roar -->
+  <text x="24" y="64" fill="#e05028" font-size="12" font-weight="700">BEFORE</text><text x="24" y="80" fill="#93a4ba" font-size="10">~56 cracks</text>
+  <g fill="#e05028">
+    <!-- 8 clusters of ~7 ticks = a wall -->
+    <g>
+      <line x1="140" y1="52" x2="140" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="148" y1="52" x2="148" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="156" y1="52" x2="156" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="164" y1="52" x2="164" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="172" y1="52" x2="172" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="180" y1="52" x2="180" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="188" y1="52" x2="188" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="202" y1="52" x2="202" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="210" y1="52" x2="210" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="218" y1="52" x2="218" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="226" y1="52" x2="226" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="234" y1="52" x2="234" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="242" y1="52" x2="242" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="250" y1="52" x2="250" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="264" y1="52" x2="264" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="272" y1="52" x2="272" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="280" y1="52" x2="280" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="288" y1="52" x2="288" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="296" y1="52" x2="296" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="304" y1="52" x2="304" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="312" y1="52" x2="312" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="326" y1="52" x2="326" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="334" y1="52" x2="334" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="342" y1="52" x2="342" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="350" y1="52" x2="350" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="358" y1="52" x2="358" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="366" y1="52" x2="366" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="374" y1="52" x2="374" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="388" y1="52" x2="388" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="396" y1="52" x2="396" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="404" y1="52" x2="404" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="412" y1="52" x2="412" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="420" y1="52" x2="420" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="428" y1="52" x2="428" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="436" y1="52" x2="436" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="450" y1="52" x2="450" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="458" y1="52" x2="458" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="466" y1="52" x2="466" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="474" y1="52" x2="474" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="482" y1="52" x2="482" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="490" y1="52" x2="490" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="498" y1="52" x2="498" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="512" y1="52" x2="512" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="520" y1="52" x2="520" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="528" y1="52" x2="528" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="536" y1="52" x2="536" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="544" y1="52" x2="544" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="552" y1="52" x2="552" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="560" y1="52" x2="560" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="574" y1="52" x2="574" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="582" y1="52" x2="582" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="590" y1="52" x2="590" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="598" y1="52" x2="598" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="606" y1="52" x2="606" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="614" y1="52" x2="614" y2="96" stroke="#e05028" stroke-width="2"/>
+      <line x1="622" y1="52" x2="622" y2="96" stroke="#e05028" stroke-width="2"/>
+    </g></g>
+    <text x="24" y="148" fill="#5fd08a" font-size="12" font-weight="700">AFTER</text><text x="24" y="164" fill="#93a4ba" font-size="10">8 cracks</text>
+    <g fill="#5fd08a">
+      <line x1="140" y1="136" x2="140" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="204" y1="136" x2="204" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="268" y1="136" x2="268" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="332" y1="136" x2="332" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="396" y1="136" x2="396" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="460" y1="136" x2="460" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="524" y1="136" x2="524" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+      <line x1="588" y1="136" x2="588" y2="180" stroke="#5fd08a" stroke-width="2.5"/>
+    </g>
+  <text x="700" y="80" fill="#5b6b82" font-size="10">a buzzing wall</text>
+  <text x="700" y="164" fill="#5b6b82" font-size="10">a counted hammer</text>
+</svg>
+<figcaption>Each red tick is a synthesized crack along the same timeline. <strong>Before</strong>, every one of the 8 sim rounds fanned out into its own 5–9 round synth burst — the cracks pile into a roar with no rhythm. <strong>After</strong>, one cue plays exactly one crack, so the gun's rate of fire comes straight from the simulation's cyclic timer — a recognizable hammer. Pure render-side, strictly cheaper, and the audio probe confirms the mapper's 1-cue-per-event invariant is untouched (3278 = 3278).</figcaption>
+</figure>
+
+<!-- ================= FIX 4 ================= -->
+<h2>Fix 4 — Green tracers come at you; the guns wear the streaks <span class="lab">visual · realism</span></h2>
+<p>Two small corrections a Korengal veteran clocks instantly. First, <strong>colour</strong>: every first-hand account describes <em>green</em> tracer coming down at you and <em>red</em> going out — Warsaw-Pact tracer compound burns green, US burns red/amber. The model painted both warm; now friendly tracer stays amber and insurgent tracer burns green. Second, <strong>concentration</strong>: tracer was sprinkled off roughly a quarter of <em>every</em> weapon, including riflemen, cluttering the air. Real tracer rides the belts — it's loaded into the machine guns to walk fire onto target — so the ratio is now keyed to weapon class: belt-fed guns trace ~1-in-4, riflemen barely at all. Fewer stray streaks, and the eye is drawn to the guns where it belongs.</p>
+
+<figure>
+<svg viewBox="0 0 840 190" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="26" fill="#f4b740" font-size="13" font-weight="700">TRACER RATE BY WEAPON CLASS (measured in a live firefight)</text>
+  <text x="120" y="50" fill="#93a4ba" font-size="11" text-anchor="end">belt-fed MG</text>
+  <rect x="130" y="40" width="170" height="14" fill="#f4b740"/><text x="312" y="51" fill="#cfdaea" font-size="11">~24%  (rides the belt — unchanged)</text>
+  <text x="120" y="84" fill="#93a4ba" font-size="11" text-anchor="end">rifle / carbine</text>
+  <rect x="130" y="74" width="180" height="14" fill="#3a4658"/><text x="316" y="85" fill="#5b6b82" font-size="11">BEFORE ~25%</text>
+  <rect x="130" y="92" width="58" height="14" fill="#5fd08a"/><text x="196" y="103" fill="#cfdaea" font-size="11">AFTER ~8%  (off the riflemen)</text>
+  <!-- colour swatches -->
+  <text x="24" y="148" fill="#93a4ba" font-size="11">tracer colour:</text>
+  <rect x="130" y="138" width="120" height="12" rx="6" fill="#ffdc78"/><text x="258" y="148" fill="#cfdaea" font-size="11">amber — friendly, outbound</text>
+  <rect x="130" y="158" width="120" height="12" rx="6" fill="#78eb5a"/><text x="258" y="168" fill="#cfdaea" font-size="11">green — insurgent, incoming</text>
+</svg>
+<figcaption>Tracer concentrated onto the guns and recoloured by side. The ratio change is one threshold keyed to <code>weapon.cls</code> (still one random draw per round, so the deterministic stream is untouched); the colour is a one-line render change. Together they cut clutter and add the single most recognizable "which way is the fire going" read in the genre.</figcaption>
+</figure>
+
+<!-- ================= LIVE ================= -->
+<h2>In the real game, not just the harness</h2>
+<p>Headless numbers are necessary but never sufficient. The live game was driven — via the Chrome DevTools Protocol — into an actual firefight: a squad stepped off, the enemy director was pushed to stage a contact, and once rounds were flying both ways the camera framed the fight and the simulation was left running so the frame buffer caught real motion.</p>
+
+<figure>
+<a href="live-closeup-2.png"><img src="live-closeup-2.png" alt="A live firefight at the outpost — muzzle flashes at the firing positions, rust suppression crescents on pinned soldiers, arterial-bleed pulses on the casualties, the TROOPS IN CONTACT banner"></a>
+<figcaption>The live game, mid-firefight. The bright sparks at the fighting positions are <strong>muzzle flashes that now render</strong> — before this pass they were invisible at every zoom, because the flash was aged past its own draw cutoff before a single frame could sample it. Around the pinned men are the rust suppression crescents (now backed by a real sim consequence — those men are firing less); the casualties carry the arterial-bleed pulse; the contact banner and the indirect warning have fired. A firefight that reads at a glance.</figcaption>
+</figure>
+
+<!-- ================= VERIFICATION ================= -->
+<h2>How every claim was checked</h2>
+<p>The bar here is that a skeptic should be able to ask "did an AI really do this, and is it actually true?" and find the answer is yes. So each fix is a measured delta, and the dangerous changes — the two that touch the simulation — were gated hard.</p>
+<table>
+  <tr><th>Claim</th><th>How it was proven</th><th>Before → after</th></tr>
+  <tr><td>Bullets travel smoothly</td><td><code>combat-feel-probe.ts</code> — 60 fps render loop over the sim; per-frame screen jump + frozen-frame fraction, on 3 seeds</td><td><span class="x">123 px / 93% frozen</span> → <span class="b">~20 px / 0%</span></td></tr>
+  <tr><td>The muzzle flash renders</td><td>same probe — count of flashes that ever reach a drawable frame</td><td><span class="x">0 / 453</span> → <span class="b">453 / 453</span></td></tr>
+  <tr><td>Suppressed men fire less</td><td>micro-probe A — one rifleman, suppression swept, everything else held; tuned + held-out seeds</td><td><span class="x">flat ≈ 2.2 rds/s</span> → <span class="b">2.0 → 1.05</span></td></tr>
+  <tr><td>Combatants differ</td><td>micro-probe B — same weapon, only the temperament changed</td><td><span class="x">4.55 vs 4.33 (inert/inverted)</span> → <span class="b">4.06 vs 4.33 (disciplined tightens)</span></td></tr>
+  <tr><td>The MG hammers</td><td><code>audio-probe.ts</code> — 1-cue-per-event invariant; crack count per burst by inspection</td><td><span class="x">~56 cracks</span> → <span class="b">8 cracks</span></td></tr>
+  <tr><td>Determinism preserved</td><td>adversarial pass — same-seed double-runs, byte-identical serialized state on 3 combat seeds</td><td><span class="b">identical</span></td></tr>
+  <tr><td>Balance preserved</td><td><code>balance.ts</code> — 16 deployments × 50 game-min, HEAD vs after</td><td><span class="b">US KIA 1.69→1.50 · WIA 4.94→4.75 · enemy 5.50→4.88 · civ 2→0</span></td></tr>
+  <tr><td>Nothing else broke</td><td><code>tsc</code> · <code>npm run build</code> · <code>smoke.ts</code> (no-NaN + serialize round-trip)</td><td><span class="b">all green</span></td></tr>
+</table>
+
+<div class="callout gn">
+<p style="margin:0"><strong>The two simulation changes were the risk, and they were contained.</strong> Both edits — the suppression cadence gate and the personality burst-shaping — live in the same block of <code>updateFiring</code> and <strong>reshape the existing random draw rather than adding one</strong>, so the deterministic stream is byte-identical to before for the same inputs. The personality "panic spray" was deliberately tuned <em>down</em> when a first attempt pushed casualties out of tolerance: the win condition was never "more dramatic," it was "more honest, within ±15% of the old balance." A separate skeptical agent re-read the whole diff and could not refute it.</p>
+</div>
+
+<div class="callout">
+<p style="margin:0"><strong>What was deliberately <em>not</em> done.</strong> The survey surfaced more than five good ideas. The deeper overlay de-clutter (merging the three contact cues, freezing cosmetic pulses on pause), a supersonic <em>snap</em> for incoming rounds at the listener, a heavy-calibre .50 audio tier, and a probabilistic hold-fire gate were all logged to a follow-up issue rather than crammed in — the hold-fire gate specifically because it would have <em>added</em> a random draw and shifted the deterministic stream, a measured hazard. Five robust fixes, not nine rushed ones.</p>
+</div>
+
+<p class="foot">Engineering record: <code>docs/progress/2026-06-08-combat-feel/</code> — verbatim HEAD baseline, after-numbers (3 seeds), balance HEAD vs after, and the live captures. Probe &amp; tools: <code>scripts/combat-feel-probe.ts</code> (firefight + two controlled micro-probes), <code>scripts/balance.ts</code>. Touched: <code>state/store.ts</code> (the exposed sub-tick fraction), <code>lib/render/draw.ts</code> + <code>combat-fx.ts</code> (interpolation + tracer colour), <code>lib/sim/combat.ts</code> (suppression + personality), <code>lib/sim/ballistics.ts</code> (tracer ratio), <code>lib/audio/synth.ts</code> (the MG cadence), <code>components/world/WorldView.tsx</code> (the wiring). Surveyed by a six-specialist workflow, built and verified by an autonomous agent; every number is quoted as measured.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

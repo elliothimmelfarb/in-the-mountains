@@ -173,6 +173,7 @@
     <a class="rep" href="reports/2026-06-08-ui-ux/report.html"><span class="rd">2026-06-08</span><span class="rt">The command surface, re-cut</span><span class="rs">461→1 measured UX defects: keyboard focus rings, a 12px legibility floor, promoted campaign meters, command toasts, an accessible modal + in-game controls. Five expert judges, unanimous.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-soldier-scale/report.html"><span class="rd">2026-06-08</span><span class="rt">Soldier-scale realism</span><span class="rs">Hours-long progressive census + a dwell event-roll, an autonomous squad flank with bounding overwatch (0→100%), and one honest revert: a switchback-pathing fix measured against its own baseline, found to stall a squad, and backed out.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-cop-overhaul/report.html"><span class="rd">2026-06-08</span><span class="rt">The combat outpost, made real</span><span class="rs">A six-specialist survey + judge rebuilt every aspect of the COP: a fire plan sited by a terrain LOS sweep (M2 on the 922 m avenue, Mk19 on 94%-dead ground), the HESCO bastion silhouette, night life-signs, a living garrison, and the watch — a wire assault that now demands a Final Protective Fire decision. copaudit clean ×9.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-08-combat-feel/report.html"><span class="rd">2026-06-08</span><span class="rt">Making the firefight feel real</span><span class="rs">Five fixes across visual + sim + audio. One sub-tick interpolation made bullets travel and resurrected the muzzle flash (0→100% rendered). Suppression finally cuts a pinned man's fire rate (flat → −48%); temperament shapes bursts; ComBloc tracers burn green; the MG hammers (56→8 cracks/burst) — all within ±15% of the old balance, determinism intact.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -851,6 +852,28 @@
       </div>
       <p class="quote">The art to build a recognisable COP already sat unused in the sprite manifest; the doctrine to defend it sat in the terrain. The pass wired the engine to the ground truth — and copaudit stayed clean (0 sealed pockets ×9).</p>
       <a class="readmore" href="reports/2026-06-08-cop-overhaul/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-08-combat-feel">
+    <div class="shot">
+      <a href="reports/2026-06-08-combat-feel/report.html"><img src="assets/2026-06-08-combat-feel.png" alt="A live firefight at the outpost — muzzle flashes at the firing positions, suppression crescents on pinned men, casualty pulses, the troops-in-contact banner" loading="lazy"></a>
+      <div class="cap">A live firefight, mid-contact — muzzle flashes that finally render, suppression on the pinned men, casualties pulsing. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-08</span></div>
+      <h3>Making the firefight feel real: bullets that travel, a flash that renders, suppression with teeth</h3>
+      <div class="tags"><span class="tag">Render</span><span class="tag">Sim</span><span class="tag">Audio</span><span class="tag">Doctrine</span><span class="tag">Workflow</span></div>
+      <p>The owner played a firefight and named five things wrong: bullets <em>teleported</em> — appearing halfway between the gun and the target; the feedback was <em>flickery</em>; a man with rounds cracking past his head <em>fired just as much</em>; every combatant felt the same; and the machine guns <em>buzzed</em>. None was a crash — all were feel, which the project's rules forbid touching until it's a number.</p>
+      <p class="shape"><b>The shape:</b> a six-specialist survey + judge ranked the best five fixes spanning visual + sim + audio. Four of the five shared <b>one root cause</b> — the renderer read the 0.1&nbsp;s sim tick verbatim at 60&nbsp;fps — so <b>one sub-tick interpolation</b> made bullets travel <em>and</em> resurrected the muzzle flash (which had been aged past its own draw cutoff before any frame could show it). The two simulation changes reshaped the existing random draw without adding one, so a seed still reproduces; balance held within ±15%.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">muzzle flashes that render</span><span class="b">0 / 453</span><span class="ar">→</span><span class="a">453 / 453</span></span>
+        <span class="m"><span class="lbl">per-frame bullet jump</span><span class="b">123 px / 93% frozen</span><span class="ar">→</span><span class="a">~20 px / 0%</span></span>
+        <span class="m"><span class="lbl">fire rate when pinned</span><span class="b">flat (~2.2 rds/s)</span><span class="ar">→</span><span class="a">−48% (1.05)</span></span>
+        <span class="m"><span class="lbl">synth cracks per MG burst</span><span class="b">~56 (a roar)</span><span class="ar">→</span><span class="a">8 (a hammer)</span></span>
+      </div>
+      <p class="quote">The hardest part wasn't the fix — it was the restraint: the personality "panic spray" was tuned down when a first attempt pushed casualties out of tolerance. The win condition was never "more dramatic," it was "more honest, within ±15% of the old balance."</p>
+      <a class="readmore" href="reports/2026-06-08-combat-feel/report.html">Read the full report →</a>
     </div>
   </article>
 
