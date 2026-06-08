@@ -1,0 +1,9 @@
+{
+  "note": "Live korengal-2 capture (assault SOP, heat 0.85): the squad-leader AI autonomously committed a flank. threat to the south, flank objective 177m north. 4-man base of fire (all holding/suppressing) + 4-man maneuver element with only ONE buddy pair (us-7 SAW, us-9 RFL) moving while the other (us-6 TL, us-8 GRN) overwatches — bounding discipline, live.",
+  "state": "assault",
+  "threat": { "x": 1220, "y": 2180 },
+  "flank":  { "x": 1258, "y": 2003 },
+  "boundPair": 0,
+  "bof":  [ {"id":"us-a","x":1283,"y":2123,"role":"team_leader","brain":"holding"}, {"id":"us-b","x":1279,"y":2119,"role":"saw_gunner","brain":"holding"}, {"id":"us-c","x":1275,"y":2115,"role":"grenadier","brain":"holding"}, {"id":"us-d","x":1271,"y":2111,"role":"rifleman","brain":"holding"} ],
+  "mnvr": [ {"id":"us-6","x":1305,"y":2142,"role":"team_leader","brain":"holding"}, {"id":"us-7","x":1282,"y":2119,"role":"saw_gunner","brain":"moving"}, {"id":"us-8","x":1290,"y":2129,"role":"grenadier","brain":"holding"}, {"id":"us-9","x":1284,"y":2122,"role":"rifleman","brain":"moving"} ]
+}
