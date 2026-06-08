@@ -1052,7 +1052,7 @@ export class Terrain {
     }
     // ATP 3-21.8 ch.5: score each position's avenue by a terrain LOS sweep, then site the
     // crew-served weapons + towers + interlocking sectors by that geometry (not blind index).
-    this.analyzeFightingPositions(fightingPositions);
+    this.analyzeFightingPositions(fightingPositions, c, R);
 
     // 6b) Mortar pit — dug in to the REAR of the yard for defilade (ATP 3-21.8 / FM 3-22.90).
     //     This is the indirect-fire ORIGIN (world.ts points copPos here) and a real installation.
@@ -1124,7 +1124,7 @@ export class Terrain {
    * This is pure seeded geometry over the baked elevation — no rng, no wall clock — so it
    * regenerates bit-identically on load (it lives on `cop`, which is never serialized).
    */
-  private analyzeFightingPositions(fps: CopFightingPosition[]) {
+  private analyzeFightingPositions(fps: CopFightingPosition[], c: { cx: number; cy: number }, R: number) {
     if (fps.length === 0) return;
     const REF = 1830; // m — score every gun on the .50's reach so positions are comparable
     const STEP = this.cellSize; // march one cell outward at a time
@@ -1176,27 +1176,44 @@ export class Terrain {
     const byDead = [...fps].filter((f) => !taken.has(f.id)).sort((a, b) => b.deadSpaceFrac - a.deadSpaceFrac);
     give(byDead[0], "mk19", false); // grenade launcher plunges into the worst dead ground
 
-    // ---- (c) interlocking sectors: each position's limits bisect the gap to its neighbours ----
+    // ---- (c) interlocking sectors with NO un-grazed frontage, INCLUDING over the gate ----
+    // A sector defined around a position's radial facing does NOT line up with the perimeter
+    // azimuths it must cover — a position on the wire sees a wire point at a different azimuth
+    // along a skewed (parallax) bearing, so naive ±half sectors leave a gap (worst at the gate,
+    // where the flanking positions are far apart). Instead, aim each limit at the WIRE MIDPOINT
+    // between this position and its azimuthal neighbour, expressed as the bearing FROM this
+    // position — so adjacent sectors MEET exactly on the wire (with a small overlap). The two
+    // gate-flanking positions therefore interlock across the open gate. (ATP 3-21.8: interlocking
+    // fires, no dead frontage.)
     const TWO_PI = Math.PI * 2;
-    const OVER = 0.09; // ~5° overlap so adjacent sectors interlock (no un-grazed frontage)
-    const sorted = [...fps].sort((a, b) => a.facing - b.facing);
+    const OVER = 0.12; // overlap at the meeting point (~7°)
+    const cw = this.cellCenter(c.cx, c.cy);
+    const wireR = (R + 2) * this.cellSize;
+    const az = (f: CopFightingPosition) => {
+      const p = this.cellCenter(f.cx, f.cy);
+      return Math.atan2(p.y - cw.y, p.x - cw.x);
+    };
+    const sorted = [...fps].sort((a, b) => az(a) - az(b));
     const n = sorted.length;
     for (let i = 0; i < n; i++) {
       const f = sorted[i];
       if (n === 1) {
-        f.leftLimit = f.facing + Math.PI / 4;
-        f.rightLimit = f.facing - Math.PI / 4;
+        f.leftLimit = f.facing + Math.PI / 3;
+        f.rightLimit = f.facing - Math.PI / 3;
         continue;
       }
-      const prev = sorted[(i - 1 + n) % n];
+      const fpW = this.cellCenter(f.cx, f.cy);
       const next = sorted[(i + 1) % n];
-      const gPrev = ((f.facing - prev.facing) % TWO_PI + TWO_PI) % TWO_PI;
-      const gNext = ((next.facing - f.facing) % TWO_PI + TWO_PI) % TWO_PI;
-      // Clamp the half-sector so a position flanking the wide gate gap doesn't claim a huge arc.
-      const halfPrev = Math.min(1.2, Math.max(0.3, gPrev / 2));
-      const halfNext = Math.min(1.2, Math.max(0.3, gNext / 2));
-      f.rightLimit = f.facing - halfPrev - OVER;
-      f.leftLimit = f.facing + halfNext + OVER;
+      const prev = sorted[(i - 1 + n) % n];
+      const azF = az(f);
+      const dNext = ((az(next) - azF) % TWO_PI + TWO_PI) % TWO_PI;
+      const dPrev = ((azF - az(prev)) % TWO_PI + TWO_PI) % TWO_PI;
+      const mNext = azF + dNext / 2; // azimuth of the wire midpoint toward the CCW neighbour
+      const mPrev = azF - dPrev / 2; // ... toward the CW neighbour
+      const pNext = { x: cw.x + Math.cos(mNext) * wireR, y: cw.y + Math.sin(mNext) * wireR };
+      const pPrev = { x: cw.x + Math.cos(mPrev) * wireR, y: cw.y + Math.sin(mPrev) * wireR };
+      f.leftLimit = Math.atan2(pNext.y - fpW.y, pNext.x - fpW.x) + OVER; // CCW edge
+      f.rightLimit = Math.atan2(pPrev.y - fpW.y, pPrev.x - fpW.x) - OVER; // CW edge
     }
   }
 
