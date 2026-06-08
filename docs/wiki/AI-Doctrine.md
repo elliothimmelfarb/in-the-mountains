@@ -152,15 +152,31 @@ React to Contact):
 
 - **react** — first contact. *Everyone* orients on the threat, gets into the nearest cover, and
   returns fire as the ROE allows while the leader sizes up the fight (CONTACT report on the net,
-  bearing to the threat). The next pass commits to the SOP's standing drill.
+  bearing to the threat). It then fixes in the SOP's posture (hold/suppress) — a squad does *not*
+  launch an assault in the first second of contact.
 - **hold** (Hold & Return Fire) — fight in place from cover. Automatic weapons build a base of fire;
-  riflemen engage PID'd targets. Holds the ground; does not maneuver.
+  riflemen engage PID'd targets. **But the leader keeps re-assessing** — see *the autonomous maneuver
+  decision* below — and will commit a flanking assault on his own the moment he can.
 - **suppress** (Suppress & Call Fires) — as *hold* but with everyone leaning on suppressive fire to
   pin the enemy, and the JTAC/leader raising a **call-for-fire** (below).
 - **assault** (Assault Through) — the base-of-fire element pins the enemy while the maneuver element
-  fire-and-moves onto the objective.
+  fire-and-moves onto a **covered flank** (not a frontal beeline at the threat centroid — that is
+  doctrinally wrong).
 - **break** (Break Contact / Battle Drill 3) — leapfrog back to a rally toward home under covering
   fire and smoke.
+
+### The autonomous maneuver decision — the SL flanks unbidden
+
+The squad leader **owns the maneuver decision**, not the player (the player only sets the SOP and
+approves fires — *"combat is 100% AI; the hardest part of command is watching"*). Each reconsider while
+fixing, `chooseDrill` checks whether the squad can gain **fire superiority** (an automatic weapon up, a
+PID'd enemy, at least parity in effective shooters, not itself pinned) and, if so, commits a maneuver
+fire team — without an order. The player's SOP is **guidance**, made a real lever by a *develop-the-
+situation timer*: **Assault** commits at once, **Hold** fixes and develops ~7 s first, **Suppress**
+~18 s and meanwhile calls fires — so many contacts resolve before the cautious orders ever assault
+(measured: Assault > Hold > Suppress at every heat; before this work, the SOP was cosmetic and the
+squad *never* autonomously flanked). When no covered flank exists the squad fixes, or assaults
+frontally only if clearly dominant; the automatic break-safety (below) still overrides everything.
 
 ### Base of fire vs. maneuver — the two fire teams
 
@@ -174,11 +190,15 @@ team can't bound safely, so everyone holds as base of fire.
 
 ### Bounding & screening smoke
 
-The maneuver element **bounds** onto the objective: each man gets `orderType: "assault"` and
-`friendlyBrain`'s assault path runs the per-man fire-and-move (auto-riflemen set their own local base
-of fire, riflemen close under it), routing around walls and terrain with A* when a lane is blocked. If
-a bound crosses open ground (`exposedRun`), the coordinator pops **one screening smoke** partway to
-the enemy — a screen between the maneuver run and the enemy guns. Smoke is throttled on the world
+The maneuver element **bounds by buddy pairs onto a covered flank**: the coordinator finds a flank
+objective off the enemy's axis and routes the moving men to it with the **cover-biased** planner
+(`pathTo` with `coverBias`), not a beeline at the threat — frontal is only the fallback when no covered
+flank exists. The element splits into two buddy pairs and **only one pair rushes at a time** (swapping
+on a 3–5 s bound clock) while the other overwatches the objective — so one element is always supporting.
+Each moving man gets `orderType: "assault"` and `friendlyBrain`'s assault path runs the per-man
+fire-and-move (auto-riflemen set their own local base of fire, riflemen close under it). If a bound
+crosses open ground (`exposedRun`), the coordinator pops **one screening smoke** partway to the enemy —
+a screen between the maneuver run and the enemy guns. Smoke is throttled on the world
 clock (`SMOKE_COOLDOWN_S`, ~28 s; a screen lasts ~67 s) so a sustained drill doesn't burn the squad's
 whole smoke load. Break Contact screens the same way — smoke between the squad and the enemy as the
 peel goes back.
