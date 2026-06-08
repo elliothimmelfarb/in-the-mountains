@@ -434,6 +434,32 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       ctx.stroke();
       ctx.setLineDash([]);
     }
+    // ECP serpentine — staggered T-walls (jersey barriers) forming a chicane just outside the
+    // gate, so the entry reads as a controlled access point, not an open driveway. Render-only:
+    // the terrain apron is untouched (the sim half was cut to protect the proven egress corridor).
+    if (bldA > 0.05) {
+      const ux = Math.cos(ang), uy = Math.sin(ang); // outward through the gate
+      const px = -uy, py = ux; // perpendicular
+      for (let i = 0; i < 3; i++) {
+        const along = (i + 0.4) * 6;
+        const side = (i % 2 === 0 ? 1 : -1) * 3.4; // alternate sides → vehicles must weave
+        const bx = c.x + ux * along + px * side;
+        const by = c.y + uy * along + py * side;
+        const drew = hasSprite("jersey-barrier") &&
+          drawWorldSprite(ctx, cam, "jersey-barrier", bx, by, { widthM: 5, alpha: bldA, rot: ang + Math.PI / 2 });
+        if (!drew) {
+          const [sx, sy] = worldToScreen(cam, bx, by);
+          ctx.save();
+          ctx.translate(sx, sy);
+          ctx.rotate(ang + Math.PI / 2);
+          ctx.fillStyle = `rgba(122,120,114,${bldA})`;
+          ctx.strokeStyle = `rgba(30,30,26,${bldA})`;
+          ctx.fillRect(-2.4 * cam.ppm, -0.9 * cam.ppm, 4.8 * cam.ppm, 1.8 * cam.ppm);
+          ctx.strokeRect(-2.4 * cam.ppm, -0.9 * cam.ppm, 4.8 * cam.ppm, 1.8 * cam.ppm);
+          ctx.restore();
+        }
+      }
+    }
   }
 
   // buildings
@@ -496,9 +522,9 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       ctx.arc(sx, sy, rpx, fp.rightLimit, fp.leftLimit);
       ctx.closePath();
       const tint = WEAPON_TINT[fp.weapon] ?? WEAPON_TINT.rifle;
-      ctx.fillStyle = tint.replace(/0\.\d+\)/, "0.13)");
+      ctx.fillStyle = tint.replace(/0\.\d+\)/, "0.12)");
       ctx.fill();
-      ctx.strokeStyle = tint.replace(/0\.\d+\)/, "0.5)");
+      ctx.strokeStyle = tint.replace(/0\.\d+\)/, "0.34)");
       ctx.lineWidth = 1;
       ctx.stroke();
       ctx.restore();
@@ -575,12 +601,46 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     }
   }
 
-  // the COP flag at the center (fades in as the pin marker fades out)
+  // burn-pit / generator smoke — a thin column drifting downwind. A COP always burns its trash
+  // and runs a generator; the plume is advected along the prevailing wind and animated off the
+  // wall clock. Render-only (env.wind/tNow never re-enter the sim). Rises from the rear (latrines).
+  if (bldA > 0.15) {
+    const rear = cop.buildings.find((b) => b.kind === "latrine") ?? cop.buildings.find((b) => b.kind === "motorpool");
+    if (rear) {
+      const bp = terrain.cellCenter(rear.cx, rear.cy);
+      const wsp = Math.hypot(env.windX, env.windY);
+      const wx = wsp > 0.2 ? env.windX / wsp : 0.3;
+      const wy = wsp > 0.2 ? env.windY / wsp : -0.95; // default drift up-valley when calm
+      ctx.save();
+      for (let i = 0; i < 6; i++) {
+        const age = (env.tNow * 0.22 + i / 6) % 1; // 0..1 puff lifecycle
+        const drift = age * (16 + wsp * 7);
+        const ppx = bp.x + wx * drift + Math.sin(env.tNow * 0.7 + i * 1.7) * 2.2;
+        const ppy = bp.y + wy * drift - age * 5;
+        const [sx, sy] = worldToScreen(cam, ppx, ppy);
+        const rad = (1.4 + age * 5) * cam.ppm;
+        const a = (1 - age) * 0.15 * bldA;
+        const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rad);
+        g.addColorStop(0, `rgba(66,62,56,${a})`);
+        g.addColorStop(1, "rgba(66,62,56,0)");
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(sx, sy, rad, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // the COP flag at the center, streaming downwind (fades in as the pin marker fades out)
   {
     const flagA = lodAlpha(cam.ppm, 1.1, 2.1);
     if (flagA > 0.02 && hasSprite("cop-flag")) {
       const c = terrain.cellCenter(cop.center.cx, cop.center.cy);
-      drawWorldSprite(ctx, cam, "cop-flag", c.x, c.y, { widthM: 4, alpha: flagA });
+      const wsp = Math.hypot(env.windX, env.windY);
+      const wang = wsp > 0.4 ? Math.atan2(env.windY, env.windX) : -Math.PI / 2;
+      const flutter = Math.sin(env.tNow * 3.2) * 0.06 * Math.min(1, wsp / 3 + 0.35);
+      drawWorldSprite(ctx, cam, "cop-flag", c.x, c.y, { widthM: 4, alpha: flagA, rot: wang + flutter });
     }
   }
 
