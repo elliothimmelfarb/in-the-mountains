@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — The Combat Outpost, Made Real</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:800px}
+h2{font-size:21px;margin:46px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:24px 0 4px;color:var(--ink)}
+h3 .tag{font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;color:var(--bg);background:var(--ol);padding:3px 6px;border-radius:3px;vertical-align:middle;margin-right:8px}
+h3 .tag.warn{background:var(--am)}
+h3 .tag.cut{background:var(--rd);color:#fff}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:130px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:20px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+td .x{color:var(--rd);font-weight:700}
+figure{margin:20px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.two figure{margin:0}
+@media(max-width:680px){.two{grid-template-columns:1fr}}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--ol);border-radius:4px;padding:12px 16px;margin:18px 0}
+.callout.cut{border-left-color:var(--rd)}
+.callout.warn{border-left-color:var(--am)}
+.callout b{color:#fff}
+.note{color:var(--dim);font-size:13px}
+ul{color:#cfdaea}li{margin:5px 0}
+.foot{margin-top:46px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:13px}
+.mono{font:12.5px/1.6 ui-monospace,monospace;color:#bfe3ff;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;white-space:pre-wrap;overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kick">Development log · 2026-06-08</p>
+<h1>The Combat Outpost, <span>made real</span></h1>
+<p class="lede">The COP was <em>geometrically correct and dramatically inert</em> — a cluster of b-huts on a
+tan patch, defended by eight identical nubs, garrisoned by men who loitered, with a fire plan no soldier
+would recognise and a wire attack you could only watch as a cutscene. This pass rebuilt every aspect of it
+toward one bar: a skeptical infantryman looks at it and says <em>"holy shit — that's a COP."</em> It was
+driven by a six-specialist design survey, a synthesis judge, and seven atomic commits, each verified.</p>
+
+<div class="statstrip">
+  <div class="s"><b>3 → 1</b><span>blind heuristics replaced by one terrain spine</span></div>
+  <div class="s"><b>0 → 1</b><span>Mk19 on the wall (sited on 94%-dead ground)</span></div>
+  <div class="s"><b>dead → live</b><span>fob.hesco: now written &amp; read</span></div>
+  <div class="s"><b>cutscene → the watch</b><span>a wire assault now demands a decision</span></div>
+  <div class="s"><b>0 / 9</b><span>copaudit sealed pockets — connectivity untouched</span></div>
+</div>
+
+<h2>The shape of the problem</h2>
+<p>The outpost data model — <code>CopLayout</code> in <code>terrain.ts</code> — was clean and the movement
+audit (<code>copaudit</code>) was already 100% green across nine seeds: egress unblocked, 97% perimeter ring,
+zero sealed pockets, zero unreachable posts. <strong>So this was never a bug hunt.</strong> It was the harder
+job: taking a system that <em>works</em> and making it <em>convincing</em> — defensible, lived-in, alive.</p>
+<p>A six-agent survey (one specialist each on defensive doctrine, visual fidelity, garrison life, facilities,
+gameplay, and atmosphere), grounded in the real code and in <code>ATP 3-21.8</code>, fed a synthesis judge.
+Its verdict was a <strong>Law-6 unification</strong> — three robust mechanisms instead of a pile of features:</p>
+<div class="callout">
+<b>One terrain-geometry spine</b> feeds the render silhouette, the mortar pit, the crew-served siting, and the
+final protective fire. <b>One render <code>env</code> seam</b> makes the base the warm, lit, human place in a
+dark valley. <b>One reused fire-request loop</b> turns a wire attack into the commander's watch.
+</div>
+
+<h2>1 · The fire plan, sited by the terrain</h2>
+<p>Before, the perimeter was eight identical positions <code>{id,cx,cy,facing,tower}</code>; crew-served guns
+were handed out by raw array index (<code>m240→fps[0]</code>), the tower flag was <code>fp % 3</code>, the
+"mortar pit" was the flagpole, and <strong>there was no Mk19 at all.</strong> A range card a soldier would
+laugh at.</p>
+<p>Now a deterministic <strong>line-of-sight sweep</strong> runs over the baked elevation inside
+<code>buildCop()</code>. For every position it marches its outward sector cell-by-cell, tracking the rising
+horizon, and measures two things: the <em>avenue score</em> — how far down the sector the gun can graze
+before terrain masks the ground — and the <em>dead-space fraction</em>. Then it sites the weapons the way a
+platoon would:</p>
+<ul>
+<li>the <strong style="color:#e0a72b">M2 .50 cal</strong> (1830&nbsp;m) takes the <em>longest open avenue</em>;</li>
+<li>the <strong style="color:#78aaeb">M240B</strong> (1100&nbsp;m) takes the next;</li>
+<li>the <strong style="color:#78d28c">Mk19 grenade launcher</strong> — whose 40&nbsp;mm <em>plunges</em> —
+takes the <em>worst dead-space sector</em>, exactly where direct grazing fire fails and only high-angle fire reaches.</li>
+</ul>
+
+<figure>
+<img src="cop-avenues.png" alt="Bar chart of each fighting position's avenue reach and dead space, coloured by assigned weapon" />
+<figcaption>The data that drives the siting (seed valley-2533). The .50 lands on the 922&nbsp;m avenue with the
+lowest dead space; the Mk19 lands on the 195&nbsp;m position that is <strong>94% dead ground</strong> — the
+defilade nothing else can touch. No hand-placement: pure terrain geometry, identical on every replay.</figcaption>
+</figure>
+
+<figure>
+<img src="cop-sectors.png" alt="Top-down tactical diagram of the COP showing each crew-served sector of fire as a wedge" />
+<figcaption>The same fire plan as a tactical overlay. Wedge length is scaled to avenue reach — you can see the
+.50's long arc to the south-west, the M240 covering south, and the Mk19's short, steep sector to the north
+registered onto the <strong style="color:#d0473a">FPF</strong> (the most dangerous, most-concealed avenue).
+The mortar pit sits in rear defilade.</figcaption>
+</figure>
+
+<div class="callout"><b>Why it's honest:</b> the dead-space numbers are <em>high</em> (58–94%). That's not a
+bug — it's the Korengal. A COP on a knob in that terrain has brutal dead ground close in; it is literally why
+Restrepo and Keating were so dangerous. The sweep found the real masks, and the Mk19 was placed to answer them.</div>
+
+<h2>2 · A strongpoint you can see</h2>
+<p>The wire used to be a flat tan tint in the baked terrain. The art to fix it <em>already existed</em> in the
+sprite manifest — <code>hesco-straight</code>, <code>antenna-array</code>, <code>jersey-barrier</code>,
+<code>ico-mortar</code> — and was never drawn. <code>drawCop()</code> now paints the fortified silhouette: a
+real <strong>HESCO bastion wall</strong> of gabion segments, a <strong>comms mast</strong> on the skyline, the
+<strong>mortar pit</strong>, a serpentine <strong>ECP</strong> of staggered T-walls, drifting burn-pit smoke,
+a flag that streams downwind, and the crew-served <strong>sectors of fire</strong> colour-coded by weapon.</p>
+
+<div class="two">
+<figure>
+<img src="cop-live-before.png" alt="The COP before the overhaul — a cluster of buildings on a tan patch" />
+<figcaption><b>Before.</b> Functional, but the perimeter doesn't read as a wall and the fire plan is invisible.</figcaption>
+</figure>
+<figure>
+<img src="cop-day-r2.png" alt="The COP after — a recognisable fortified outpost with a HESCO wall and sectors" />
+<figcaption><b>After.</b> The bastion ring reads as a wall; sectors, mortar pit, antenna, ECP and motor pool
+all legible — a recognisable outpost.</figcaption>
+</figure>
+</div>
+
+<h2>3 · The one warm place in a dark valley</h2>
+<p>At night the COP used to go dark exactly like empty hillside. The fix is the second unifying idea: the
+<code>drawCop</code> signature was widened to take a render-only <code>env</code> struct
+(<code>{night, windX, windY, tNow}</code>, mirroring the weather view-struct and never re-entering the sim).
+An additive <code>lighter</code> pass then emits warm window glow (the TOC, aid station and chow hall
+brightest — always manned), cold floodlight pools over the gate and LZ, and slow-blinking red tower
+beacons — all gated on darkness so a daytime frame pays nothing.</p>
+<figure>
+<img src="cop-night-r2.png" alt="The COP at 02:00 — warm lit windows and floodlights against a dark valley" />
+<figcaption>02:00. The outpost is the one warm, human place in a cold valley — exactly the feeling of returning
+to the wire from a night patrol. Render-only; the sim clock is untouched.</figcaption>
+</figure>
+
+<h2>4 · The watch — <span style="color:var(--am)">the hardest part of command</span></h2>
+<p>The design's soul is <em>"you watch."</em> Yet a complex attack <em>on the COP itself</em> was a passive
+cutscene: the garrison has no maneuver task, so the call-for-fire system never fired for it. Now
+<code>tickCopDefense()</code> watches the wire. When fighters mass against it while the garrison stands to, the
+TOC raises a <strong>Final Protective Fire</strong> request — and the clock auto-pauses until you
+<strong style="color:var(--gn)">CLEAR HOT</strong> or <strong style="color:var(--rd)">DENY</strong>.</p>
+<figure>
+<img src="cop-watch.png" alt="The COP under assault: stand-to in red, and a Final Protective Fire request awaiting approval" />
+<figcaption>The watch, live. Left panel flips to <strong style="color:var(--rd)">⚠ STAND-TO — manning the
+wire</strong>; the centre demands a decision: <em>"6 fighters in the wire — FPF, danger close. Requesting
+60mm on grid 177-361."</em> The mortar fires <em>from the pit</em>, onto the assault as it forms. The FPF is
+danger-close by doctrine — and only the commander can accept that risk.</figcaption>
+</figure>
+<p>It reuses the squad fire-request loop verbatim — one pending request, a 45-second cooldown, and it
+<em>never auto-fires</em> — so it obeys the ROE law: combat is 100% AI, but the human clears the fires.
+Verified headlessly on valley-2533: a quiet COP raises nothing; six fighters at the wire raise the FPF;
+approving it fires the mortar from the pit, expends four rounds (110→106), and kills an attacker.</p>
+
+<h2>5 · A garrison that lives</h2>
+<p>The COP was manned but lifeless — off-duty men loitered, sentries stared one way, stand-to only ever
+reacted to contact, and <code>fob.hesco</code> (a 0–100 fortification stat) was <em>written at birth and read
+nowhere</em>. Three additions, all deterministic, wired into <code>tickGarrison</code>:</p>
+<ul>
+<li><strong>Work details</strong> — "a COP is never finished." A rotating slice of the off-duty riflemen
+improve the wire; while they work, <code>fob.hesco</code> climbs (60.95→62.56 over two game-hours in test).
+The dead stat finally has a writer — and the squad panel a reader: a <strong>COP integrity</strong> bar.</li>
+<li><strong>Dawn/dusk stand-to (BMNT/EENT)</strong> — the whole garrison mans the wire at first and last
+light, the ritual every infantryman knows and the enemy favours, not just a reaction to a threat.</li>
+<li><strong>Sweeping sentries</strong> — a guard now sweeps his gaze across his fighting position's sector
+(from the Phase-1 limits) instead of staring one fixed bearing.</li>
+</ul>
+<figure>
+<img src="cop-panel.png" alt="The squad readout showing the garrison activity and COP integrity bar" />
+<figcaption>The garrison is now legible. At a glance: <em>9/9 effective · on guard — watching their sectors ·
+COP integrity 60%</em>. Sample a midday COP and you find 7 on guard, 2 MG crews, 11 men on work detail, the
+medic in the aid station, and the leaders in the TOC — each shown for what it is.</figcaption>
+</figure>
+
+<h2>Verification</h2>
+<p>Every commit kept the standing checks green and was proved before it landed.</p>
+<table>
+<tr><th>Check</th><th>Result</th></tr>
+<tr><td>copaudit (9 seeds)</td><td><span class="b">clean</span> — 0 sealed pockets, 0 unreachable posts, 97% ring, 0 wire-pins (connectivity untouched by the mortar pit / new positions)</td></tr>
+<tr><td>smoke (serialize round-trip)</td><td><span class="b">SMOKE OK</span> — no NaN, save/load identical; <code>cop</code> is seed-rebuilt, so zero migration</td></tr>
+<tr><td>balance (stall check)</td><td><span class="b">8/8</span> deployments saw a firefight, <span class="b">0 stranded</span>, no stalls (KIA 0.13)</td></tr>
+<tr><td>determinism</td><td><span class="b">bit-identical</span> — the LOS sweep and the sentry sweep reproduce exactly across two same-seed runs</td></tr>
+<tr><td>tsc / build</td><td><span class="b">clean / green</span> across all seven commits</td></tr>
+<tr><td>the watch (live + headless)</td><td><span class="b">fires</span> — request raised, auto-pause, approve → mortar from the pit, attacker down</td></tr>
+</table>
+
+<h2>How it was built</h2>
+<p>This was an orchestration, not a solo sprint. A workflow fanned out <strong>six independent specialists</strong>
+— each pinned to a senior persona, the real <code>file:line</code> facts, and <code>ATP&nbsp;3-21.8</code> — to
+survey one axis of the COP and return scored, doctrine-cited proposals. A seventh <strong>judge</strong> deduped
+them into a partitioned, dependency-ordered build plan (data spine first; render, world, and garrison behind it,
+one writer per hot file). Then seven atomic commits implemented it, each with its own headless probe and live
+capture, on a <code>main</code> shared with other agents committing in parallel.</p>
+<div class="mono">survey ─┬─ defense   ┐
+        ├─ visual    │
+        ├─ garrison  ├─► judge ─► partitioned plan ─► 7 atomic commits ─► verify ─► this report
+        ├─ facilities│
+        ├─ gameplay  │
+        └─ atmosphere┘</div>
+
+<h2>What we did <em>not</em> do <span class="note">(restraint, logged)</span></h2>
+<ul>
+<li><strong>No terrain-stamped ECP chicane.</strong> A real serpentine would stamp impassable stubs into the
+gate apron — and risk pinching the proven ≥3-cell egress corridor that <code>copaudit</code> guards. The
+chicane is render-only; the apron is untouched.</li>
+<li><strong><code>fob.hesco</code> doesn't yet feed combat.</strong> It is now written (work details) and read
+(the integrity bar), but coupling it to the FPF threshold or the enemy's effectiveness changes firefight
+balance and needs held-out tuning — deferred deliberately rather than shipped unproven.</li>
+<li><strong>The Mk19 isn't crewed full-time.</strong> Only two machine-gunners exist; the Mk19 sits emplaced
+and ready, manned at stand-to — realistic, not a stub to paper over.</li>
+</ul>
+
+<p class="foot">Engineering record: <code>docs/progress/2026-06-08-cop-overhaul/</code> (baselines, after-numbers,
+live + diagram assets). Probes &amp; tools: <code>scripts/{cop-shot,cop-diagram}.{mjs,ts}</code>,
+<code>scripts/copaudit.ts</code>. Touched: <code>terrain.ts</code> (the spine), <code>world.ts</code> +
+<code>helpers.ts</code> (mortar origin + crew siting + the watch), <code>draw.ts</code> + <code>WorldView.tsx</code>
+(the silhouette + atmosphere), <code>garrison.ts</code> (the living garrison), <code>DeployScreen.tsx</code>
+(legibility). Built and verified by an autonomous agent; numbers are quoted as measured.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

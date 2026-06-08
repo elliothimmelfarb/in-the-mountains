@@ -172,6 +172,7 @@
     <a class="rep" href="reports/2026-06-07-world-scale-complete/report.html"><span class="rd">2026-06-07</span><span class="rt">World scale, finished</span><span class="rs">The audit's deferred half, shipped: COP 170→120 m, platoon 35→41, villages monolith→hamlet, honest gradient — adversarially verified, with the stall hunt the static pass missed.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-ui-ux/report.html"><span class="rd">2026-06-08</span><span class="rt">The command surface, re-cut</span><span class="rs">461→1 measured UX defects: keyboard focus rings, a 12px legibility floor, promoted campaign meters, command toasts, an accessible modal + in-game controls. Five expert judges, unanimous.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-soldier-scale/report.html"><span class="rd">2026-06-08</span><span class="rt">Soldier-scale realism</span><span class="rs">Hours-long progressive census + a dwell event-roll, an autonomous squad flank with bounding overwatch (0→100%), and one honest revert: a switchback-pathing fix measured against its own baseline, found to stall a squad, and backed out.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-08-cop-overhaul/report.html"><span class="rd">2026-06-08</span><span class="rt">The combat outpost, made real</span><span class="rs">A six-specialist survey + judge rebuilt every aspect of the COP: a fire plan sited by a terrain LOS sweep (M2 on the 922 m avenue, Mk19 on 94%-dead ground), the HESCO bastion silhouette, night life-signs, a living garrison, and the watch — a wire assault that now demands a Final Protective Fire decision. copaudit clean ×9.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -828,6 +829,28 @@
       </div>
       <p class="quote">The wins are nice; the revert is the tell — an agent measured its own plausible fix, found it traded a below-target gain for a movement regression, and backed it out.</p>
       <a class="readmore" href="reports/2026-06-08-soldier-scale/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-08-cop-overhaul">
+    <div class="shot">
+      <a href="reports/2026-06-08-cop-overhaul/report.html"><img src="assets/2026-06-08-cop-overhaul.png" alt="The combat outpost at 02:00 — warm lit windows and floodlights against a dark valley" loading="lazy"></a>
+      <div class="cap">02:00 at the outpost — the one warm, human place in a cold valley. The night life-signs, the HESCO bastion ring, the lit gate. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-08</span></div>
+      <h3>The combat outpost, made real: a fire plan sited by terrain, a garrison that lives, and the watch</h3>
+      <div class="tags"><span class="tag">Sim</span><span class="tag">Render</span><span class="tag">Combat AI</span><span class="tag">Doctrine</span><span class="tag">Workflow</span></div>
+      <p>The COP was geometrically correct and dramatically inert — a cluster of b-huts on a tan patch, defended by eight identical nubs, with crew-served guns handed out by array index and <em>no Mk19 at all</em>, a garrison that loitered, and a wire attack you could only watch as a cutscene. <code>copaudit</code> was already 100% green, so this was never a bug hunt: it was taking a system that <em>works</em> and making it <em>convincing</em>.</p>
+      <p class="shape"><b>The shape:</b> a six-specialist design survey (defense, visual, garrison, facilities, gameplay, atmosphere — each pinned to <code>ATP 3-21.8</code> and the real <code>file:line</code> facts) and a synthesis judge produced a Law-6 unification: <b>one terrain LOS-sweep spine</b> that sites the M2 on the longest avenue and the Mk19 over the worst dead ground, feeds the render silhouette and the mortar pit; <b>one render env seam</b> for the night life-signs; and <b>one reused fire-request loop</b> that turns a wire assault into a Final Protective Fire the commander must clear. Seven atomic commits, each verified.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">crew-served siting</span><span class="b">blind array index</span><span class="ar">→</span><span class="a">terrain LOS sweep (M2→922 m, Mk19→94% dead)</span></span>
+        <span class="m"><span class="lbl">Mk19 on the wall</span><span class="b">0</span><span class="ar">→</span><span class="a">1, on the dead ground</span></span>
+        <span class="m"><span class="lbl">a wire assault</span><span class="b">passive cutscene</span><span class="ar">→</span><span class="a">commander-cleared FPF</span></span>
+        <span class="m"><span class="lbl">fob.hesco</span><span class="b">dead stat</span><span class="ar">→</span><span class="a">written by details, read on the panel</span></span>
+      </div>
+      <p class="quote">The art to build a recognisable COP already sat unused in the sprite manifest; the doctrine to defend it sat in the terrain. The pass wired the engine to the ground truth — and copaudit stayed clean (0 sealed pockets ×9).</p>
+      <a class="readmore" href="reports/2026-06-08-cop-overhaul/report.html">Read the full report →</a>
     </div>
   </article>
 
