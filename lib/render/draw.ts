@@ -13,6 +13,26 @@ const FAC_COLOR: Record<string, string> = {
   civilian: "#e3c44a",
 };
 
+// One sim tick in seconds — MUST match SIM_DT in state/store.ts. Used to back-step a
+// projectile/effect by the unrendered fraction of the current tick (render interpolation).
+const SIM_TICK = 0.1;
+
+/**
+ * The on-screen world position of a direct-fire round, INTERPOLATED to the wall-clock
+ * sub-tick fraction `frac` (0..1, from store.getSimFrac). The sim advances p.pos a full
+ * ~88 m per 0.1 s tick, so reading p.pos verbatim makes a bullet teleport between ~2-3
+ * frozen points (the "it appears midway" bug). We render it one tick behind, smoothly:
+ * draw it where it was (1-frac) of a tick ago and let frac sweep it to the current point —
+ * exactly lerp(prevTickPos, curTickPos, frac), continuous at 60 fps. Pure read of sim
+ * fields; the sim is untouched (Law 7). Shared so the night-light glow tracks the same path.
+ */
+export function projRenderPos(p: Projectile, frac: number): { x: number; y: number } {
+  if (p.indirect) return p.pos; // the lob already renders from age/timeToImpact (smooth arc)
+  const rt = Math.max(0, Math.min(p.distToAim, p.traveled - p.speed * SIM_TICK * (1 - frac)));
+  const m = Math.hypot(p.vel.x, p.vel.y) || 1;
+  return { x: p.origin.x + (p.vel.x / m) * rt, y: p.origin.y + (p.vel.y / m) * rt };
+}
+
 // ---- figure-sprite LOD: symbol below FIG_FADE0, sprite above FIG_FADE1, crossfade between ----
 // Pushed to genuinely TACTICAL zoom: below FIG_FADE0 a man is drawn as one small NATO dot
 // (and his SQUAD as a single icon — see drawSquadIcon / WorldView), above FIG_FADE1 he's a
@@ -700,7 +720,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   ctx.restore();
 }
 
-export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, projectiles: Projectile[]) {
+export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, projectiles: Projectile[], frac = 0) {
   for (const p of projectiles) {
     if (p.indirect) {
       // A lobbed round (thrown frag) arcing toward its airburst — read "something is
@@ -742,14 +762,19 @@ export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, proj
     // so skip the per-round draw there (declutter + far fewer draws in a big fight).
     const directFade = lodAlpha(cam.ppm, 0.45, 1.0);
     if (directFade <= 0.03) continue;
-    const [sx, sy] = worldToScreen(cam, p.pos.x, p.pos.y);
+    // INTERPOLATED head position (smooth 60 fps sweep, not the teleporting per-tick p.pos)
+    const rp = projRenderPos(p, frac);
+    const [sx, sy] = worldToScreen(cam, rp.x, rp.y);
     const dirx = p.vel.x;
     const diry = p.vel.y;
     const m = Math.hypot(dirx, diry) || 1;
     const tlen = p.tracer ? 18 : 9;
     const bx = sx - (dirx / m) * tlen;
     const by = sy - (diry / m) * tlen;
-    const col = p.faction === "us" || p.faction === "ana" ? "255,220,120" : "255,90,40";
+    // Friendly tracers burn warm amber; ComBloc (insurgent) tracers burn GREEN — the
+    // instantly-recognizable "green coming AT you, red going OUT" read every Korengal account
+    // describes (7.62×39/×54R tracer compound). The white-hot head dot stays white for both.
+    const col = p.faction === "us" || p.faction === "ana" ? "255,220,120" : "120,235,90";
     // two solid segments (dim tail + bright head) instead of a per-frame createLinearGradient
     // — the gradient allocation was the main 116fps risk at high round counts.
     const headA = (p.tracer ? 0.95 : 0.5) * directFade;
@@ -773,10 +798,15 @@ export function drawProjectiles(ctx: CanvasRenderingContext2D, cam: Camera, proj
   }
 }
 
-export function drawEffects(ctx: CanvasRenderingContext2D, cam: Camera, effects: Effect[]) {
+export function drawEffects(ctx: CanvasRenderingContext2D, cam: Camera, effects: Effect[], frac = 0) {
   for (const e of effects) {
     const [sx, sy] = worldToScreen(cam, e.pos.x, e.pos.y);
-    const k = e.t / e.ttl; // 0..1 age
+    // INTERPOLATED age. e.t is advanced a whole tick at the END of the tick it's born in, so a
+    // 0.12 s muzzle flash is already at k=0.83 before any frame samples it → past the k>0.6 draw
+    // cutoff → INVISIBLE (0/453 flashes ever rendered in the probe). Rendering one tick behind —
+    // k = (e.t - (1-frac)·dt)/ttl — lands the flash at k≈0 when fresh and fades it smoothly across
+    // its whole on-screen life, killing the strobe for EVERY effect from this one line.
+    const k = Math.max(0, (e.t - SIM_TICK * (1 - frac)) / e.ttl); // 0..1 age
     switch (e.kind) {
       case "muzzle": {
         // a punchy flash. TTL is tiny (0.12s) so a burst strobes and reads as rate of

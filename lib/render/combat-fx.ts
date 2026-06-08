@@ -19,10 +19,15 @@ import { FireMission, Effect } from "../sim/combat";
 import { Unit } from "../sim/entities";
 import { Projectile } from "../sim/ballistics";
 import { drawWorldSprite, drawScreenSprite, hasSprite, lodAlpha } from "./sprites";
+
+// One sim tick (s) — MUST match SIM_DT in state/store.ts; used to interpolate the night
+// muzzle/blast glow age the same way drawEffects does, so the gun-light at night isn't
+// born already aged-out (the muzzle-flash quantization bug) but blooms fresh then fades.
+const FX_SIM_TICK = 0.1;
 // Figure / NATO-dot sizing is OWNED by draw.ts; we import the SAME functions so every combat
 // cue (suppression crescent, bleed pool, casualty radius) hugs the exact base ring draw.ts
 // paints. Do NOT re-derive these here — that detaches the cues from the men (the #1 regression).
-import { figurePx, dotR } from "./draw";
+import { figurePx, dotR, projRenderPos } from "./draw";
 
 // --- locked dust palette (mirrors ART_BIBLE §3) -------------------------------------
 const RUST = "181,83,42"; // #b5532a — hostile / threat
@@ -497,7 +502,8 @@ export function drawNightLights(
   cam: Camera,
   effects: Effect[],
   projectiles: Projectile[],
-  night: number
+  night: number,
+  frac = 0
 ) {
   if (night <= 0.25) return;
   ctx.save();
@@ -505,7 +511,7 @@ export function drawNightLights(
 
   // 1) EVENT FLASHES — muzzle sparks + blast blooms light the ground around them.
   for (const e of effects) {
-    const k = e.t / e.ttl; // 0..1 live age
+    const k = Math.max(0, (e.t - FX_SIM_TICK * (1 - frac)) / e.ttl); // interpolated live age (see drawEffects)
     if (k >= 1) continue;
     const [sx, sy] = worldToScreen(cam, e.pos.x, e.pos.y);
     if (sx < -120 || sy < -120 || sx > cam.vw + 120 || sy > cam.vh + 120) continue;
@@ -542,7 +548,8 @@ export function drawNightLights(
   //    still draw.ts's; this just blooms it so rounds streak light through the dark).
   for (const p of projectiles) {
     if (p.indirect || !p.tracer) continue;
-    const [sx, sy] = worldToScreen(cam, p.pos.x, p.pos.y);
+    const rp = projRenderPos(p, frac); // same interpolated path as the tracer line
+    const [sx, sy] = worldToScreen(cam, rp.x, rp.y);
     if (sx < -40 || sy < -40 || sx > cam.vw + 40 || sy > cam.vh + 40) continue;
     const R = 5 + cam.ppm * 0.6;
     const a = 0.26 * night;
