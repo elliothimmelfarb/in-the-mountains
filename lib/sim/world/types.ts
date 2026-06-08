@@ -202,6 +202,9 @@ export interface FireRequest {
   cy: number; // proposed grid (the JTAC's call)
   reason: string;
   expires: number; // clock seconds — clears if the commander never answers
+  /** True for a COP/garrison Final-Protective-Fire request: it has no maneuver Task, so the
+   *  validator must NOT expire it on the missing-task check (only on timeout). */
+  copBound?: boolean;
 }
 
 export interface WorldState {
