@@ -42,11 +42,20 @@ export function tickGarrison(w: World, dt: number) {
   );
   if (home.length === 0) return;
 
-  // The COP stands to when fighters are near the wire.
-  const standTo = w.sim.livingEnemies().some((e) => dist(e.pos, center) < 360);
+  // The COP stands to when fighters are near the wire — AND at first/last light (BMNT/EENT),
+  // the stand-to windows every infantryman knows and the enemy favours (director dawn/dusk).
+  const hour = w.secondsOfDay / 3600;
+  const standToWindow = (hour >= 5 && hour < 6.2) || (hour >= 18.3 && hour < 19.4);
+  const standTo = standToWindow || w.sim.livingEnemies().some((e) => dist(e.pos, center) < 360);
 
-  // Building / post lookups (world meters).
-  const fps = cop.fightingPositions.map((f) => ({ pos: w.terrain.cellCenter(f.cx, f.cy), face: f.facing }));
+  // Building / post lookups (world meters). Fighting positions carry their sector so a sentry
+  // can SWEEP his arc instead of staring one way.
+  const fps = cop.fightingPositions.map((f) => ({
+    pos: w.terrain.cellCenter(f.cx, f.cy),
+    face: f.facing,
+    left: f.leftLimit,
+    right: f.rightLimit,
+  }));
   // Buildings are solid (issue 004), so a "post" at a building is its yard-side
   // doorway (toward the COP centre), never boxed between the building and the wall.
   const at = (kind: string): Vec2 => {
@@ -72,7 +81,20 @@ export function tickGarrison(w: World, dt: number) {
     }
   }
 
-  const hour = w.secondsOfDay / 3600;
+  // Work details — "a COP is never finished." A rotating slice of the off-duty riflemen are on
+  // detail improving the wire (filling/repairing HESCO + sandbags); while men work, the COP's
+  // fortification (fob.hesco) climbs — finally giving that dead stat a writer. Suspended at stand-to.
+  const detail = new Set<string>();
+  if (!standTo) {
+    const idle = pool.filter((m) => !onGuard.has(m.id));
+    const dneed = Math.floor(idle.length * 0.45);
+    const dshift = Math.floor(w.absSeconds / (SHIFT / 2)); // details rotate twice as often as guard
+    for (let i = 0; i < dneed; i++) {
+      const m = idle[(i + dshift) % idle.length];
+      if (m) detail.add(m.id);
+    }
+  }
+
   const mealTime = (hour >= 7 && hour < 8) || (hour >= 12 && hour < 13) || (hour >= 18 && hour < 19);
   const sleepTime = w.isNight();
 
@@ -83,7 +105,7 @@ export function tickGarrison(w: World, dt: number) {
     if (standTo) {
       const fp = nearestFP(fps, m.pos);
       post = fp.pos;
-      face = fp.face;
+      face = sweepFace(fp, m, w.absSeconds);
       m.brainState = "standto";
       m.rof = "free";
     } else if (m.role === "machinegunner") {
@@ -94,8 +116,15 @@ export function tickGarrison(w: World, dt: number) {
     } else if (onGuard.has(m.id)) {
       const fp = fps[onGuard.get(m.id)!];
       post = fp.pos;
-      face = fp.face;
+      face = sweepFace(fp, m, w.absSeconds); // sentry sweeps his sector, doesn't stare one way
       m.brainState = "guard";
+    } else if (detail.has(m.id)) {
+      // on a work detail at the wire — posted along the inside of the HESCO line, facing out
+      const b = (hashId(m.id) % 360) * (Math.PI / 180);
+      const wr = (cop.radius - 2) * w.terrain.cellSize;
+      post = jit({ x: center.x + Math.cos(b) * wr, y: center.y + Math.sin(b) * wr }, m, 3);
+      face = b;
+      m.brainState = "detail";
     } else if (mealTime) {
       post = jit(dfac, m, 5);
       m.brainState = "chow";
@@ -138,11 +167,28 @@ export function tickGarrison(w: World, dt: number) {
       m.postStuck = 0;
     }
   }
+
+  // While details are on the wire it gets stronger (capped) — the first real writer of fob.hesco.
+  if (detail.size > 0) {
+    const fob = w.state.fob;
+    fob.hesco = Math.min(100, (fob.hesco ?? 0) + detail.size * 0.00012 * dt);
+  }
 }
 
 const GUARD_ROLES = new Set(["rifleman", "team_leader", "grenadier", "saw_gunner", "auto_rifleman", "squad_leader"]);
 
-function nearestFP(fps: { pos: Vec2; face: number }[], p: Vec2): { pos: Vec2; face: number } {
+/** A fighting position with its sector bounds, so a sentry can sweep his arc. */
+type FP = { pos: Vec2; face: number; left: number; right: number };
+
+/** A sentry's gaze: slowly sweep across the position's sector instead of staring outward.
+ *  Deterministic (phase from sim time + the man's id), so a same-seed replay is identical. */
+function sweepFace(fp: FP, m: RosterMember, t: number): number {
+  const TWO_PI = Math.PI * 2;
+  const span = Math.min(1.2, Math.abs(((fp.left - fp.right) % TWO_PI + TWO_PI) % TWO_PI));
+  return fp.face + Math.sin(t * 0.22 + hashId(m.id)) * span * 0.35;
+}
+
+function nearestFP(fps: FP[], p: Vec2): FP {
   let best = fps[0];
   let bd = Infinity;
   for (const f of fps) {
@@ -152,14 +198,14 @@ function nearestFP(fps: { pos: Vec2; face: number }[], p: Vec2): { pos: Vec2; fa
       best = f;
     }
   }
-  return best ?? { pos: p, face: 0 };
+  return best ?? { pos: p, face: 0, left: Math.PI / 4, right: -Math.PI / 4 };
 }
 
 /** A machine-gunner's spot: his crew-served emplacement, facing outboard. */
 function mgPost(w: World, m: RosterMember, center: Vec2): { pos: Vec2; face: number } {
   // Gunners were positioned on their emplacement at stand-up; hold the gun there.
   const emp = w.state.fob.emplacements
-    .filter((e) => e.weaponId === "m240" || e.weaponId === "m2")
+    .filter((e) => e.weaponId === "m240" || e.weaponId === "m2" || e.weaponId === "mk19")
     .map((e) => w.terrain.cellCenter(e.cell.cx, e.cell.cy));
   const pos = emp.length ? emp.reduce((a, b) => (dist(b, m.pos) < dist(a, m.pos) ? b : a)) : m.pos;
   return { pos, face: angle(sub(pos, center)) };
