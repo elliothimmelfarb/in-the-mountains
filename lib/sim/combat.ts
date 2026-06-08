@@ -960,7 +960,10 @@ export class CombatSim {
     this.addEffect("muzzle", u.pos, 0.12, {
       faction: u.faction,
       size: weapon.cls === "hmg" || weapon.cls === "mmg" ? 1.6 : 1,
-      facing: u.facing, // so the render draws a flash CONE along the gun line
+      // Cone along the ACTUAL gun line (sub(aimPos, u.pos)) — the same vector the round
+      // launches on — NOT u.facing, which the move-code slews toward the travel direction
+      // each tick, so a man firing on the move flashed where his feet went, not his target.
+      facing: angle(sub(aimPos, u.pos)),
     });
   }
 
