@@ -780,6 +780,21 @@ const PHASE_LABEL: Record<string, string> = {
   assembling: "kitting up", moving: "moving", onstation: "on station", returning: "returning", complete: "",
 };
 
+// Garrison brainState → a plain-language readout, so the COP's life (guard rotation, work
+// details, chow, stand-to) is legible instead of every off-duty man looking identical.
+const GARRISON_ACTIVITY: Record<string, string> = {
+  guard: "on guard — watching their sectors",
+  standto: "STAND-TO — manning the wire",
+  manning: "manning the crew-served guns",
+  detail: "work detail — improving the wire",
+  chow: "at the chow hall",
+  aid: "in the aid station",
+  toc: "in the TOC",
+  rest: "racked out in the billets",
+  garrison: "off-duty in the yard",
+  returning: "returning through the wire",
+};
+
 // The squad you're commanding: its strength, status, and the standing SOP it's running.
 function SquadReadout() {
   const world = useGame((s) => s.world)!;
@@ -804,7 +819,28 @@ function SquadReadout() {
       {sop ? (
         <div className="text-inkdim mt-0.5">SOP <span className="text-ink">{MOVEMENT_SOP_LABEL[sop.movement]} · {CONTACT_SOP_LABEL[sop.contact]} · {ROE_LABEL[sop.roe]}</span>{inContact && <span className="text-inkdim/60"> (locked)</span>}</div>
       ) : (
-        <div className="text-inkdim/70 mt-0.5">at the COP — plan a patrol →</div>
+        (() => {
+          const counts: Record<string, number> = {};
+          for (const u of alive) counts[u.brainState] = (counts[u.brainState] ?? 0) + 1;
+          const dom = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "garrison";
+          const standing = (counts["standto"] ?? 0) > 0;
+          const hesco = Math.round(world.state.fob.hesco ?? 0);
+          return (
+            <>
+              <div className={`mt-0.5 ${standing ? "text-rust" : "text-inkdim"}`} title="What this squad's soldiers are doing in the garrison right now">
+                {standing ? "⚠ " : ""}{GARRISON_ACTIVITY[dom] ?? "at the COP"}
+              </div>
+              <div className="text-inkdim/80 mt-1 flex items-center gap-1.5" title="COP fortification — raised by work details, the wire always being improved">
+                <span className="shrink-0">COP integrity</span>
+                <span className="flex-1 h-1.5 bg-bg border border-line relative overflow-hidden inline-block min-w-[36px]">
+                  <span className="absolute inset-y-0 left-0" style={{ width: `${hesco}%`, background: "#6b7a3a" }} />
+                </span>
+                <span className="text-ink w-[30px] text-right">{hesco}%</span>
+              </div>
+              <div className="text-inkdim/60 mt-0.5">plan a patrol →</div>
+            </>
+          );
+        })()
       )}
     </div>
   );
