@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Soldier-Scale Realism</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:780px}
+h2{font-size:21px;margin:42px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16px;margin:22px 0 4px;color:var(--ink)}
+h3 .tag{font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;color:var(--bg);background:var(--ol);padding:3px 6px;border-radius:3px;vertical-align:middle;margin-right:8px}
+h3 .tag.warn{background:var(--am)}
+h3 .tag.cut{background:var(--rd);color:#fff}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:130px}
+.statstrip .s b{display:block;color:var(--am);font-size:21px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+td .x{color:var(--rd);font-weight:700}
+figure{margin:20px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--ol);border-radius:4px;padding:12px 16px;margin:18px 0}
+.callout.cut{border-left-color:var(--rd)}
+.callout b{color:#fff}
+.note{color:var(--dim);font-size:13px}
+ul{color:#cfdaea}li{margin:4px 0}
+.foot{margin-top:46px;border-top:1px solid var(--line);padding-top:16px;color:var(--dim);font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kick">Development log · 2026-06-08</p>
+<h1>Soldier-Scale Realism — <span>three felt wins, one honest revert</span></h1>
+<p class="lede">The player now watches this counterinsurgency sim at the <em>soldier</em> scale — and at that
+scale four things "didn't feel right." Each was turned into a number before it was touched. Two shipped as
+large measured wins, one shipped as a quieter one, and the fourth — the hardest — was built, measured against
+its own baseline, found to <em>regress the most load-bearing system in the codebase</em>, and reverted. The
+revert is in here on purpose: an honest logbook is part of the product.</p>
+
+<div class="statstrip">
+  <div class="s"><b>16–37×<span class="was"> longer</span></b><span>on-station dwell, raised to doctrine</span></div>
+  <div class="s"><b>0 → 48%<span class="was"></span></b><span>contacts the squad now flanks unbidden</span></div>
+  <div class="s"><b>0 → 100%<span class="was"></span></b><span>bounding-overwatch discipline</span></div>
+  <div class="s"><b>×3.78→×3.13<span class="was"> then reverted</span></b><span>OP detour: a win that stalled a squad</span></div>
+</div>
+
+<h2>Item 1 — Village dwell was ~70× too short, and the census teleported</h2>
+<h3><span class="tag">shipped</span> The complaint, as a number</h3>
+<p>A cordon-and-search is a half-day operation; a census enrolls a village person by person. In the sim,
+every on-station dwell was <em>minutes</em> — and the census flipped to "done" the very tick the squad
+arrived. A headless probe (<code>scripts/dwell-probe.ts</code>) read it off HEAD: census 300 s, with the
+"done" flag set at <strong>0 s on arrival</strong> — a teleported state flip, not work.</p>
+
+<table>
+<thead><tr><th>mission</th><th>before</th><th>after</th><th>doctrine band</th></tr></thead>
+<tbody>
+<tr><td>presence</td><td class="w">180 s</td><td class="b">3,600 s (1 h)</td><td>~1 h flag-showing</td></tr>
+<tr><td>recon</td><td class="w">150 s</td><td class="b">4,500 s (1.25 h)</td><td>≥ 1 h</td></tr>
+<tr><td>ambush</td><td class="w">1,100 s</td><td class="b">14,400 s (4 h)</td><td>hours of waiting</td></tr>
+<tr><td>census</td><td class="x">300 s, INSTANT</td><td class="b">11,200 s, PROGRESSIVE</td><td>2–8 h, population-driven</td></tr>
+<tr><td>cordon</td><td class="w">300 s</td><td class="b">7,700 s (2.1 h)</td><td>2–8 h half-day</td></tr>
+<tr><td>overwatch</td><td class="w">900 s</td><td class="b">18,000 s (5 h)</td><td>3–8 h (24 h cap)</td></tr>
+<tr><td>KLE / shura</td><td class="w">360 s</td><td class="b">5,856 s (1.6 h)</td><td>1–2 h per meeting</td></tr>
+</tbody>
+</table>
+
+<h3>Why "×70 the numbers" would have been worse — and what was done instead</h3>
+<p>A static six-hour wait at 4× speed is more tedious than a five-minute one, not less. The fix is four
+coupled changes, not one knob:</p>
+<ul>
+<li><strong>Population-driven duration.</strong> Census/cordon scale with <code>village.population</code>
+(biometric enrollment is up to 30 min per fighting-age person), clamped to a 2–8 h band. Every continuous
+on-station payoff (e.g. a shura's <code>+8</code> attitude) was re-normalised by the dwell, so raising the
+duration doesn't secretly multiply the gains.</li>
+<li><strong>Progressive census.</strong> A new <code>censusProgress</code> (0→1) climbs with time on
+station; "done" trips only at 1. Recall the squad early and the census is <em>partial</em> — and it persists,
+so a follow-up element pays only the remaining time.</li>
+<li><strong>A dwell event-roll.</strong> The patient hours surface decisions: a weapons cache turns up under a
+false floor, an enrolled man pings the biometric watch-list, the Female-Engagement-Team gap blocks the
+women's quarters, a herder demands solatia for a shot goat (the <em>Restrepo</em> "Cow Incident"), a man
+bolts the cordon. Each is a modal the engine already knows how to pause time on.</li>
+<li><strong>Warp is the intended way through.</strong> The skip-to-event warp loop already halts on a pending
+modal — so the player fast-forwards the patient hours and is yanked back the instant something matters.
+Long-but-real becomes tension, not a progress bar.</li>
+</ul>
+
+<figure>
+  <img src="ws1-dwell-event.png" alt="A dwell event modal rendered live in the deployed game" />
+  <figcaption><strong>Live, in the deployed game (seed korengal-2).</strong> "The Search Turns Up Something":
+  a cache pulled from a false floor during the census of Loy Kalay. The header reads
+  <code>SITUATION · FIND · DAY 1 · 06:00</code> — verified end-to-end: choosing "leave it under surveillance"
+  cleared the modal and logged the correct cache-watch intel. Every choice handler was exercised headlessly;
+  an anti-repeat guard stops a long census drawing the same grievance twice.</figcaption>
+</figure>
+
+<h2>Item 2 — The squad sat on a base of fire while one man shuffled</h2>
+<h3><span class="tag">shipped</span> The complaint, as a number</h3>
+<p>The owner watched a firefight and saw the whole squad go to ground and stay there — at most a man or two
+repositioning, never a maneuver element. A probe (<code>scripts/squad-maneuver-probe.ts</code>) confirmed it
+on HEAD and found three damning facts: under the default Hold drill the squad <strong>never</strong>
+autonomously assaulted; the squad's standing order (SOP) was <strong>cosmetic</strong> — Hold, Suppress and
+Assault all spent ~45% of contact <em>breaking contact</em> and behaved almost identically; and even under an
+explicit Assault order, bounding discipline was <strong>0%</strong> (the whole maneuver team rushed at once)
+along a route whose flank-cover ratio was <strong>0.92</strong> — i.e. it charged through <em>less</em> cover
+than a straight line. A frontal banzai rush into the open.</p>
+
+<table>
+<thead><tr><th>metric (heat 0.45)</th><th>Hold before→after</th><th>Suppress</th><th>Assault</th></tr></thead>
+<tbody>
+<tr><td>enters an assault</td><td class="x">0%</td><td>0%</td><td>46% (frontal)</td></tr>
+<tr><td>enters an assault</td><td class="b">→ 22%</td><td class="b">→ 10%</td><td class="b">→ 29% (bounding)</td></tr>
+<tr><td>bounding discipline</td><td class="x">—</td><td>—</td><td class="x">0%</td></tr>
+<tr><td>bounding discipline</td><td class="b">→ 100%</td><td class="b">→ 100%</td><td class="b">→ 100%</td></tr>
+<tr><td>flank-cover ratio (when flanking)</td><td colspan="3" class="b">0.92 → 1.68–1.84 &nbsp;<span class="w">(route cover ÷ straight-line cover; &gt;1 = a covered flank)</span></td></tr>
+</tbody>
+</table>
+
+<p>The fix gives the maneuver <em>decision</em> to the squad-leader AI — never to the player, who still only
+sets the SOP and approves fires (that is the game's soul: <em>"combat is 100% AI; the hardest part of command
+is watching"</em>). Four mechanisms:</p>
+<ul>
+<li><strong>Develop-then-commit.</strong> React to contact = get down and return fire; a beat later, the
+moment the squad can gain fire superiority, the leader commits a maneuver fire team — unbidden.</li>
+<li><strong>The SOP becomes a real lever via a develop-timer.</strong> An earlier attempt to key the lever on
+how-pinned-the-squad-is failed: that signal is bimodal (either winning or pinned), so it rarely lands between
+thresholds and Hold ≈ Assault. The robust fix is time: Assault commits at once, Hold develops ~7 s first,
+Suppress ~18 s and meanwhile calls fires — so many contacts resolve before the cautious orders ever assault.
+Now Assault &gt; Hold &gt; Suppress at every heat.</li>
+<li><strong>A covered flank, not a beeline.</strong> The maneuver element routes to a flank objective off the
+enemy's axis via the cover-biased planner; frontal is the fallback only when no covered flank exists.</li>
+<li><strong>Bounding overwatch.</strong> The element splits into buddy pairs and only one pair rushes at a
+time while the other overwatches — the single most recognisable infantry behavior, and it was entirely
+absent before.</li>
+</ul>
+
+<figure>
+  <img src="ws2-flank.png" alt="A live firefight: the squad split into a base of fire and a flanking maneuver element" />
+  <figcaption><strong>Live capture, frozen mid-assault (seed korengal-2, heat 0.85).</strong> The 9-man squad
+  has split itself: a 4-man base of fire pinning the enemy to the south, and a 4-man maneuver element swinging
+  to a covered flank objective <strong>177 m off the enemy axis</strong> to the north. The frozen-frame dump
+  confirmed that within the maneuver element exactly <em>one</em> buddy pair was moving while the other
+  overwatched — bounding discipline, in the real game. The restraint check (<code>balance.ts</code>) held:
+  KIA stayed flat (the flank trades exposure for cover), and no individual-soldier micro was added.</figcaption>
+</figure>
+
+<h2>Item 4 — The squad rings the spur instead of climbing it</h2>
+<h3><span class="tag cut">tried · measured · reverted</span> Why this section exists</h3>
+<p>This is the part most reports leave out. A squad ordered to a peak observation post planned a
+<strong>3.2 km route around a 468 m climb</strong> — it ringed the spur instead of switchbacking up the face.
+The cause was clear and the fix was textbook (anisotropic walking cost so a traverse is cheaper than a
+straight climb, plus softening the hard cliff cutoff). It was built. And then the numbers said: don't ship it.</p>
+
+<p>A fair probe (<code>scripts/op-route-probe.ts</code>) measured the detour against a <em>fixed</em>
+objective — the highest peak reachable under the strict cutoff, identical before and after — comparing the
+live tree to a clean checkout of HEAD in a git worktree:</p>
+
+<table>
+<thead><tr><th>attempt</th><th>mean detour</th><th>verdict</th></tr></thead>
+<tbody>
+<tr><td>HEAD baseline</td><td>×3.78</td><td class="w">the problem</td></tr>
+<tr><td>anisotropic Tobler cost alone</td><td class="x">×4.52</td><td class="x">worse — over-penalises, pathological zig-zag</td></tr>
+<tr><td>directional cost (right magnitude) + turn penalty</td><td class="b">×3.13</td><td class="x">better detour, +5pp reachability… <em>but stalled a squad</em></td></tr>
+<tr><td>REVERTED to baseline</td><td>×3.78</td><td class="b">0 movement stalls — clean</td></tr>
+</tbody>
+</table>
+
+<div class="callout cut">
+<p><b>The reason it was reverted.</b> The best attempt improved the detour <em>and</em> made two more villages
+reachable — but a 12-deployment movement sweep found a new stall: on one seed a squad froze on flat ground, a
+re-path interaction the route change exposed. The remaining detour was also <em>real</em>: 45% of the worst
+seed's direct line is genuine cliff and river that no cost change makes climbable. A modest, below-target win
+that <b>regresses the most load-bearing, hard-won system in the codebase</b> is the wrong trade. The repo's
+own doctrine names this exact moment: <em>"if anisotropic-cost-on-the-existing-grid thrashes, that's the
+signal to do the finer-patch / any-angle planner as a rebuild, not more patches."</em></p>
+</div>
+
+<figure>
+  <img src="ws4-route.png" alt="An OP route looping around a large impassable cliff massif" />
+  <figcaption><strong>What "ring the spur" looks like — and why some of it is correct.</strong> The squad
+  (yellow, lower-left) routing to a peak OP (green): the cyan/amber route loops up and around a large red
+  cliff massif. Much of this detour is <em>real terrain</em> a foot mover genuinely can't cross — the
+  switchback-up-a-climbable-face behavior needs an any-angle (Theta*) planner on a finer tactical patch, now
+  scoped as <code>docs/issues/019</code>. The fair probe that proved all this is kept for that rebuild.</figcaption>
+</figure>
+
+<p>The micro-terrain half of the same foundation — letting a soldier take cover behind <em>that</em> rock or
+low wall, not an averaged 5 m cover cell — is scoped alongside it as <code>docs/issues/020</code>; the flank
+work above already showed why it matters (a meaningfully-covered flank exists only 3–7% of the time on the
+coarse cover raster, even though the flank mechanism itself is proven).</p>
+
+<h2>How it was verified</h2>
+<ul>
+<li><strong>Every complaint became a number before any code changed</strong> — three purpose-built headless
+probes (<code>dwell-probe</code>, <code>squad-maneuver-probe</code>, <code>op-route-probe</code>), each
+baselined on HEAD first.</li>
+<li><strong>Before/after on identical inputs.</strong> Where a change altered reachability (so the probe's
+own objective would move), the comparison was run against a clean checkout of HEAD in a git worktree, on a
+fixed objective selected by a mover-faithful flood that honours the planner's anti-corner-cut rule.</li>
+<li><strong>Held-out seeds.</strong> The maneuver and OP wins were read on seeds that were never in the tuning
+loop, not just the ones tuned on.</li>
+<li><strong>Live, in the deployed game.</strong> Both shipped items were driven in the real app via
+<code>window.__ITM</code> — the dwell modal rendered and resolved correctly; the squad was caught mid-flank
+and its element split dumped frame-by-frame.</li>
+<li><strong>The standing gate held green:</strong> <code>tsc</code>, <code>build</code>, <code>smoke</code>
+(serialize round-trip), and <code>balance</code> (no stall) on every shipped change; new persisted state went
+into both <code>serialize()</code> and <code>loadWorld()</code> (a save-version bump to v7).</li>
+</ul>
+
+<div class="callout">
+<p><b>Did an AI really do this?</b> The interesting evidence isn't the code — it's the third item. An agent
+built a plausible, doctrine-correct fix, measured it against its own baseline on held-out seeds, found it
+traded a below-target gain for a movement-system regression, and <b>reverted its own work</b> — then wrote
+the reason down as two tracked issues and a reproduction probe for whoever builds the rebuild. The wins are
+nice; the revert is the tell.</p>
+</div>
+
+<p class="foot">Engineering record: <code>docs/progress/2026-06-07-soldier-scale-impl/</code> (baselines,
+after-numbers, live dumps). Deferred work: <code>docs/issues/019</code> (any-angle OP planner),
+<code>docs/issues/020</code> (micro-terrain cover objects). Probes:
+<code>scripts/{dwell,squad-maneuver,op-route}-probe.ts</code>. Built and verified by an autonomous agent;
+numbers are quoted as measured.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
