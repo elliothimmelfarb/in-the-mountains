@@ -890,17 +890,23 @@ export class World {
     const center = this.copWorld();
     const wireM = cop.radius * this.terrain.cellSize;
     // Fighters massing at the wire = an assault (not a lone sniper at distance).
+    // Don't hijack the fire-support slot from a forward squad: if a tasked element is in contact,
+    // it owns the call-for-fire — the COP FPF is for when the OUTPOST ITSELF is the target.
+    if (this.inContact() && this.state.tasks.some((t) => !!t.squadState || (t.contactHold ?? 0) > 0)) return;
     const assault: Vec2[] = [];
     for (const e of this.sim.livingEnemies()) {
       const d = dist(e.pos, center);
-      if (d > wireM - 10 && d < wireM + 170) assault.push(e.pos);
+      if (d > wireM - 10 && d < wireM + 120) assault.push(e.pos);
     }
     if (assault.length < 3) return;
-    // The garrison must actually be holding the wire (else there is nothing to protect).
-    const defenders = this.platoon.members.filter(
-      (m) => m.alive && !m.evac && m.status !== "wounded" && dist(m.pos, center) < wireM + 35
+    // The garrison must actually be IN CONTACT at the wire (else this is a patrol's fight nearby,
+    // not an assault on the outpost — and firing would waste rounds + starve the patrol's support).
+    const defendersEngaged = this.platoon.members.filter(
+      (m) =>
+        m.alive && !m.evac && m.status !== "wounded" && dist(m.pos, center) < wireM + 35 &&
+        (m.visibleEnemyIds.length > 0 || (m.suppression ?? 0) > 0.2)
     ).length;
-    if (defenders < 2) return;
+    if (defendersEngaged < 2) return;
     // FPF aimpoint: the assault's centroid, pushed onto the wire line on its bearing.
     let ax = 0, ay = 0;
     for (const p of assault) { ax += p.x; ay += p.y; }
