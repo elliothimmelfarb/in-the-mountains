@@ -131,12 +131,25 @@ export interface CopBuilding {
   label: string;
 }
 
+/** Crew-served weapon (or a rifleman's position) on the wire — see analyzeFightingPositions. */
+export type CopWeapon = "m2" | "m240" | "mk19" | "rifle";
+
 export interface CopFightingPosition {
   id: string;
   cx: number;
   cy: number;
-  facing: number; // radians, outward
+  facing: number; // radians, outward — the position's PRIMARY direction of fire (PDF)
   tower: boolean;
+  /** Crew-served weapon sited here by terrain geometry (ATP 3-21.8): the M2 takes the
+   *  longest open avenue, the M240 the next, the Mk19 plunges into the worst dead space. */
+  weapon: CopWeapon;
+  /** Sector-of-fire bounds (radians, absolute bearings). Adjacent sectors interlock. */
+  leftLimit: number;
+  rightLimit: number;
+  /** Mean unobstructed grazing reach down the sector (m) — how far this gun dominates. */
+  avenueScore: number;
+  /** Fraction (0..1) of the sector masked by terrain into dead space (defilade). */
+  deadSpaceFrac: number;
 }
 
 /**
@@ -154,6 +167,8 @@ export interface CopLayout {
   gateDir: Vec2; // outward unit vector through the gate
   muster: { cx: number; cy: number }; // the yard / formation area
   lz: { cx: number; cy: number }; // helicopter landing zone
+  mortarPit: { cx: number; cy: number }; // dug-in indirect-fire pit (rear defilade) — the firing origin
+  fpf: { cx: number; cy: number }; // registered Final Protective Fire point, just outside the wire on the most dangerous avenue
   buildings: CopBuilding[];
   fightingPositions: CopFightingPosition[];
 }
@@ -188,6 +203,14 @@ export const DEFAULT_TERRAIN: TerrainConfig = {
  * so the two files can never drift apart on the value.
  */
 export const COARSE_F = 3;
+/**
+ * Foot-impassable slope cutoff (rise/run). Below this, ground is passable (steep ground above
+ * ~1.25 / 51° is passable-but-brutal, priced by the anisotropic Tobler grade cost in path.ts);
+ * above it is a genuine cliff. ~1.7 ≈ 60° — the limit of unroped infantry scrambling. Raising it
+ * from the old 1.25 is what gives a steep face a through-line so a squad switchbacks up instead of
+ * ringing the spur (procedural 5 m roughness used to scatter >1.25 cells and fake cliffs).
+ */
+export const FOOT_MAX_SLOPE = 1.7;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
 export const COARSE_DIR8: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -1020,9 +1043,35 @@ export class Terrain {
       const fy = Math.round(c.cy + Math.sin(a) * (R - 3));
       const snap = this.nearestPassable(fx, fy, 4);
       if (!this.inBounds(snap.cx, snap.cy)) continue;
-      fightingPositions.push({ id: `fp-${fp}`, cx: snap.cx, cy: snap.cy, facing: a, tower: fp % 3 === 0 });
+      // Doctrine fields are filled by analyzeFightingPositions below; seed them so the type holds.
+      fightingPositions.push({
+        id: `fp-${fp}`, cx: snap.cx, cy: snap.cy, facing: a, tower: false,
+        weapon: "rifle", leftLimit: a - Math.PI / 4, rightLimit: a + Math.PI / 4, avenueScore: 0, deadSpaceFrac: 0,
+      });
       fp++;
     }
+    // ATP 3-21.8 ch.5: score each position's avenue by a terrain LOS sweep, then site the
+    // crew-served weapons + towers + interlocking sectors by that geometry (not blind index).
+    this.analyzeFightingPositions(fightingPositions);
+
+    // 6b) Mortar pit — dug in to the REAR of the yard for defilade (ATP 3-21.8 / FM 3-22.90).
+    //     This is the indirect-fire ORIGIN (world.ts points copPos here) and a real installation.
+    const mortarPit = this.nearestPassable(
+      Math.round(c.cx - gateDir.x * 4),
+      Math.round(c.cy - gateDir.y * 4),
+      5
+    );
+    // 6c) Final Protective Fires registered on the MOST DANGEROUS avenue — the sector with the
+    //     most dead space (where attackers can close under cover), a point just outside the wire.
+    const worst = fightingPositions.reduce(
+      (a, b) => (b.deadSpaceFrac > a.deadSpaceFrac ? b : a),
+      fightingPositions[0] ?? { facing: ga + Math.PI, deadSpaceFrac: 0 }
+    );
+    const fpfBear = worst ? worst.facing : ga + Math.PI;
+    const fpf = {
+      cx: Math.round(c.cx + Math.cos(fpfBear) * (R + 4)),
+      cy: Math.round(c.cy + Math.sin(fpfBear) * (R + 4)),
+    };
 
     // gateOutside is the FAR END of the flat ECP apron (issue 001): a benched cell
     // at ~R+5, clear of the wall (so a 15 m coarse node sits cleanly on it — issue
@@ -1050,11 +1099,105 @@ export class Terrain {
       gateDir,
       muster,
       lz,
+      mortarPit,
+      fpf,
       buildings,
       fightingPositions,
     };
 
     this.computeSlopeLocal(c.cx, c.cy, FR + 1);
+  }
+
+  /**
+   * Doctrine-aware fighting-position analysis (ATP 3-21.8 ch.5, "defense"). For each
+   * position we sweep its outward sector with a terrain-elevation line-of-sight march and
+   * measure (a) how far down its avenue the gun can graze before terrain masks the ground —
+   * the *avenue score* — and (b) how much of the arc falls into dead space (defilade the
+   * direct-fire guns can't reach). Crew-served weapons are then sited by that geometry, the
+   * way a real platoon would emplace them:
+   *   • the M2 .50 cal (1830 m) takes the LONGEST open avenue,
+   *   • the M240 (1100 m) the next-longest,
+   *   • the Mk19 grenade launcher — whose 40 mm PLUNGES — takes the WORST dead-space sector,
+   *     exactly where direct grazing fire fails and only high-angle fire reaches.
+   * Towers go on the two key crew-served avenues for observation; the rest are riflemen.
+   * Interlocking sectors are set so adjacent positions overlap (no un-grazed frontage).
+   * This is pure seeded geometry over the baked elevation — no rng, no wall clock — so it
+   * regenerates bit-identically on load (it lives on `cop`, which is never serialized).
+   */
+  private analyzeFightingPositions(fps: CopFightingPosition[]) {
+    if (fps.length === 0) return;
+    const REF = 1830; // m — score every gun on the .50's reach so positions are comparable
+    const STEP = this.cellSize; // march one cell outward at a time
+    const EYE = 1.2; // gun height above the deck (m)
+    const ARC = Math.PI / 4; // ±45° primary sector swept for scoring
+    const DA = ARC / 7; // angular sample step (~6.4°)
+    const EPS = 0.012; // ~0.7° horizon tolerance
+
+    // ---- (a) terrain LOS sweep: avenue reach + dead-space fraction per position ----
+    for (const f of fps) {
+      const e0 = this.elev[this.idx(f.cx, f.cy)] + EYE;
+      let sumReach = 0, dead = 0, total = 0, rays = 0;
+      for (let da = -ARC; da <= ARC + 1e-6; da += DA) {
+        const a = f.facing + da;
+        const dx = Math.cos(a), dy = Math.sin(a);
+        let horizon = -Infinity, lastVis = 0;
+        for (let r = STEP; r <= REF; r += STEP) {
+          const cx = Math.round(f.cx + (dx * r) / this.cellSize);
+          const cy = Math.round(f.cy + (dy * r) / this.cellSize);
+          if (!this.inBounds(cx, cy)) break;
+          const ang = (this.elev[this.idx(cx, cy)] - e0) / r; // elevation angle to this ground point
+          total++;
+          if (ang >= horizon - EPS) {
+            lastVis = r; // clears every closer crest → the gun can graze ground out to here
+            if (ang > horizon) horizon = ang;
+          } else {
+            dead++; // masked by a nearer rise → defilade
+          }
+        }
+        sumReach += lastVis;
+        rays++;
+      }
+      f.avenueScore = rays ? sumReach / rays : 0;
+      f.deadSpaceFrac = total ? dead / total : 0;
+    }
+
+    // ---- (b) site the crew-served weapons + towers by that geometry ----
+    for (const f of fps) { f.weapon = "rifle"; f.tower = false; }
+    const taken = new Set<string>();
+    const give = (f: CopFightingPosition | undefined, w: CopWeapon, tower: boolean) => {
+      if (!f || taken.has(f.id)) return;
+      f.weapon = w;
+      if (tower) f.tower = true;
+      taken.add(f.id);
+    };
+    const byAvenue = [...fps].sort((a, b) => b.avenueScore - a.avenueScore);
+    give(byAvenue[0], "m2", true); // .50 on the longest open avenue, elevated
+    give(byAvenue.find((f) => !taken.has(f.id)), "m240", true); // 240 next-longest, elevated
+    const byDead = [...fps].filter((f) => !taken.has(f.id)).sort((a, b) => b.deadSpaceFrac - a.deadSpaceFrac);
+    give(byDead[0], "mk19", false); // grenade launcher plunges into the worst dead ground
+
+    // ---- (c) interlocking sectors: each position's limits bisect the gap to its neighbours ----
+    const TWO_PI = Math.PI * 2;
+    const OVER = 0.09; // ~5° overlap so adjacent sectors interlock (no un-grazed frontage)
+    const sorted = [...fps].sort((a, b) => a.facing - b.facing);
+    const n = sorted.length;
+    for (let i = 0; i < n; i++) {
+      const f = sorted[i];
+      if (n === 1) {
+        f.leftLimit = f.facing + Math.PI / 4;
+        f.rightLimit = f.facing - Math.PI / 4;
+        continue;
+      }
+      const prev = sorted[(i - 1 + n) % n];
+      const next = sorted[(i + 1) % n];
+      let gPrev = ((f.facing - prev.facing) % TWO_PI + TWO_PI) % TWO_PI;
+      let gNext = ((next.facing - f.facing) % TWO_PI + TWO_PI) % TWO_PI;
+      // Clamp the half-sector so a position flanking the wide gate gap doesn't claim a huge arc.
+      const halfPrev = Math.min(1.2, Math.max(0.3, gPrev / 2));
+      const halfNext = Math.min(1.2, Math.max(0.3, gNext / 2));
+      f.rightLimit = f.facing - halfPrev - OVER;
+      f.leftLimit = f.facing + halfNext + OVER;
+    }
   }
 
   /**
@@ -2590,17 +2733,35 @@ export class Terrain {
     // act and what stops a squad wading the chasm anywhere and getting trapped between the banks.
     // placeFords + ensureRiverCrossings guarantee crossings exist so nothing is ever walled off.
     if (l === Land.River) return false;
-    if (this.slope[this.idx(cx, cy)] > 1.25) return false;
+    // Infantry climb steeper than the old 51° (slope 1.25) hard cutoff — slowly, on hands and feet.
+    // Reserve true impassability for genuine cliffs (> ~60°, slope 1.7); the 1.25–1.7 band is
+    // passable-but-brutal (priced by the anisotropic Tobler grade cost in path.ts). This gives a
+    // steep face a THROUGH-LINE so a squad switchbacks UP it instead of ringing the spur — the old
+    // cutoff fragmented a climbable face (procedural 5 m roughness scatters >1.25 cells) into fake
+    // cliffs, forcing a ×6–7 circumnavigation (issue: world-scale OP routing).
+    if (this.slope[this.idx(cx, cy)] > FOOT_MAX_SLOPE) return false;
     return true;
   }
 
-  /** Movement speed multiplier (1 = open flat road pace; lower = harder). */
+  /** Movement speed multiplier (1 = open flat road pace; lower = harder). This is LOCOMOTION speed
+   *  (used by the combat sim to move a unit through a cell) and is intentionally isotropic — steep
+   *  ground is slow regardless of heading. PATH COST is a separate concern: the planner uses the
+   *  landcover-only `landMoveAt` plus an ANISOTROPIC Tobler grade term on each A* edge, so a
+   *  switchback genuinely pays off (see path.ts). Keeping the slope penalty here means a unit still
+   *  physically slows on the steep face it switchbacks up. */
   moveCostAt(wx: number, wy: number): number {
     const land = this.landAt(wx, wy);
     const slope = this.slopeAt(wx, wy);
     const m = LAND_MOVE[land] ?? 0.6;
     // Slope penalty (steep ground is brutal in the Korengal).
     return clamp(m * clamp01(1 - slope * 0.62), 0.1, 1);
+  }
+
+  /** Landcover-only move factor (NO slope term) — the planner's per-cell base cost. The slope is
+   *  applied anisotropically per A* edge (Tobler) instead of isotropically per cell, which is what
+   *  lets a diagonal traverse be cheaper than a straight climb so switchbacks emerge. */
+  landMoveAt(wx: number, wy: number): number {
+    return clamp(LAND_MOVE[this.landAt(wx, wy)] ?? 0.6, 0.1, 1);
   }
 
   /** Cell center in world meters. */
