@@ -1,0 +1,11 @@
+WS4 OP-route baseline — HEAD (after WS1/WS2), gen-oproute.ts <seed>
+detour = route length / crow-flight; impassable% of the straight-line ascent (slope>1.25)
+
+seed        | climb | crow  | patrol route | detour | impassable% | mean slope
+korengal-2  | 369 m | 468 m |     3204 m   | x6.85  |    48%      |   1.15   <- worst, "rings the spur"
+ridgeline   |  94 m | 570 m |      849 m   | x1.49  |    60%      |   1.31
+restrepo    | 317 m | 552 m |      785 m   | x1.42  |    30%      |   0.64
+korengal    | 224 m | 585 m |     1287 m   | x2.20  |    29%      |   0.65
+
+Target (plan): korengal-2 detour x6.85 -> ~x1.2-1.6; switchbacks appear only above ~25% grade.
+Levers: anisotropic Tobler edge cost (switchbacks pay off) + soften the 51deg hard cutoff.

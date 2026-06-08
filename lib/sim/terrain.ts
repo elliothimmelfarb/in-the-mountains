@@ -204,13 +204,13 @@ export const DEFAULT_TERRAIN: TerrainConfig = {
  */
 export const COARSE_F = 3;
 /**
- * Foot-impassable slope cutoff (rise/run). Below this, ground is passable (steep ground above
- * ~1.25 / 51° is passable-but-brutal, priced by the anisotropic Tobler grade cost in path.ts);
- * above it is a genuine cliff. ~1.7 ≈ 60° — the limit of unroped infantry scrambling. Raising it
- * from the old 1.25 is what gives a steep face a through-line so a squad switchbacks up instead of
- * ringing the spur (procedural 5 m roughness used to scatter >1.25 cells and fake cliffs).
+ * Foot-impassable slope cutoff (rise/run): above ~1.25 (≈51°) is a cliff a foot mover can't take.
+ * NOTE: raising this to give a steep face a through-line for switchbacking up (instead of ringing
+ * the spur) was tried with an anisotropic Tobler path cost; on the existing 8-direction coarse-
+ * corridor planner it REGRESSED OP routing (worst ×6.85→×9.21) and movement (a balance stall), so it
+ * was reverted. The real fix is an any-angle (Theta*) finer planner — see docs/issues/019. Keep at 1.25.
  */
-export const FOOT_MAX_SLOPE = 1.7;
+export const FOOT_MAX_SLOPE = 1.25;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
 export const COARSE_DIR8: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -1190,8 +1190,8 @@ export class Terrain {
       }
       const prev = sorted[(i - 1 + n) % n];
       const next = sorted[(i + 1) % n];
-      let gPrev = ((f.facing - prev.facing) % TWO_PI + TWO_PI) % TWO_PI;
-      let gNext = ((next.facing - f.facing) % TWO_PI + TWO_PI) % TWO_PI;
+      const gPrev = ((f.facing - prev.facing) % TWO_PI + TWO_PI) % TWO_PI;
+      const gNext = ((next.facing - f.facing) % TWO_PI + TWO_PI) % TWO_PI;
       // Clamp the half-sector so a position flanking the wide gate gap doesn't claim a huge arc.
       const halfPrev = Math.min(1.2, Math.max(0.3, gPrev / 2));
       const halfNext = Math.min(1.2, Math.max(0.3, gNext / 2));
@@ -2733,35 +2733,17 @@ export class Terrain {
     // act and what stops a squad wading the chasm anywhere and getting trapped between the banks.
     // placeFords + ensureRiverCrossings guarantee crossings exist so nothing is ever walled off.
     if (l === Land.River) return false;
-    // Infantry climb steeper than the old 51° (slope 1.25) hard cutoff — slowly, on hands and feet.
-    // Reserve true impassability for genuine cliffs (> ~60°, slope 1.7); the 1.25–1.7 band is
-    // passable-but-brutal (priced by the anisotropic Tobler grade cost in path.ts). This gives a
-    // steep face a THROUGH-LINE so a squad switchbacks UP it instead of ringing the spur — the old
-    // cutoff fragmented a climbable face (procedural 5 m roughness scatters >1.25 cells) into fake
-    // cliffs, forcing a ×6–7 circumnavigation (issue: world-scale OP routing).
     if (this.slope[this.idx(cx, cy)] > FOOT_MAX_SLOPE) return false;
     return true;
   }
 
-  /** Movement speed multiplier (1 = open flat road pace; lower = harder). This is LOCOMOTION speed
-   *  (used by the combat sim to move a unit through a cell) and is intentionally isotropic — steep
-   *  ground is slow regardless of heading. PATH COST is a separate concern: the planner uses the
-   *  landcover-only `landMoveAt` plus an ANISOTROPIC Tobler grade term on each A* edge, so a
-   *  switchback genuinely pays off (see path.ts). Keeping the slope penalty here means a unit still
-   *  physically slows on the steep face it switchbacks up. */
+  /** Movement speed multiplier (1 = open flat road pace; lower = harder). */
   moveCostAt(wx: number, wy: number): number {
     const land = this.landAt(wx, wy);
     const slope = this.slopeAt(wx, wy);
     const m = LAND_MOVE[land] ?? 0.6;
     // Slope penalty (steep ground is brutal in the Korengal).
     return clamp(m * clamp01(1 - slope * 0.62), 0.1, 1);
-  }
-
-  /** Landcover-only move factor (NO slope term) — the planner's per-cell base cost. The slope is
-   *  applied anisotropically per A* edge (Tobler) instead of isotropically per cell, which is what
-   *  lets a diagonal traverse be cheaper than a straight climb so switchbacks emerge. */
-  landMoveAt(wx: number, wy: number): number {
-    return clamp(LAND_MOVE[this.landAt(wx, wy)] ?? 0.6, 0.1, 1);
   }
 
   /** Cell center in world meters. */
