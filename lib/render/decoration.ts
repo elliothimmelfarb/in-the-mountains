@@ -47,17 +47,13 @@ function pickDeco(land: Land, r: number): Pick | null {
     case Land.Grass:
       // mostly open, but a few lone outlier trees break the bush monotony
       return r < 0.035 ? { id: "tree-poplar", prob: 0.45, scale: 0.95 } : r < 0.08 ? { id: "tree-walnut-b", prob: 0.4, scale: 0.9 } : { id: "bush-scrub", prob: 0.08, scale: 0.85 };
-    case Land.Scree:
-      return r < 0.5 ? { id: "boulder", prob: 0.16, scale: 1.0 } : { id: "rock-outcrop", prob: 0.1, scale: 1.0 };
-    case Land.Boulders:
-      return { id: "boulder", prob: 0.5, scale: 1.18 };
-    case Land.Rock:
-    case Land.Cliff:
-      return { id: "rock-outcrop", prob: 0.12, scale: 1.0 };
+    // NOTE: boulders & rock outcrops are NO LONGER scattered here — they are real sim cover OBJECTS
+    // (terrain.coverObjects), drawn by drawCoverObjects() below so the drawn rock IS the one the combat
+    // takes cover behind (issue 020). pickDeco now only places vegetation.
     case Land.Marsh:
       return { id: "reeds", prob: 0.4, scale: 1.0 };
     case Land.DryWash:
-      return r < 0.6 ? { id: "boulder", prob: 0.04, scale: 0.8 } : { id: "bush-scrub", prob: 0.12, scale: 0.8 };
+      return r < 0.6 ? null : { id: "bush-scrub", prob: 0.12, scale: 0.8 };
     default:
       return null; // NO trees on compounds/roads/COP/etc — clearance handles the rest
   }
@@ -116,6 +112,14 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, 
       items.push({ x: jx, y: jy, id: pick.id, scale: sc, rot });
     }
   }
+  // Discrete cover OBJECTS (boulders / rock outcrops) — drawn straight from the sim's source-of-truth
+  // list, so each one is exactly where the combat cover field was stamped (issue 020). They share the
+  // vegetation's clearance/clumping (baked into generation) and the same painter's sort below.
+  for (const o of terrain.coverObjects) {
+    if (o.x < minx || o.x > maxx || o.y < miny || o.y > maxy) continue;
+    items.push({ x: o.x, y: o.y, id: o.id, scale: o.scale, rot: o.rot });
+  }
+
   items.sort((a, b) => a.y - b.y); // painter's order
   const n = Math.min(items.length, CAP);
   for (let i = 0; i < n; i++) {

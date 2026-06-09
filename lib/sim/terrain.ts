@@ -268,6 +268,12 @@ export class Terrain {
    *  stroke them as scaled lines that mold to the terrain — a 0.8 m goat-trail thread, a 2.5 m track, a
    *  4 m road — instead of the barely-visible, wrongly-5-m-wide landcover tint. `kind` sizes the stroke. */
   trailLines: { kind: "road" | "track" | "trail"; pts: Vec2[] }[] = [];
+  /** Discrete micro-cover objects (boulders, rock outcrops) — the SINGLE source of truth that the
+   *  combat cover field is stamped from AND the renderer draws, so the rock a soldier takes cover
+   *  behind is the same one on screen (issue 020). Deterministic (hash-seeded from the static terrain),
+   *  so it is NOT serialized — regenerated from seed with everything else. `cover`/`conceal` are the
+   *  hard-cover / concealment the object lends the cell it sits in. */
+  coverObjects: { x: number; y: number; id: "boulder" | "rock-outcrop"; scale: number; rot: number; cover: number; conceal: number }[] = [];
   copCell: { cx: number; cy: number } = { cx: 0, cy: 0 };
   cop!: CopLayout;
   /** Centerline x (in cells) of the valley floor at each row y. */
@@ -398,6 +404,7 @@ export class Terrain {
     this.ensureNetworkConnectivity(); // issue 008: guarantee the gate connects to the MSR + villages
     this.ensureInteriorConnectivity(); // issue 012: every COP seat/fighting-position joins the muster yard (no sealed pockets). LAST, so its findPath checks see the final terrain (river/network carving can't re-sever the yard after).
     this.deriveCoverConcealment();
+    this.generateCoverObjects(); // issue 020: discrete cover objects stamp the field + are what the renderer draws
     this.nameFeatures(rng);
   }
 
@@ -2835,6 +2842,81 @@ export class Terrain {
       this.cover[i] = cover;
       this.conceal[i] = conceal;
     }
+  }
+
+  /**
+   * Discrete micro-cover (issue 020): scatter boulders and rock outcrops as real OBJECTS, stamp the
+   * cover/concealment they lend into the field (so the combat cover query and the LOS see them), and
+   * keep the list so the renderer draws the SAME instances — the rock a soldier hugs is the rock on
+   * screen, not a cosmetic sprite decoupled from a smeared 5 m average. Two sources: the rocky ground
+   * that should obviously hold cover (Boulders/Scree/Rock), and — the owner's "more on the map to use
+   * for cover" — a sparse strew of erratic boulders down the OPEN slopes (Grass/Meadow/Scrub/Terrace),
+   * which otherwise offer nothing to get behind. Hash-seeded from the static terrain → deterministic,
+   * not serialized. Called AFTER deriveCoverConcealment so it stamps on top of the landcover base.
+   */
+  private generateCoverObjects() {
+    const { worldSize: ws, cellSize: cs } = this;
+    const STEP = 6;
+    const hash = (ix: number, iy: number, salt: number): number => {
+      let h = (ix | 0) * 374761393 + (iy | 0) * 668265263 + (salt | 0) * 2147483647;
+      h = (h ^ (h >> 13)) * 1274126177;
+      return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+    };
+    const valNoise = (x: number, y: number): number => {
+      const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+      const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+      const a = hash(xi, yi, 7), b = hash(xi + 1, yi, 7), c = hash(xi, yi + 1, 7), d = hash(xi + 1, yi + 1, 7);
+      return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+    };
+    const blocker = (l: Land) =>
+      l === Land.Road || l === Land.Trail || l === Land.Footbridge || l === Land.River || l === Land.Track ||
+      l === Land.Hesco || l === Land.Structure || l === Land.Gravel || l === Land.Compound || l === Land.CompoundWall;
+    const gN = Math.ceil(ws / STEP);
+    const CAP = 16000; // generous — covers the whole map without spatial bias (render windows + caps anyway)
+    for (let gy = 0; gy < gN && this.coverObjects.length < CAP; gy++)
+      for (let gx = 0; gx < gN; gx++) {
+        const jx = (gx + 0.1 + hash(gx, gy, 1) * 0.8) * STEP;
+        const jy = (gy + 0.1 + hash(gx, gy, 2) * 0.8) * STEP;
+        if (jx < 0 || jy < 0 || jx >= ws || jy >= ws) continue;
+        const cx = Math.floor(jx / cs), cy = Math.floor(jy / cs);
+        if (!this.inBounds(cx, cy)) continue;
+        const l = this.land[this.idx(cx, cy)] as Land;
+        const slope = this.slope[this.idx(cx, cy)];
+        // Every object is DRAWN from this list (drawn=sim) and inherits the cover the LANDCOVER already
+        // encodes at its cell — `stampNew` stays false everywhere, so the cover field is byte-identical to
+        // the no-objects field (provably balance-neutral; verified by a field hash). On rocky ground this is
+        // exactly right: the rock you see IS where the cover field's cover is. RESTRAINT (issue 020): a
+        // version that ADDED cover on open ground was measured and reverted — even at low density it
+        // prolonged firefights into attritional grinds (12×50 WIA 3.92→7.42, a +89% shift; an earlier broad
+        // Scree raise was ~3× worse). Ambient cover via the 5 m cell scalar is too coarse to add safely;
+        // making open-ground cover both USABLE and non-grinding needs the sub-cell directional model (the
+        // deferred heavy half of 020). So the erratics here are visible objects to maneuver around, not yet
+        // a combat-cover change. `stampNew` is kept as the seam for that future work.
+        let id: "boulder" | "rock-outcrop";
+        let prob: number, baseScale: number, stampNew: boolean;
+        if (l === Land.Boulders) { id = "boulder"; prob = 0.5; baseScale = 1.18; stampNew = false; }
+        else if (l === Land.Scree) { id = hash(gx, gy, 3) < 0.5 ? "boulder" : "rock-outcrop"; prob = 0.16; baseScale = 1; stampNew = false; }
+        else if (l === Land.Rock || l === Land.Cliff) { id = "rock-outcrop"; prob = 0.12; baseScale = 1; stampNew = false; }
+        else if ((l === Land.Grass || l === Land.Meadow || l === Land.Scrub || l === Land.Terrace) && slope > 0.18 && slope < 0.95) {
+          id = "boulder"; prob = 0.05; baseScale = 0.95; stampNew = false; // erratic boulders strewn down the open slope — DRAWN (more on the map), but NOT field-stamped: see note below.
+        } else if (l === Land.DryWash) { id = "boulder"; prob = 0.06; baseScale = 0.85; stampNew = false; }
+        else continue;
+        const clump = valNoise(jx * 0.012, jy * 0.012);
+        if (hash(gx, gy, 4) > prob * (0.35 + clump * clump * 1.3)) continue;
+        if (blocker(this.landAt(jx + 5, jy)) || blocker(this.landAt(jx - 5, jy)) || blocker(this.landAt(jx, jy + 5)) || blocker(this.landAt(jx, jy - 5))) continue;
+        const scale = baseScale * (0.6 + hash(gx, gy, 5) * 0.9);
+        const rot = (hash(gx, gy, 6) - 0.5) * 0.5;
+        const i = this.idx(cx, cy);
+        // a boulder you crouch behind is real but PARTIAL cover (light frontal, not a bunker); on rocky
+        // ground the object inherits the landcover's existing cover (no re-raise)
+        const objCover = stampNew ? 0.42 * Math.min(1, 0.6 + scale * 0.4) : this.cover[i];
+        const objConceal = stampNew ? 0.2 * Math.min(1, 0.6 + scale * 0.4) : this.conceal[i];
+        this.coverObjects.push({ x: jx, y: jy, id, scale, rot, cover: objCover, conceal: objConceal });
+        if (stampNew) {
+          this.cover[i] = Math.max(this.cover[i], objCover);
+          this.conceal[i] = Math.max(this.conceal[i], objConceal);
+        }
+      }
   }
 
   private nameFeatures(rng: RNG) {
