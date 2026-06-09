@@ -174,6 +174,7 @@
     <a class="rep" href="reports/2026-06-08-soldier-scale/report.html"><span class="rd">2026-06-08</span><span class="rt">Soldier-scale realism</span><span class="rs">Hours-long progressive census + a dwell event-roll, an autonomous squad flank with bounding overwatch (0→100%), and one honest revert: a switchback-pathing fix measured against its own baseline, found to stall a squad, and backed out.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-cop-overhaul/report.html"><span class="rd">2026-06-08</span><span class="rt">The combat outpost, made real</span><span class="rs">A six-specialist survey + judge rebuilt every aspect of the COP: a fire plan sited by a terrain LOS sweep (M2 on the 922 m avenue, Mk19 on 94%-dead ground), the HESCO bastion silhouette, night life-signs, a living garrison, and the watch — a wire assault that now demands a Final Protective Fire decision. copaudit clean ×9.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-08-combat-feel/report.html"><span class="rd">2026-06-08</span><span class="rt">Making the firefight feel real</span><span class="rs">Five fixes across visual + sim + audio. One sub-tick interpolation made bullets travel and resurrected the muzzle flash (0→100% rendered). Suppression finally cuts a pinned man's fire rate (flat → −48%); temperament shapes bursts; ComBloc tracers burn green; the MG hammers (56→8 cracks/burst) — all within ±15% of the old balance, determinism intact.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-09-terrain-realism/report.html"><span class="rd">2026-06-09</span><span class="rt">Reading the ground</span><span class="rs">The map quietly lied: half the walkable valley was stranded behind fake-cliff noise (reachable 48→61%), footpaths were a 5 m smudge, a 56° wall was drawn like a meadow, and cover was a smear decoupled from the rocks you could see. Four measured fixes — a steep-band reconnect (with one cost-floor revert: no win, −1.5× speed, +71% WIA), switchback foot-trails (a trench bug caught in a render), paths as scaled dirt lines + cliffs as sheer rock, and ~11,600 discrete cover objects that are drawn = sim. The combat-cover half was cut on the numbers (a light open-ground stamp dragged firefights, WIA +89%) — the honest deferral to a sub-cell model.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -874,6 +875,28 @@
       </div>
       <p class="quote">The hardest part wasn't the fix — it was the restraint: the personality "panic spray" was tuned down when a first attempt pushed casualties out of tolerance. The win condition was never "more dramatic," it was "more honest, within ±15% of the old balance."</p>
       <a class="readmore" href="reports/2026-06-08-combat-feel/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-09-terrain-realism">
+    <div class="shot">
+      <a href="reports/2026-06-09-terrain-realism/report.html"><img src="assets/2026-06-09-terrain-realism.png" alt="The valley with its new path network — a scaled dirt MSR following the river, village tracks, and goat-trail threads molding to the slopes" loading="lazy"></a>
+      <div class="cap">The valley, made legible — the MSR and tracks now read as scaled dirt roads molding to the terrain, the ridges as impassable rock. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-09</span></div>
+      <h3>Reading the ground: traversable steep terrain, footpaths that mold, cliffs you can read, cover you can use</h3>
+      <div class="tags"><span class="tag">Terrain</span><span class="tag">Sim</span><span class="tag">Render</span><span class="tag">Movement</span></div>
+      <p>The map looked alive but quietly lied about itself. A new probe floods the valley the way the mover does and found the tell: <b>80% of the ground was passable but only 48% was reachable</b> — the hard "no foot traffic above 51°" cutoff salt-and-peppered <em>fake cliffs</em> across climbable faces, shattering the walkable map into islands. The footpaths were a 5&nbsp;m paint smudge; a 56° wall was drawn the same warm tan as a meadow; and the cover that decides a firefight was one averaged number per cell, decoupled from the rocks you could see.</p>
+      <p class="shape"><b>The shape:</b> four asks, four measured iterations, each baselined and re-measured in isolation. Soften the impassable line to reconnect the steep band (<b>reach 48→61%</b>, real cliffs preserved). Switchback foot-trails up the spurs (a benched first version cut impassable trenches — <em>caught in a trail render</em>, rebuilt to surface-lay). Stroke every captured path centerline as a scaled dirt line, and shade everything above the foot-passable slope as sheer cool rock. And promote the boulders from cosmetic sprites to sim <em>objects</em> the renderer draws from — so the rock you see on rocky ground is where the engine's cover is. (The combat-cover half on open ground was measured and <em>cut</em>: even a light stamp dragged firefights +89% WIA — deferred to a sub-cell model.)</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">walkable map reachable</span><span class="b">48%</span><span class="ar">→</span><span class="a">61%</span></span>
+        <span class="m"><span class="lbl">footpaths per valley</span><span class="b">~6</span><span class="ar">→</span><span class="a">22–32</span></span>
+        <span class="m"><span class="lbl">cover objects (drawn = sim)</span><span class="b">0</span><span class="ar">→</span><span class="a">11,600</span></span>
+        <span class="m"><span class="lbl">changes reverted on the numbers</span><span class="b">—</span><span class="ar">→</span><span class="a">2</span></span>
+      </div>
+      <p class="quote">The restraint was the work. A cost-floor tweak that <em>felt</em> right bought no routing win, ran the sim 1.5× slower and spiked WIA 71% — reverted on the numbers. A cover change that looked fine in aggregate turned ridge firefights into grinds — caught only because a <em>same-seed</em> A/B disagreed with the cross-config one. Cross-config comparisons lied twice; same-seed A/Bs told the truth.</p>
+      <a class="readmore" href="reports/2026-06-09-terrain-realism/report.html">Read the full report →</a>
     </div>
   </article>
 

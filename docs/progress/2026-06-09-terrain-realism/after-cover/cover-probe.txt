@@ -1,0 +1,4 @@
+=== cover objects (final: drawn=sim, render-only, combat-cover deferred) ===
+objs ~12,100/valley (drawn=sim OK, per-object verified); ~1,700 erratics on open slopes.
+Cover FIELD byte-identical to no-objects -> openCov% unchanged at 25% -> PROVABLY balance-neutral.
+DEFERRED: combat-usable open-ground cover — a 12x50 same-seed A/B showed +89% WIA (3.92->7.42) even dialed-back; needs sub-cell directional model.

@@ -46,3 +46,20 @@ deliberate, measured pass rather than an unverified slip-in.
 ## Related
 
 - 006 (reducing cliff fragmentation overlaps with the hydrology/aspect work), the render bake added this pass.
+
+## Resolution — FOOTPATHS shipped 2026-06-09 (commit 359ce27); deeper ecology still open
+
+The 2026-06-09 terrain-realism campaign took the **footpath** slice of this issue (the owner asked for
+"more footpaths that mold to the terrain"). Added `layTrailNetwork`/`ascendTrail`: switchback foot-trails
+that climb the spurs from every reachable trailhead toward an OP shoulder, surface-laid (no benched
+trench — a benched version cut impassable trenches and was caught + fixed via a trail render), staying on
+passable ground. Also captured **every** path centerline (MSR, tracks, access road, descents, goat trails,
+climbing trails) into `terrain.trailLines` so the renderer strokes them as scaled lines that mold to the
+ground (commit 96793c2), instead of the old invisible 5-m landcover tint. Measured (`footpath-probe.ts`):
+trail cells 492→760, distinct paths/seed ~6→22-32, trail mean grade 0.57→0.54; reach% unchanged, balance
+clean, deterministic. See `docs/progress/2026-06-09-terrain-realism/`.
+
+**Still OPEN** (the deeper sim-ecology this issue is really about): aspect-driven vegetation, stacked
+contour terraces, denser qalat wall-lattices, and **flow-accumulation hydrology** (river/washes placed
+where water actually collects). Those reshape slope/cover/passability and want their own measured,
+balance-revalidated pass — deliberately not slipped in here.
