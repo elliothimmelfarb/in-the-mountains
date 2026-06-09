@@ -42,3 +42,25 @@ also carries WS3's discrete micro-cover objects. The 8-dir coarse pass stays for
 `op-route-probe.ts` detour for reachable elevated OPs toward ≈×1.2–1.6 on **held-out** seeds; switchbacks
 appear only above ~25% grade (a turn penalty guards gentle ground); **every** movement harness stays green
 (`reachability.ts`, `route-quality.ts`, `cohesion.ts`, `balance.ts` no-stall, `smoke.ts`).
+
+## Resolution — CONNECTIVITY half shipped 2026-06-09 (commit 7b24c19); switchback route-quality deferred
+
+The 2026-06-09 terrain-realism campaign reframed this issue: the probe had **conflated two problems**.
+
+1. **Can you get up there at all?** — the dominant, gameplay-true problem. A new probe
+   (`scripts/passability-probe.ts`) showed only **48%** of the *passable* map was gate-reachable: the
+   hard `slope > 1.25` cutoff didn't just block climbing, it **salt-and-peppered fake cliffs** (5 m
+   roughness noise) that shattered climbable faces into disconnected pockets. **Fixed** by softening the
+   foot-impassable line to `FOOT_CLIFF_SLOPE = 1.40` (the band 1.25–1.40 becomes climbable-but-slow; the
+   genuine cliffs ≥1.40 and the `Land.Cliff` ≥1.5 stay impassable) **globally** (planner and mover share
+   one truth → no planner/mover divergence, which was the cause of this issue's reverted freeze) + a 3×3
+   mean-slope anti-speckle guard. **reach% 48 → 61**, route-quality unchanged (1.13→1.12), 0 stranded,
+   balance unmoved (WIA 3.75→3.50). The movement-cost curve is bit-identical to HEAD. Switchback foot-
+   trails (`ascendTrail`, issue 007) give the bulk of climbing a real graded path.
+
+2. **Do you switchback *efficiently* up an arbitrary high OP, or meander?** — the original headline
+   ("rings the spur"). Still **OPEN**: with the band now passable the probe targets *higher* reachable
+   OPs and the isotropic planner zig-zags up them (op-route worst still high). The clean fix remains the
+   directional-grade-cost + turn-penalty planner this issue scoped (now **de-risked** — the global
+   passability change removed the freeze cause). Deferred as a measured follow-up. See
+   `docs/progress/2026-06-09-terrain-realism/`.

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Reading the Ground</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167;--or:#e2a23a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:820px}
+h2{font-size:21px;margin:48px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h2 .n{color:var(--am);font:700 13px/1 ui-monospace,monospace;margin-right:8px}
+h3{font-size:16.5px;margin:26px 0 4px;color:var(--ink)}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:150px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:19px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+td .x{color:var(--rd);font-weight:700}
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.two figure{margin:0}
+@media(max-width:620px){.two{grid-template-columns:1fr}}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}
+.callout.gn{border-left-color:var(--gn)}
+.callout.rd{border-left-color:var(--rd)}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+.mech{font:12.5px/1.6 ui-monospace,monospace;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:#bfe3ff;overflow-x:auto;white-space:pre-wrap}
+.lab{color:var(--dim);font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;text-transform:uppercase}
+.bar{height:22px;border-radius:3px;background:#0a0f1a;border:1px solid var(--line);position:relative;margin:3px 0 12px;overflow:hidden}
+.bar .fill{height:100%;background:linear-gradient(90deg,#2b6b3f,#5fd08a)}
+.bar .lbl{position:absolute;left:8px;top:0;line-height:22px;font:600 11px ui-monospace,monospace;color:#eafff1}
+ul{color:#cfdaea}li{margin:4px 0}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font:600 11px ui-monospace,monospace;color:var(--dim);margin:2px 0 0}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:middle}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="kick">Field Engineering Report · 2026-06-09</p>
+<h1>Reading the Ground — <span>terrain that a soldier can traverse, see through, and fight from</span></h1>
+<p class="lede">The valley map looked alive but quietly lied about itself. Half the walkable ground was stranded behind cliff bands the squad could never reach; the footpaths were a 5-metre paint smudge; a 56° rock wall was drawn the same warm tan as a meadow; and the cover that decides a firefight was a single averaged number per cell, decoupled from the rocks you could see. This pass made the ground honest — and proved every change with a headless probe, a before/after number, and a balance run.</p>
+
+<div class="statstrip">
+  <div class="s"><b>61%<span class="was"> ← 48%</span></b><span>walkable map reachable</span></div>
+  <div class="s"><b>22–32<span class="was"> ← ~6</span></b><span>footpaths per valley</span></div>
+  <div class="s"><b>11,600<span class="was"> ← 0</span></b><span>cover objects (drawn = sim)</span></div>
+  <div class="s"><b>2 reverts<span class="was"> on the numbers</span></b><span>changes that measured wrong, backed out</span></div>
+</div>
+
+<h2><span class="n">00</span>The bar, and how this was worked</h2>
+<p>Four asks from the owner, taken literally: <em>humans should be able to traverse up steep terrain; passable terrain should be most of the map and impassable terrain obvious; more footpaths, scaled correctly and molding to the terrain; more on the map to use for cover and tactics.</em> Each became a number on a fresh headless probe, baselined on HEAD before a line changed, then re-measured after every isolated change. Nothing shipped on a hunch — the one change that <em>felt</em> right and measured wrong was reverted (below), and the one that looked fine in the metrics but ugly in a render was caught and rebuilt.</p>
+
+<h2><span class="n">01</span>The map was half-stranded — connectivity, not climbing</h2>
+<p>A new probe (<code>scripts/passability-probe.ts</code>) floods the valley from the gate the exact way the mover does (8-connected, anti-corner-cut) and asks two questions: how much of the map is <em>passable</em>, and how much is actually <em>reachable</em>. The answer reframed the whole problem:</p>
+<p><strong>80% of the map was passable, but only 48% was reachable.</strong> The hard "no foot traffic above 51° slope" cutoff wasn't just blocking the odd climb — the 5-metre roughness noise salt-and-peppered <em>fake cliffs</em> across otherwise-climbable faces, shattering the walkable ground into ~5 disconnected islands. Nearly half the map you could stand on, you could never walk to.</p>
+
+<div class="two">
+  <figure><img src="diagrams/reach-before-korengal2.png" alt="before reachability"/><figcaption><span class="lab">Before · korengal-2 · reach 41%</span> Vast <span style="color:var(--or)">orange</span> = walkable but <strong>stranded</strong> behind cliff bands. Only the valley floor (green) connects to the gate.</figcaption></figure>
+  <figure><img src="diagrams/reach-after-korengal2.png" alt="after reachability"/><figcaption><span class="lab">After · reach 82%</span> The orange is almost gone — the walkable map is one piece (<span style="color:var(--gn)">green</span>). The <span style="color:var(--rd)">red</span> cliff bands stay: genuine barriers, untouched.</figcaption></figure>
+</div>
+<p class="legend"><span><i style="background:#5fd08a"></i>reachable</span><span><i style="background:#e2a23a"></i>passable but stranded</span><span><i style="background:#962c26"></i>impassable cliff</span></p>
+
+<h3>The fix — and the restraint that made it safe</h3>
+<p>The foot-impassable line moved from slope&nbsp;1.25 (≈51°) to <code>FOOT_CLIFF_SLOPE = 1.40</code> (≈54.5°): the 1.25–1.40 band of Rock/Scree faces becomes climbable-but-slow, while the genuine cliffs (≥1.40, and the <code>Land.Cliff</code> classification at ≥1.5) stay hard barriers. Two details made it land where a previous attempt on this exact problem was reverted for stalling movement:</p>
+<ul>
+<li><strong>Global, one source of truth.</strong> The change is in <code>passableCell</code> — the <em>single</em> predicate the planner and the mover both call. The reverted attempt had softened the planner's view while the mover stayed strict, so the planner walked a man at a cell he couldn't enter → wedge → re-path → freeze. With one truth there is no divergence to freeze on.</li>
+<li><strong>An anti-speckle guard.</strong> A lone walkable cell ringed by cliff is a fake foothold; a 3×3 mean-slope test rejects it, so the mover is never delivered to a one-cell trap.</li>
+</ul>
+
+<div class="callout rd"><strong>Restraint logged.</strong> The first version <em>also</em> dropped the steep-ground cost floor (0.1→0.02) to give the planner a finer cost gradient. The balance harness and a stopwatch killed it: <strong>no</strong> routing win, the sim ran <strong>~1.5× slower</strong> (a 50× cost range blew up the A* frontier), and combat WIA jumped <strong>+71%</strong> as units routed across newly-exposed steep ground. Reverted to a <em>pure passability change</em> — the movement-cost curve is now bit-identical to HEAD. The connectivity win survived the revert untouched; the damage was entirely the cost edit. (This is why every change is measured in isolation.)</div>
+
+<p class="lab">Measured · 8-seed tune set</p>
+<table>
+<tr><th>metric</th><th>before</th><th>after</th><th>note</th></tr>
+<tr><td>gate-reachable map (reach%)</td><td class="w">48.0</td><td class="b">60.6</td><td>biggest passable component 64→70%</td></tr>
+<tr><td>village route-quality / loopy</td><td class="w">1.13 / 0%</td><td class="b">1.12 / 0%</td><td>existing routing unchanged</td></tr>
+<tr><td>river banks-split / traps</td><td class="w">0% / 0</td><td class="b">0% / 0</td><td>river connectivity preserved</td></tr>
+<tr><td>balance 12×50 — US WIA / KIA</td><td class="w">3.75 / 1.42</td><td class="b">3.50 / 1.25</td><td>combat unmoved (slightly safer)</td></tr>
+</table>
+
+<h2><span class="n">02</span>More footpaths, the right size, molding to the ground</h2>
+<p>The valley had one straight goat-trail stub per village and nothing climbing the walls. Added a switchback trail generator (<code>ascendTrail</code>): from every reachable trailhead it climbs the local spur toward an OP shoulder by hairpins, gaining ~150&nbsp;m and <em>always stepping on passable ground</em> (it deflects along the contour at a cliff and ends cleanly when boxed — a real trail dead-ends at a cliff, it doesn't cross it).</p>
+
+<div class="callout">A render caught a bug the metrics missed. The first version <em>benched</em> the tread to a grade line — which on a steep face cuts a deep trench whose edge slope reads as impassable. The numbers looked fine until a trail diagram showed paths knifing through cliff bands, and the connectivity probe confirmed it had <em>fragmented</em> reach% from 60.6 down to 30.1. Rebuilt to <strong>surface-lay</strong> the route (no cut): the route's switchback shape carries the grade, not a trench.</div>
+
+<p>Every path's centerline — the MSR, the village tracks, the COP access road, the goat trails, the new climbing trails — is now captured at generation, so the renderer can stroke each as a <strong>scaled line at its real width</strong> (a ~4.5&nbsp;m graded road with a dark cut-casing, a ~1.3&nbsp;m goat trail as a single faint thread) that molds to the ground it was laid on — replacing the old 5-metre landcover tint that was both too wide for a footpath and nearly the colour of the dirt around it.</p>
+
+<figure><img src="after-render/canvas-trail3.png" alt="paths and cliffs rendered"/><figcaption><span class="lab">Live render</span> The MSR reads as a scaled dirt road molding along the valley; the cool slate band (centre) is steep ground rendered as impassable rock. Footpath grade fell 0.57→0.54 (gentler, molds to contour); distinct paths per valley rose from ~6 to 22–32.</figcaption></figure>
+
+<h2><span class="n">03</span>Impassable terrain, made obvious</h2>
+<p>Cliffs were drawn the same warm tan as walkable scree — a 56° wall and a 30° meadow only differed by hue. The relief bake already computes a per-pixel slope; above the foot-passable line the face now goes <strong>cool slate, deep shadow, desaturated</strong> — a sheer rock wall, visibly distinct from the dusty slopes a soldier can cross. The threshold is the same <code>FOOT_CLIFF_SLOPE</code> the simulation blocks on, so the picture tells the truth: where it looks like you can't go, you can't.</p>
+
+<h2><span class="n">04</span>Cover — the rock you see is the rock the engine knows about</h2>
+<p>Cover was a single averaged scalar per 5&nbsp;m cell, and the drawn boulders were a <em>cosmetic</em> overlay scattered independently — so the rocks on screen had no relationship to the number that decides a firefight. Now boulders and rock outcrops are sim <strong>objects</strong> (<code>terrain.coverObjects</code>): a single deterministic source of truth that the renderer draws. On rocky ground, where the landcover already encodes real cover, that closes the loop — <strong>the rock you see is exactly where the engine's cover is</strong> (verified per-object in <code>cover-probe.ts</code>). And the owner's "more on the map" is delivered: ~11,600 objects including a strew of erratic boulders down the open slopes that were bare before.</p>
+
+<figure><img src="after-cover/canvas-cover2.png" alt="cover boulders"/><figcaption><span class="lab">Live render · tactical zoom</span> Boulders strewn down an open slope, drawn from the sim's object list — deterministic, the same instances the cover system reasons about. ~11,600 per valley, naturally clumped, never on a road or in the wire.</figcaption></figure>
+
+<div class="callout rd"><strong>Restraint logged — the one I most wanted to ship, and didn't.</strong> The plan was for the open-ground erratics to add <em>usable combat cover</em> (open-slope cover-within-20&nbsp;m 25%&nbsp;→&nbsp;43%). Measured, it was wrong: cover is the most balance-sensitive thing on the map — more of it makes <em>both</em> sides survive longer, so firefights drag and casualties <em>rise</em>. Same-seed 12×50 A/Bs were unambiguous: even a light, dialed-back open-ground stamp pushed <strong>WIA 3.92&nbsp;→&nbsp;7.42 (+89%)</strong>; an earlier broad version was ~3× worse. The 5&nbsp;m cell scalar is simply too coarse to add ambient cover without grinding every firefight near a rock. So the open-ground combat-cover was <strong>cut</strong> — the cover field is now byte-identical to before (provably balance-neutral), the erratics ship as visible objects to maneuver <em>around</em>, and the <code>stampNew</code> seam is left in place for the real fix: <strong>sub-cell directional cover</strong> (behind <em>this</em> rock, exposed from <em>that</em> angle), which can be both usable and non-grinding. That's the honest half of issue&nbsp;020; the heavy half is scoped, not shipped.</div>
+
+<h2><span class="n">05</span>How it was verified</h2>
+<p>Three new probes were written for this pass and kept (<code>passability-probe</code>, <code>footpath-probe</code>, <code>cover-probe</code>), each opening with a doc-comment naming the bug it metricizes. The standing gates ran green at every step: <code>tsc --noEmit</code>, <code>npm run build</code>, <code>smoke</code> (no-NaN + serialize round-trip), and a 12-deployment <code>balance</code> run for casualty + stall regressions. Determinism is a contract here — every change is a pure function of the seed-built terrain (no new persisted state, no new RNG draws), confirmed by same-seed hash equality. And the connectivity win was re-confirmed on a <strong>held-out seed tail</strong> (survey-40..59) the changes were never tuned on: reach% <strong>57.5</strong> (tune-set 60.6) — no curve-fit.</p>
+
+<h2><span class="n">06</span>What was left undone, honestly</h2>
+<ul>
+<li><strong>The switchback <em>efficiency</em> residual.</strong> You can now reach the high ground; the route up an arbitrary peak OP still meanders (the isotropic planner). The clean fix — a directional-grade cost + turn-penalty planner — is now <em>de-risked</em> (the global passability change removed the freeze that reverted it before) and is the next measured follow-up (issue 019).</li>
+<li><strong>Deeper terrain ecology.</strong> Aspect-driven vegetation, stacked contour terraces, denser qalat wall-mazes, and flow-accumulation hydrology remain open (issue 007) — each reshapes slope/cover and wants its own balance-revalidated pass.</li>
+<li><strong>Sub-cell directional cover.</strong> The cover objects stamp the cell they sit in; true "behind <em>this</em> rock, exposed from <em>that</em> angle" sub-cell cover is the heavier vector-LOS rebuild scoped in issue 020.</li>
+</ul>
+
+<p class="foot">Commits: <code>7b24c19</code> reconnect the steep band · <code>359ce27</code> switchback foot-trails + path centerlines · <code>96793c2</code> footpaths as scaled lines + cliffs obvious · cover objects (pending). Probes: <code>passability-probe.ts</code>, <code>footpath-probe.ts</code>, <code>cover-probe.ts</code>. Raw record: <code>docs/progress/2026-06-09-terrain-realism/</code>. Built and verified by Claude Opus 4.8.</p>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
