@@ -88,7 +88,7 @@ resumes its task on the lull. The hardest part of command is watching.
 |---|---|---|
 | RNG | `rng.ts` | Seeded mulberry32 + helpers (range, gauss, chance, pick, weighted). Deterministic. |
 | Math | `vec.ts` | Grid/world vectors, distance, bresenham, hex/grid helpers. |
-| Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 24 landcover classes, a fortified **COP layout** (HESCO wall, gate, structures, LZ, fighting positions), queries: elevation, slope, cover, concealment, move cost, passability. |
+| Terrain | `terrain.ts` | Procedural 5 m valley (ridges/draws/river/villages), 26 landcover classes, a fortified **COP layout** (HESCO wall, gate, structures, LZ, fighting positions), queries: elevation, slope, cover, concealment, move cost, passability. |
 | Pathfinding | `path.ts` | Hierarchical A* (cheap coarse route + fine repair only where it would clip a wall) with concealment / road / cover biases; reused scratch; a **barrier penalty** on coarse nodes carrying wall/cliff cells so routes go *around* the walled COP, not through it; funnels through the COP gate. |
 | Steering | `steering.ts` | Local "steer locally" layer used by `moveUnit`: context/fan obstacle avoidance + body separation; rounds the HESCO ring and forms single file at chokes; a no-op in open ground. |
 | LOS | `los.ts` | Elevation raycast with observer/target height + vegetation occlusion → visible/partial, exposure fraction; posture-aware detection. |
