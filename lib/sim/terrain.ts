@@ -263,6 +263,11 @@ export class Terrain {
 
   villages: Village[] = [];
   features: NamedFeature[] = [];
+  /** World-space centerlines of every laid path (valley MSR, village tracks, the COP access road, the
+   *  goat trails, and the new switchback climbing trails), captured at generation so the renderer can
+   *  stroke them as scaled lines that mold to the terrain — a 0.8 m goat-trail thread, a 2.5 m track, a
+   *  4 m road — instead of the barely-visible, wrongly-5-m-wide landcover tint. `kind` sizes the stroke. */
+  trailLines: { kind: "road" | "track" | "trail"; pts: Vec2[] }[] = [];
   copCell: { cx: number; cy: number } = { cx: 0, cy: 0 };
   cop!: CopLayout;
   /** Centerline x (in cells) of the valley floor at each row y. */
@@ -2219,6 +2224,7 @@ export class Terrain {
     let py = sCy + 0.5;
     let designE = this.elev[this.idx(sCx, sCy)];
     let side = rng.chance(0.5) ? 1 : -1;
+    const line: Vec2[] = [this.cellCenter(sCx, sCy)]; // centerline for the renderer's scaled path stroke
     for (let iter = 0; iter < 700; iter++) {
       const toTX = targetX + 0.5 - px;
       const toTY = targetY + 0.5 - py;
@@ -2260,13 +2266,160 @@ export class Terrain {
       const ny = py + hy * stepCells;
       designE = Math.max(floorE, designE - Math.min(maxGrade, Math.max(0, needGrade)) * stepM);
       this.gradeTreadAt(nx, ny, designE, half, land);
+      line.push(this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1)));
       const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
       if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
       px = nx;
       py = ny;
     }
     this.gradeCorridor(Math.round(px), Math.round(py), targetX, targetY, half, land);
+    line.push(this.cellCenter(targetX, targetY));
+    this.trailLines.push({ kind: land === Land.Road ? "road" : "track", pts: line });
     return { cx: Math.round(px), cy: Math.round(py) };
+  }
+
+  /**
+   * Grade a terrain-following foot TRAIL UP toward an arbitrary high destination (a ridgetop / OP
+   * shoulder), switchbacking across the fall line where a direct climb would exceed `maxGrade`. The
+   * inverse of descendTrack: the design elevation RISES toward the destination and the steep-section
+   * heading follows the UPHILL gradient, so the tread is benched into the hillside at a walkable grade
+   * the whole way (this is what lets the planner — and a soldier — climb a face by switchbacks instead
+   * of ringing the spur). Returns the centerline (world points) for the renderer. Deterministic: the
+   * initial hairpin side comes from `sideSeed` (an int), so laying trails adds NO rng draw and never
+   * perturbs the seed stream.
+   */
+  private ascendTrail(startCx: number, startCy: number, destCx: number, destCy: number, half: number, maxGrade: number, land: Land, sideSeed: number): Vec2[] {
+    const size = this.size;
+    const sCx = clamp(startCx, 0, size - 1);
+    const sCy = clamp(startCy, 0, size - 1);
+    const startE = this.elev[this.idx(sCx, sCy)];
+    const destE = this.elev[this.idx(clamp(destCx, 0, size - 1), clamp(destCy, 0, size - 1))];
+    const climbTarget = Math.min(destE - startE, 180); // gain at most ~180 m — a trail, not an expedition
+    const stepCells = 1.4;
+    // axis = the general uphill direction (toward the destination) — switchbacks are measured off it
+    const axisLen = Math.hypot(destCx - sCx, destCy - sCy) || 1;
+    const ax = (destCx - sCx) / axisLen;
+    const ay = (destCy - sCy) / axisLen;
+    const swHalf = 11;
+    let px = sCx + 0.5;
+    let py = sCy + 0.5;
+    let side = sideSeed & 1 ? 1 : -1;
+    // Climb the local spur by switchbacks, ALWAYS staying on passable ground: at each step, if the
+    // preferred heading would land on a cliff (impassable cell), deflect toward the contour / hairpin
+    // until a walkable step is found; if genuinely boxed in, the trail ends there (a real trail dead-ends
+    // at a cliff, it doesn't cross it). The route is then surface-laid (light conform, never a trench) —
+    // Change A already made the 1.25–1.40 band it climbs through passable, so the tread is walkable.
+    const line: Vec2[] = [this.cellCenter(sCx, sCy)];
+    const passAt = (fx: number, fy: number) => this.passableCell(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1));
+    let bestE = startE; // highest elevation reached — a trail climbs, it doesn't wander
+    let stall = 0; // steps since we last gained new height (a contour wander along a cliff base)
+    for (let iter = 0; iter < 220; iter++) {
+      const cxi = clamp(Math.round(px), 0, size - 1);
+      const cyi = clamp(Math.round(py), 0, size - 1);
+      const hereE = this.elev[this.idx(cxi, cyi)];
+      if (hereE - startE >= climbTarget) break; // gained enough height — at the shoulder
+      if (hereE > bestE + 0.3) { bestE = hereE; stall = 0; } else stall++;
+      if (stall > 36) break; // not gaining height (boxed against a cliff band) — end the trail here
+      if (hereE < bestE - 35) break; // descending well below our high point — stop, a trail doesn't drop
+      const g = this.gradientCells(px, py); // points UPHILL
+      const gl = Math.hypot(g.x, g.y);
+      if (gl < 1e-3) break; // flat / summit — nowhere left to climb
+      const fx = g.x / gl;
+      const fy = g.y / gl;
+      const localSlope = this.slope[this.idx(cxi, cyi)];
+      // base heading: climb straight up where gentle, else traverse the contour with a little climb
+      let cxr = -fy; // contour (perpendicular to fall line)
+      let cyr = fx;
+      if (Math.sign(cxr * -ay + cyr * ax) !== side) {
+        cxr = -cxr;
+        cyr = -cyr;
+      }
+      const climbMix = localSlope <= maxGrade ? 0.95 : 0.36; // straight up on gentle ground; on a steep
+      // face, traverse with a firm ~35% climb component so the switchback gains height like a real goat
+      // trail (a dozen hairpins to a shoulder), instead of an endless near-level contour scribble.
+      // try the preferred heading, then progressively more contour-hugging, then a hairpin, until walkable
+      const tries = [climbMix, 0.1, 0.0, -0.12];
+      let stepped = false;
+      for (let attempt = 0; attempt < 2 && !stepped; attempt++) {
+        for (const mix of tries) {
+          let hx = cxr * (1 - Math.abs(mix)) + fx * mix;
+          let hy = cyr * (1 - Math.abs(mix)) + fy * mix;
+          const hl = Math.hypot(hx, hy) || 1;
+          hx /= hl;
+          hy /= hl;
+          const nx = px + hx * stepCells;
+          const ny = py + hy * stepCells;
+          if (!passAt(nx, ny)) continue;
+          const last = line[line.length - 1];
+          const ncW = this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1));
+          if (ncW.x !== last.x || ncW.y !== last.y) line.push(ncW);
+          const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
+          if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
+          px = nx;
+          py = ny;
+          stepped = true;
+          break;
+        }
+        if (!stepped) {
+          side = -side; // boxed in on this side — try a hairpin to the other
+          cxr = -cxr;
+          cyr = -cyr;
+        }
+      }
+      if (!stepped) break; // genuinely cliff-bound — the trail ends here
+    }
+    if (line.length < 2) return line; // never got off the trailhead
+    // Surface-lay the route as a light-tread foot-trail (conform ~0.15 eases bumps toward local ground,
+    // never a trench). half=0 → a single-cell trail corridor (the renderer strokes it as a thin line).
+    this.layPath(line, land, half, 0.15);
+    return line;
+  }
+
+  /**
+   * Lay authentic switchback foot-trails UP the spurs toward high ground (ridgetop / OP shoulders)
+   * from the reachable trailheads (each village + the COP gate). These are what a soldier — and the
+   * enemy — actually use to climb the valley walls, instead of bushwhacking straight up a face: each
+   * benched switchback reconnects the pocket it climbs into AND gives the planner a cheap, contour-
+   * molded route to high ground. Deterministic (no rng): the destination is the highest walkable
+   * SHOULDER in a 250–560 m uphill annulus, the hairpin side comes from the trailhead cell.
+   */
+  private layTrailNetwork() {
+    const size = this.size;
+    const cs = this.cellSize;
+    const rMin = Math.round(250 / cs);
+    const rMax = Math.round(560 / cs);
+    const origins: { cx: number; cy: number }[] = this.villages.map((v) => ({ cx: v.cx, cy: v.cy }));
+    if (this.cop?.gateOutside) origins.push({ cx: this.cop.gateOutside.cx, cy: this.cop.gateOutside.cy });
+    for (const o of origins) {
+      const oE = this.elev[this.idx(clamp(o.cx, 0, size - 1), clamp(o.cy, 0, size - 1))];
+      const upSide = Math.sign(o.cx - this.centerX[clamp(o.cy, 0, size - 1)]) || 1; // away from the valley floor
+      // Find the highest WALKABLE shoulder (slope < 1.0 — a real OP perch, not a sheer summit) in the
+      // uphill annulus. A walkable destination keeps the trail's purpose honest (you can stand on it).
+      let bestE = -Infinity;
+      let bx = -1;
+      let by = -1;
+      for (let a = 0; a < 64; a++) {
+        const ang = (a / 64) * Math.PI * 2;
+        for (let r = rMin; r <= rMax; r += 2) {
+          const x = Math.round(o.cx + Math.cos(ang) * r);
+          const y = Math.round(o.cy + Math.sin(ang) * r);
+          if (!this.inBounds(x, y)) continue;
+          if (Math.sign(x - this.centerX[y]) !== upSide) continue; // stay on the uphill valley side
+          const i = this.idx(x, y);
+          if (this.slope[i] >= 1.0) continue; // want a perch, not a cliff face
+          const e = this.elev[i];
+          if (e - oE < 80) continue; // must be a meaningful climb (an OP, not flat ground)
+          if (e > bestE) {
+            bestE = e;
+            bx = x;
+            by = y;
+          }
+        }
+      }
+      if (bx < 0) continue;
+      const pts = this.ascendTrail(o.cx, o.cy, bx, by, 0, 0.3, Land.Trail, o.cx * 31 + o.cy);
+      this.trailLines.push({ kind: "trail", pts });
+    }
   }
 
   /** Stamp a straight lane of landcover between two cells, `half` cells wide. */
@@ -2456,6 +2609,11 @@ export class Terrain {
           this.land[i] = Land.Road;
       }
     }
+    // Capture the MSR centerline (smoothed along the valley floor) so the renderer draws it as one
+    // scaled road line that follows the river, not a jittery per-row landcover band.
+    const msr: Vec2[] = [];
+    for (let y = 0; y < size; y += 6) msr.push(this.cellCenter(clamp(Math.round(this.centerX[y]) + off, 0, size - 1), y));
+    this.trailLines.push({ kind: "road", pts: msr });
     // ---- Village ROAD NETWORK (item 8 — replaces the old "trail trench to the water") ----
     // Each qalat is tied to the valley MSR by a graded SECONDARY TRACK, and the villages are
     // tied to ONE ANOTHER by a minimum-spanning tree of tracks — so the whole AO is one
@@ -2475,12 +2633,14 @@ export class Terrain {
     // 1) Each village → the MSR (graded secondary Track).
     for (const th of trailheads) {
       this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(th.hx, th.hy)], Land.Track, 1, 0.15);
+      this.trailLines.push({ kind: "track", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(th.hx, th.hy)] });
       const tie = this.nearestRoadCell(th.hx, th.hy);
       this.layTrack(this.cellCenter(th.hx, th.hy), this.cellCenter(tie.cx, tie.cy), rng);
       // Tier-3 goat trail up the draw above the village (surface-laid, no benching).
       const upX = clamp(th.v.cx - th.dir * Math.round(size * 0.08), 0, size - 1);
       const upY = clamp(th.v.cy + rng.int(-8, 8), 0, size - 1);
       this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)], Land.Trail, 0, 0);
+      this.trailLines.push({ kind: "trail", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)] });
     }
     // 2) Village ↔ village MST (graded secondary Track) — direct inter-village links.
     for (const [a, b] of this.villageMST()) {
@@ -2491,6 +2651,11 @@ export class Terrain {
     // COP access road: a narrow, switchbacked track that descends the knob to the
     // valley road, following the terrain instead of bulldozing a straight ramp.
     if (this.cop) this.gradeAccessRoad(rng);
+    // Switchback foot-trails UP the spurs toward high ground (OP shoulders) from every reachable
+    // trailhead — "more footpaths" that mold to the terrain, climb the steep band by switchbacks, and
+    // reconnect the pockets they climb into. Laid here so the trail benching is in the slope recompute
+    // below (passability/movement see the new trails) and the connectivity guards see one network.
+    this.layTrailNetwork();
     // Recompute slope everywhere now that the COP, its road and the valley roads
     // have reshaped the ground, so passability/movement queries see the routes.
     this.computeSlope();
@@ -2598,6 +2763,7 @@ export class Terrain {
     const reached = !!last && Math.hypot(last.x - toW.x, last.y - toW.y) < cs * 3;
     if (reached && route.length >= 1) {
       this.layPath([fromW, ...route], Land.Track, 1, 0.18);
+      this.trailLines.push({ kind: "track", pts: [fromW, ...route] });
       return;
     }
     const fc = {
