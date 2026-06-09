@@ -3129,6 +3129,24 @@ export class Terrain {
     return clamp(m * clamp01(1 - slope * 0.62), STEEP_COST_FLOOR, 1);
   }
 
+  /**
+   * ANISOTROPIC foot speed (1 = road pace) for travel in the heading (ux,uy) at world point
+   * (wx,wy) — the landcover speed modulated by the SIGNED grade ALONG the direction of travel
+   * (issue 019). Unlike moveCostAt (which reads only the cell's slope MAGNITUDE, identical in
+   * every heading, so a switchback never pays off), this reads the directional derivative of the
+   * elevation: climbing straight up the fall line is slow, a shallow cross-slope traverse is fast,
+   * descending is fast. That asymmetry is the entire reason a switchback up a face is cheaper than
+   * a straight climb — the tactical planner integrates this along each leg. The slope term is the
+   * engine's own 1−S·0.62 shape (proven at the right magnitude: ~2.6× the cost straight-up-vs-
+   * traverse at 45°), applied to the SIGNED grade S rather than |slope|, floored at STEEP_COST_FLOOR.
+   */
+  dirSpeedAt(wx: number, wy: number, ux: number, uy: number): number {
+    const h = this.cellSize;
+    const S = (this.elevAt(wx + ux * h, wy + uy * h) - this.elevAt(wx, wy)) / h; // ∇elev · u (signed)
+    const m = LAND_MOVE[this.landAt(wx, wy)] ?? 0.6;
+    return clamp(m * clamp01(1 - S * 0.62), STEEP_COST_FLOOR, 1);
+  }
+
   /** Cell center in world meters. */
   cellCenter(cx: number, cy: number): Vec2 {
     return { x: (cx + 0.5) * this.cellSize, y: (cy + 0.5) * this.cellSize };

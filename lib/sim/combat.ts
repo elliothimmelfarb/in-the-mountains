@@ -1592,6 +1592,11 @@ export class CombatSim {
       roadBias: opts.roadBias ?? 0,
       coverBias: opts.coverBias ?? 0,
       cheapFallback: opts.cheapFallback,
+      // A deliberate squad march (no cheap fallback) switchbacks up a steep elevated objective
+      // instead of ringing the spur (issue 019); local/cheap movers and generation never do.
+      // ITM_NOSWITCH=1 is an A/B kill-switch for headless balance bisects (the shared tree bans
+      // git-stash, so an env toggle is how a probe measures with-vs-without on identical seeds).
+      switchback: !opts.cheapFallback && process.env.ITM_NOSWITCH !== "1",
     });
     u.orderTarget = p;
     u.pathGoal = p;
