@@ -1,0 +1,5 @@
+=== smoke (after A) ===
+
+Serialized save size: 135.0 KB · units: 76
+
+SMOKE OK

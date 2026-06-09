@@ -204,13 +204,33 @@ export const DEFAULT_TERRAIN: TerrainConfig = {
  */
 export const COARSE_F = 3;
 /**
- * Foot-impassable slope cutoff (rise/run): above ~1.25 (≈51°) is a cliff a foot mover can't take.
- * NOTE: raising this to give a steep face a through-line for switchbacking up (instead of ringing
- * the spur) was tried with an anisotropic Tobler path cost; on the existing 8-direction coarse-
- * corridor planner it REGRESSED OP routing (worst ×6.85→×9.21) and movement (a balance stall), so it
- * was reverted. The real fix is an any-angle (Theta*) finer planner — see docs/issues/019. Keep at 1.25.
+ * Legacy foot-slope reference (rise/run, ≈51°). This was the hard passability cutoff; it is now the
+ * START of a steep-but-slow climbing band, not a wall. Kept exported for probes that measure the old
+ * regime (e.g. passability-probe's recover%). The TRUE impassable line is FOOT_CLIFF_SLOPE below.
  */
 export const FOOT_MAX_SLOPE = 1.25;
+/**
+ * The TRUE foot-impassable slope (rise/run, ≈54.5°). Above this a loaded infantryman is on a rope, not
+ * his feet — and it stays a hard, OBVIOUS cliff (the slope-keyed render shades everything above this as
+ * a sheer wall). The band 1.25–1.40 (≈51–54.5°) is Rock/Scree/Boulder faces a soldier switchbacks up
+ * slowly: now PASSABLE, which is what reconnects the steep terrain. The very steepest 1.40–1.50 (and the
+ * Land.Cliff promotion at slope>1.5) stays impassable, so the genuine cliffs/real barriers remain.
+ *
+ * Why softening here is SAFE where the reverted issue-019 attempt was not, and why it is a PURE
+ * passability change: passableCell is changed GLOBALLY, so the planner and the mover share ONE truth
+ * (no planner/mover divergence — the cause of the reverted attempt's movement freeze), and the movement
+ * COST curve (moveCostAt) is left bit-identical to HEAD (STEEP_COST_FLOOR stays 0.1). Measured: reach%
+ * (gate-connected map) 48→61, route-quality flat (1.13→1.12), 0 stranded, and combat balance UNMOVED
+ * (12×50 balance WIA 3.75→3.50, KIA 1.42→1.25). A first attempt that also lowered the cost floor to
+ * widen the steep-band gradient was reverted — it slowed the sim ~1.5× and bloodied WIA +71% for no
+ * op-route win (route-quality up a face is a directional-cost problem, handled separately). See
+ * docs/issues/019.
+ */
+export const FOOT_CLIFF_SLOPE = 1.4;
+/** Cost floor for the steepest passable cell. Kept at the original 0.1 so the movement-cost CURVE is
+ *  bit-identical to HEAD — Change A reconnects the steep band via passability ONLY, leaving the
+ *  hard-won movement economy and combat balance untouched (see FOOT_CLIFF_SLOPE note). */
+export const STEEP_COST_FLOOR = 0.1;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
 export const COARSE_DIR8: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -2819,8 +2839,32 @@ export class Terrain {
     // act and what stops a squad wading the chasm anywhere and getting trapped between the banks.
     // placeFords + ensureRiverCrossings guarantee crossings exist so nothing is ever walled off.
     if (l === Land.River) return false;
-    if (this.slope[this.idx(cx, cy)] > FOOT_MAX_SLOPE) return false;
+    const s = this.slope[this.idx(cx, cy)];
+    if (s > FOOT_CLIFF_SLOPE) return false; // a true cliff — no foot traffic at any pace
+    // Steep-but-slow climbing band (1.25–1.50): passable, but ONLY where the neighbourhood is also
+    // climbable. A lone sub-cliff cell ringed by true cliff is a fake foothold — routing a mover onto
+    // it would wedge him (every onward step impassable) and the stall watchdog would re-path him
+    // straight back, a freeze loop. The 3×3 mean-slope test rejects those specks while keeping
+    // contiguous faces (the same recover% set passability-probe validates). The common ≤1.25 ground
+    // skips this entirely (the hot mover/LOS/render path pays nothing).
+    if (s > FOOT_MAX_SLOPE && this.meanSlope3(cx, cy) > FOOT_CLIFF_SLOPE) return false;
     return true;
+  }
+
+  /** Mean rise/run slope over the 3×3 neighbourhood — "is this a real foothold, or a speck in a
+   *  cliff". Used only for the thin steep band in passableCell (gated behind a rare branch). */
+  private meanSlope3(cx: number, cy: number): number {
+    let sum = 0;
+    let n = 0;
+    for (let dy = -1; dy <= 1; dy++)
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx = cx + dx;
+        const ny = cy + dy;
+        if (nx < 0 || ny < 0 || nx >= this.size || ny >= this.size) continue;
+        sum += this.slope[this.idx(nx, ny)];
+        n++;
+      }
+    return n ? sum / n : 0;
   }
 
   /** Movement speed multiplier (1 = open flat road pace; lower = harder). */
@@ -2828,8 +2872,13 @@ export class Terrain {
     const land = this.landAt(wx, wy);
     const slope = this.slopeAt(wx, wy);
     const m = LAND_MOVE[land] ?? 0.6;
-    // Slope penalty (steep ground is brutal in the Korengal).
-    return clamp(m * clamp01(1 - slope * 0.62), 0.1, 1);
+    // Slope penalty (steep ground is brutal in the Korengal). The same gentle 1−slope·0.62 shape as
+    // before for the ≤1.0 band (movement economy unchanged), but the cost floor is now STEEP_COST_FLOOR
+    // (0.02), far below the old 0.1: this keeps a real, monotone cost GRADIENT across the 1.25–1.50
+    // climbing band so the planner prefers the gentlest steep cells (and never dives straight up a fake
+    // cliff — the cause of the reverted ×9.21 regression). The mover's never-freeze floor (combat.ts)
+    // keeps a man on a 56° pitch creeping, not frozen.
+    return clamp(m * clamp01(1 - slope * 0.62), STEEP_COST_FLOOR, 1);
   }
 
   /** Cell center in world meters. */

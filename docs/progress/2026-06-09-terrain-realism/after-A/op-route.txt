@@ -1,0 +1,11 @@
+=== op-route (after A: soft cutoff 1.5 + steep gradient) ===
+seed         | climb | crow  | route  | detour | reached | switch | impass% | meanSlope
+-------------|-------|-------|--------|--------|---------|--------|---------|----------
+korengal     |  228m |  585m |  1281m |  ×2.19 |     yes |      1 |     18% | 0.65
+korengal-2   |  561m |  608m |  5599m |  ×9.20 |     yes |      5 |      8% | 0.97
+ridgeline    |   94m |  570m |   861m |  ×1.51 |     yes |      1 |     38% | 1.31
+restrepo     |  317m |  552m |   785m |  ×1.42 |     yes |      1 |     22% | 0.64
+kunar-3      |  343m |  582m |  2711m |  ×4.66 |     yes |      3 |     28% | 0.88
+valley-7     |  357m |  608m |  2284m |  ×3.75 |     yes |      2 |      9% | 0.88
+
+mean detour ×3.79 · worst ×9.20 · reached 6/6

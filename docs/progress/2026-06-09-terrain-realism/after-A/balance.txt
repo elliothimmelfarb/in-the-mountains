@@ -1,0 +1,6 @@
+=== balance 12x50 @ cutoff 1.40 (vs baseline WIA 3.75) ===
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight · avg peak enemies on map 9.9
+  Avg US KIA: 1.25 · Avg US WIA: 3.50 · Avg enemy accounted: 4.67 · Civ cas total: 0
+  ✓ No elements left stranded mid-route.
+DONE_140

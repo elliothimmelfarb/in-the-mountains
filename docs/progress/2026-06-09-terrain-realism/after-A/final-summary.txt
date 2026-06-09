@@ -1,0 +1,7 @@
+=== FINAL Change A (cutoff 1.40, floor 0.1) ===
+--- op-route ---
+
+mean detour ×4.08 · worst ×9.20 · reached 6/6
+--- passability ---
+             ----------------------------------------------------------------
+MEAN            80.8    60.6        26%        6%        9%    5.0   70.4%

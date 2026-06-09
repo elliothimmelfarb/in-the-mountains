@@ -1,0 +1,14 @@
+=== route-quality (default seeds) ===
+seed          objs  meanRatio  maxRatio loopy(>2.5)  meanRev  meanExc
+smoke-test       5       1.12      1.22           0      0.0       0m
+korengal         4       1.13      1.23           0      0.0       0m
+survey-2         5       1.13      1.18           0      0.0       0m
+survey-7         5       1.07      1.65           0      0.0       3m
+survey-9         5       1.24      1.54           0      0.0      25m
+valley-3         6       1.17      1.68           0      0.0       0m
+ridge-11         4       0.97      1.56           0      0.0       0m
+alpha-1          4       1.22      1.30           0      0.0       0m
+bravo-2          5       1.17      1.27           0      0.0       1m
+delta-4          5       1.08      1.16           0      0.0       0m
+------------------------------------------------------------------------
+ALL             48       1.13      1.68      0 (0%)      0.0       3m

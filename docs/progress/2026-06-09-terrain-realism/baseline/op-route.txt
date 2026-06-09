@@ -1,0 +1,11 @@
+=== op-route-probe (default 6 seeds) ===
+seed         | climb | crow  | route  | detour | reached | switch | impass% | meanSlope
+-------------|-------|-------|--------|--------|---------|--------|---------|----------
+korengal     |  224m |  585m |  1287m |  ×2.20 |     yes |      1 |     29% | 0.65
+korengal-2   |  369m |  468m |  3204m |  ×6.85 |     yes |      3 |     48% | 1.15
+ridgeline    |   94m |  570m |   849m |  ×1.49 |     yes |      1 |     60% | 1.31
+restrepo     |  317m |  552m |   785m |  ×1.42 |     yes |      1 |     30% | 0.64
+kunar-3      |  343m |  582m |  2809m |  ×4.83 |     yes |      3 |     33% | 0.88
+valley-7     |  357m |  608m |  3570m |  ×5.87 |     yes |      2 |      9% | 0.88
+
+mean detour ×3.78 · worst ×6.85 · reached 6/6

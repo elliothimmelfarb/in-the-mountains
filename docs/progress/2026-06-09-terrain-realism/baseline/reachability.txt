@@ -1,0 +1,7 @@
+=== reachability 40 (tuned survey-0..39) ===
+survey-31            6        4    67%   miss Korangal by 269m
+survey-32            6        5    83%   miss Darbart by 381m
+survey-33            5        5   100%   all reached
+survey-34            6        3    50%   miss Babiyal by 802m
+survey-35            5        2    40%   miss Kandlay by 346m
+survey-36            4        3    75%   miss Donga by 390m

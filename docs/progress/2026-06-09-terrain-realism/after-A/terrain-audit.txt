@@ -1,0 +1,11 @@
+=== terrain-audit 20 (after A) ===
+------------------------------------------------------------------------------------------------
+seeds audited: 20
+  river bank-cliff fraction:    0%  ← high = incised channel walled by cliffs
+  river TRAP cells (total):     0  ← passable river cells with no dry escape (stuck-in-river)
+  crossing cells (total):       1854
+  worst crossing gap:           530 m
+  seeds with banks SPLIT:       0/20 (0%)  ← genuinely can't walk across the valley
+  villages UNREACHABLE (BFS):   5/102 (5%)
+  router NULL routes to vil:    2/102 (2%)
+  FAR reachable objectives missed by router: 0/571 (0%)  ← router gives up on physically-reachable far points
