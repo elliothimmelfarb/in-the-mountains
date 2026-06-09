@@ -1,5 +1,5 @@
 import { Terrain, Land, COARSE_F, COARSE_DIR8, STEEP_COST_FLOOR } from "./terrain";
-import { Vec2 } from "./vec";
+import { Vec2, angleDiff } from "./vec";
 
 /**
  * Terrain-aware foot pathfinding. Two-stage and corridor-constrained:
@@ -28,6 +28,10 @@ export interface PathOptions {
    *  infiltrators — so a cross-river errand best-efforts cheaply instead of paying a ~200k-expansion
    *  search; the player's squads leave this off so their objectives are always found). */
   cheapFallback?: boolean;
+  /** Allow the tactical any-angle (Theta*) switchback planner for a steep elevated objective (issue
+   *  019). Set ONLY by a deliberate squad march (pathTo) — never by generation (so the valley is
+   *  byte-identical) nor by cheap/local movers. Off by default. */
+  switchback?: boolean;
 }
 
 interface Node {
@@ -116,6 +120,7 @@ let gScratch = new Float64Array(0);
 let cameScratch = new Int32Array(0);
 let gGen = new Int32Array(0); // generation that last wrote gScratch[i]
 let closedGen = new Int32Array(0); // generation that last closed i
+let headScratch = new Float64Array(0); // incoming-leg heading (rad) at a cell — the Theta* turn penalty
 let PF_GEN = 0;
 
 function ensureScratch(n: number) {
@@ -125,6 +130,7 @@ function ensureScratch(n: number) {
   cameScratch = new Int32Array(n);
   gGen = new Int32Array(n);
   closedGen = new Int32Array(n);
+  headScratch = new Float64Array(n);
 }
 
 // Corridor radii (cells) tried in turn. We start tight (cheap, hugs the coarse line) and
@@ -173,6 +179,33 @@ export function findPath(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOp
   const fineBudget = cheap ? 12000 : 40000;
   const beBudget = cheap ? 12000 : 60000;
   const radii = cheap ? [7] : CORRIDOR_RADII;
+
+  // Tactical switchback planner (issue 019). A route to an ELEVATED objective up a STEEP face — a
+  // peak OP, an overwatch knob — is planned ANY-ANGLE (Theta*) with a SIGNED-GRADE (anisotropic)
+  // cost + a turn penalty, so a squad SWITCHBACKS up the face instead of ringing the spur. The
+  // 8-direction isotropic coarse+corridor pipeline below mathematically cannot switchback (a
+  // diagonal traverse "buys nothing" when cost reads only slope magnitude, and the traverse angle
+  // falls between the 8 grid headings). The gate is tight — a genuine tactical climb only — so a
+  // valley-floor village route and a cross-valley line never enter here and are byte-identical to
+  // HEAD (this is what keeps the hard-won reachability / route-quality / balance systems untouched;
+  // the prior in-place attempt was reverted precisely because it perturbed every route). If the
+  // climb planner can't reach (goal walled off), we fall straight through to the proven pipeline.
+  if (!cheap && opts.switchback) {
+    const climb = terrain.elevAt(goal.x, goal.y) - terrain.elevAt(start.x, start.y);
+    const crow = Math.hypot(goal.x - start.x, goal.y - start.y);
+    if (crow > 80 && crow <= TACTICAL_CLIMB_RANGE && climb >= TACTICAL_CLIMB_GAIN && climb / crow >= TACTICAL_CLIMB_GRADE) {
+      const sx = Math.min(terrain.size - 1, Math.max(0, Math.floor(start.x / terrain.cellSize)));
+      const sy = Math.min(terrain.size - 1, Math.max(0, Math.floor(start.y / terrain.cellSize)));
+      const gc = terrain.nearestPassable(Math.floor(goal.x / terrain.cellSize), Math.floor(goal.y / terrain.cellSize), 6);
+      const M = switchbackBoxMargin(terrain, sx, sy, gc.cx, gc.cy);
+      if (M > 0) {
+        const t = thetaClimb(terrain, start, goal, opts, M);
+        if (t) return t; // any-angle, every leg straight-line walkable — the mover follows it without re-pathing
+      }
+      // else: a genuine cross-valley OP (the real route is a long ford detour) — fall through.
+    }
+  }
+
   const coarse = route(terrain, start, goal, COARSE_F, opts, coarseBudget);
   if (!coarse) {
     // The coarse pass couldn't reach the goal. That no longer means "unreachable": with the river
@@ -523,4 +556,213 @@ function clampMove(terrain: Terrain, cx: number, cy: number): number {
   // Floor must match moveCostAt's STEEP_COST_FLOOR — re-flooring at the old 0.1 here would flatten the
   // steep-band cost gradient at fine resolution and reintroduce the dive-straight-up ×9.21 detour.
   return Math.max(STEEP_COST_FLOOR, terrain.moveCostAt((cx + 0.5) * terrain.cellSize, (cy + 0.5) * terrain.cellSize));
+}
+
+// ============================================================================
+//  Tactical switchback planner (issue 019) — any-angle (Theta*) climb up a face
+// ============================================================================
+// When does a route earn the tactical planner: a genuine climb (≥ TACTICAL_CLIMB_GAIN m of gain
+// over a ≥ TACTICAL_CLIMB_GRADE mean grade) within tactical range. Below grade it's a valley move
+// the proven pipeline already routes straight; beyond range it's a cross-valley line the coarse
+// pass owns. These bounds are what isolate the new code from every load-bearing movement system.
+const TACTICAL_CLIMB_RANGE = 1300; // m crow-flight — OPs/overwatch knobs are tactical, not cross-valley
+const TACTICAL_CLIMB_GAIN = 60; // m of elevation gain to be a "climb" (a knee-height bench isn't)
+const TACTICAL_CLIMB_GRADE = 0.12; // mean grade (rise/run) — a real face, not a gentle valley-floor rise
+const TURN_PENALTY_M = 18; // metres-equivalent charged for a full 180° heading reversal, scaled by turn
+// angle. Mandatory (the reverted attempt's pathology was single-cell zig-zag from a MISSING turn
+// penalty): it keeps switchbacks to a few long, clean legs instead of a jittery staircase, while
+// staying tiny against a multi-hundred-metre climb so the few real bends are still taken.
+
+/** Time-like cost of a straight leg a→b (world m), integrating the ANISOTROPIC directional speed
+ *  (terrain.dirSpeedAt) along it: Σ subLen / speed. ≥ the Euclidean length (speed ≤ 1), so the
+ *  Euclidean distance to goal is an admissible A* heuristic. */
+function legCost(terrain: Terrain, a: Vec2, b: Vec2): number {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const d = Math.hypot(dx, dy);
+  if (d < 1e-6) return 0;
+  const ux = dx / d, uy = dy / d;
+  const n = Math.max(1, Math.ceil(d / terrain.cellSize));
+  const sub = d / n;
+  let cost = 0;
+  for (let k = 0; k < n; k++) {
+    const t = (k + 0.5) / n;
+    cost += sub / terrain.dirSpeedAt(a.x + dx * t, a.y + dy * t, ux, uy);
+  }
+  return cost;
+}
+
+/** Line-of-sight for the any-angle parent shortcut: every cell the straight segment a→b crosses is
+ *  passable on foot. Sampled at half-cell steps (finer than the mover's own walkable check) so a
+ *  Theta* shortcut can never jump a cliff band the mover would then be unable to follow. */
+function losClear(terrain: Terrain, a: Vec2, b: Vec2): boolean {
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const d = Math.hypot(dx, dy);
+  const n = Math.max(1, Math.ceil((d / terrain.cellSize) * 2));
+  for (let k = 1; k <= n; k++) {
+    const t = k / n;
+    const cx = Math.floor((a.x + dx * t) / terrain.cellSize);
+    const cy = Math.floor((a.y + dy * t) / terrain.cellSize);
+    if (!terrain.passableCell(cx, cy)) return false;
+  }
+  return true;
+}
+
+// Box margins (cells) tried in turn for the switchback search. We escalate only when the goal is
+// NOT yet connected to the start inside the box (a cheap BFS pre-check, far cheaper than a failed
+// anisotropic Theta* run): a clean face connects in the tight box and pays nothing for the wider
+// ones; a wrap-around approach grows until the detour fits; a genuine cross-valley OP (its real
+// route is a long ford detour, e.g. korengal-2) connects at NONE of them and falls through to the
+// proven pipeline, which owns the honest big detour. The cap keeps even the widest search bounded.
+const SWITCHBACK_MARGINS = [70, 120, 175, 220];
+
+/** Is the goal cell connected to the start cell on foot WITHIN the box (margin M cells around the
+ *  start→goal bounding box)? A plain isotropic flood honouring passableCell + the anti-corner-cut
+ *  rule — the cheap gate that decides whether the (expensive) anisotropic Theta* is worth running. */
+function connectedInBox(terrain: Terrain, sx: number, sy: number, gx: number, gy: number, M: number): boolean {
+  const size = terrain.size;
+  const x0 = Math.max(0, Math.min(sx, gx) - M), x1 = Math.min(size - 1, Math.max(sx, gx) + M);
+  const y0 = Math.max(0, Math.min(sy, gy) - M), y1 = Math.min(size - 1, Math.max(sy, gy) + M);
+  ensureScratch(size * size);
+  const gen = ++PF_GEN; // reuse closedGen as the visited stamp
+  const stack = [sy * size + sx];
+  closedGen[sy * size + sx] = gen;
+  while (stack.length) {
+    const i = stack.pop()!;
+    const x = i % size, y = (i / size) | 0;
+    if (x === gx && y === gy) return true;
+    for (let d = 0; d < 8; d++) {
+      const nx = x + COARSE_DIR8[d][0], ny = y + COARSE_DIR8[d][1];
+      if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+      if (!terrain.passableCell(nx, ny)) continue;
+      if (COARSE_DIR8[d][0] !== 0 && COARSE_DIR8[d][1] !== 0 && !terrain.passableCell(x + COARSE_DIR8[d][0], y) && !terrain.passableCell(x, y + COARSE_DIR8[d][1])) continue;
+      const ni = ny * size + nx;
+      if (closedGen[ni] === gen) continue;
+      closedGen[ni] = gen;
+      stack.push(ni);
+    }
+  }
+  return false;
+}
+
+/** Smallest escalating box that connects start→goal on foot (the switchback search then runs there
+ *  with a little slack for the zig-zag fan), or -1 if none up to the cap connects — then the climb is
+ *  a genuine cross-valley detour and findPath falls through to the proven pipeline. */
+function switchbackBoxMargin(terrain: Terrain, sx: number, sy: number, gx: number, gy: number): number {
+  for (const M of SWITCHBACK_MARGINS) if (connectedInBox(terrain, sx, sy, gx, gy, M)) return Math.min(SWITCHBACK_MARGINS[SWITCHBACK_MARGINS.length - 1], M + 24);
+  return -1;
+}
+
+/**
+ * Plan a switchback climb from `start` to `goal` on the full-resolution grid with Theta* (any-angle)
+ * search and the anisotropic signed-grade cost, inside a box of margin `M` cells. Returns the route
+ * (any-angle waypoints, every leg straight-line walkable) or null if unreached — findPath then falls
+ * through to the proven coarse+corridor pipeline.
+ *
+ * Theta* (Daniel et al. 2010) is the load-bearing choice: a plain 8-direction A* is locked to 8
+ * headings, so the shallow traverse angle a switchback needs falls between grid directions and the
+ * search snaps to straight-up-or-around. Theta* relaxes each node against its parent's PARENT
+ * whenever line-of-sight allows, so a path leg can run at ANY angle — the geometry a real
+ * switchback traverse requires. Combined with the signed-grade cost (a cross-slope leg is genuinely
+ * cheaper than the fall line) and the turn penalty (few clean bends, no jitter), the zig-zag emerges.
+ */
+function thetaClimb(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions, M: number): Vec2[] | null {
+  const size = terrain.size;
+  const cs = terrain.cellSize;
+  const cellOf = (w: number) => Math.min(size - 1, Math.max(0, Math.floor(w / cs)));
+  const sx = cellOf(start.x), sy = cellOf(start.y);
+  // Snap the goal to reachable ground (an OP cell can sit one cell into a sub-cliff speck).
+  const gc = terrain.nearestPassable(cellOf(goal.x), cellOf(goal.y), 6);
+  const gx = gc.cx, gy = gc.cy;
+  const startI = sy * size + sx;
+  const goalI = gy * size + gx;
+  if (startI === goalI) return [{ ...goal }];
+  if (!terrain.passableCell(sx, sy) || !terrain.passableCell(gx, gy)) return null;
+
+  const x0 = Math.max(0, Math.min(sx, gx) - M), x1 = Math.min(size - 1, Math.max(sx, gx) + M);
+  const y0 = Math.max(0, Math.min(sy, gy) - M), y1 = Math.min(size - 1, Math.max(sy, gy) + M);
+
+  ensureScratch(size * size);
+  const gen = ++PF_GEN;
+  const gOf = (i: number) => (gGen[i] === gen ? gScratch[i] : Infinity);
+  const center = (i: number): Vec2 => ({ x: ((i % size) + 0.5) * cs, y: (((i / size) | 0) + 0.5) * cs });
+  const goalW = center(goalI);
+  const hCost = (i: number) => {
+    const c = center(i);
+    return Math.hypot(c.x - goalW.x, c.y - goalW.y); // admissible: legCost ≥ Euclidean length
+  };
+
+  const open = new Heap();
+  gScratch[startI] = 0;
+  gGen[startI] = gen;
+  cameScratch[startI] = -1;
+  headScratch[startI] = Math.atan2(goalW.y - start.y, goalW.x - start.x); // seed heading toward goal (no turn charge on leg 1)
+  open.push({ i: startI, g: 0, f: hCost(startI) });
+
+  const maxExpand = opts.cheapFallback ? 30000 : 120000;
+  let expanded = 0;
+  let found = false;
+  while (open.size > 0) {
+    const cur = open.pop()!;
+    if (closedGen[cur.i] === gen) continue;
+    closedGen[cur.i] = gen;
+    if (cur.i === goalI) {
+      found = true;
+      break;
+    }
+    if (++expanded > maxExpand) break;
+    const cx = cur.i % size, cy = (cur.i / size) | 0;
+    const parent = cameScratch[cur.i];
+    const pNode: Vec2 = parent === -1 ? start : center(parent);
+    for (let d = 0; d < 8; d++) {
+      const nx = cx + COARSE_DIR8[d][0];
+      const ny = cy + COARSE_DIR8[d][1];
+      if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+      if (!terrain.passableCell(nx, ny)) continue;
+      const ni = ny * size + nx;
+      if (closedGen[ni] === gen) continue;
+      if (COARSE_DIR8[d][0] !== 0 && COARSE_DIR8[d][1] !== 0) {
+        if (!terrain.passableCell(cx, ny) && !terrain.passableCell(nx, cy)) continue; // no corner-cut
+      }
+      const nW = center(ni);
+      // Theta*: prefer to connect ni straight to cur's PARENT (any-angle) when line-of-sight allows;
+      // else fall back to the grid edge cur→ni. This is what frees the path from the 8 grid headings.
+      let baseI: number, baseG: number, baseNode: Vec2, inHead: number;
+      if (parent !== -1 && losClear(terrain, pNode, nW)) {
+        baseI = parent;
+        baseG = gOf(parent);
+        baseNode = pNode;
+        inHead = headScratch[parent];
+      } else {
+        baseI = cur.i;
+        baseG = cur.g;
+        baseNode = center(cur.i);
+        inHead = headScratch[cur.i];
+      }
+      const outHead = Math.atan2(nW.y - baseNode.y, nW.x - baseNode.x);
+      const turn = Math.abs(angleDiff(inHead, outHead)) / Math.PI; // 0..1
+      const tentative = baseG + legCost(terrain, baseNode, nW) + turn * TURN_PENALTY_M;
+      if (tentative < gOf(ni)) {
+        gScratch[ni] = tentative;
+        gGen[ni] = gen;
+        cameScratch[ni] = baseI;
+        headScratch[ni] = outHead;
+        open.push({ i: ni, g: tentative, f: tentative + hCost(ni) });
+      }
+    }
+  }
+  if (!found) return null; // fall through to the proven pipeline (it owns best-effort + free fallback)
+
+  const cells: number[] = [];
+  let ci = goalI;
+  while (ci !== -1) {
+    cells.push(ci);
+    if (ci === startI) break;
+    ci = cameScratch[ci];
+  }
+  cells.reverse();
+  const pts: Vec2[] = cells.map(center);
+  pts.push({ ...goal });
+  // The parent chain is already any-angle and LOS-clean; a final stringPull collapses any residual
+  // collinear cell-centers into clean long legs (and is a no-op where Theta* already jumped).
+  return stringPull(terrain, start, pts, opts);
 }

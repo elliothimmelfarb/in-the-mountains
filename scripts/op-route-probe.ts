@@ -80,7 +80,10 @@ function run(seed: string) {
     if (!t.passableCell(cx, cy)) sBlocked++;
   }
 
-  const route = findPath(t, gateW, peakW, { roadBias: 0.55 });
+  // Mirror the REAL "Establish OP" march exactly: pathTo (formation.ts) plans a patrol-technique
+  // route — roadBias 0.55 — and now sets switchback:true for a deliberate squad objective march.
+  // OPROUTE_NOSWITCH=1 drops the flag to get the pre-switchback (isotropic) A/B baseline on any seed.
+  const route = findPath(t, gateW, peakW, { roadBias: 0.55, switchback: process.env.OPROUTE_NOSWITCH !== "1" });
   let L = 0; let prev = gateW;
   for (const p of route) { L += Math.hypot(p.x - prev.x, p.y - prev.y); prev = p; }
   const end = route[route.length - 1];

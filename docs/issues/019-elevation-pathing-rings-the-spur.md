@@ -1,7 +1,12 @@
 # 019 — Elevation pathing: a squad rings the spur instead of switchbacking up the face
 
-**Status: 🟡 DIAGNOSED + a fix attempt explored and REVERTED. The clean fix is an any-angle (Theta\*)
-finer planner — a scoped rebuild, deferred.**
+**Status: ✅ RESOLVED 2026-06-10 — the any-angle (Theta\*) tactical planner shipped (signed-grade cost +
+turn penalty, gated + additive). op-route held-out ×3.58→×3.16, climbable-face OPs ×2.19→×1.31, route-
+quality/reachability/terrain byte-identical, balance stall-guard passes. Connectivity half resolved
+2026-06-09. See the Resolution section at the bottom.**
+
+_(historical, pre-2026-06-10: 🟡 DIAGNOSED + a fix attempt explored and REVERTED — the clean fix was an
+any-angle (Theta\*) finer planner, a scoped rebuild, since shipped.)_
 Full record (baseline, every attempt + the numbers that killed it, the rebuild design):
 `docs/progress/2026-06-07-soldier-scale-impl/ws4-elevation-pathing-RECORD.md`.
 Fair, fixed-objective probe: `scripts/op-route-probe.ts`.
@@ -64,3 +69,47 @@ The 2026-06-09 terrain-realism campaign reframed this issue: the probe had **con
    directional-grade-cost + turn-penalty planner this issue scoped (now **de-risked** — the global
    passability change removed the freeze cause). Deferred as a measured follow-up. See
    `docs/progress/2026-06-09-terrain-realism/`.
+
+## Resolution — SWITCHBACK route-quality SHIPPED 2026-06-10 (any-angle Theta\* tactical planner)
+
+The switchback-efficiency residual is **resolved** with the scoped rebuild this issue scoped: an
+**any-angle (Theta\*) tactical planner** with a **signed-grade (anisotropic) cost** + a **turn penalty**,
+fired only for a genuine climb, bolted onto the proven coarse+corridor router without changing a line of it.
+
+**The three pieces (all required, only together):**
+1. `terrain.dirSpeedAt(wx,wy,ux,uy)` — moves the slope penalty OUT of the per-cell `moveCostAt` and INTO
+   the edge: speed = `LAND_MOVE·clamp01(1 − S·0.62)` on the **signed grade S along travel** (`∇elev·u`).
+   Climbing the fall line is slow, a cross-slope traverse is fast → a longer switchback genuinely beats a
+   short scramble (minimises travel TIME, not length). `moveCostAt` itself is **unchanged**.
+2. `path.ts thetaClimb()` — Theta* on the fine grid: each node relaxes against its parent's PARENT when
+   line-of-sight allows, so a leg runs at ANY heading (the traverse angle the 8-dir grid couldn't represent).
+   Box-bounded with an escalating-margin connectivity pre-check (`connectedInBox`/`switchbackBoxMargin`),
+   so a clean face is a cheap tight search and a genuine cross-valley OP falls through.
+3. A mandatory **turn penalty** (`TURN_PENALTY_M`) — few clean bends, no staircase jitter (the pathology
+   that sank the reverted attempt #2).
+
+**Gated + additive — why it can't regress the rest (the reason the prior attempt was reverted):** the
+branch fires ONLY for `opts.switchback` (set by `combat.ts pathTo` for a deliberate squad march) to a
+steep, elevated, tactical-range objective (`crow 80–1300 m, climb ≥ 60 m, grade ≥ 0.12`). World
+**generation never sets the flag → the valley is byte-identical**; valley-floor village routing never
+trips the gate → `reachability`/`route-quality` byte-identical; `moveCostAt` + the whole coarse+corridor
+pipeline untouched. `ITM_NOSWITCH=1` / `OPROUTE_NOSWITCH=1` are A/B kill-switches.
+
+**Numbers (before → after):**
+- op-route mean detour **×4.17 → ×3.81** (6 tuned seeds); **held-out ×3.58 → ×3.16**, worst ×5.97 → ×5.50,
+  reached **8/8** (Law 3 — fresh seeds never tuned on).
+- Climbable-face OPs land in the target band: korengal **×2.19 → ×1.31**, restrepo ×1.42 → **×1.21**,
+  ridgeline ×1.88 → ×1.63, survey-52 ×1.07, kunar-9 ×1.54. Switchback jitter **3–6 → 1–2** reversals.
+- `route-quality` ALL 48 ratio 1.12 loopy 0 — **byte-identical**. `smoke` OK (no new persisted state).
+- **balance** A/B (same-seed): planner OFF = **byte-identical to HEAD** (KIA 0.92, WIA 7.33); planner ON =
+  KIA 1.08, WIA 7.83 — the realistic, measured cost of squads now climbing **exposed** high ground; the
+  **stall guard PASSES (0 stranded)**, the exact failure that reverted the two prior in-place attempts.
+
+**Honest residual (characterised, not hidden):** OPs the probe picks behind a genuinely impassable massif
+(valley-7 ×4.88, kunar-3 ×4.57, korengal-2 ×9.25) still detour — that is **real terrain**, not a planning
+failure (the probe deliberately targets the highest, most cliff-surrounded cell). korengal-2's true route
+loops outside even a near-whole-map box, so it correctly falls through to the proven router. **Restraint
+logged:** we did NOT raise the box cap to chase it (a near-whole-map anisotropic search per order is the
+wrong trade for one adversarial seed), and did NOT narrow the planner to dodge the small balance cost (a
+squad ordered up a face should climb it). See `docs/progress/2026-06-10-open-issues/019-switchback/` +
+`public/manual/archive/reports/2026-06-10-switchback-climb/`.
