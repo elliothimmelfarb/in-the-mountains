@@ -82,7 +82,7 @@ Three read-anytime documents are served statically (also linked from the title-s
 lib/sim/            Pure simulation engine (no React)
   rng.ts            Seeded RNG + value noise
   vec.ts            Vector / grid math
-  terrain.ts        Procedural 5 m valley + 21 landcover classes + queries
+  terrain.ts        Procedural 5 m valley + 26 landcover classes + queries
   path.ts           Terrain-aware A* foot pathfinding (concealment bias)
   los.ts            Line of sight, concealment, detection (posture-aware)
   weapons.ts        US + insurgent weapon catalog
