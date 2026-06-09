@@ -1,4 +1,4 @@
-import { Terrain, Land, COARSE_F, COARSE_DIR8 } from "./terrain";
+import { Terrain, Land, COARSE_F, COARSE_DIR8, STEEP_COST_FLOOR } from "./terrain";
 import { Vec2 } from "./vec";
 
 /**
@@ -520,5 +520,7 @@ export function walkable(terrain: Terrain, a: Vec2, b: Vec2): boolean {
 }
 
 function clampMove(terrain: Terrain, cx: number, cy: number): number {
-  return Math.max(0.1, terrain.moveCostAt((cx + 0.5) * terrain.cellSize, (cy + 0.5) * terrain.cellSize));
+  // Floor must match moveCostAt's STEEP_COST_FLOOR — re-flooring at the old 0.1 here would flatten the
+  // steep-band cost gradient at fine resolution and reintroduce the dive-straight-up ×9.21 detour.
+  return Math.max(STEEP_COST_FLOOR, terrain.moveCostAt((cx + 0.5) * terrain.cellSize, (cy + 0.5) * terrain.cellSize));
 }
