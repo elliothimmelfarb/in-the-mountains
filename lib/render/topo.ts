@@ -1,4 +1,4 @@
-import { Terrain, Land } from "../sim/terrain";
+import { Terrain, Land, FOOT_CLIFF_SLOPE } from "../sim/terrain";
 import { clamp01 } from "../sim/rng";
 
 export interface Camera {
@@ -278,6 +278,21 @@ function makeBake(terrain: Terrain) {
         g += 1;
       }
 
+      // ---- IMPASSABLE TERRAIN, MADE OBVIOUS ----
+      // Above the foot-passable slope the ground is a sheer rock wall a soldier cannot climb. Render it
+      // as one: cool slate, deeper shadow, desaturated — visibly distinct from the warm dusty slopes a
+      // soldier CAN traverse, so "where can I go" reads at a glance (the foot-impassable line is the same
+      // FOOT_CLIFF_SLOPE the sim blocks on, so the picture tells the truth). The ramp eases in (squared)
+      // so the climbable steep band (1.25–1.40) is only faintly hinted while true cliffs go full stone.
+      const cliffness = clamp01((slope - (FOOT_CLIFF_SLOPE - 0.3)) / 0.6);
+      if (cliffness > 0 && land !== Land.River && snow < 0.5) {
+        const c = cliffness * cliffness;
+        r = r * (1 - c * 0.5) + 94 * c * 0.5;
+        g = g * (1 - c * 0.5) + 100 * c * 0.5;
+        b = b * (1 - c * 0.5) + 112 * c * 0.5;
+        shade *= 1 - c * 0.32; // the wall falls into its own shadow
+      }
+
       // ---- compose: texture × relief (high contrast), then atmospheric grading ----
       const sh = (0.34 + 0.95 * shade) * tex;
       // altitude grading: low ground warm, high ground cool & clear
@@ -465,6 +480,62 @@ function bakeNoiseTile(): HTMLCanvasElement {
 }
 
 /** Draw the baked terrain into a live canvas under the given camera. */
+/**
+ * Stroke the path network as SCALED dirt lines that mold to the terrain — a ~4 m graded MSR, a ~2.5 m
+ * village track, a ~1 m goat trail — drawn from the centerlines the generator captured (terrain
+ * .trailLines). This replaces the old read: paths were a 5 m landcover TINT, both too wide (a goat
+ * trail is not 5 m) and nearly invisible (its color sat a few RGB off the ground). A real road gets a
+ * dark cut-casing under a lighter tread; a goat trail is a single faint thread that only resolves as
+ * you zoom into the valley. Redrawn live so the lines stay crisp at any zoom.
+ */
+export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera) {
+  const lines = terrain.trailLines;
+  if (!lines || lines.length === 0) return;
+  const widthM: Record<string, number> = { road: 4.5, track: 2.6, trail: 1.3 };
+  const fadeIn: Record<string, number> = { road: 0.1, track: 0.16, trail: 0.3 }; // ppm at which it appears
+  const minPx: Record<string, number> = { road: 1.4, track: 1.0, trail: 0.8 };
+  const tread: Record<string, string> = {
+    road: "190,160,116",
+    track: "176,148,106",
+    trail: "162,138,98",
+  };
+  ctx.save();
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  // back-to-front by importance so trails sit under tracks under roads where they meet
+  const order: Array<"trail" | "track" | "road"> = ["trail", "track", "road"];
+  for (const kind of order) {
+    const a = clamp01((cam.ppm - fadeIn[kind]) / 0.4);
+    if (a <= 0.02) continue;
+    const wpx = Math.max(minPx[kind], widthM[kind] * cam.ppm);
+    for (const path of lines) {
+      if (path.kind !== kind || path.pts.length < 2) continue;
+      const trace = () => {
+        ctx.beginPath();
+        const [sx, sy] = worldToScreen(cam, path.pts[0].x, path.pts[0].y);
+        ctx.moveTo(sx, sy);
+        for (let i = 1; i < path.pts.length; i++) {
+          const [x, y] = worldToScreen(cam, path.pts[i].x, path.pts[i].y);
+          ctx.lineTo(x, y);
+        }
+      };
+      // every path sits in a faint shallow groove — a dark casing reads as that worn edge and lifts
+      // the line off the busy ground texture (a road/track gets a wider, darker one than a goat trail)
+      ctx.globalAlpha = a * (kind === "trail" ? 0.32 : 0.5);
+      ctx.strokeStyle = "rgba(54,42,28,1)";
+      ctx.lineWidth = wpx + (kind === "trail" ? 1.0 : 1.6);
+      trace();
+      ctx.stroke();
+      ctx.globalAlpha = kind === "trail" ? a * 0.82 : a * 0.95;
+      ctx.strokeStyle = `rgba(${tread[kind]},1)`;
+      ctx.lineWidth = wpx;
+      trace();
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
 export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
   const baked = bakeTerrain(terrain);
   const destScale = (cam.ppm * terrain.cellSize) / baked.pxPerCell;
@@ -495,6 +566,9 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
 
   // crisp vector contours, redrawn live every frame (never blur on zoom)
   drawContoursLive(ctx, terrain, cam);
+
+  // the path network as scaled dirt lines (roads/tracks/goat-trails) molding to the terrain
+  drawPathsLive(ctx, terrain, cam);
 
   // night / low-light wash
   if (night > 0) {
