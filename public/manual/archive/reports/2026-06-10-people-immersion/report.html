@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Making the People Real</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a;--ol:#9bb167}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:820px}
+h2{font-size:21px;margin:48px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h3{font-size:16.5px;margin:26px 0 4px;color:var(--ink)}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}
+strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:140px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:19px;font-weight:900;line-height:1.05}
+.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}
+td .w{color:var(--dim)}
+td .x{color:var(--rd);font-weight:700}
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figure svg{width:100%;display:block;background:#0a0f18}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:620px){.two{grid-template-columns:1fr}}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}
+.callout.gn{border-left-color:var(--gn)}
+.callout.rd{border-left-color:var(--rd)}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+.mech{font:12.5px/1.6 ui-monospace,monospace;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:#bfe3ff;overflow-x:auto;white-space:pre}
+.lab{color:var(--dim);font:600 10px/1 ui-monospace,monospace;letter-spacing:1px;text-transform:uppercase}
+ul{color:#cfdaea}
+li{margin:4px 0}
+.radio{border-left:2px solid var(--ol);padding:2px 0 2px 14px;margin:12px 0;color:#fff;font-style:italic;font-size:14.5px}
+.radio .src{display:block;color:var(--dim);font-style:normal;font-size:11.5px;font-family:ui-monospace,monospace;margin-top:2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<p class="kick">People Immersion · 2026-06-10 · Sim AI + Render + COIN</p>
+<h1>Making the <span>people</span> real</h1>
+<p class="lede">The owner wrote a standing brief — not a ticket, a dare: <em>make every soldier, fighter, and villager move, behave, and interact so convincingly that a skeptical infantry veteran forgets he's watching a simulation.</em> This campaign answers it with one architecture applied four times — <strong>group minds decide, individuals execute, everything is visible, and the valley remembers</strong> — and proves every piece with five new purpose-built probes, a live-app capture session, and a held-out seed set the work never tuned on.</p>
+
+<div class="statstrip">
+  <div class="s"><b>0.6 s <span class="was">← 11.2 s</span></b><span>ambush volley p90 (coordinated)</span></div>
+  <div class="s"><b>100%</b><span>man-down callout coverage (80/80)</span></div>
+  <div class="s"><b>0.10 s σ <span class="was">← 0.00</span></b><span>per-man step-off hesitation</span></div>
+  <div class="s"><b>2.82 vs 0.07 min</b><span>kids trail: friendly vs hostile village</span></div>
+  <div class="s"><b>KIA 0.94</b><span>held-out balance (baseline 1.08)</span></div>
+</div>
+
+<figure>
+<a href="shura.png"><img src="shura.png" alt="The shura, live: the squad ring between the Kandlay compounds, nameplates visible, the command log showing 'Asadullah Saifullah sits down with SSG Toner — the shura begins' and the elder's ask"></a>
+<figcaption><strong>The hollow heart, filled — live, seed <code>survey-12</code>, Day 1.</strong> A KLE used to be a modal text dialog. Now the radio carries <em>"word goes to Asadullah Saifullah — the elders are coming out"</em> (06:04), the elder physically walks out from his compound, and at 06:05 — <strong>+42&nbsp;s of on-station, matching the headless probe's number</strong> — <em>"Asadullah Saifullah sits down with SSG Toner — the shura begins."</em> State-verified at capture: the elder's unit <strong>4.1&nbsp;m from the squad leader</strong>, <code>task.elderMet === true</code>, and the attitude drip, the elder's ask (bottom-left: <em>"…asks that patrols stop kicking in doors…"</em>) and the decision modals all <strong>gated on the meeting actually happening</strong>.</figcaption>
+</figure>
+
+<h2>The recon that corrected the brief</h2>
+<p>The brief's map of the floor (§3) was honest but partly wrong — and the campaign's first move was six recon agents sweeping the actual code before anyone designed anything. Three of the brief's claims did not survive contact:</p>
+<ul>
+  <li><strong>"Civilians respawn each day, identical, learning nothing"</strong> — false. They never respawned; they had been <em>persistent named individuals all along</em>. The memory infrastructure the brief asked for already had its subjects.</li>
+  <li><strong>"No cell leader, no coordination"</strong> — half false. Enemy cells already existed (<code>squadId</code>, casualty-shock contagion, leader succession) — what was missing was only the <em>group decision</em> layer on top.</li>
+  <li><strong>"Men don't react individually to a near-miss"</strong> — false. The suppression field is real physics; rounds crack past and pin men near the trajectory.</li>
+</ul>
+<p>The genuine gaps were three: <strong>no group minds</strong> (every fighter an independent turret, every drill a metronome), <strong>no scenes</strong> (the shura a pop-up, the elder a name that never appears), and <strong>nothing visible</strong> (cohesion and brotherhood asserted in the data, absent from the eye). Those three gaps shaped the whole campaign.</p>
+
+<div class="callout">
+<p style="margin:0"><strong>The spine — one sentence, one architecture.</strong> The friendly squad already worked the right way: <code>squadFight</code> <em>decides</em> (the squad leader's brain — react, hold, suppress, assault, break) and <code>friendlyBrain</code> <em>executes</em> (each man's per-tick behavior). The campaign never invented a second pattern — it <strong>extended that same decide/execute split to the enemy</strong> (a cell leader's brain in <code>cell-combat.ts</code>), <strong>to the village</strong> (civic scenes + a named grievance ledger), and added the missing <strong>presentation layer</strong> (a deterministic callout bus) so internal state becomes watchable behavior. One mechanism, four places.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 880 330" xmlns="http://www.w3.org/2000/svg" font-family="ui-monospace,monospace">
+  <text x="24" y="28" fill="#f4b740" font-size="13" font-weight="700">ONE PATTERN, FOUR PLACES — GROUP MINDS DECIDE, INDIVIDUALS EXECUTE</text>
+  <!-- column 1: US squad -->
+  <rect x="30" y="50" width="255" height="58" rx="4" fill="#111a2b" stroke="#1e2c40"/>
+  <text x="157" y="72" fill="#93a4ba" font-size="11" text-anchor="middle">US SQUAD — already worked this way</text>
+  <text x="157" y="92" fill="#e7edf5" font-size="12" text-anchor="middle">squadFight() DECIDES</text>
+  <rect x="30" y="138" width="255" height="46" rx="4" fill="#0d1320" stroke="#1e2c40"/>
+  <text x="157" y="158" fill="#e7edf5" font-size="12" text-anchor="middle">friendlyBrain() EXECUTES</text>
+  <text x="157" y="174" fill="#5b6b82" font-size="9" text-anchor="middle">nerve · hesitation · securing buddy</text>
+  <line x1="157" y1="108" x2="157" y2="138" stroke="#9bb167" stroke-width="1.6"/>
+  <!-- column 2: enemy cell -->
+  <rect x="312" y="50" width="255" height="58" rx="4" fill="#111a2b" stroke="#e05028"/>
+  <text x="439" y="72" fill="#e05028" font-size="11" text-anchor="middle">ENEMY CELL — NEW</text>
+  <text x="439" y="92" fill="#e7edf5" font-size="12" text-anchor="middle">cellFight() DECIDES</text>
+  <rect x="312" y="138" width="255" height="46" rx="4" fill="#0d1320" stroke="#1e2c40"/>
+  <text x="439" y="158" fill="#e7edf5" font-size="12" text-anchor="middle">per-fighter FSM EXECUTES</text>
+  <text x="439" y="174" fill="#5b6b82" font-size="9" text-anchor="middle">volley as one · displace · peel to rally</text>
+  <line x1="439" y1="108" x2="439" y2="138" stroke="#9bb167" stroke-width="1.6"/>
+  <!-- column 3: village -->
+  <rect x="594" y="50" width="255" height="58" rx="4" fill="#111a2b" stroke="#38bdf8"/>
+  <text x="721" y="72" fill="#38bdf8" font-size="11" text-anchor="middle">THE VILLAGE — NEW</text>
+  <text x="721" y="92" fill="#e7edf5" font-size="12" text-anchor="middle">civic scenes + ledger DECIDE</text>
+  <rect x="594" y="138" width="255" height="46" rx="4" fill="#0d1320" stroke="#1e2c40"/>
+  <text x="721" y="158" fill="#e7edf5" font-size="12" text-anchor="middle">civilianBrain() EXECUTES</text>
+  <text x="721" y="174" fill="#5b6b82" font-size="9" text-anchor="middle">elder walks out · funerals · kids trail</text>
+  <line x1="721" y1="108" x2="721" y2="138" stroke="#9bb167" stroke-width="1.6"/>
+  <!-- visibility band -->
+  <rect x="30" y="212" width="819" height="44" rx="4" fill="#0a0f1a" stroke="#9bb167"/>
+  <text x="439" y="231" fill="#9bb167" font-size="11" text-anchor="middle" font-weight="700">EVERYTHING VISIBLE — the deterministic callout bus (NEW)</text>
+  <text x="439" y="247" fill="#5b6b82" font-size="10" text-anchor="middle">"contact front!" · "man down!" · "covering!"/"moving!" · "on me" · "head count!" — ring buffer → render presenter</text>
+  <!-- memory band -->
+  <rect x="30" y="268" width="819" height="44" rx="4" fill="#0a0f1a" stroke="#f4b740"/>
+  <text x="439" y="287" fill="#f4b740" font-size="11" text-anchor="middle" font-weight="700">THE VALLEY REMEMBERS — the named grievance ledger (NEW)</text>
+  <text x="439" y="303" fill="#5b6b82" font-size="10" text-anchor="middle">a casualty writes a NAME · the household buries him at first light · solatia settles the entry · kin clear the road</text>
+</svg>
+<figcaption>The campaign's whole shape in one diagram. The left column existed; the work was extending its decide/execute split rightward and adding the two horizontal layers — visibility (the callout bus) and memory (the ledger) — that make the internal state <em>watchable</em> and <em>permanent</em>. No second pattern was invented anywhere.</figcaption>
+</figure>
+
+<!-- ================= WAVE 1 ================= -->
+<h2>Wave 1 — The enemy gets a brain <span class="lab">sim · cell-combat.ts</span></h2>
+<p>Before: every fighter ran the same state machine alone — disciplined, but a row of independent turrets. Each man triggered his own ambush when <em>his</em> picture looked right, so a five-man trap opened raggedly over ten-plus seconds. After: every spawned cell gets a flagged leader, and <code>cellFight</code> makes the group decisions — the trap springs <strong>as one volley</strong> on the base gun's kill zone (FM&nbsp;3-21.8's rule: the ambush is initiated by the <em>most casualty-producing weapon</em> — the per-man triggers defer to the leader), targets are distributed across the L from each man's own sight picture, fire-and-movement displaces by halves on the leader's clock, and a breaking cell <strong>peels to a shared rally</strong>, farthest man first, instead of scattering.</p>
+<p>The proof is an A/B with a kill-switch: <code>ITM_NOCELL=1</code> turns the coordinator off and re-runs the same seeds, so the delta is attributable to nothing else.</p>
+<table>
+  <tr><th>Cell coordination (6 seeds × 25 min, A/B)</th><th>Coordinator OFF</th><th>Coordinator ON</th></tr>
+  <tr><td>Ambush volley spread, p50</td><td><span class="w">0.1 s</span></td><td><span class="b">0.1 s</span></td></tr>
+  <tr><td>Ambush volley spread, p90 — the ragged tail</td><td><span class="x">11.2 s</span></td><td><span class="b">0.6 s</span></td></tr>
+  <tr><td>Breaking cell, mean dist to rally 30 s → 90 s</td><td><span class="x">40 → 61 m (rout disperses)</span></td><td><span class="b">54 → 34 m (peel converges)</span></td></tr>
+  <tr><td>Enemy rounds/min (gate ±15%)</td><td><span class="w">baseline</span></td><td><span class="b">−6.6%</span></td></tr>
+  <tr><td>Civilian melt tell (pre-contact vocabulary unchanged)</td><td><span class="w">PASS</span></td><td><span class="b">PASS — preserved by construction</span></td></tr>
+</table>
+<p>The convergence row is the one to teach: you cannot fake it with a screenshot. A coordinated peel <em>shrinks</em> its spread around the rally point between 30 and 90 seconds after the break; an uncoordinated rout <em>grows</em> it. The probe measures exactly that second derivative of group behavior — the same way you'd tell a withdrawal from a panic on a real hillside.</p>
+
+<div class="two">
+<figure>
+<a href="volley-frozen.png"><img src="volley-frozen.png" alt="The sim paused mid-volley: red tracer streaks frozen in the air inbound toward the COP wall"></a>
+<figcaption><strong>Enemy fire frozen mid-flight</strong> — the sim paused on the volley tick, so the inbound tracer streaks hang in the air right of center, toward the wall where the garrison stands. Pausing freezes <code>sim.projectiles</code>: 3 insurgent rounds + 1 live muzzle effect were in the state at this exact tick.</figcaption>
+</figure>
+<figure>
+<a href="cff-pinned.png"><img src="cff-pinned.png" alt="The CLEARED HOT / DENY fire-mission card: 'pinned, enemy fixed. Requesting 60mm on grid 248-352', with the suppressed squad above and the 9-line MEDEVAC bar below"></a>
+<figcaption><strong>The only in-combat lever, live.</strong> 2nd Squad pinned at Kandlay; the squad AI — not the player — raises the call-for-fire: <em>"pinned, enemy fixed. Requesting 60mm on grid 248–352."</em> Approve or deny. <em>The hardest part of command is watching</em> — the coordinated enemy makes the watching worth it.</figcaption>
+</figure>
+</div>
+
+<h3>The drill stops being a metronome <span class="lab">sim · squad-combat.ts + friendly.ts</span></h3>
+<p>The brief's complaint: two squads assaulting the same objective moved <em>identically</em>. A new probe (<code>drill-timeline-probe.ts</code>) fingerprinted the rigidity first — bound step-off spread was literally <strong>0.00&nbsp;s σ</strong>: every buddy pair stepped off on the same tick, every time. Three mechanisms loosened it without touching the load-bearing clocks:</p>
+<ul>
+  <li><strong>Nerve</strong> — a per-man scalar from <em>static</em> traits only (composure-max, experience, aggression, hash-jittered, zero-mean by construction) that drives bound step-off hesitation, pin-threshold jitter, and cover-acceptance taste. Step-off spread: <strong>0.00 → 0.10&nbsp;s σ</strong>; two same-SOP squads' first assault commits now drift <strong>0.4 → 6.0&nbsp;s</strong> apart on the same objective.</li>
+  <li><strong>Pinned-revert</strong> — an assault whose maneuver element is majority-pinned &gt;4&nbsp;s falls back to suppress, re-develops (12&nbsp;s floor), and re-commits <em>preferring the other flank</em>. The "we're pinned, go to ground" beat the brief said didn't exist.</li>
+  <li><strong>The securing buddy</strong> — when the medic arrives at a casualty, the aid buddy becomes the third figure in the scene: he kneels 2.5&nbsp;m off on the threat side <strong>facing out</strong>, because in TCCC the first treatment is security, not the bandage.</li>
+</ul>
+<div class="callout rd">
+<p style="margin:0"><strong>Honest residual, stated up front:</strong> at natural campaign tempo the probes recorded <strong>rvt&nbsp;0</strong> — the pinned-revert never actually fired in the measured windows. The mechanism exists, is unit-traceable, and is rare by construction (it needs a majority-pinned maneuver element to persist 4&nbsp;s); a staged-scenario proof is queued in the deferred backlog (issue 026). It is reported as built-not-yet-witnessed, not as a win.</p>
+</div>
+
+<h3>The brotherhood becomes audible <span class="lab">sim + render · the callout bus</span></h3>
+<p>Cohesion existed as numbers; the eye saw none of it. The fix is a <strong>diegetic callout bus</strong>: the engine emits short shouts at the moments that matter — <em>"contact front!"</em>, <em>"man down!"</em>, <em>"covering!"/"moving!"</em> on bound swaps, <em>"doc — over here"</em>, <em>"on me"</em> at succession, <em>"head count!"</em> at the consolidate — through a ring buffer on <code>CombatSim</code> with per-squad dedup windows. Phrase variety comes from string hashing, <strong>never from the sim's rng</strong>, so two same-seed runs produce <em>fingerprint-identical</em> callout streams: determinism is asserted, not hoped. A React-free presenter (<code>lib/render/callouts.ts</code>, cloned from the audio mapper's warp-safe high-water-walk pattern) draws at most 3 small plates above the figures at tactical zoom.</p>
+<table>
+  <tr><th>Callout probe (5 seeds × 2 runs × 25 min)</th><th>Result</th></tr>
+  <tr><td>Two same-seed runs, full stream fingerprint</td><td><span class="b">identical</span></td></tr>
+  <tr><td>Man-down coverage (witness-eligible casualties announced)</td><td><span class="b">100% — 80/80</span></td></tr>
+  <tr><td>Dedup violations / spam</td><td><span class="b">0 · per-squad ≤ 8/min</span></td></tr>
+  <tr><td>Held-out seeds (hold-0..2)</td><td><span class="b">22/22 coverage, det OK, dup 0</span></td></tr>
+</table>
+<figure>
+<a href="callouts.png"><img src="callouts.png" alt="A small dark callout plate reading 'covering!' above a soldier's figure at tactical zoom, distinct from the nameplates below the figures"></a>
+<figcaption><strong>"covering!"</strong> — an organic plate above Tucker's figure (distinct from the nameplates <em>below</em> figures), 1st Squad bounding home after its fight. This was not staged: the capture window was won by framing one man and shooting inside the plate's 2.4&nbsp;s TTL. Shouts verified flowing all session: contact, covering, moving, falling back, man down, he's hit, i got you, head count.</figcaption>
+</figure>
+
+<!-- ================= WAVE 2 ================= -->
+<h2>Wave 2 — The seams of march and fight <span class="lab">sim · tasks.ts + formation.ts</span></h2>
+<p>The brief singled out the transitions — march → contact → lull → resume — as "where realism lives or dies." The design survey agreed so hard that <strong>three independent proposers invented consolidate &amp; reorganize separately</strong>; that convergence was treated as evidence it was load-bearing, and the three inventions were merged into <em>one</em> mechanism at the contact→lull seam (Law 6: one robust mechanism, not a pile of patches).</p>
+<p>After a real engagement ends on the march, the squad now does what FM&nbsp;3-21.8 says a squad does: collapses into a kneeling security ring, the squad leader physically <em>walks the line</em>, ammo is cross-levelled to the automatic weapons (the ACE report's real consequence), casualties are carried to the ring, and the head count goes out on the net — 30–90&nbsp;s keyed to casualties and suppression, preempted instantly by renewed contact.</p>
+<div class="two">
+<figure>
+<a href="consolidate.png"><img src="consolidate.png" alt="1st Squad collapsed into a consolidation ring on open ground southwest of Kandlay, contact feed showing the fight's lines"></a>
+<figcaption><strong>The beat, live:</strong> 1st Squad broke a harass cell's fire on the return leg and the radio carried <em>"Presence Patrol: consolidating — head count 9 up, 4 wounded."</em> Shot ~1&nbsp;s into the beat; 8&nbsp;s later, state-verified: 7/8 members <code>holding</code> in the ring with the SL <code>moving</code> — the walk-the-line, in the data.</figcaption>
+</figure>
+<figure>
+<a href="consolidate2.png"><img src="consolidate2.png" alt="3rd Squad consolidating at the wire after a fighting withdrawal, KIA visible in the contact feed, 9-line MEDEVAC banner up"></a>
+<figcaption><strong>The same beat, grimmer:</strong> 3rd Squad after a brutal mid-march ambush — <em>"consolidating — head count 8 up, 1 down, 2 wounded"</em> — at the wire after a fighting withdrawal, SPC Brennan KIA in the feed, the 9-line up. Kept as the honest record of the beat under casualties; visually muddier and shown anyway.</figcaption>
+</figure>
+</div>
+<table>
+  <tr><th>Transition + texture gates</th><th>Result</th></tr>
+  <tr><td>Consolidate follows eligible post-contact lulls (<code>transitions-probe.ts</code>)</td><td><span class="b">60/60 · resume 100% · stuck 0</span></td></tr>
+  <tr><td>ACE ammo cross-level to auto weapons</td><td><span class="b">fires when rifle&gt;gun imbalance crosses threshold</span></td></tr>
+  <tr><td>Medic-scene third figure (aid buddy kneels facing OUT)</td><td><span class="b">covered — after a dead-gate bug was caught, see below</span></td></tr>
+  <tr><td>March texture: point-man caution, per-man line meander, night/weather interval</td><td><span class="b">paceEff 0.58 → 0.58 (unchanged) · blocked 0% · jitter 1°/s</span></td></tr>
+</table>
+<p>The movement texture is deliberately subtle: the point man eases pace into corridor chokes and holds one beat at the mouth; each man wanders his own hash-keyed ±fraction of a metre off the wake line so the file stops being beads on a string; rain and darkness close the interval. The gate that mattered was the <em>non-regression</em>: all of it ships with the cohesion suite's pace efficiency byte-for-byte at the baseline mean and zero blocked legs — texture that costs nothing.</p>
+
+<!-- ================= WAVE 3 ================= -->
+<h2>Wave 3 — The village remembers <span class="lab">sim · the elder, the ledger, the children</span></h2>
+<p>The brief called this "the hollow heart": the elder had a procedurally generated name but <strong>never appeared</strong>; a civilian death was an attitude penalty, not a person. Wave 3 makes the village's people first-class agents and its memory persistent state:</p>
+<ul>
+  <li><strong>The shura is staged, not displayed.</strong> Every village's elder is a guaranteed real unit (first villager spawned; <code>VillageState.elder</code> carries his actual name; succession repairs the binding when he dies). A KLE physically summons him: he walks out with dignity, sits down 2&nbsp;m from the squad leader's ring slot — and <em>only then</em> (<code>t.elderMet</code>) do the attitude drip, the elder's ask, and the decision modals flow. A 15-minute no-show proceeds via <em>"the elder sends his regrets"</em> — the absence itself a read. Gunfire always wins: a staged threat aborts the summons, latched (verified — the elder turned home, then fled the actual firefight).</li>
+  <li><strong>The blood debt has a name.</strong> Civilians belong to 2–4-person households. A civilian casualty of US fire writes a <em>named</em> grievance to the village ledger; at the next first light the household and the elder gather at the compound for twenty minutes and bury him — one log line, weight not spectacle. Unresolved entries floor effective sympathy (Pashtunwali's <em>badal</em>, capped); the dwell event becomes "The Blood Debt", by name; paying solatia settles the ledger <em>by name</em>. Grieving households clear the road from troops, always; their children never trail.</li>
+  <li><strong>The children are the meter.</strong> In a friendly village, curious kids trail a weapons-cold patrol at ~9&nbsp;m standoff; in a hostile or grieving one they are simply not out near your men — the melt's quieter sibling, running on attitude. FM&nbsp;3-24 and CALL's atmospherics handbooks treat children-near-patrols as the canonical positive indicator; here it is emergent, not scripted.</li>
+</ul>
+
+<p class="radio">"Abdul Khan of Kandlay was killed by our fire. His household will remember."<span class="src">— the ledger entry, written by the engine at the moment of the casualty (lib/sim/world/world.ts · applyCivcasBacklash)</span></p>
+
+<figure>
+<a href="kids.png"><img src="kids.png" alt="A marching squad file on the dotted route east of the village, with a single child figure ringed off the rear man, holding the trail slot"></a>
+<figcaption><strong>Children trail a friendly patrol, live</strong> — Kandlay poked to attitude +40 (disclosed staging, per the brief's verification rules), 2nd Squad on a weapons-tight presence patrol: the village's one curious child picked up the marching file (Murphy/Olson/Ayers/Ramos) and held the trail slot — <strong>8.2&nbsp;m</strong> from the nearest man at capture, re-verified live at 6.6–10.7&nbsp;m over ~3 game-minutes. In a hostile village the same probe measures <strong>0.07 trail-minutes vs 2.82</strong> — and on the held-out seed, <strong>0.00 vs 9.59</strong>. The absence is the read.</figcaption>
+</figure>
+
+<table>
+  <tr><th>Village-wave gates (<code>encounter-probe.ts</code> + suite)</th><th>Result</th></tr>
+  <tr><td>Elder departs ≤300 s · sits down</td><td><span class="b">+42 s of on-station · 4.1 m from the SL (live match)</span></td></tr>
+  <tr><td>No dwell event before <code>elderMet</code> · staged ambush aborts the summons</td><td><span class="b">held · melt wins, latched</span></td></tr>
+  <tr><td>Funeral: household at the grave at first light · save/load mid-gathering</td><td><span class="b">named entry · 3/3 kin resume the gathering</span></td></tr>
+  <tr><td>Kids trail-minutes, +40 vs −40 attitude (tuned / held-out)</td><td><span class="b">2.82 vs 0.07 · 9.59 vs 0.00</span></td></tr>
+  <tr><td>Dwell bands untouched (KLE 1.63 h in 1.0–2.0) · diurnal + melt mechanism · civCas</td><td><span class="b">verbatim PASS · PASS · 0</span></td></tr>
+</table>
+
+<!-- ================= VERIFICATION CULTURE ================= -->
+<h2>The probes did the real work — six bugs that never reached the player</h2>
+<p>This is the section a skeptic should read twice. The campaign built <strong>five new deterministic probes</strong> — cell-coordination A/B (with the <code>ITM_NOCELL</code> kill-switch), callout determinism/spam, drill-timeline fingerprints, transitions, and the encounter probe (shura/funeral/kids) — and they were not decoration: <strong>every one of them caught a real shipping bug before it shipped.</strong> A feature you can't measure is a feature you can't trust; here is what measurement bought, verbatim:</p>
+<table>
+  <tr><th>#</th><th>The bug the probe caught</th><th>The number that told the story</th><th>The fix</th></tr>
+  <tr><td>1</td><td><strong>The doc-shout metronome.</strong> "doc — over here" re-emitted every tick a casualty lay untreated — a spam wall, not a brotherhood.</td><td><span class="x">390 emissions</span> in one run → <span class="b">6</span></td><td>Latched per casualty, not per tick.</td></tr>
+  <tr><td>2</td><td><strong>The half-volley.</strong> The displace clock started at spawn and expired instantly — half the cell went scooting <em>before their first shot</em>, gutting the disciplined initiation the wave existed to build.</td><td>volleyP90 <span class="x">18 s — inverted, worse than no coordinator</span></td><td>Displace clock arms only after a man's first shot.</td></tr>
+  <tr><td>3</td><td><strong>The quantized hesitation.</strong> The per-man step-off delay was gated behind a slow reconsider loop, which quantized it straight back to zero — the feature measured as not existing.</td><td>step-off spread <span class="x">0.00 s σ again</span></td><td>Moved into the per-tick execution layer (<code>friendlyBrain</code>), re-measured: <span class="b">0.10 s σ</span></td></tr>
+  <tr><td>4</td><td><strong>The dead medic-scene gate.</strong> The securing-buddy logic checked a <code>targetId</code> field that no writer ever set — syntactically fine, semantically a gate that could never open.</td><td>scene coverage <span class="x">0 / 1048 treat ticks</span></td><td>Re-keyed to the proximity-matched aiding state.</td></tr>
+  <tr><td>5</td><td><strong>The meet-geometry bug.</strong> The elder sat down at the shura while the log said <em>"sends his regrets"</em> — the summons walked him to a meet point 9.2 m from the SL's actual ring slot, outside the 6 m met-gate.</td><td><span class="x">9.2 m vs a 6 m gate</span></td><td>Meet point anchored to the SL's real slot; live: <span class="b">4.1 m</span></td></tr>
+  <tr><td>6</td><td><strong>The medic who fired on his own patient.</strong> The first fix for #4 wrote <code>targetId</code> — and silently poisoned <code>updateFiring</code>'s trust in that field: a weapons-free medic acquired his own casualty. Caught by a balance <em>bisect</em>, not a glance: KIA rose with the coordinator ON and OFF both, and the KIA-up/WIA-down signature (wounded men dying) pointed at the aid station.</td><td>KIA <span class="x">3.75 / 3.00 (ON/OFF)</span> → fixed → <span class="b">1.25</span></td><td>The targetId channel reverted; scene re-keyed without touching the firing path.</td></tr>
+</table>
+<div class="callout gn">
+<p style="margin:0"><strong>Why this is the "did an AI really do this" material.</strong> None of these six would surface in a demo video. Three are <em>inversions</em> — the feature measuring as its own opposite (the half-volley, the quantized hesitation, the seated elder logged as absent) — which only a probe that asserts the real success condition can see. And #6 is the signature of a verification culture working end-to-end: a humanitarian detail (a kneeling buddy) introduced a combat-path regression two systems away, and the <em>balance harness</em> — not the feature's own probe — caught it, because every wave ends by re-running the whole gate suite. The fix for the bug was partially reverting the fix for the previous bug. That is what honest engineering looks like in the log.</p>
+</div>
+
+<!-- ================= HELD-OUT ================= -->
+<h2>Proven on seeds the work never tuned on <span class="lab">law 3</span></h2>
+<p>Everything above was tuned on the survey-0..39 convention and dedicated probe seeds. The final proof ran on fresh, untouched inputs:</p>
+<table>
+  <tr><th>Held-out check</th><th>Result</th><th>Baseline / gate</th></tr>
+  <tr><td><code>balance.ts</code> — 16 deployments × 50 min, <code>hold-*</code> seeds</td><td><span class="b">KIA 0.94 · WIA 6.44 · enemy 4.38 · civCas 0 · 0 stranded</span></td><td>HEAD KIA 1.08 · WIA 8.58 — friendly KIA <em>below</em> baseline with a smarter enemy</td></tr>
+  <tr><td><code>cohesion.ts</code> — survey-40..45</td><td><span class="b">paceEff 0.57 · blocked 0% · jitter ≤2°/s</span></td><td>HEAD 0.58 — march texture costs nothing</td></tr>
+  <tr><td>Civilian melt — survey-44 / survey-45</td><td><span class="b">OK / OK (children melt first; 0 shots in window; det hash identical)</span></td><td>the gold-standard tell, untouched</td></tr>
+  <tr><td>Callout bus — hold-0..2, 2 runs each</td><td><span class="b">22/22 coverage · dup 0 · fingerprints identical</span></td><td>det + spam gates</td></tr>
+  <tr><td>Kids meter — held-out seed</td><td><span class="b">9.59 vs 0.00 trail-minutes</span></td><td>tuned-set 2.82 vs 0.07 — the signal <em>grew</em> off-tune</td></tr>
+</table>
+
+<div class="callout rd">
+<p style="margin:0"><strong>The full residual list, unflattering figures first.</strong> (1) Pinned-revert never fired at natural tempo — <strong>rvt 0</strong>; mechanism built, staged-scenario proof queued. (2) US WIA runs <em>below</em> the baseline band (~6–7 vs 8.58) — the friendly side got safer (directional cover + a peeling enemy compound); not a player-facing harm, but a drift being watched, not celebrated. (3) The massed-volley <em>spectacle screenshot</em> was never captured live — three attempts failed on documented mechanics (0.12 s muzzle TTL vs ~2 s capture latency; 80–380 m stand-offs don't fit one tactical frame); the volley itself is headless-verified, and the failed technique is written down so the next session doesn't rediscover it. (4) The atmospherics closure %-gates flip on 1–2 of 5 seeds per build at cohort sizes n≈5–24 (one civilian = 5–13 pp) — the <em>mechanism</em> gates (children-first, pre-contact, determinism) never flip; an aggregate-mode harness improvement is queued rather than weakening the gate. (5) Same-build balance noise is ≈±0.4 KIA at n=12 — which is exactly why the held-out proof ran at n=16. Everything deferred lives in <code>docs/issues/026-people-immersion-deferred-backlog.md</code>.</p>
+</div>
+
+<!-- ================= DOCTRINE ================= -->
+<h2>Grounded where a veteran would check</h2>
+<ul>
+  <li><strong>FM 3-21.8</strong> — battle drills and consolidate &amp; reorganize (the ring, the line walk, ACE, the head count); the ambush initiated by the most casualty-producing weapon (the cell's base gun opens, riflemen defer).</li>
+  <li><strong>TCCC</strong> — security <em>is</em> the first treatment: the aid buddy's job is the threat side, facing out, while the doc works.</li>
+  <li><strong>FM 3-24 + CALL atmospherics</strong> — children near a patrol as the canonical positive indicator; their absence as the warning. The melt (already shipped) and the kids meter (new) are the same grammar at two volumes.</li>
+  <li><strong>Pashtunwali — <em>badal</em></strong> — the blood debt is named, persistent, heritable by the household, and settleable by solatia: exactly the ledger the engine now keeps.</li>
+  <li><strong>The lived texture</strong> — Junger's <em>War</em> and <em>Restrepo</em>: the shura's slow dignity, the head count after contact, the radio's flat grammar. Weight, not spectacle — the funeral is one log line on purpose.</li>
+</ul>
+
+<!-- ================= CHECK TABLE ================= -->
+<h2>How every claim was checked</h2>
+<table>
+  <tr><th>Claim</th><th>How it was proven</th><th>Number</th></tr>
+  <tr><td>The trap springs as one</td><td><code>cell-coordination-probe.ts</code> A/B via <code>ITM_NOCELL</code>, 6 seeds × 25 min</td><td><span class="x">p90 11.2 s</span> → <span class="b">0.6 s</span></td></tr>
+  <tr><td>A break is a peel, not a rout</td><td>same probe — rally-distance convergence 30→90 s</td><td><span class="x">40→61 m</span> vs <span class="b">54→34 m</span></td></tr>
+  <tr><td>Men hesitate like men</td><td><code>drill-timeline-probe.ts</code> fingerprints, same-SOP twin squads</td><td><span class="x">0.00 σ / 0.4 s drift</span> → <span class="b">0.10 σ / 6.0 s</span></td></tr>
+  <tr><td>The brotherhood is audible &amp; deterministic</td><td><code>callout-probe.ts</code> — 2-run fingerprints, coverage, spam</td><td><span class="b">identical · 80/80 · dup 0</span></td></tr>
+  <tr><td>The squad consolidates and resumes</td><td><code>transitions-probe.ts</code></td><td><span class="b">60/60 · resume 100% · stuck 0</span></td></tr>
+  <tr><td>The shura is real and gating</td><td><code>encounter-probe.ts shura</code> + live capture, state-read</td><td><span class="b">+42 s · 4.1 m · elderMet gate held</span></td></tr>
+  <tr><td>The valley remembers across save/load</td><td>mid-gathering serialize → loadWorld</td><td><span class="b">3/3 kin resume the funeral</span></td></tr>
+  <tr><td>Nothing the player had got worse</td><td>balance/cohesion/melt/dwell/autonomy + smoke/tsc/build, every wave; held-out tail at the end</td><td><span class="b">KIA 0.94 vs 1.08 · civCas 0 · 0 stranded · dwell bands verbatim</span></td></tr>
+</table>
+
+<p class="foot">Engineering record: <code>docs/progress/2026-06-10-people-immersion/</code> — the brief's recon-corrected CONTEXT, the synthesized plan with its adversarial-review amendments, verbatim HEAD baselines, per-wave evidence (<code>after-w1/</code>, <code>after-w3/</code>), the held-out corpus (<code>holdout/</code>), and the live-capture session with its staging disclosed line-by-line (<code>after-w3/live/captions.md</code>). Probes: <code>scripts/cell-coordination-probe.ts</code>, <code>callout-probe.ts</code>, <code>drill-timeline-probe.ts</code>, <code>transitions-probe.ts</code>, <code>encounter-probe.ts</code>. Touched: <code>lib/sim/ai/cell-combat.ts</code> (new — the enemy group mind), <code>squad-combat.ts</code> + <code>friendly.ts</code> (pinned-revert, nerve, the securing buddy), <code>lib/sim/combat.ts</code> (the callout bus), <code>lib/render/callouts.ts</code> (new — the presenter), <code>lib/sim/world/tasks.ts</code> (consolidate, the staged shura), <code>formation.ts</code> (march texture), <code>create.ts</code> (the elder, households), <code>world.ts</code> (funerals, succession repair, the reception push), <code>civilian.ts</code> (summons, kids), <code>events.ts</code> (The Blood Debt), <code>director.ts</code> (leader flagging). Brief: <code>docs/briefs/movement-and-interaction-immersion.md</code>. Deferred: <code>docs/issues/026</code>. Every number quoted as measured; the residuals are in the red box, not a footnote.</p>
+
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

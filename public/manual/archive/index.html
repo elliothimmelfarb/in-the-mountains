@@ -126,10 +126,10 @@
   logbook: the valley pushed back, and each chapter is what pushing back looked like.</p>
 
   <div class="statstrip">
-    <div class="s"><b>6</b><span>days · Jun 3–8</span></div>
-    <div class="s"><b>25</b><span>chapters</span></div>
-    <div class="s"><b>11</b><span>full reports</span></div>
-    <div class="s"><b>17</b><span>tracked issues</span></div>
+    <div class="s"><b>8</b><span>days · Jun 3–10</span></div>
+    <div class="s"><b>35</b><span>chapters</span></div>
+    <div class="s"><b>22</b><span>full reports</span></div>
+    <div class="s"><b>26</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
     <div class="s"><b>1</b><span>deterministic clock</span></div>
   </div>
@@ -180,6 +180,7 @@
     <a class="rep" href="reports/2026-06-10-supplies-that-bite/report.html"><span class="rd">2026-06-10</span><span class="rt">Supplies that bite</span><span class="rs">Issue 021 asked to couple the COP's fortification to combat — a hardened wire should blunt an assault. Metricizing first turned it on its head: the assault doesn't happen. A "complex attack" is a standoff from 340 m; the insurgents never close the wire (no assault behaviour exists), so hesco and claymores have no event to bite on — deferred with the measured reason. The shippable win was the adjacent item: the four supplies that drained daily to zero consequence now cost you — dead batteries blind the patrol at night (2.4× detection lost), dehydration halves fatigue recovery, no medical slows wound recovery — all bounded, all balance-neutral at full stock.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-10-reading-the-sun/report.html"><span class="rd">2026-06-10</span><span class="rt">Reading the sun</span><span class="rs">The land classification grew the same vegetation on a north slope and a south slope — no notion of aspect, the most visible fact of a real mountainside. An aspect term now makes forest cling to the shaded draw (59→64%) and scrub own the sunny spur (48→56%). Because vegetation IS cover and concealment, it had to be earned: a 3-strength balance sweep showed the firefight moves chaotically with the terrain, so it ships at 0.05 — the strength that clears the no-stall guard with KIA down on both seed sets, no aspect-caused strandings, and siting byte-identical. On by default; the terrain-dependent wounded count disclosed, not buried.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-10-open-issues-pass/report.html"><span class="rd">2026-06-10</span><span class="rt">Closing the open issues</span><span class="rs">One pass over the whole backlog: four realism wins shipped <em>active</em> (a squad that switchbacks up a face, a soldier who uses <em>that</em> rock, supplies that finally bite, and vegetation that reads the sun) — the fourth earned by a 3-strength balance sweep + held-out A/B that found the one strength (0.05) which improves the sim with KIA down on both seed sets. The two remaining tickets already run their live fix; what's left is a documented terrain floor and a logged do-not. Six issues, six live fixes, zero regressions shipped. The thread: the most valuable artifact in half of these was a probe, not a feature.</span><span class="go">Open the overview →</span></a>
+    <a class="rep" href="reports/2026-06-10-people-immersion/report.html"><span class="rd">2026-06-10</span><span class="rt">Making the people real</span><span class="rs">One architecture, four places: the enemy cell gets the friendly squad's decide/execute split (ambush volley p90 11.2→0.6 s, a peel that converges while a rout disperses), men hesitate like men, a deterministic callout bus makes the brotherhood audible (man-down 100%, two-run identical) — and the village remembers: the elder physically walks out to the shura, a civilian death writes a named blood debt his household buries at first light, and children trail only the patrols a village trusts. Five new probes caught six real bugs before ship.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1001,6 +1002,30 @@
       <p>A single pass over every open issue, run the way this repo demands: metricize before touching code, prove every win on held-out seeds, adversarially verify before "done" — and ship only what the numbers earn. Four realism wins shipped active (019 switchback pathing, 020 directional cover, 021 logistics teeth, 007 aspect-driven vegetation), each with a held-out proof and — for the two combat changes — an adversarial workflow that tried to break it and couldn't. The fourth was the hard one: aspect touches the cover/conceal field a firefight reads, so it took a <em>three-strength</em> balance sweep + a held-out A/B to find the one strength (0.05) that improves the sim — forest-faces-north 59%→64%, scrub-faces-south 48%→56%, KIA <em>down</em> on both seed sets, no aspect-caused strandings, siting byte-identical. It ships on by default. The two remaining tickets (011, 009) already run their active fix in the shipped game — a progressive, cached relief bake behind the loading screen; the reachability-aware spawn-snap + benching guard — so what's left is a logged do-not (resolution-lowering would degrade the relief the realism work added) and a documented terrain floor, not unbuilt work.</p>
       <p class="quote">The headline is that six issues now carry a live fix and the sim got better without a single shipped regression — including the one (aspect) that took a sweep across strengths to ship honestly instead of guessing. On a project whose success metric is a skeptic asking <em>"did an AI really build this?"</em>, the discipline to keep sweeping until the numbers point to the strength that ships — and to hold a perf ticket at its honest deployed mitigation rather than fake a further win — is the part that's hardest to fake.</p>
       <a class="readmore" href="reports/2026-06-10-open-issues-pass/report.html">Read the overview →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-06-10-people-immersion">
+    <div class="shot">
+      <a href="reports/2026-06-10-people-immersion/report.html"><img src="assets/2026-06-10-people-immersion.png" alt="The shura, live: the squad ring between the Kandlay compounds, the command log carrying 'Asadullah Saifullah sits down with SSG Toner — the shura begins'" loading="lazy"></a>
+      <div class="cap">The hollow heart, filled: the elder walks out, sits down 4.1 m from the squad leader — and only then does the shura's business flow. Live, Day 1, +42 s of on-station. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-10</span></div>
+      <h3>Making the people real: group minds decide, individuals execute, everything visible — and the valley remembers</h3>
+      <div class="tags"><span class="tag">Sim AI</span><span class="tag">COIN</span><span class="tag">Render</span><span class="tag">Doctrine</span><span class="tag">Verification</span></div>
+      <p>The owner's standing brief was a dare, not a ticket: make every soldier, fighter, and villager so convincing a veteran forgets he's watching a simulation. Six recon agents swept the code and <em>corrected the brief itself</em> — civilians never respawned (persistent named people all along), enemy cells already existed, near-miss reactions were real physics. The genuine gaps: no group minds, no scenes, nothing visible. The enemy was a row of independent turrets (a five-man trap opened raggedly over 11&nbsp;s); two same-SOP squads assaulted in lockstep (step-off spread literally 0.00&nbsp;s); the elder had a name but never appeared; a civilian death was an attitude penalty, not a person.</p>
+      <p class="shape"><b>The shape:</b> one architecture extended, never a second pattern invented — the friendly squad's decide/execute split (<code>squadFight</code>/<code>friendlyBrain</code>) given to the enemy (<code>cell-combat.ts</code>: volley as one, displace by halves, peel to a rally, rout contagion — A/B-proven via an <code>ITM_NOCELL</code> kill-switch), to the village (a staged shura gating the KLE's business on <code>elderMet</code>; named blood-debt grievances buried at first light, settleable by solatia; kids trailing only friendly patrols), plus a deterministic callout bus so internal state becomes watchable. Five new probes caught <b>six real bugs before ship</b> — a 390-emission shout metronome, a half-volley that scooted before its first shot, a dead medic-scene gate (0/1048 ticks), and a medic firing on his own patient, caught by a balance bisect's KIA-up/WIA-down signature. Proven on held-out seeds at n=16.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">ambush volley p90</span><span class="b">11.2 s</span><span class="ar">→</span><span class="a">0.6 s</span></span>
+        <span class="m"><span class="lbl">breaking cell → rally (30→90 s)</span><span class="b">40→61 m rout</span><span class="ar">→</span><span class="a">54→34 m peel</span></span>
+        <span class="m"><span class="lbl">man-down callout coverage</span><span class="b">invisible</span><span class="ar">→</span><span class="a">100% (80/80), two-run identical</span></span>
+        <span class="m"><span class="lbl">step-off spread / commit drift</span><span class="b">0.00 σ / 0.4 s</span><span class="ar">→</span><span class="a">0.10 σ / 6.0 s</span></span>
+        <span class="m"><span class="lbl">kids trail, friendly vs hostile (held-out)</span><span class="b">—</span><span class="ar">→</span><span class="a">9.59 vs 0.00 min</span></span>
+        <span class="m"><span class="lbl">held-out balance KIA</span><span class="b">1.08</span><span class="ar">→</span><span class="a">0.94 · civCas 0 · 0 stranded</span></span>
+      </div>
+      <p class="quote">"Abdul Khan of Kandlay was killed by our fire. His household will remember." — the ledger entry the engine now writes. The residuals are led with, not buried: the pinned-revert mechanism exists but never fired at natural tempo (rvt 0), and the massed-volley spectacle shot was never captured live — three failed attempts documented so the next session doesn't rediscover them.</p>
+      <a class="readmore" href="reports/2026-06-10-people-immersion/report.html">Read the full report →</a>
     </div>
   </article>
 
