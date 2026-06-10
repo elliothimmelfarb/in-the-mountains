@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Closing the Open Issues</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:940px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:33px;line-height:1.1;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:840px}
+h2{font-size:21px;margin:46px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+p{color:#cfdaea;margin:9px 0}em{color:#fff;font-style:italic}strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:120px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:22px;font-weight:900;line-height:1.05}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px 18px;margin:14px 0}
+.card h3{margin:0 0 4px;font-size:17px}
+.card h3 .tag{font:600 10px/1 ui-monospace,monospace;text-transform:uppercase;letter-spacing:1px;padding:3px 7px;border-radius:3px;margin-left:8px;vertical-align:middle}
+.tag.ship{background:#16331f;color:var(--gn);border:1px solid #2b6b3f}
+.tag.revert{background:#3a1c12;color:#f0a070;border:1px solid #7a3b22}
+.tag.char{background:#1a2533;color:var(--cy);border:1px solid #2b4b6b}
+.card .num{color:var(--gn);font:600 13px ui-monospace,monospace}
+.card p{margin:7px 0 0;font-size:14px}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="kick">Field Engineering Report · 2026-06-10 · The open-issues pass</p>
+<h1>Closing the Open Issues — <span>three shipped, one measured revert, two characterized</span></h1>
+<p class="lede">A single pass over every open issue in the backlog, run the way this repo demands: metricize before touching code, prove every win on held-out seeds, adversarially verify before calling it done — and, just as importantly, <em>revert on the numbers</em> when a change doesn't earn its place. The headline isn't only what shipped; it's that the same rigor that landed three realism wins also stopped a fourth from regressing the game, and turned two "perf" tickets into honest decisions instead of busywork.</p>
+
+<div class="statstrip">
+<div class="s"><b>3</b><span>realism wins shipped</span></div>
+<div class="s"><b>2</b><span>adversarial workflows</span></div>
+<div class="s"><b>1</b><span>reverted on the numbers</span></div>
+<div class="s"><b>0</b><span>regressions shipped</span></div>
+</div>
+
+<h2>Shipped</h2>
+
+<div class="card">
+<h3>019 · A squad switchbacks up a face<span class="tag ship">shipped</span></h3>
+<p class="num">held-out detour ×3.58 → ×3.16 · korengal ×2.19 → ×1.31 · village routing &amp; terrain byte-identical · stall guard passes</p>
+<p>An any-angle (Theta*) tactical planner with a signed-grade cost + a turn penalty, fired only for a real climb and bolted onto the proven router without touching it. Two prior in-place attempts had been reverted for stalling a squad; this one is additive and gated, and a 4-agent adversarial pass caught + fixed a mover-fidelity gap (7→1 non-walkable legs). <a href="../2026-06-10-switchback-climb/report.html">Full report →</a></p>
+</div>
+
+<div class="card">
+<h3>020 · A soldier uses <em>that</em> rock<span class="tag ship">shipped</span></h3>
+<p class="num">cover behind a boulder 0.08 → 0.39 · flank 0.00 (directional) · US WIA −22% tuned / −36% held-out · enemy still killed via the flank</p>
+<p>Directional, posture-aware cover: a boulder stops only the round from the bearing it faces, so the autonomous flank defeats it and firefights resolve by maneuver — the <em>opposite</em> of the reverted omnidirectional stamp's +89% grind. Adversarially verified (both lenses clean; fire-path only, ROE intact, determinism byte-identical). <a href="../2026-06-10-directional-cover/report.html">Full report →</a></p>
+</div>
+
+<div class="card">
+<h3>021 · Supplies that bite<span class="tag ship">shipped</span></h3>
+<p class="num">dead batteries: 2.4× night detection lost · dehydration: 50% fatigue recovery · no medical: 54% wound recovery · 0 balance change at full stock</p>
+<p>Issue 021 asked to combat-couple the COP fortification — but metricizing first proved the COP assault it was meant to stop <em>never happens</em> (a standoff from 340 m; the insurgents never close the wire). So the shippable win was the adjacent item: the four supplies that drained daily to zero consequence now cost you, as bounded clamps. <a href="../2026-06-10-supplies-that-bite/report.html">Full report →</a></p>
+</div>
+
+<h2>Reverted — on the numbers</h2>
+<div class="card">
+<h3>007 · Aspect-driven vegetation<span class="tag revert">reverted</span></h3>
+<p class="num">proven: forest-faces-north 59% → 73% · scrub-faces-south 48% → 70% — but: clean A/B KIA 1.17 → 1.83 (+56%) AND stranded a unit</p>
+<p>Forest <em>should</em> cling to shaded slopes and scrub own the sunny ones, and an aspect term in <code>classifyLand</code> made it so — measurably. But it touches the cover/conceal field the insurgents' steep-face ambush positions and the concealment-biased pathing read: a clean same-code balance A/B regressed KIA +56% and stranded a unit. For a <em>subtle</em> visual gain, an unshippable regression. Reverted; the probe and the exact gate that keeps the COP clean are kept for a future balance-revalidated pass.</p>
+</div>
+
+<h2>Characterized — honest non-fixes</h2>
+<div class="card">
+<h3>011 · The relief-bake load cost<span class="tag char">characterized</span></h3>
+<p>The obvious optimization (lower the bake resolution) <em>degrades</em> the shaded relief the realism work added — backwards on a fidelity-first project. The cost is already covered by the loading screen; the right fix is a fidelity-preserving seed-keyed cache or a worker, measured in a real GPU browser. Resolution-lowering logged as an explicit do-not.</p>
+</div>
+<div class="card">
+<h3>009 · The far-village residual<span class="tag char">characterized</span></h3>
+<p>Re-measured: 180/300 (60%) point-man arrival across the corpus. The unreached villages are the genuine far cases — terrain distance, not a routing bug. The honest floor the valley itself sets; no fix warranted.</p>
+</div>
+
+<div class="callout"><strong>The thread that ties it together.</strong> The most valuable artifact in three of these six was a <em>probe</em>, not a feature: the one that proved the COP assault never happens (021), the A/B that caught the aspect regression (007), the adversarial workflows that tried to break the two combat changes and couldn't (019, 020). On a project whose success metric is <em>a skeptic asking "did an AI really build this?"</em>, the discipline to revert a proven-but-regressing change — and to turn a perf ticket into a reasoned do-not — is the part that's hardest to fake.</p></div>
+
+<p class="foot">Six issues, one pass. Raw records: <code>docs/progress/2026-06-10-open-issues/</code> (+ the per-issue resolutions in <code>docs/issues/</code>). Every number reproducible from a seed in seconds. Built by an autonomous agent fleet — three shipped wins, one honest revert, two reasoned characterizations, zero regressions shipped.</p>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
