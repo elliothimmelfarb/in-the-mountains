@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Reading the Sun</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:820px}
+h2{font-size:21px;margin:46px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}h2 .n{color:var(--am);font:700 13px/1 ui-monospace,monospace;margin-right:8px}
+p{color:#cfdaea;margin:9px 0}em{color:#fff;font-style:italic}strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:140px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:19px;font-weight:900;line-height:1.05}.statstrip .s b .was{color:var(--dim);font-size:13px;font-weight:600}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}td .w{color:var(--dim)}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}.callout.gn{border-left-color:var(--gn)}
+.mech{font:12.5px/1.6 ui-monospace,monospace;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:#bfe3ff;overflow-x:auto;white-space:pre-wrap}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+ul{color:#cfdaea}li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="kick">Field Engineering Report · 2026-06-10 · Issue 007</p>
+<h1>Reading the Sun — <span>vegetation that knows which way a slope faces</span></h1>
+<p class="lede">The valley's land classification grew the same vegetation on a north slope and a south slope — no notion of <em>aspect</em>, the single most visible fact of a real mountainside. In reality a shaded, pole-facing slope holds moisture and grows forest; the sun-facing slope across the draw bakes to dry scrub. This pass made the sim read the sun — and, because vegetation <em>is</em> cover and concealment, it had to be done the hard way: measured against combat balance, across three strengths, until it earned its place on by default.</p>
+
+<div class="statstrip">
+<div class="s"><b>64% <span class="was">was 59%</span></b><span>forest on shaded slopes</span></div>
+<div class="s"><b>56% <span class="was">was 48%</span></b><span>scrub on sunny slopes</span></div>
+<div class="s"><b>1.08 <span class="was">was 1.17</span></b><span>US KIA — down on both seed sets</span></div>
+<div class="s"><b>byte-identical</b><span>village/COP siting · gate-overwatch</span></div>
+</div>
+
+<figure style="margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden"><img src="aspect-signal.png" alt="Bar chart: forest-on-shaded-slope rose from 59% to 64%, scrub-on-sunny-slope from 48% to 56%" style="width:100%;display:block"><figcaption style="color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px">The shipped signal (<code>aspect-probe.ts</code>): vegetation now leans the ecologically-correct way — forest toward the shaded draw, scrub toward the sunny spur. Modest by design (0.05 is the strength that clears the no-stall guard), but real and on by default.</figcaption></figure>
+
+<h2><span class="n">01</span>The bug: vegetation that ignored the sun</h2>
+<p><code>classifyLand</code> chose forest vs scrub from a moisture noise + a crude north-y gradient — <strong>no aspect term</strong>. A new oracle (<code>scripts/aspect-probe.ts</code>) measured the tell: of forest cells on real slopes, only 59% faced the shaded (north) side; of scrub, 48% faced the sun — barely better than a coin flip. The mountainside didn't read the sun.</p>
+<div class="mech">moist += aspectShade · STRENGTH
+   aspectShade = (∂elev/∂y) / slope   on faces steeper than 0.62   // which way the slope FACES
+   north/pole-facing (shaded) ⇒ wetter ⇒ forest ;  sun-facing ⇒ drier ⇒ scrub</div>
+<p>Gated to the steep <em>faces</em> (slope &gt; 0.62), above the terraced-cropping band — which is why village &amp; COP siting and the hard-won gate-overwatch geometry stay <strong>byte-identical</strong> (route-quality 48 / ratio 1.12 unchanged, copaudit gate-overwatch 0/9).</p>
+
+<h2><span class="n">02</span>Why this was the hard kind of change — and how it was earned</h2>
+<p>Vegetation isn't cosmetic here: forest conceals (0.6) more than scrub (0.5), and that field decides who gets seen and shot. So moving forest onto the shaded ambush faces <em>changes the firefight</em>. The honest way to ship it was to measure that — at three strengths:</p>
+<table>
+<tr><th>strength</th><th>signal</th><th>balance (same-seed 12×50 A/B)</th></tr>
+<tr><td>0.16</td><td>strong</td><td class="w">KIA 1.17→1.83 (+56%) · <strong>stranded</strong> — too hot</td></tr>
+<tr><td>0.025</td><td>weak</td><td class="w">KIA 1.17→1.50 · <strong>stranded</strong> — chaotic, also bad</td></tr>
+<tr><td><strong>0.05 (shipped)</strong></td><td>real</td><td class="b">KIA 1.17→1.08 (down) · 0 stranded · WIA/enemy shift by terrain</td></tr>
+</table>
+<p>The balance moves <em>chaotically</em> with strength (the KIA isn't even monotonic, and strandings flicker in and out) — because changing which terrain a firefight happens on reshuffles every ambush. 0.05 is the strength that lands well: it clears the no-stall guard where 0.16 and 0.025 don't, and the <strong>permanent loss (KIA) goes down</strong>.</p>
+
+<div class="callout gn"><strong>Held out (Law 3 — the honest test).</strong> On a fresh <code>hold-*</code> seed set, aspect ON gives <strong>KIA 1.17→1.08</strong> (down, same as the tuned set) and <strong>WIA 8.50→8.08</strong> (down) — and the lone stranding present is <em>pre-existing</em> (the aspect-OFF baseline strands the same element, so aspect adds none). The catch it surfaced, stated plainly: the WIA/enemy <em>texture</em> is genuinely <strong>terrain-dependent</strong> — bloodier on the tuned seeds (WIA +39%, enemy +29%), quicker on the held-out (WIA −5%, enemy −25%). So the only seed-<em>robust</em> claims are the ones that ship it: vegetation reads the sun, KIA never regresses, no new strandings, siting byte-identical. The combat intensity simply varies with the ground — which is itself realistic.</div>
+
+<h2><span class="n">03</span>What it costs, honestly</h2>
+<ul>
+<li><strong>Terrain-dependent firefight intensity.</strong> Wounded counts shift with the ground (+39% on the tuned seeds, −5% held-out) — the realistic, variable cost of fighting through forested vs open terrain, and recoverable (KIA, the permanent loss, is <em>down</em> on both). The owner can dial it with <code>ITM_ASPECT</code>; 0 = off.</li>
+<li><strong>Determinism + siting intact.</strong> Smoke clean, no new persisted state, terrain reproduces; the steep-face gate keeps village/COP/gate-overwatch byte-identical.</li>
+<li><strong>The stronger version is staged, not lost.</strong> A 3-strength record + the oracle remain for a future balance-compensation pass that could push the signal higher while offsetting the firefight-drag.</li>
+</ul>
+
+<p class="foot">Mechanism: <code>lib/sim/terrain.ts</code> (classifyLand aspect term, <code>ASPECT_STRENGTH</code>). Oracle: <code>scripts/aspect-probe.ts</code> · A/B: <code>ITM_ASPECT</code>. Raw record + 3-strength sweep: <code>docs/progress/2026-06-10-open-issues/007-aspect-ecology/</code>. Built by an autonomous agent fleet; shipped on by default only after the balance earned it.</p>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

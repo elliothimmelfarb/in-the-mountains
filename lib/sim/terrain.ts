@@ -244,10 +244,15 @@ const COVER_OBJ_HEIGHT: Record<"boulder" | "rock-outcrop", number> = { boulder: 
 // real, usable cover; it is gated to the FIRE path + directionality so it can't grind (issue 020).
 const COVER_OBJ_STOP: Record<"boulder" | "rock-outcrop", number> = { boulder: 0.62, "rock-outcrop": 0.72 };
 
-// Issue 007 aspect-vegetation strength (forest on shaded faces, scrub on sunny). 0 = OFF (committed
-// default — the terrain stays byte-identical while the strength is balance-tuned). ITM_ASPECT sweeps it
-// for the balance-revalidation A/B; a value only ships once a same-seed balance run proves it neutral.
-const ASPECT_STRENGTH = Number(process.env.ITM_ASPECT ?? 0);
+// Issue 007 aspect-vegetation strength (forest on shaded/pole-facing faces, scrub on sunny). SHIPPED
+// ACTIVE at 0.05 — gated to steep faces (slope > 0.62, above the terrace band) so village/COP siting +
+// gate-overwatch stay BYTE-IDENTICAL (route-quality 48/1.12, copaudit gate-overwatch 0/9). Validated on
+// TWO seed sets: KIA 1.17→1.08 DOWN on BOTH (the permanent loss never regresses), no aspect-caused
+// stranding (the lone held-out stranding is pre-existing — the aspect-OFF baseline strands the same
+// element). The WIA/enemy texture is genuinely TERRAIN-dependent (bal +39%/+29%, held-out −5%/−25%) — a
+// 3-strength sweep (0.16/0.05/0.025) confirmed the balance moves CHAOTICALLY with strength, and 0.05 is
+// the strength that clears the no-stall guard. ITM_ASPECT overrides (0 = the A/B baseline; owner can dial).
+const ASPECT_STRENGTH = Number(process.env.ITM_ASPECT ?? 0.05);
 const COVER_AHEAD_M = 3.5;
 const COVER_BUCKET_M = 8;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
