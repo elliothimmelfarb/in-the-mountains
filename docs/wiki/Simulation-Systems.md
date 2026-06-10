@@ -257,8 +257,10 @@ mission, posture, terrain and whether the squad **expects contact**:
   column* on an admin road march; *wedge* for movement to contact in the open; *dispersed* (teams
   abreast, all-round) when contact is expected. Interval follows the doctrinal **"5 and 10"** — ~5 m
   between individual men, ~11–14 m between fire teams with the squad leader riding between them —
-  opening up when contact is likely and closing down in close terrain for control, with a stable
-  per-soldier ±10% so the file reads as men rather than a machined lattice.
+  opening up when contact is likely, closing down in close terrain for control, and **tightening in
+  reduced visibility** (FM 3-21.8: keep visual contact with the man ahead — at night, and harder
+  still in rain/fog/snow, the file visibly closes up), with a stable per-soldier ±10% so the file
+  reads as men rather than a machined lattice.
 - **Routing** — concealed/seeking postures hug cover and stay off the obvious lanes; fast postures
   bias to roads; an ambush/recon never walks the road into its own kill zone.
 
@@ -286,6 +288,15 @@ breadcrumb point is across the HESCO from him — stops tracing (which would onl
 and **rejoins with a real A\* route**: out through the gate if he's inside the wire, then back onto the
 leader's wake. That is how a separated soldier actually rejoins — he navigates to the formation, he
 doesn't walk through the wall.
+
+**Movement texture (people-immersion).** The point man is **cautious**: he probes the free corridor
+6/12/18 m up his planned route and eases his pace when it pinches hard relative to where he stands;
+at the mouth of a true choke (<5 m) he **halts one held beat** (2.5 s, clock-latched with a 90 s
+cooldown, never on an admin traveling march) before leading through — pure terrain reads, no rng.
+And each follower picks his own **line**: a hash-keyed, ground-stable lateral meander around his
+slot offset (the same ground bends the same man's track the same way on replay), so the file reads
+as men picking their footing rather than beads strung on the breadcrumb. Cohesion gates held:
+paceEff 0.58 unchanged, blkd 0%.
 
 The point man **governs the pace** with a smooth throttle (`Unit.paceScale`, applied in `moveUnit`):
 he eases off — never to a dead stop — as the element strings out, and after a spell of waiting pushes
@@ -317,6 +328,16 @@ LEAD reaching the gate** (not the centroid — the column trails the point man, 
 the squad standing down *outside* the wire), and completes the moment the bulk is inside (the garrison
 walks in the last straggler). The instant rounds crack, the formation releases and combat AI takes
 over; it re-forms on the lull.
+
+The lull itself is a beat, not a teleport back to the march: **post-contact consolidate &
+reorganize** (`world/tasks.ts`, FM 3-21.8). Gated to **real engagements only** — someone down,
+wounded, or meaningful residual suppression (ungated, it parked bunched elements near known enemy
+positions after every contact flicker and measurably fed both sides' casualty counts) — the squad
+collapses into a kneeling ring around its casualties, the **SL physically walks the line** team to
+team (the ACE check embodied), rifle reserve is **cross-levelled onto the SAW/auto guns**, and the
+head count goes out on the net ("head count!"). Then the march resumes: 30–80 s keyed to what the
+fight cost, capped under the stall watchdog, and **preempted instantly by renewed contact**. Proof
+(`scripts/transitions-probe.ts`): 60/60 coverage on eligible lulls, resume 100%, stuck 0.
 
 ## Line of Sight (`los.ts`)
 
@@ -385,8 +406,9 @@ renders (it was previously aged past its draw cutoff within its birth tick).
 
 `CombatSim.tick(dt)` (fixed 0.1 s steps) runs, in order: timers/bleeding/suppression-decay →
 throttled **perception** (per-unit LOS scans with staggered cadence) → **fog of war** update
-(`revealed` map: confirmed vs. fading last-known) → **AI** brains (`ai/friendly.ts`,
-`ai/insurgent.ts`, `ai/civilian.ts` — the per-man executors; the squad's tactical decisions are
+(`revealed` map: confirmed vs. fading last-known) → **AI** brains (the enemy **cell coordinator**
+`ai/cell-combat.ts` runs first — cell leaders stamp per-fighter intent — then the per-man executors
+`ai/friendly.ts`, `ai/insurgent.ts`, `ai/civilian.ts`; the friendly squad's tactical decisions are
 made one layer up in `ai/squad-combat.ts`, on the world tick before this one) → **movement** (speed from
 technique × stance × terrain × fitness × fatigue × suppression; fatigue accrues with slope &
 altitude) → **firing** (burst tracking at cyclic rate, reloads, sidearm fallback) → **projectiles**
@@ -437,6 +459,31 @@ raises a call-for-fire (`requestSquadFires` → a pending `fireRequest`: squad, 
 the commander **approves** (rounds fly via `requestFireMission`/`requestCAS`) or **denies**. MEDEVAC
 likewise — the AI surfaces a casualty and the player calls the bird.
 
+## The diegetic callout bus (`combat.ts` `say()` → `lib/render/callouts.ts`)
+
+The fight's internal state is made watchable through one sim→render seam, the same shape as the
+audio's: the engine emits, a render-side presenter consumes, nothing flows back.
+
+**Sim side** — `CombatSim.callouts`, a 64-cap ring buffer fed by `say(unit, type)`. Types: `contact`
+(first spotter, with the true relative bearing), `man_down` (a buddy saw him drop; the `doc`
+buddy-aid call is **latched once per casualty** via `docCalled` — measured: 390→6 emissions,
+before→after the latch), `covering`/`moving` (the bound-pair swaps), `on_me` (succession),
+`falling_back` (break / pinned revert), `head_count` (consolidation), `set` (the security buddy).
+Sparse and weighty by construction: `say()` dedups per (squad, type) on the sim clock
+(covering/moving 22 s, contact 14 s, man_down 3 s), phrase variants are **hash-picked — never rng
+draws** — and the buffer is **not serialized** (ephemeral presentation state, the `sim.log`
+precedent). The bus is therefore replay-stable for free: `scripts/callout-probe.ts` proves two
+same-seed runs byte-identical, dup violations 0, man-down coverage 100 % (80/80).
+
+**Render side** — `CalloutPresenter` (`lib/render/callouts.ts`), cloned from the `CueMapper`
+high-water-mark walk (`lib/audio/mapper.ts`): `tick()` advances its mark every RAF frame even when
+not ingesting, so a time-warp (up to 700 sim slices in one frame) or a pause/resume can never dump
+a backlog of stale shouts onto the first live frame. At most **3 plates** at once, drawn in the
+nameplate style at the world position where the shout happened (a shout happens at a place; the
+plate doesn't chase the figure), behind the **same tactical-zoom gate as the nameplates** — plates
+appear exactly when individual men do. Hooked in `WorldView.tsx`; React-free, type-only sim
+imports, no wall-clock reads (Law 7).
+
 ## World tick (`world/world.ts`)
 
 `World.tick(dt)` wraps the combat tick with the strategic clock: advance time → update light from
@@ -470,6 +517,17 @@ seconds. An alert player reads the **absence** before the first shot — exactly
 teaches. Headless proof (`… melt <seed>`): the threatened cohort closes ~50 % of its distance home
 within the window while a control cohort barely moves, **no shot is fired**, and children lead — all
 fully replay-deterministic (same seed → identical civilian positions).
+
+**The village context rides the same seam** (people-immersion). `World.refreshLight()` also pushes
+the strategic layer's per-village state into the sim each tick — the `sim.light` pattern, because
+the sim layer can't read `WorldState`: `sim.villageMood` (attitude, −1..1), `sim.villageReception`
+(attitude + presence familiarity from `lastVisitedDay` − unresolved blood debts; scales how fast a
+villager *relaxes* around armed men — the threat-tier **fall** rate only) and the `sim.grieving`
+household set. All three are **derived every tick, never persisted**. `civilianBrain` reads them
+for the kids-trailing tell (measured by `scripts/encounter-probe.ts kids`: trail-minutes 2.82 in a
++40-attitude village vs 0.07 at −40; held-out 9.59 vs 0.00), the children-absent read in hostile
+ground, and the grieving household's unconditional clear-road. The behaviors live in AI-Doctrine;
+the grievance ledger itself in Campaign & COIN.
 
 ## Procedural soundscape (`lib/audio/`)
 
