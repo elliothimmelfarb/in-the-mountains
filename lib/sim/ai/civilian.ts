@@ -1,7 +1,7 @@
 import type { CombatSim } from "../combat";
 import { Unit } from "../entities";
-import { dist, sub, norm, add, scale, len, dot } from "../vec";
-import { clamp01, RNG } from "../rng";
+import { dist, sub, norm, add, scale, len, dot, fromAngle } from "../vec";
+import { clamp01, lerp, RNG } from "../rng";
 
 /**
  * Civilian behavior. Unarmed. The valley is meant to read as LIVED-IN: villagers
@@ -38,6 +38,23 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     return;
   }
   u.panic = u.panic ?? 0;
+  const isChild = u.role === "child";
+  const isElder = u.role === "elder";
+
+  // --- village context, pushed by the World each tick (empty for a standalone sim) ---
+  // mood: the village's attitude (−1..1). reception: how fast THIS village relaxes
+  // around armed men (presence/standing thaw it; absence and unresolved blood debts
+  // chill it — rise logic untouched). grieving: this man's household has an unpaid
+  // grievance — they clear the road from troops, always, and their children never trail.
+  const mood = (u.villageId ? sim.villageMood.get(u.villageId) : undefined) ?? 0;
+  const reception = (u.villageId ? sim.villageReception.get(u.villageId) : undefined) ?? 0.5;
+  const grieving = !!u.householdId && sim.grieving.has(u.householdId);
+  // A summoned man (the elder walking out to the shura, kin at a grave) and a trailing
+  // child are CALM AMONG TROOPS: un-fired US/ANA don't feed their proximity threat —
+  // the elder must be able to walk INTO the 9 m shura ring without his own FLEE tier
+  // firing. Gunfire, panic and insurgents always count.
+  const trailing = isChild && !grieving && mood > 0.2 && trait(u.id, "cur") > 0.5;
+  const calmNearTroops = !!u.summons || trailing;
 
   // --- ONE pass over effects + units: gunfire/blast fear AND nearest-armed / armed-count ---
   let fear = 0;
@@ -52,6 +69,10 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   let armedCount = 0;
   let firingThreat: Unit | null = null;
   let fd = Infinity;
+  // The nearest US/ANA soldier regardless of the calm-near-troops exemption — the
+  // trailing child needs someone to trail even though he doesn't fear him.
+  let nearTroop: Unit | null = null;
+  let ntd = Infinity;
   // The "calm before": staged hostiles that have moved into the area but NOT yet opened fire
   // (ambushers holding their volley, infiltrators slipping through the draws). The director spawns
   // them a window BEFORE the shooting — that gap is the tell. Villagers sense "something is wrong
@@ -60,7 +81,12 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   for (const o of sim.units) {
     if (!o.alive || !ARMED.has(o.faction)) continue;
     const d = dist(o.pos, u.pos);
-    if (d < 45) {
+    const isTroop = o.faction === "us" || o.faction === "ana";
+    if (isTroop && d < ntd) {
+      ntd = d;
+      nearTroop = o;
+    }
+    if (d < 45 && !(calmNearTroops && isTroop && !o.hasFired)) {
       armedCount++;
       if (d < nad) {
         nad = d;
@@ -96,21 +122,26 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   const proximity = nearArmed ? clamp01(1 - nad / 45) : 0;
   const threat = clamp01(0.6 * proximity + 0.25 * (Math.min(armedCount, 3) / 3) + u.panic);
   let want = threat > 0.6 || u.panic > 0.45 ? 3 : threat > 0.35 ? 2 : threat > 0.15 ? 1 : 0;
+  // The valley remembers: a grieving household clears the road from troops, always —
+  // and in a hostile village the children are simply not out near a patrol (the
+  // absence IS the read, the melt's quieter sibling running on attitude).
+  if ((grieving || (isChild && mood < -0.2)) && nearTroop && ntd < 45) want = Math.max(want, 2);
   const prev = u.reactTier ?? 0;
   if (want >= prev) {
     u.reactTier = want;
     u.tierHoldS = 0;
   } else {
     u.tierHoldS = (u.tierHoldS ?? 0) + dt;
-    if (u.tierHoldS > 2.5) {
+    // Reception scales how fast a villager RELAXES (the fall), never how fast he
+    // reacts (the rise): a village patrolled daily thaws around your men in seconds;
+    // one you haven't visited in ten days — or one carrying a blood debt — stays
+    // wary a beat too long, and the player can read the difference.
+    if (u.tierHoldS > 2.5 * lerp(1.7, 0.7, reception)) {
       u.reactTier = prev - 1;
       u.tierHoldS = 0;
     }
   }
   const tier = u.reactTier ?? want;
-
-  const isChild = u.role === "child";
-  const isElder = u.role === "elder";
 
   // --- diurnal context (deterministic ambient light the World writes each tick) ---
   // Hoisted above the reaction tiers because the NIGHT-home drive must pre-empt the gentler WARY /
@@ -137,6 +168,13 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
   // open ground and go home, children first, NOT the panicked sprint. The sim.rng.chance stagger
   // means they don't all depart on one tick — the fields THIN over a few seconds (the readable
   // "melting"), so the absence reads as a deliberate, legible signal rather than a teleport.
+  // A staged threat ABORTS a summons outright, LATCHED — per-tick precedence alone
+  // would let the melt's rng stagger ping-pong the elder between home and the shura.
+  // An elder who turns back on his way out is itself a tell the squad can read.
+  if (u.summons && stagedThreat > 0.18) {
+    u.summons = null;
+    u.summonsAborted = true;
+  }
   if (stagedThreat > 0.18 && tier < 3) {
     const urgency = stagedThreat * (isChild ? 1.5 : isElder ? 1.1 : 1.0);
     if (sim.rng.chance(clamp01(0.25 + urgency))) {
@@ -170,6 +208,34 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     return;
   }
 
+  // ---------------------------------------------------------------- SUMMONS (civic scenes)
+  // The elder walking out to sit with the squad leader; a household standing at a
+  // grave at first light. Below FLEE and the melt in precedence — gunfire and staged
+  // threats own him — but above the diurnal routine: this is where he is needed.
+  if (u.summons && tier < 3) {
+    if (sim.timeS >= u.summons.untilS) {
+      u.summons = null;
+    } else {
+      const dest = { x: u.summons.x, y: u.summons.y };
+      if (dist(u.pos, dest) > 2.5) {
+        const headed = u.pathGoal && dist(u.pathGoal, dest) < 6;
+        if (u.path.length === 0 || !headed) sim.civMoveTo(u, dest);
+        u.technique = "patrol";
+        u.paceScale = isElder ? 0.5 : 0.65; // deliberate, unhurried — he comes with dignity
+        u.stance = "stand";
+        u.faceLock = null;
+      } else {
+        u.path = [];
+        u.moving = false;
+        const host = u.summons.faceId ? sim.unit(u.summons.faceId) : null;
+        // sits down with the squad leader; stands still at a grave
+        u.stance = host ? "crouch" : "stand";
+        u.faceLock = host ? Math.atan2(host.pos.y - u.pos.y, host.pos.x - u.pos.x) : (u.faceLock ?? null);
+      }
+      return;
+    }
+  }
+
   // ---------------------------------------------------------------- NIGHT HOME (pre-empts WARY/CLEAR)
   // At night a wary or road-clearing villager withdraws home rather than freezing in the open or
   // sidestepping to a field edge — being inside after dark is the stronger drive. FLEE (tier 3) above
@@ -190,12 +256,35 @@ export function civilianBrain(sim: CombatSim, u: Unit, dt: number) {
     return;
   }
 
+  // ---------------------------------------------------------------- KIDS TRAIL THE PATROL
+  // The tell a veteran reads at a glance (CALL atmospherics: children near a patrol is
+  // the canonical green): in a friendly village the kids pick up a passing weapons-cold
+  // patrol and trail it at a respectful ~9 m, scampering wall to wall to keep up. Their
+  // troop-proximity feed is exempted above, so the FLEE math never fires on the men
+  // they're following; real gunfire (panic) and insurgents still own them.
+  if (trailing && tier < 3 && !NIGHT && nearTroop && ntd < 35 && !nearTroop.hasFired) {
+    const behind = add(nearTroop.pos, scale(fromAngle(nearTroop.facing + Math.PI), 9));
+    if (dist(u.pos, behind) > 4) {
+      const headed = u.pathGoal && dist(u.pathGoal, behind) < 6;
+      if (u.path.length === 0 || !headed) sim.civMoveTo(u, behind);
+      u.technique = "patrol";
+      u.paceScale = 0.95; // a scamper, to keep up with marching men
+      u.faceLock = null;
+    } else {
+      u.path = [];
+      u.moving = false;
+      u.faceLock = Math.atan2(nearTroop.pos.y - u.pos.y, nearTroop.pos.x - u.pos.x);
+    }
+    return;
+  }
+
   // ---------------------------------------------------------------- CLEAR-ROAD
   if (tier === 2 && nearArmed) {
     u.technique = "patrol";
     u.paceScale = 1;
-    // A curious child drifts IN for a look instead of clearing (never inside FLEE range).
-    if (isChild && trait(u.id, "cur") > 0.5 && threat < 0.6) {
+    // A curious child drifts IN for a look instead of clearing (never inside FLEE
+    // range, never in a hostile village, never from a grieving household).
+    if (isChild && trait(u.id, "cur") > 0.5 && threat < 0.6 && mood > -0.2 && !grieving) {
       const to = sub(nearArmed.pos, u.pos);
       const d = len(to);
       if (d > 6) {

@@ -192,6 +192,18 @@ export interface Unit {
   // --- civilian ---
   villageId?: string;
   routine?: CivRoutineNode[];
+  /** Kinship (people-immersion): which 2-4-person household this villager belongs to.
+   *  A casualty's household grieves BY NAME (the grievance ledger on VillageState),
+   *  gathers at first light to bury its dead, and treats the next patrol differently. */
+  householdId?: string;
+  /** Civic summons (world-issued): walk to a point and hold until the sim clock —
+   *  the elder coming out to the shura (faceId = the squad leader he sits with), a
+   *  household standing at a grave. Below FLEE and the melt in precedence: a staged
+   *  threat ABORTS it (latched via summonsAborted), gunfire always wins. While active,
+   *  un-fired US/ANA are excluded from this unit's proximity-threat inputs — the elder
+   *  must be able to walk INTO the 9 m shura ring without his own FLEE tier firing. */
+  summons?: { x: number; y: number; untilS: number; faceId?: string } | null;
+  summonsAborted?: boolean;
   panic?: number; // 0..1
   reactTier?: number; // graduated reaction to armed men: 0 oblivious / 1 wary / 2 clear-road / 3 flee
   tierHoldS?: number; // seconds since the tier last needed to fall a step (rising-instant, falling-slow)

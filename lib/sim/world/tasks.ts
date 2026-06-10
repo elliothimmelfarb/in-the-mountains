@@ -1,5 +1,5 @@
 import { clamp } from "../rng";
-import { dist, Vec2 } from "../vec";
+import { dist, Vec2, sub, add, norm, scale, len } from "../vec";
 import { Unit } from "../entities";
 import { Land } from "../terrain";
 import type { VillageState } from "../campaign";
@@ -464,6 +464,29 @@ function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {
   const radius = t.kind === "kle" ? 9 : 14;
   // Set up around the objective by team, each fire team holding a sector.
   holdSecurity(w, byTeam(w, members), at, radius, t);
+  // THE SHURA STAGED (people-immersion): a KLE summons the village ELDER — a real man
+  // who walks out from his compound and sits down with the squad leader. The dwell's
+  // attitude drip, the elder's ask and the decision modals all WAIT for the meeting
+  // (t.elderMet), so the player watches the shura physically form before deciding
+  // anything in it. A no-show is itself a read on the village.
+  if (t.kind === "kle" && near) {
+    t.elderMet = false;
+    const elder = w.ensureElder(near);
+    if (elder) {
+      const sl = w.sim.unit(buildSquad(w, members).slId ?? undefined) ?? members[0];
+      // The meet point anchors on the SQUAD LEADER'S actual ring slot (holdSecurity has
+      // just assigned it), two meters off it on the elder's side — not on ring geometry.
+      // Measured: anchoring on the hold centroid left elder↔SL up to 9.2 m apart, so the
+      // sit-down gate (<6 m) failed while the elder was visibly seated at the shura.
+      const anchor = sl?.pathGoal ?? sl?.pos ?? at;
+      const toElder = sub(elder.pos, anchor);
+      const dir = len(toElder) > 1e-3 ? norm(toElder) : { x: 0, y: 1 };
+      const meet = add(anchor, scale(dir, 2.2));
+      elder.summons = { x: meet.x, y: meet.y, untilS: w.sim.timeS + t.timer, faceId: sl?.id };
+      elder.summonsAborted = false;
+      w.log(`${t.label}: word goes to ${near.elder} — the elders are coming out.`, "radio");
+    }
+  }
   w.interrupt(`${t.label} on objective`);
 }
 
@@ -551,16 +574,41 @@ function onStationEffects(w: World, t: Task, members: Unit[], dt: number) {
   // raising the duration must NOT secretly multiply the per-second gains.
   const dwell = Math.max(1, near ? dwellFor(t, near.population) : dwellFor(t));
   if (t.kind === "kle" && near) {
-    near.attitude = clamp(near.attitude + (8 / dwell) * dt, -100, 100);
-    near.cooperation = clamp(near.cooperation + (10 / dwell) * dt, 0, 100);
-    near.lastVisitedDay = w.day;
-    // A shura yields an elder ASK — once per engagement (gated on the village having no pending
-    // ask). The follow-through (or a lapsed deadline) swings attitude up or DOWN: the design-
-    // promised broken-promises mechanic. ~once across the shura's dwell.
-    if (!near.ask && w.rng.chance((4 / dwell) * dt)) {
-      w.raiseElderAsk(near);
+    // The shura is the MEETING, not the grid square. Until the elder actually sits
+    // down with the squad leader nothing accrues — and a 15-game-minute no-show
+    // proceeds with "the elder sends his regrets", which is its own message.
+    if (t.elderMet === false) {
+      const elder = near.elderUnitId ? w.sim.unit(near.elderUnitId) : undefined;
+      const sl = w.sim.unit(buildSquad(w, members).slId ?? undefined) ?? members[0];
+      if (elder && elder.alive && elder.conscious && sl && dist(elder.pos, sl.pos) < 6) {
+        t.elderMet = true;
+        w.log(`${near.elder} sits down with ${w.sim.rankName(sl)} — the shura begins.`, "radio");
+        w.interrupt(`${near.name}: the elder has come out`);
+      } else if (
+        dwellFor(t, near.population) - t.timer > 900 ||
+        !elder ||
+        !elder.alive ||
+        elder.summonsAborted
+      ) {
+        t.elderMet = true; // proceed — the absence was the message
+        w.log(
+          `${near.name}: the elder sends his regrets. A village that won't sit with you is telling you something.`,
+          "radio"
+        );
+      }
     }
-    w.advanceDirective("kle", (0.5 / dwell) * dt);
+    if (t.elderMet !== false) {
+      near.attitude = clamp(near.attitude + (8 / dwell) * dt, -100, 100);
+      near.cooperation = clamp(near.cooperation + (10 / dwell) * dt, 0, 100);
+      near.lastVisitedDay = w.day;
+      // A shura yields an elder ASK — once per engagement (gated on the village having no pending
+      // ask). The follow-through (or a lapsed deadline) swings attitude up or DOWN: the design-
+      // promised broken-promises mechanic. ~once across the shura's dwell.
+      if (!near.ask && w.rng.chance((4 / dwell) * dt)) {
+        w.raiseElderAsk(near);
+      }
+      w.advanceDirective("kle", (0.5 / dwell) * dt);
+    }
   } else if (near && (t.missionType === "presence" || t.missionType === "cordon")) {
     near.attitude = clamp(near.attitude + (3 / dwell) * dt, -100, 100);
     near.lastVisitedDay = w.day;
@@ -602,6 +650,7 @@ function rollDwellEvent(w: World, t: Task, near: VillageState | null, dt: number
   if (!near) return;
   const eligible = t.kind === "kle" || t.missionType === "census" || t.missionType === "cordon";
   if (!eligible || w.pendingEvent) return;
+  if (t.kind === "kle" && t.elderMet === false) return; // the shura hasn't formed yet
   t.dwellEventClock = (t.dwellEventClock ?? 0) + dt;
   if (t.dwellEventClock < DWELL_EVENT_THROTTLE) return;
   t.dwellEventClock = 0;

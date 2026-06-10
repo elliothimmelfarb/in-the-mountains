@@ -94,11 +94,16 @@ export function makeDwellEvent(w: World, t: Task, v: VillageState, exclude?: str
   };
 
   // A grievance / MEDCAP can surface in any village engagement; the rest are gated by mission.
+  // When the village carries an UNPAID BLOOD DEBT (a named civilian casualty of our fire — the
+  // people-immersion ledger), the grievance is that, by name, and paying solatia settles it.
+  const blood = (v.grievances ?? []).find((g) => !g.resolved);
   add(
     true,
     "dwell_grievance",
-    "A Herder's Animals",
-    `As your element works ${v.name}, ${v.elder} pushes through the terp, furious: a frightened goat was shot when it bolted the search, or a wall was knocked through. He wants solatia and an apology in front of the village. How you answer the small insults decides more than the firefights do.`,
+    blood ? "The Blood Debt" : "A Herder's Animals",
+    blood
+      ? `${v.elder} brings forward a man of ${blood.name}'s household. ${blood.name} was ${blood.killed ? "killed" : "wounded"} by your fire on day ${blood.day}, and the debt stands unpaid. The household asks for solatia and an acknowledgment in front of the village — and Pashtunwali will collect, one way or the other.`
+      : `As your element works ${v.name}, ${v.elder} pushes through the terp, furious: a frightened goat was shot when it bolted the search, or a wall was knocked through. He wants solatia and an apology in front of the village. How you answer the small insults decides more than the firefights do.`,
     [
       { id: "pay", label: "Pay solatia and apologize publicly", hint: "Costs CERP. Restores trust." },
       { id: "apologize", label: "Apologize, no payment", hint: "Helps a little." },
@@ -250,6 +255,13 @@ export function applyWorldEventChoice(w: World, ev: PendingEvent, choiceId: stri
         if (village) {
           village.attitude = clamp(village.attitude + 9, -100, 100);
           village.cooperation = clamp(village.cooperation + 4, 0, 100);
+          // Settle the oldest unpaid blood debt by name (the people-immersion ledger):
+          // the grievance stops feeding sympathy and the household stops grieving.
+          const debt = (village.grievances ?? []).find((g) => !g.resolved);
+          if (debt) {
+            debt.resolved = true;
+            w.log(`The ledger is settled for ${debt.name}. Not forgotten — but paid, in front of the village.`, "info");
+          }
         }
         w.log("You pay solatia on the spot and apologize to the elder in front of his people.", "info");
       } else if (choiceId === "apologize") {

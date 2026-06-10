@@ -145,6 +145,12 @@ export interface Task {
   /** The kind of the last dwell event fired on this dwell, so the roll never repeats it
    *  back-to-back (a long census drawing the same grievance twice reads as a bug). */
   lastDwellEventKind?: string;
+  /** KLE only: has the summoned elder physically sat down with the squad leader yet?
+   *  false = the shura hasn't formed — the attitude drip, the ask-roll and the dwell
+   *  events all WAIT (the player watches the meeting happen before deciding anything).
+   *  A 15-game-minute no-show flips it with "the elder sends his regrets" (a tell).
+   *  Undefined for every other task kind; loadWorld defaults in-flight legacy KLEs. */
+  elderMet?: boolean;
   /** Objective waypoints (world meters), not counting the return leg. */
   route: Vec2[];
   legIndex: number;
