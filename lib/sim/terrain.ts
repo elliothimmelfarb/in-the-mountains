@@ -643,6 +643,16 @@ export class Terrain {
           // steep loose ground; the odd boulder field for cover
           land = patchNoise.fbm(x * fPatch, y * fPatch, 2) > 0.6 ? Land.Boulders : Land.Scree;
         } else {
+          // NOTE (issue 007 aspect — REVERTED 2026-06-10): an aspect-shade term here (forest on
+          // shaded/pole-facing slopes, scrub on the sunny ones) was implemented + proven (aspect-probe:
+          // forest-faces-north 59%→73%, scrub-faces-south 48%→70%) then reverted on the numbers. Even
+          // gated to steep faces (slope > 0.62, which kept village/COP siting + gate-overwatch byte-
+          // identical), redistributing forest↔scrub changed the cover/conceal field the insurgents'
+          // steep-face ambush positions and concealment-biased pathing read: a clean same-code A/B
+          // regressed balance (KIA 1.17→1.83) AND stranded a unit. The ecology win is real but it
+          // touches the combat + movement surfaces and needs a balance-revalidated, tuned pass — not a
+          // slip-in. Probe + findings kept: scripts/aspect-probe.ts and
+          // docs/progress/2026-06-10-open-issues/007-aspect-ecology/.
           const moist =
             vegNoise.fbm(x * fVeg, y * fVeg, 4) * 0.5 +
             0.5 +

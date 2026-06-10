@@ -63,3 +63,25 @@ clean, deterministic. See `docs/progress/2026-06-09-terrain-realism/`.
 contour terraces, denser qalat wall-lattices, and **flow-accumulation hydrology** (river/washes placed
 where water actually collects). Those reshape slope/cover/passability and want their own measured,
 balance-revalidated pass — deliberately not slipped in here.
+
+### Aspect-driven vegetation — IMPLEMENTED + PROVEN + REVERTED on the numbers (2026-06-10)
+
+The aspect slice was built and measured: an aspect-shade term in `classifyLand`'s `moist` (north/pole-
+facing slopes hold moisture → forest; sun-facing → scrub). It WORKS — `scripts/aspect-probe.ts`:
+**forest-faces-north 59%→73%, scrub-faces-south 48%→70%** (vegetation reads the sun). But it was
+**reverted**, the way the issue warned ("changes slope/cover/conceal/passability → feeds combat balance
++ pathfinding"):
+- A wide gate (all slopes) regressed the **COP gate-overwatch 0/9 → 2/9** (copaudit) — the aspect term
+  overlapped the **Terrace** classification band (slope 0.22–0.6), and Terrace drives village/road
+  siting, so it cascaded into the hard-won issue-022 defense geometry. Gating to steep faces
+  (slope > 0.62, above the terrace band) fixed that (route-quality + gate-overwatch byte-identical).
+- BUT even the steep-face-only version regressed combat + movement: a **clean same-code balance A/B
+  (12×50) went KIA 1.17 → 1.83 (+56%) AND stranded a unit** — because the insurgents' steep-face ambush
+  positions and the concealment-biased pathing read the changed forest↔scrub conceal field. For a
+  *subtle* visual ecology gain, a KIA regression + a stranding is unshippable (Law 8 restraint).
+
+**Kept for the future balance-revalidated pass:** `scripts/aspect-probe.ts` (the oracle) +
+`docs/progress/2026-06-10-open-issues/007-aspect-ecology/` (the full findings, including the exact gate
+that keeps the COP clean). The clean fix needs the aspect tuned AND the combat balance re-validated/tuned
+(the insurgent ambush-concealment shift is the lever to manage), not a slip-in. A `terrain.ts` NOTE marks
+the seam. The remaining ecology pieces (terraces/qalats/hydrology) carry the same balance-revalidation cost.

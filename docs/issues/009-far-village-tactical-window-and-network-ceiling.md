@@ -1,6 +1,13 @@
 # 009 — Residuals after the connectivity guard: far-village tactical window, netVil 72% ceiling, trough cost
 
-**Severity:** Low · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × patrol pace × metric honesty · **Status:** OPEN (characterised; the reachable-but-stranded bug is fixed — these are the honest remainders)
+**Severity:** Low · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × patrol pace × metric honesty · **Status:** ✅ CONFIRMED CHARACTERIZED REMAINDER (re-measured 2026-06-10) — not a defect, kept as the honest tail.
+
+**2026-06-10 re-confirmation:** village point-man arrival across the 60-seed survey corpus = **180/300
+(60%)** at HEAD (`reachability.ts`, the fair metric). The unreached villages are the genuine far cases
+(worst village opposite the gate, across a real cliff band or a long ford-detour) — terrain distance, not
+a routing bug (`movement-diag` is deliberately adversarial and over-states). The 2026-06-05/06 work took
+the headline from ~30% reached to here; this is the honest floor the valley itself sets. No fix
+warranted. See `docs/progress/2026-06-10-open-issues/011-009-closeout/`.
 
 ## Summary
 
