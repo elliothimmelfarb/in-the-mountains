@@ -2,12 +2,13 @@ import { createWorld } from "../lib/sim/world";
 
 const N = Number(process.argv[2] ?? 12);
 const MINUTES = Number(process.argv[3] ?? 50);
+const PREFIX = process.argv[4] ?? "bal"; // seed prefix — pass a fresh one for a held-out A/B (Law 3)
 
 let usKIA = 0, usWIA = 0, enKIA = 0, civ = 0, contacts = 0, stuck = 0;
 let totalEnemySeen = 0;
 
 for (let run = 0; run < N; run++) {
-  const seed = `bal-${run}`;
+  const seed = `${PREFIX}-${run}`;
   const world = createWorld(seed, 90);
   const { terrain, state, sim } = world;
   state.enemyHeat = 0.6 + (run % 5) * 0.06;

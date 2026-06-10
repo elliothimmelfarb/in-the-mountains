@@ -231,6 +231,20 @@ export const FOOT_CLIFF_SLOPE = 1.4;
  *  bit-identical to HEAD — Change A reconnects the steep band via passability ONLY, leaving the
  *  hard-won movement economy and combat balance untouched (see FOOT_CLIFF_SLOPE note). */
 export const STEEP_COST_FLOOR = 0.1;
+
+// Directional cover-object query tuning (issue 020). Footprint (m) mirrors the asset manifest so the
+// cover frontage matches the DRAWN sprite (drawn = sim); height (m) is the physical block height an
+// object presents to a standing/prone silhouette. COVER_AHEAD_M is how far in front of the target an
+// object can sit and still be "his cover"; COVER_BUCKET_M is the spatial-index cell for the per-shot query.
+const COVER_OBJ_FOOTPRINT: Record<"boulder" | "rock-outcrop", number> = { boulder: 2.5, "rock-outcrop": 5 };
+const COVER_OBJ_HEIGHT: Record<"boulder" | "rock-outcrop", number> = { boulder: 0.8, "rock-outcrop": 1.2 };
+// INTRINSIC small-arms stop probability of the rock itself — a boulder stops a rifle round whatever
+// cell it sits on, so the directional query uses this, NOT o.cover (which carries the cell's stamped
+// value, kept low on open ground for field byte-identity). This is what makes an open-slope boulder
+// real, usable cover; it is gated to the FIRE path + directionality so it can't grind (issue 020).
+const COVER_OBJ_STOP: Record<"boulder" | "rock-outcrop", number> = { boulder: 0.62, "rock-outcrop": 0.72 };
+const COVER_AHEAD_M = 3.5;
+const COVER_BUCKET_M = 8;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
 export const COARSE_DIR8: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -274,6 +288,9 @@ export class Terrain {
    *  so it is NOT serialized — regenerated from seed with everything else. `cover`/`conceal` are the
    *  hard-cover / concealment the object lends the cell it sits in. */
   coverObjects: { x: number; y: number; id: "boulder" | "rock-outcrop"; scale: number; rot: number; cover: number; conceal: number }[] = [];
+  /** Lazily-built spatial bucket index over coverObjects (derived, not serialized) for the per-shot
+   *  directional cover query (issue 020). bucketKey → object indices. */
+  private coverBuckets: Map<number, number[]> | null = null;
   copCell: { cx: number; cy: number } = { cx: 0, cy: 0 };
   cop!: CopLayout;
   /** Centerline x (in cells) of the valley floor at each row y. */
@@ -2988,6 +3005,72 @@ export class Terrain {
   }
   coverAt(wx: number, wy: number): number {
     return this.cellSample(this.cover, wx, wy);
+  }
+
+  /**
+   * DIRECTIONAL, posture-aware hard-cover occlusion (issue 020): the fraction of small-arms fire a
+   * discrete cover OBJECT (boulder / rock outcrop) stops for `target` against a round coming from
+   * `shooter`. Unlike the 5 m raster `coverAt` (omnidirectional — every bearing equally), this is the
+   * reason a man behind THIS rock is covered from THAT threat but exposed to a flanker: only an object
+   * sitting BETWEEN the shooter and the target, close in front of the target and across the sight line,
+   * counts. Posture-aware via `targetHeight` — a low boulder hides a prone man almost completely and a
+   * standing man only partly (Combat-Mission calibration). Returns 0..1 (0 = no object on this line).
+   *
+   * Directionality is what makes open-ground cover USABLE without grinding: a covered man is still
+   * exposed to fire from any other bearing, so the (already-shipped) autonomous flank defeats the
+   * cover and the firefight resolves by maneuver, not symmetric attrition (the failure of the reverted
+   * 2026-06-09 omnidirectional stamp). Queried on the FIRE path only (coverFor), never detection.
+   */
+  coverOcclusion(shooter: Vec2, target: Vec2, targetHeight: number): number {
+    const objs = this.coverObjects;
+    if (objs.length === 0) return 0;
+    if (!this.coverBuckets) this.buildCoverIndex();
+    const dx = shooter.x - target.x, dy = shooter.y - target.y;
+    const d = Math.hypot(dx, dy);
+    if (d < 1e-3) return 0;
+    const ux = dx / d, uy = dy / d; // unit vector from the target toward the shooter
+    const B = COVER_BUCKET_M;
+    const bw = Math.ceil(this.worldSize / B);
+    const tbx = Math.floor(target.x / B), tby = Math.floor(target.y / B);
+    let best = 0;
+    for (let by = tby - 1; by <= tby + 1; by++) {
+      if (by < 0 || by >= bw) continue;
+      for (let bx = tbx - 1; bx <= tbx + 1; bx++) {
+        if (bx < 0 || bx >= bw) continue;
+        const arr = this.coverBuckets!.get(by * bw + bx);
+        if (!arr) continue;
+        for (const idx of arr) {
+          const o = objs[idx];
+          const vx = o.x - target.x, vy = o.y - target.y;
+          const along = vx * ux + vy * uy; // distance from target toward the shooter
+          if (along < 0.15 || along > COVER_AHEAD_M) continue; // must be just in front, covering him
+          const lat = Math.abs(-vx * uy + vy * ux); // perpendicular distance to the sight line
+          const half = COVER_OBJ_FOOTPRINT[o.id] * o.scale * 0.5;
+          if (lat > half) continue; // the line misses the object's frontage
+          // geometric block: an object of height objH hides a target of height targetHeight up to
+          // min(1, objH/targetHeight) of its silhouette; × the object's small-arms stop probability.
+          const objH = COVER_OBJ_HEIGHT[o.id] * o.scale;
+          const occ = clamp01(objH / Math.max(0.35, targetHeight)) * COVER_OBJ_STOP[o.id];
+          if (occ > best) best = occ;
+        }
+      }
+    }
+    return best;
+  }
+
+  /** Build the cover-object bucket index (once, lazily). Derived from coverObjects → not serialized. */
+  private buildCoverIndex() {
+    const B = COVER_BUCKET_M;
+    const bw = Math.ceil(this.worldSize / B);
+    const m = new Map<number, number[]>();
+    for (let i = 0; i < this.coverObjects.length; i++) {
+      const o = this.coverObjects[i];
+      const key = Math.floor(o.y / B) * bw + Math.floor(o.x / B);
+      let arr = m.get(key);
+      if (!arr) { arr = []; m.set(key, arr); }
+      arr.push(i);
+    }
+    this.coverBuckets = m;
   }
   concealAt(wx: number, wy: number): number {
     return this.cellSample(this.conceal, wx, wy);
