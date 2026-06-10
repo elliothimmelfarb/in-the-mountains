@@ -135,6 +135,21 @@ export class World {
   }
   private refreshLight() {
     this.sim.light = this.ambientLight();
+    // Logistics teeth (issue 021): push battery supply (the NODs gate) and the hydration factor (a
+    // dehydrated/underfed soldier recovers fatigue slower, even stationary) into the sim each tick.
+    this.sim.nvgPower = this.state.supplies.batteries;
+    this.sim.hydration = this.hydrationFactor();
+  }
+
+  /** Bounded water/food supply factor (0.4..1) for recovery rates — issue 021 logistics teeth. A
+   *  stocked COP is ~1; a neglected one ramps DOWN to a floor (men still recover, just slower). */
+  private hydrationFactor(): number {
+    const sup = this.state.supplies;
+    const n = Math.max(1, this.platoon.members.filter((m) => m.alive).length);
+    return (
+      clamp(0.55 + 0.45 * Math.min(1, sup.water / (n * 4)), 0.55, 1) *
+      clamp(0.75 + 0.25 * Math.min(1, sup.food / (n * 4)), 0.75, 1)
+    );
   }
 
   /**
@@ -251,10 +266,15 @@ export class World {
     const tasked = new Set<string>();
     for (const t of this.state.tasks) for (const id of t.memberIds) tasked.add(id);
     const nightRest = this.isNight() ? 1.8 : 1;
+    // Logistics teeth (issue 021): low supplies bite — but as BOUNDED clamps, so a degenerate value
+    // can never zero recovery (men still rest/heal, just slower). Water/food gate rest + fatigue
+    // recovery (a dehydrated, underfed soldier rests poorly); medical gates wound-recovery time.
+    const hydration = this.hydrationFactor();
+    const medFactor = clamp(0.5 + 0.5 * Math.min(1, this.state.supplies.medical / 12), 0.5, 1);
     for (const m of this.platoon.members) {
       if (!m.alive) continue;
       if (m.status === "wounded") {
-        m.daysToRecover -= dt / DAY;
+        m.daysToRecover -= (dt / DAY) * medFactor; // low medical → wounds heal slower (issue 021)
         if (m.daysToRecover <= 0) {
           m.status = "ready";
           m.hp = clamp(m.hp + 45, 30, 100);
@@ -269,8 +289,8 @@ export class World {
       }
       const atBase = !tasked.has(m.id) && dist(m.pos, this.copWorld()) < 90;
       if (atBase) {
-        m.rest = clamp01(m.rest + (2.0 / DAY) * dt * nightRest);
-        m.fatigue = clamp01(m.fatigue - (3.0 / DAY) * dt);
+        m.rest = clamp01(m.rest + (2.0 / DAY) * dt * nightRest * hydration);
+        m.fatigue = clamp01(m.fatigue - (3.0 / DAY) * dt * hydration); // low water/food → slower fatigue recovery (issue 021)
         if (m.status === "rest" && m.rest > 0.9) m.status = "ready";
       } else if (tasked.has(m.id)) {
         m.rest = clamp01(m.rest - (1.2 / DAY) * dt);
