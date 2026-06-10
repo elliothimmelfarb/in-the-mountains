@@ -154,6 +154,48 @@ state becomes watchable behavior.
 - **Balance**: every wave ends with `balance.ts 12 50` + the wave's probes; Wave 1.2/1.3 also
   `autonomy.ts 14 22`. Tune on survey-0..39; final proof on survey-40..59 (untouched until then).
 
+## Adversarial review amendments (folded in — the review verified every seam against HEAD)
+
+1. **Consolidate driver (W2.1)**: `t.march` gets zero ticks unless each non-contact phase branch
+   in `tickTasks` dispatches `tickConsolidate(...)` INSTEAD of `drivePatrol`/`driveReturn`/dwell.
+   Exit must replay `releaseCombat`'s member-reset (`releaseFormation`, brainState) +
+   `resetProgress(t)`; `t.march` cleared whenever `contact` is true (stale-resume trap); casualty
+   bodies looked up via `t.memberIds → sim.unit(id)` (the `members` array excludes the dead);
+   coverage DoD exempts contacts ending within the wire.
+2. **Cell brain (W1.2)**: ≥6-man cells ALREADY have `isLeader` commanders (helpers.ts:66) — the
+   work is extending flagging to 2–5-man cells; key all leader detection on `isLeader`, never
+   role (`spawnIedAmbush` overwrites role to "ied_team" post-spawn). The coordinator must flip
+   `brainState = "engage"` (the ambush case re-stamps `rof = "hold"` every tick, so stamping rof
+   alone is reverted). `preTriggerLeaks 0` requires a small guard in insurgent.ts's ambush case:
+   a led+coordinated fighter defers initiation to the leader — KEEP the per-tick
+   `sim.acquireTarget(u)` call (preserves existing rng draws). Engage dwell burns at 2×dt
+   (double decrement quirk at insurgent.ts:21+89) — stamp dwell values accordingly. Tolerate
+   same-second squadId collisions (grouping picks the first flagged leader).
+3. **Elder/kids vs FLEE (W3.1/3.3) — the fatal one**: proximity threat (civilian.ts:96-98) hits
+   tier 3 inside ~19 m of 3+ armed men; the KLE ring is 9 m. While a summons/trail behavior is
+   active AND panic is low, exclude un-fired us/ana from that unit's threat inputs (FLEE on
+   `panic > 0.45` stays — gunfire always wins). Summons abort on `stagedThreat > 0.18` must be
+   LATCHED (set + suppress re-issue), not per-tick precedence, or the melt stagger fall-through
+   oscillates him between home and shura.
+4. **Dwell-event gating**: gate on `elderMet` only when `t.kind === "kle"` — the roll is shared
+   with census/cordon (tasks.ts:488) and would silently starve them.
+5. **Spawn loop**: burn the `rng.weighted` draw at i=0 (`const r = ...; role = i===0 ? "elder" : r`).
+6. **Serialization — confirmed cheap**: serialize spreads units whole and dumps `state`;
+   `loadWorld` consumes objects wholesale (no whitelist) — new fields survive; only loadWorld
+   defaults needed.
+7. **Callout presenter**: clone the audio seam's always-tick discipline (store.ts:615-630 calls
+   `audio.tick` every frame with running/paused/warp gates; warp runs up to 700 slices/frame) —
+   advance high-water marks every frame, render plates only when live. Use `RNG.hashString`
+   (rng.ts) for phrase variety, not formation.ts's hashUnit01 (avoids combat→world import).
+8. **Nerve must be centered by construction**: use STATIC traits only (composureMax, experience,
+   aggression — never live composure, which double-counts suppression); pin-threshold deltas as
+   exact zero-mean hash jitter (e.g. `0.12·(hash01(id+"pin") − 0.5)`); bound hesitation cap
+   0.9 s and scaled by remaining bound window (window is 3–5 s, rng.range(3,5)).
+9. **Securing buddy (W2.2)**: re-derived per tick like the aiding/treating states — squadFight's
+   per-tick stamps overwrite stored one-shots.
+10. **Grievance/funeral village identity**: key BOTH on `u.villageId` when defined (fall back to
+    `nearestVillage`) so the ledger entry and the funeral happen in the same village.
+
 ## File ownership (one writer per file)
 - Engine (`lib/sim/**`): the orchestrator, sequentially.
 - Probes (`scripts/*-probe.ts`, extensions), render presenter (`lib/render/callouts.ts` +

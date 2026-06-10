@@ -1,0 +1,44 @@
+
+=== DRILL TIMELINE PROBE (6 seeds × 25 game-min · 1st+2nd sqd → SAME village · SOP patrol/assault/tight · heat 0.9) ===
+legend: contacts=combat episodes · cmt=assault commits · rvt=assault→hold/suppress reversions · flips=boundPair swaps
+        stepSpreadS=mean σ of intra-pair step-off delays · firstMoveGapS=mean max−min per flip · driftS=|Δ| first commit times
+
+seed        sq   contacts  stateSeq                                cmt  rvt  flips  stepSpreadS  firstMoveGapS
+--------------------------------------------------------------------------------------------------------------
+drill-0     1st  1         react>hold>assault                      1    0    2      0.20         0.40
+drill-0     2nd  1         react>hold>assault                      1    0    2      0.20         0.40
+drill-0     --   seqMatch=true  driftS=0.1s
+              1st tl: 11:55 react > 11:56 hold > 11:58 assault
+              2nd tl: 11:55 react > 11:56 hold > 11:58 assault
+drill-1     1st  0         (no contact)                            0    0    0      -            -
+drill-1     2nd  0         (no contact)                            0    0    0      -            -
+drill-1     --   seqMatch=n/a (no contact)  driftS=-
+drill-2     1st  1         react>hold>assault                      1    0    3      0.20         0.40
+drill-2     2nd  1         react>hold>assault                      1    0    3      0.13         0.27
+drill-2     --   seqMatch=true  driftS=0.3s
+              1st tl: 12:50 react > 12:52 hold > 12:53 assault
+              2nd tl: 12:50 react > 12:52 hold > 12:53 assault
+drill-3     1st  2         react>hold>assault | react>hold>assault 2    0    11     0.10         0.19
+drill-3     2nd  2         react>hold>assault | react>hold>assault 2    0    13     0.10         0.19
+drill-3     --   seqMatch=true  driftS=0.7s
+              1st tl: 12:21 react > 12:22 hold > 12:24 assault > 21:48 react > 21:50 hold > 21:57 assault
+              2nd tl: 12:20 react > 12:21 hold > 12:23 assault > 21:48 react > 21:50 hold > 21:51 assault
+drill-4     1st  3         react>hold | react>hold>assault | react>hold1    0    2      0.08         0.15
+drill-4     2nd  3         react>hold | react>hold>assault | react>hold1    0    2      0.05         0.10
+drill-4     --   seqMatch=true  driftS=0.7s
+              1st tl: 9:54 react > 9:56 hold > 12:20 react > 12:22 hold > 12:24 assault > 24:57 react > 24:58 hold
+              2nd tl: 9:54 react > 9:56 hold > 12:20 react > 12:22 hold > 12:23 assault > 24:57 react > 24:58 hold
+drill-5     1st  4         react>hold | react>hold>assault | react>break | react>hold>assault2    0    7      0.07         0.14
+drill-5     2nd  5         react>hold | react>hold | react>hold>assault | react>break | react>hold>assault2    0    6      0.12         0.23
+drill-5     --   seqMatch=false  driftS=28.0s
+              1st tl: 2:13 react > 2:14 hold > 2:45 react > 2:46 hold > 2:49 assault > 15:01 react > 15:03 break > 24:38 react > 24:39 hold > 24:41 assault
+              2nd tl: 2:13 react > 2:14 hold > 2:58 react > 2:59 hold > 3:14 react > 3:15 hold > 3:17 assault > 15:01 react > 15:02 break > 24:38 react > 24:39 hold > 24:41 assault
+--------------------------------------------------------------------------------------------------------------
+MEAN             1.92      (12 squad-rows)                         1.17 0.00 4.3    0.10         0.20
+                 seqMatch 4/5 seeds  ·  driftS mean 6.0s (5 seeds with both committed)
+
+GATES (informational — NO assertions at baseline; rigidity is the expected reading):
+  rvt total        = 0      (pinned-revert fix gates on rvt > 0)
+  mean stepSpreadS = 0.10   (per-man bound hesitation gates on stepSpread > 0.25)
+  seqMatch         = 4/5    (divergence work expects mostly false)
+

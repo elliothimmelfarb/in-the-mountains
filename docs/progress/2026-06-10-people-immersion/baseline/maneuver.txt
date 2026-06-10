@@ -1,0 +1,25 @@
+squad-maneuver-probe — 10 seeds × 22 min, heat ~0.45, ROE tight
+
+── SOP: hold (census/presence/cordon DEFAULT) ──
+  in-contact samples 528
+  squadState: react 2%  hold 21%  break 36%  ? 27%  assault 14%
+  MEAN men maneuvering: 6.29   while FIXING (hold/suppress/assault): 5.96 (184 samples)
+  bounding discipline: 100% of maneuver-moving ticks had ≤1 buddy pair moving (75 samples)
+  assault routing: 0% covered-flank · 100% frontal fallback (0/75)
+  flank-cover ratio (flanking only): — (route ÷ straight-line cover; >1 = covered) [0 samples]
+
+── SOP: suppress (overwatch/ambush default) ──
+  in-contact samples 1144
+  squadState: react 1%  suppress 11%  break 56%  ? 12%  assault 19%
+  MEAN men maneuvering: 4.91   while FIXING (hold/suppress/assault): 6.55 (346 samples)
+  bounding discipline: 100% of maneuver-moving ticks had ≤1 buddy pair moving (216 samples)
+  assault routing: 0% covered-flank · 100% frontal fallback (0/216)
+  flank-cover ratio (flanking only): — (route ÷ straight-line cover; >1 = covered) [0 samples]
+
+── SOP: assault (player-selected) ──
+  in-contact samples 815
+  squadState: react 1%  hold 1%  assault 53%  break 27%  ? 17%
+  MEAN men maneuvering: 6.17   while FIXING (hold/suppress/assault): 5.74 (440 samples)
+  bounding discipline: 100% of maneuver-moving ticks had ≤1 buddy pair moving (404 samples)
+  assault routing: 1% covered-flank · 99% frontal fallback (6/398)
+  flank-cover ratio (flanking only): 0.99 (route ÷ straight-line cover; >1 = covered) [12 samples]

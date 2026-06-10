@@ -1,0 +1,13 @@
+dwell-probe — on-station dwell band check (SAMPLE_S=1800)
+
+mission     | pop | dwell(s) | dwell  | band(h)      | P | note
+------------|-----|----------|--------|--------------|---|----------------------------------
+presence    | 172 |     3600 |  1.00h |      0.5-2.0 | ✓ | 
+recon       | 224 |     4500 |  1.25h |      1.0-2.0 | ✓ | 
+ambush      | 148 |    14400 |  4.00h |      2.0-8.0 | ✓ | 
+census      | 112 |    11200 |  3.11h |      2.0-8.0 | ✓ | progress 0.00→0.16 (~1800s) PROGRESSIVE
+cordon      |  77 |     7700 |  2.14h |      2.0-8.0 | ✓ | 
+overwatch   | 280 |    18000 |  5.00h |     3.0-24.0 | ✓ | 
+kle         | 282 |     5856 |  1.63h |      1.0-2.0 | ✓ | 
+
+✓ ALL dwells in band; census progressive.

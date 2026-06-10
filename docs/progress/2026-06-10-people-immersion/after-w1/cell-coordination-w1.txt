@@ -1,0 +1,31 @@
+
+=== SIDE A: cell coordinator ON — 6 seeds × 25 game-min, heat 0.85, sq1+medic presence patrol ===
+seed          ambC volC  volley spreads (s)     fireCont  enemyRPM  peel30M(n)  peel90M(n)  usKIA usWIA enKIA
+cellco-0      2    2     0.0,0.6                     0.45      84.8      52.4(2)     —(0)        0     3     17
+cellco-1      2    2     12.2,10.0                   0.18      56.9      23.9(7)     25.4(5)     8     2     3
+cellco-2      2    1     0.0                         0.40      9.4       —(0)        —(0)        1     7     20
+cellco-3      3    3     0.1,0.1,0.2                 0.28      48.5      80.6(2)     6.9(1)      5     17    21
+cellco-4      3    3     0.1,0.5,0.0                 0.33      16.8      30.7(1)     30.7(1)     0     2     17
+cellco-5      5    5     0.0,0.0,0.6,2.0,1.9         0.16      23.2      41.8(5)     21.3(3)     1     11    18
+AGGREGATE   volleyP50 0.1 s · volleyP90 10.0 s (16 volleys / 17 ambush cells) · fireCont 0.25 · enemyRPM 43.6 · peel30M 39.6 (17) · peel90M 22.8 (10) · avg usKIA 2.50 usWIA 7.00 enKIA 16.00
+
+=== SIDE B: cell coordinator OFF (ITM_NOCELL=1) — 6 seeds × 25 game-min, heat 0.85, sq1+medic presence patrol ===
+seed          ambC volC  volley spreads (s)     fireCont  enemyRPM  peel30M(n)  peel90M(n)  usKIA usWIA enKIA
+cellco-0      2    2     0.0,1.1                     0.43      101.7     102.2(2)    110.9(2)    7     3     18
+cellco-1      2    2     0.0,1.7                     0.21      43.3      25.4(4)     41.3(2)     7     1     9
+cellco-2      3    2     0.1,6.3                     0.23      15.9      7.4(1)      3.4(1)      1     20    20
+cellco-3      5    5     0.6,0.1,0.0,0.5,0.0         0.31      43.2      170.1(1)    224.6(1)    6     4     33
+cellco-4      3    3     1.2,0.1,0.1                 0.15      19.0      28.3(2)     30.7(1)     3     12    25
+cellco-5      2    2     0.9,0.0                     0.27      14.1      26.3(3)     37.0(3)     0     19    15
+AGGREGATE   volleyP50 0.1 s · volleyP90 1.7 s (16 volleys / 17 ambush cells) · fireCont 0.32 · enemyRPM 46.7 · peel30M 47.6 (13) · peel90M 67.4 (10) · avg usKIA 4.00 usWIA 9.83 enKIA 20.00
+
+
+=== DELTA (A = coordinator ON, B = ITM_NOCELL=1) ===
+volleyP50  A 0.1 s  vs  B 0.1 s   (expect A ≪ B)
+volleyP90  A 10.0 s  vs  B 1.7 s   (expect A ≪ B)
+fireCont   A 0.25    vs  B 0.32     (expect A > B)
+peel30M    A 39.6  vs  B 47.6    (expect A < B; CAVEAT: a 2.5 s-beat peel is strung out mid-drill at +30 s)
+peel90/30  A 22.8/39.6  vs  B 67.4/47.6   (convergence: a rally-bound peel shrinks 30→90 s, a rout disperses)
+enemyRPM   A 43.6  vs  B 46.7    (expect within ±15%; Δ -6.6%)
+
+PASS: side-A volleyP50 0.10 s ≤ 2.5 s (16 volleys).

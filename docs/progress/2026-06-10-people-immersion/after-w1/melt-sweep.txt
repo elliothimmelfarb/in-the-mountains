@@ -1,0 +1,20 @@
+== survey-7
+  threatened cohort distance-to-home closed 60% (meanD 59→24 m; out 5→2)  [>=40%]  PASS
+  control cohort barely moves: closed 28% vs threatened 60%  [gap>=15]  PASS
+ATMOSPHERICS-PROBE OK
+== survey-12
+  threatened cohort distance-to-home closed 60% (meanD 66→26 m; out 20→9)  [>=40%]  PASS
+  control cohort barely moves: closed 14% vs threatened 60%  [gap>=15]  PASS
+ATMOSPHERICS-PROBE OK
+== survey-20
+  threatened cohort distance-to-home closed 59% (meanD 104→43 m; out 9→6)  [>=40%]  PASS
+  control cohort barely moves: closed 42% vs threatened 59%  [gap>=15]  PASS
+ATMOSPHERICS-PROBE OK
+== survey-33
+  threatened cohort distance-to-home closed 38% (meanD 102→63 m; out 15→11)  [>=40%]  FAIL
+  control cohort barely moves: closed 24% vs threatened 38%  [gap>=15]  FAIL
+ATMOSPHERICS-PROBE FAIL
+== survey-43
+  threatened cohort distance-to-home closed 46% (meanD 109→59 m; out 20→11)  [>=40%]  PASS
+  control cohort barely moves: closed 15% vs threatened 46%  [gap>=15]  PASS
+ATMOSPHERICS-PROBE FAIL

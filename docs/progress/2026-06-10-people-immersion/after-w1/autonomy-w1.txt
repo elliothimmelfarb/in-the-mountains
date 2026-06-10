@@ -1,0 +1,20 @@
+
+=== AUTONOMY + SOP RESPONSE (14 seeds × 22 game-min, sq1+medic, heat 0.75, ZERO player orders) ===
+legend: KIA/sWIA/enKIA per patrol · K/L kill:loss · cover=% in cover in contact · bof=% time base-of-fire up · [state mix] · home=returned/survived
+
+--- ON-CONTACT SOP (roe tight, patrol movement) ---
+hold+return            KIA 0.21  sWIA 0.07  enKIA 1.79  K/L  6.3  civ 0.00  prot 5%  bof 65%  [aslt 10 brk 13 hold 43]  home 0/14  rnds 763
+suppress+fires         KIA 0.29  sWIA 0.36  enKIA 0.43  K/L  0.7  civ 0.00  prot 36%  bof 58%  [aslt 14 brk 20 hold 34]  home 0/14  rnds 916
+assault                KIA 0.50  sWIA 0.36  enKIA 1.29  K/L  1.5  civ 0.00  prot 20%  bof 70%  [aslt 44 brk 26 hold 16]  home 0/14  rnds 1363
+break-contact          KIA 0.29  sWIA 0.14  enKIA 1.71  K/L  4.0  civ 0.00  prot 22%  bof 46%  [aslt 0 brk 67 hold 0]  home 0/14  rnds 949
+
+--- ROE (hold-&-return contact drill) ---
+roe:hold               KIA 0.14  sWIA 0.50  enKIA 1.64  K/L  2.6  civ 0.00  prot 13%  bof 4%  [aslt 32 brk 12 hold 17]  home 0/14  rnds 557
+roe:tight              KIA 0.36  sWIA 0.64  enKIA 1.43  K/L  1.4  civ 0.00  prot 21%  bof 79%  [aslt 17 brk 23 hold 47]  home 1/14  rnds 1505
+roe:free               KIA 0.14  sWIA 0.00  enKIA 1.79  K/L 12.5  civ 0.00  prot 25%  bof 71%  [aslt 34 brk 6 hold 33]  home 0/14  rnds 909
+
+--- MOVEMENT SOP (hold contact, tight) ---
+move:stealth           KIA 0.07  sWIA 0.07  enKIA 1.71  K/L 12.0  civ 0.00  prot 23%  bof 59%  [aslt 14 brk 15 hold 30]  home 2/14  rnds 917
+move:patrol            KIA 0.21  sWIA 0.29  enKIA 2.00  K/L  4.0  civ 0.00  prot 14%  bof 67%  [aslt 28 brk 9 hold 37]  home 1/14  rnds 1021
+move:fast              KIA 0.43  sWIA 0.21  enKIA 0.57  K/L  0.9  civ 0.00  prot 17%  bof 64%  [aslt 18 brk 44 hold 13]  home 2/14  rnds 1310
+

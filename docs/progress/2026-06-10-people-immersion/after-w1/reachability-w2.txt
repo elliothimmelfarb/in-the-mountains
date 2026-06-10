@@ -1,0 +1,12 @@
+seed          villages  arrived   rate   worst-miss
+smoke-test           5        4    80%   miss Korangal by 216m
+korengal             4        2    50%   miss Babiyal by 410m
+survey-2             6        4    67%   miss Donga by 669m
+survey-7             5        3    60%   miss Babiyal by 372m
+survey-9             5        3    60%   miss Loy Kalay by 632m
+valley-3             6        4    67%   miss Babiyal by 477m
+ridge-11             4        2    50%   miss Yaka China by 799m
+delta-5              4        3    75%   miss Korangal by 277m
+bravo-2              5        3    60%   miss Loy Kalay by 970m
+
+TOTAL villages reached: 28 / 44 (64%)
