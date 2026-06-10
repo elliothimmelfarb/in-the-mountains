@@ -35,6 +35,20 @@ export interface VillageAsk {
   fulfilled: boolean;
 }
 
+/** A named entry in a village's blood-debt ledger (people-immersion): a civilian
+ *  casualty of OUR fire, remembered by name and household until solatia resolves it.
+ *  Unresolved entries floor the village's effective sympathy (badal recruits), the
+ *  household grieves visibly, and the dead are buried at first light (mourned). */
+export interface Grievance {
+  unitId: string;
+  name: string;
+  householdId?: string;
+  day: number;
+  killed: boolean;
+  resolved: boolean;
+  mourned?: boolean;
+}
+
 export interface VillageState {
   id: string;
   name: string;
@@ -46,6 +60,12 @@ export interface VillageState {
   sympathy: number; // 0..100 hidden insurgent support
   projects: string[]; // completed project labels
   elder: string;
+  /** The elder as a LIVING AGENT (people-immersion): the Unit who walks out to the
+   *  shura. Bound at creation (the first villager spawned); succession re-binds it
+   *  when he dies (World.ensureElder). Persisted; loadWorld backfills legacy saves. */
+  elderUnitId?: string;
+  /** The blood-debt ledger — persisted; loadWorld defaults []. */
+  grievances?: Grievance[];
   lastVisitedDay: number;
   censusDone: boolean;
   /** Progressive census/enrollment fraction 0..1 — the share of the village's fighting-age

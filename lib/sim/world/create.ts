@@ -89,7 +89,12 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     const spread = (terrain.villages.find((tv) => tv.id === v.id)?.size ?? 4) + 2;
     for (let i = 0; i < n; i++) {
       const roles: Role[] = ["farmer", "herder", "villager", "child", "elder"];
-      const role = rng.weighted(roles, [40, 20, 25, 12, 3]);
+      const drawn = rng.weighted(roles, [40, 20, 25, 12, 3]);
+      // The village ELDER is guaranteed and BOUND (people-immersion): the first man of
+      // every village is its elder — a real agent the shura summons out to sit with the
+      // squad leader — and VillageState.elder carries HIS name, not a fiction. (The
+      // weighted draw above still burns, so the downstream rng stream shape is unchanged.)
+      const role: Role = i === 0 ? "elder" : drawn;
       const c = terrain.cellCenter(v.cx + rng.int(-spread, spread), v.cy + rng.int(-spread, spread));
       // Spawn on REACHABLE passable ground that's never inside the wire. The reachable snap (issue
       // 010) is essential: a jittered cell can land in a tiny walled-qalat pocket disconnected from
@@ -99,7 +104,26 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
       const r = terrain.reachablePoint(c.x, c.y);
       const civ = makeCivilian(rng.fork(`civ-${v.id}-${i}`), role, terrain.civSafePoint(r.x, r.y), v.id);
       civ.routine = buildRoutine(terrain, v, rng);
+      if (i === 0) {
+        v.elderUnitId = civ.id;
+        v.elder = civ.name;
+      }
       units.push(civ);
+    }
+    // HOUSEHOLDS (kinship): partition the village's civilians into 2-4-person
+    // households on a FORKED stream, so the main stream's draw count is untouched.
+    // A casualty's household grieves by name, buries its dead at first light, and
+    // reads differently to the next patrol.
+    {
+      const hr = rng.fork(`hh-${v.id}`);
+      const vciv = units.filter((x) => x.faction === "civilian" && x.villageId === v.id);
+      let k = 0;
+      for (let j = 0; j < vciv.length; ) {
+        const size = Math.min(vciv.length - j, hr.int(2, 4));
+        const hid = `hh-${v.id}-${k++}`;
+        for (let s = 0; s < size; s++) vciv[j + s].householdId = hid;
+        j += size;
+      }
     }
   }
 
@@ -201,6 +225,23 @@ export function loadWorld(data: {
   }
   // v7: dwell-event throttle clock on tasks (defaults to 0 = roll-ready).
   for (const t of state.tasks) if (t.dwellEventClock === undefined) t.dwellEventClock = 0;
+  // v8 (people-immersion): the blood-debt ledger + the elder as a living agent. Legacy
+  // saves get an empty ledger and a backfilled elder binding (the first living elder
+  // unit of the village, if any — otherwise ensureElder promotes one on demand); an
+  // in-flight KLE from an old save never deadlocks on the unmet-elder gate.
+  for (const v of state.villages) {
+    if (v.grievances === undefined) v.grievances = [];
+    if (v.elderUnitId === undefined) {
+      const e = data.units.find((u) => u.faction === "civilian" && u.alive && u.role === "elder" && u.villageId === v.id);
+      if (e) {
+        v.elderUnitId = e.id;
+        v.elder = e.name;
+      }
+    }
+  }
+  for (const t of state.tasks) {
+    if (t.kind === "kle" && t.phase === "onstation" && t.elderMet === undefined) t.elderMet = true;
+  }
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);

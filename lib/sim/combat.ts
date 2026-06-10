@@ -294,6 +294,13 @@ export class CombatSim {
   // Water/food supply factor (0.4..1), pushed each tick by the World (issue 021). A dehydrated,
   // underfed soldier shakes off fatigue slower even when stationary. Defaults 1 (standalone sim).
   hydration = 1;
+  // People-immersion (pushed by the World each tick; empty for a standalone sim): per-village
+  // mood (attitude −1..1) and reception (0..1 — how fast civilians RELAX around armed men;
+  // rise logic untouched), plus the grieving householdIds. The civilian brain reads these —
+  // the sim layer never touches WorldState directly.
+  villageMood: Map<string, number> = new Map();
+  villageReception: Map<string, number> = new Map();
+  grieving: Set<string> = new Set();
   context: string;
   mortars: NonNullable<CombatInit["mortars"]>;
   casAvailable: boolean;

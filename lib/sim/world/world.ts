@@ -139,6 +139,27 @@ export class World {
     // dehydrated/underfed soldier recovers fatigue slower, even stationary) into the sim each tick.
     this.sim.nvgPower = this.state.supplies.batteries;
     this.sim.hydration = this.hydrationFactor();
+    // People-immersion: per-village mood/reception + the grieving households, pushed for the
+    // civilian brains (the sim layer can't read WorldState). Reception scales how fast a
+    // villager RELAXES around armed men — presence and good standing thaw it; absence, and
+    // unresolved blood debts, chill it. Derived every tick, never persisted.
+    this.sim.villageMood.clear();
+    this.sim.villageReception.clear();
+    this.sim.grieving.clear();
+    for (const v of this.state.villages) {
+      this.sim.villageMood.set(v.id, clamp(v.attitude / 100, -1, 1));
+      const familiarity = clamp01(1 - Math.max(0, this.day - v.lastVisitedDay) / 10);
+      let unresolved = 0;
+      for (const g of v.grievances ?? []) {
+        if (g.resolved) continue;
+        unresolved++;
+        if (g.householdId) this.sim.grieving.add(g.householdId);
+      }
+      this.sim.villageReception.set(
+        v.id,
+        clamp01(0.5 + v.attitude / 250 + familiarity * 0.25 - 0.25 * Math.min(1, unresolved))
+      );
+    }
   }
 
   /** Bounded water/food supply factor (0.4..1) for recovery rates — issue 021 logistics teeth. A
@@ -247,7 +268,10 @@ export class World {
 
     if (this.inContact()) this.state.lastContactClock = this.state.clock;
     if (!prevContact && this.inContact()) this.interrupt("TROOPS IN CONTACT");
-    if (prevNight && !this.isNight()) this.interrupt("first light");
+    if (prevNight && !this.isNight()) {
+      this.interrupt("first light");
+      this.tickFunerals();
+    }
 
     this.checkTourEnd();
   }
@@ -441,6 +465,19 @@ export class World {
     const by = u.casualtyByFaction;
     const vil = this.nearestVillage(u.pos, 700);
     if (by === "us" || by === "ana") {
+      // THE LEDGER GETS A NAME (people-immersion): he is not an attitude penalty — he
+      // is a man with a household, and the village remembers him by name until solatia
+      // settles the debt. Keyed on HIS village (the funeral happens at HIS home), with
+      // the nearest village as the roadside fallback; a wound that later kills updates
+      // the same entry (never two debts for one body).
+      const gvil = (u.villageId && this.state.villages.find((x) => x.id === u.villageId)) || vil;
+      if (gvil) {
+        const ledger = (gvil.grievances ??= []);
+        const prior = ledger.find((g) => g.unitId === u.id);
+        if (prior) prior.killed = prior.killed || killed;
+        else ledger.push({ unitId: u.id, name: u.name, householdId: u.householdId, day: this.day, killed, resolved: false });
+        this.log(`${u.name} of ${gvil.name} was ${killed ? "killed" : "wounded"} by our fire. His household will remember.`, "casualty");
+      }
       const att = delta ? 8 : killed ? 14 : 6;
       const symp = delta ? 6 : killed ? 11 : 5;
       const coop = delta ? 5 : killed ? 8 : 3;
@@ -492,12 +529,67 @@ export class World {
     let recruit = 0;
     let pacify = 0;
     for (const v of this.state.villages) {
-      recruit += (v.sympathy / 100) * (v.attitude < 0 ? 1.0 : 0.55);
+      // Unresolved named grievances FLOOR the village's effective sympathy — badal
+      // recruits even where general sympathy was low. Capped at 36 so the ledger can
+      // hurt but never dominate; paying solatia lifts the floor entry by entry.
+      const unresolved = (v.grievances ?? []).reduce((a, g) => a + (g.resolved ? 0 : 1), 0);
+      const sympEff = Math.max(v.sympathy, Math.min(36, 12 * unresolved));
+      recruit += (sympEff / 100) * (v.attitude < 0 ? 1.0 : 0.55);
       if (v.attitude > 35) pacify += 0.35;
     }
     const infiltration = 0.4 * this.state.enemyHeat; // outside fighters via the draws
     const perDay = recruit + infiltration - pacify;
     this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + (perDay * dt) / DAY, 0, 80);
+  }
+
+  /** The morning after (people-immersion): the village buries its dead at first light
+   *  — within a day, at dawn, as practice demands. The household gathers with the
+   *  elder at the family compound and stands for twenty minutes. Weight, not
+   *  spectacle: one log line, a knot of still figures, and a player who watches
+   *  learns which compound — and which faces — his fire cost him. */
+  private tickFunerals() {
+    for (const v of this.state.villages) {
+      for (const g of v.grievances ?? []) {
+        if (!g.killed || g.mourned || this.day <= g.day) continue;
+        g.mourned = true;
+        const vt = this.terrain.villages.find((x) => x.id === v.id);
+        if (!vt) continue;
+        const c = this.terrain.cellCenter(vt.cx, vt.cy);
+        const r = this.terrain.reachablePoint(c.x, c.y);
+        const at = this.terrain.civSafePoint(r.x, r.y);
+        let n = 0;
+        for (const u of this.sim.units) {
+          if (u.faction !== "civilian" || !u.alive || !u.conscious) continue;
+          const kin = (g.householdId && u.householdId === g.householdId) || u.id === v.elderUnitId;
+          if (!kin) continue;
+          u.summons = { x: at.x + ((n % 3) - 1) * 2, y: at.y + Math.floor(n / 3) * 2, untilS: this.sim.timeS + 1200 };
+          u.summonsAborted = false;
+          n++;
+        }
+        if (n > 0) this.log(`First light over ${v.name}: they bury ${g.name}.`, "info");
+      }
+    }
+  }
+
+  /** The village's elder as a LIVING AGENT. Repairs the binding when the bound elder
+   *  is dead or missing: the village quietly puts forward another man (deterministic —
+   *  first adult villager by id), and the succession is loggable, visible truth: kill
+   *  a village's elder and a new face speaks for it at the next shura. */
+  ensureElder(v: VillageState): Unit | null {
+    const bound = v.elderUnitId ? this.sim.unit(v.elderUnitId) : undefined;
+    if (bound && bound.alive && bound.conscious) return bound;
+    const next =
+      this.sim.units
+        .filter((u) => u.faction === "civilian" && u.alive && u.conscious && u.villageId === v.id && u.role !== "child")
+        .sort((a, b) => (a.id < b.id ? -1 : 1))[0] ?? null;
+    if (next) {
+      const succession = !!v.elderUnitId && v.elderUnitId !== next.id;
+      next.role = "elder";
+      v.elderUnitId = next.id;
+      v.elder = next.name;
+      if (succession) this.log(`${next.name} now speaks for ${v.name}.`, "info");
+    }
+    return next;
   }
 
   private cullEnemies() {
