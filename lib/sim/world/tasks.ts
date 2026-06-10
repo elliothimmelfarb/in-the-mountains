@@ -7,7 +7,7 @@ import type { World } from "./world";
 import { Task, defaultSOP } from "./types";
 import { centroidOf, dwellFor } from "./helpers";
 import { makeDwellEvent } from "./events";
-import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam } from "./formation";
+import { planFormation, steerSquad, steerFile, holdSecurity, releaseFormation, byTeam, buildSquad } from "./formation";
 import { squadFight } from "../ai/squad-combat";
 
 // On-station dwell event-roll cadence: roll at most every THROTTLE game-seconds, with CHANCE per
@@ -76,9 +76,12 @@ export function tickTasks(w: World, dt: number) {
         break;
       }
       case "moving": {
-        if (contact) squadFight(w, t, members, dt);
-        else {
+        if (contact) {
+          t.consolidateUntil = undefined; // renewed contact preempts the beat instantly
+          squadFight(w, t, members, dt);
+        } else {
           if (t.squadState) releaseCombat(w, t, members);
+          if (consolidating(w, t, members, dt)) break;
           drivePatrol(w, t, members, dt);
         }
         break;
@@ -106,9 +109,12 @@ export function tickTasks(w: World, dt: number) {
         break;
       }
       case "returning": {
-        if (contact) squadFight(w, t, members, dt);
-        else {
+        if (contact) {
+          t.consolidateUntil = undefined;
+          squadFight(w, t, members, dt);
+        } else {
           if (t.squadState) releaseCombat(w, t, members);
+          if (consolidating(w, t, members, dt)) break;
           driveReturn(w, t, members, dt, centroid);
         }
         break;
@@ -327,12 +333,121 @@ function releaseCombat(w: World, t: Task, members: Unit[]) {
   }
   releaseFormation(members);
   if (t.phase === "onstation") {
+    // On-station the re-secured objective ring IS the consolidation — no extra beat.
     holdSecurity(w, byTeam(w, members), centroidOf(members), t.kind === "kle" ? 9 : 14, t);
+  } else if (t.kind !== "standto") {
+    // CONSOLIDATE & REORGANIZE (FM 3-21.8): the shooting stops and the squad does NOT
+    // just stand up and walk off. It collapses into a tight ring, the SL physically
+    // walks the line, ammo is cross-levelled onto the guns, the head count goes out —
+    // THEN the march resumes. Duration keyed to what the fight cost; capped well under
+    // the STUCK_S watchdog so a max-length consolidate can never read as a stall.
+    const total = Math.max(1, t.memberIds.length);
+    const down = total - members.length;
+    const wounded = members.filter((m) => !m.conscious || m.wounds.some((wd) => !wd.treated)).length;
+    const meanSupp = members.reduce((a, m) => a + m.suppression, 0) / Math.max(1, members.length);
+    // Only a REAL engagement earns the full beat. A few harassing cracks that hurt
+    // nobody get the march back, not an 80 s perimeter — parking a bunched element
+    // near a known enemy position after every contact flicker measurably fed the
+    // casualty count on both sides (the director re-targets a static patrol).
+    if (down > 0 || wounded > 0 || meanSupp > 0.2) {
+      const dur = Math.min(80, (30 + 60 * (down / total) + 20 * meanSupp) * w.rng.range(0.9, 1.1));
+      t.consolidateUntil = w.state.clock + dur;
+      t.consolidateStep = 0;
+      t.aceDone = false;
+      const sl = w.sim.unit(buildSquad(w, members).slId ?? undefined) ?? members[0];
+      if (sl) w.sim.say(sl, "head_count");
+      w.log(
+        `${t.label}: consolidating — head count ${members.length} up${down > 0 ? `, ${down} down` : ""}${wounded > 0 ? `, ${wounded} wounded` : ""}.`,
+        "radio"
+      );
+      return; // the consolidate log replaces the generic "contact broken" line
+    }
   }
   w.log(
     `${t.label}: contact broken — ${t.phase === "returning" ? "continuing exfil" : t.phase === "onstation" ? "re-securing the objective" : "resuming movement"}.`,
     "radio"
   );
+}
+
+/**
+ * The held breath after the fight: a kneeling 360 around the casualties, the squad
+ * leader moving man to man down the line (the ACE check made visible), rifle ammo
+ * cross-levelled onto the guns. Returns true while the beat owns the element —
+ * the caller skips the drive functions, so the ring isn't re-pathed apart; the
+ * stall watchdog isn't fed while we hold (and is reset on exit), so it can't fire.
+ */
+function consolidating(w: World, t: Task, members: Unit[], dt: number): boolean {
+  void dt;
+  if (t.consolidateUntil === undefined) return false;
+  if (w.state.clock >= t.consolidateUntil) {
+    t.consolidateUntil = undefined;
+    releaseFormation(members);
+    for (const m of members) {
+      m.brainState = "moving";
+      m.faceLock = null;
+    }
+    resetProgress(t);
+    w.log(`${t.label}: consolidation complete — ${t.phase === "returning" ? "continuing exfil" : "moving"}.`, "radio");
+    return false;
+  }
+  const sq = buildSquad(w, members);
+  const sl = sq.slId ? w.sim.unit(sq.slId) : undefined;
+  // Idempotent ring (the holdSecurity/ringSlots cache): re-issue only when a man other
+  // than the walking SL has fallen out of the holding state.
+  if (members.some((m) => m !== sl && m.brainState !== "holding")) {
+    holdSecurity(w, byTeam(w, members), centroidOf(members), 12, t);
+  }
+  // ACE cross-level, once: riflemen feed the SAW/auto gunners' reserve back up.
+  if (!t.aceDone) {
+    t.aceDone = true;
+    crossLevelAmmo(members);
+  }
+  // The SL walks the line, team to team — the count the radio already reported, embodied.
+  if (sl && sl.alive && sl.conscious) {
+    const teams = sq.teams.filter((tm) => tm.ids.length > 0);
+    const step = t.consolidateStep ?? 0;
+    if (step < teams.length) {
+      const tm = teams[step].ids.map((id) => w.sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
+      if (tm.length === 0) {
+        t.consolidateStep = step + 1;
+      } else {
+        const tgt = centroidOf(tm);
+        sl.faceLock = null;
+        sl.formationHold = false;
+        if (dist(sl.pos, tgt) > 4) {
+          sl.brainState = "moving";
+          if (sl.path.length === 0) w.sim.walkTo(sl, tgt);
+        } else {
+          t.consolidateStep = step + 1;
+        }
+      }
+    } else {
+      sl.brainState = "holding";
+      sl.path = [];
+      sl.moving = false;
+    }
+  }
+  return true;
+}
+
+/** Redistribute rifle reserve onto the 5.56 guns (SAW / auto rifleman) — the ACE
+ *  check's teeth: the next fight starts with the base of fire fed. (The 7.62 MG's
+ *  belts are the weapons squad's own problem — different caliber, not cross-levelled.) */
+function crossLevelAmmo(members: Unit[]) {
+  const guns = members.filter((m) => m.conscious && (m.role === "saw_gunner" || m.role === "auto_rifleman"));
+  const donors = members.filter(
+    (m) => m.conscious && m.role !== "saw_gunner" && m.role !== "auto_rifleman" && m.role !== "machinegunner" && m.role !== "medic" && m.reserveAmmo > 150
+  );
+  for (const g of guns) {
+    while (g.reserveAmmo < 300 && donors.length > 0) {
+      const d = donors[0];
+      const amt = Math.min(30, d.reserveAmmo - 150, 300 - g.reserveAmmo);
+      if (amt <= 0) break;
+      d.reserveAmmo -= amt;
+      g.reserveAmmo += amt;
+      if (d.reserveAmmo <= 150) donors.shift();
+    }
+  }
 }
 
 function enterOnStation(w: World, t: Task, members: Unit[], center?: Vec2) {

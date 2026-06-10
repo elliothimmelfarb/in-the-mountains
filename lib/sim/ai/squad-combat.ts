@@ -4,8 +4,8 @@ import { buildSquad } from "../world/formation";
 import { centroidOf } from "../world/helpers";
 import { Unit } from "../entities";
 import { getWeapon } from "../weapons";
-import { dist, Vec2, norm, sub, add, scale, len } from "../vec";
-import { clamp, lerp } from "../rng";
+import { dist, Vec2, norm, sub, add, scale, len, angle, angleDiff } from "../vec";
+import { clamp, lerp, RNG } from "../rng";
 import { findPath } from "../path";
 
 /**
@@ -68,6 +68,11 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
     t.boundUntil = undefined;
     stampReact(w, members, threat, sop);
     w.log(`${t.label}: CONTACT — ${enemyCount > 0 ? `enemy to the ${w.bearingDesc(threat)}` : "taking fire"}.`, "contact");
+    // The man who SEES them calls it, with the bearing as he faces it — not the radio's.
+    const spotter =
+      members.find((m) => m.alive && m.conscious && m.visibleEnemyIds.length > 0) ??
+      members.find((m) => m.alive && m.conscious);
+    if (spotter) w.sim.say(spotter, "contact", { text: `contact ${relBearing(spotter, threat)}!` });
     w.interrupt(`${t.label} IN CONTACT`);
     return;
   }
@@ -111,7 +116,37 @@ export function squadFight(w: World, t: Task, members: Unit[], dt: number) {
       }
       break;
     }
-    case "assault":
+    case "assault": {
+      // PINNED-REVERT (FM 3-21.8): an assault element that cannot advance becomes
+      // support-by-fire while the leader reassesses — it does not close on momentum.
+      // Majority of the maneuver element pinned for >4 s (after ≥6 s committed, so a
+      // first burst can't abort the drill) → fall back to suppress, restart the
+      // develop clock, and remember the flank side so a re-commit tries the OTHER one.
+      const liveM = (t.mnvrIds ?? [])
+        .map((id) => w.sim.unit(id))
+        .filter((u): u is Unit => !!u && u.alive && u.conscious && !u.evac);
+      const pinnedN = liveM.filter((u) => u.composure < 0.25 || u.suppression > 0.55).length;
+      if (liveM.length > 0 && pinnedN * 2 >= liveM.length) {
+        if (t.mnvrPinnedSince == null) t.mnvrPinnedSince = w.state.clock;
+      } else {
+        t.mnvrPinnedSince = undefined;
+      }
+      const pinnedFor = t.mnvrPinnedSince != null ? w.state.clock - t.mnvrPinnedSince : 0;
+      const committedFor = w.state.clock - (t.assaultSince ?? w.state.clock);
+      if (pinnedFor > 4 && committedFor > 6) {
+        t.squadState = "suppress";
+        t.fixSince = w.state.clock; // develop the situation again before any re-commit
+        t.revertedAt = w.state.clock;
+        t.mnvrPinnedSince = undefined;
+        const caller = members.find((m) => m.alive && m.conscious);
+        if (caller) w.sim.say(caller, "falling_back");
+        w.log(`${t.label}: maneuver element pinned — falling back to suppress.`, "radio");
+      }
+      t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
+      runState(w, t, members, threat, enemyCount, eff, sop);
+      maybeRequestFires(w, t, members, eff, sop);
+      break;
+    }
     case "break":
       t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
       runState(w, t, members, threat, enemyCount, eff, sop);
@@ -140,6 +175,9 @@ function chooseDrill(w: World, t: Task, members: Unit[], threat: Vec2, enemyCoun
   // first; suppress develops longest (and meanwhile calls fires) — so many contacts resolve before
   // the cautious SOPs ever assault. That is what makes Hold ≠ Assault, not cosmetic.
   if (w.state.clock - (t.fixSince ?? w.state.clock) < developTime(sop)) return fixing;
+  // A squad that just reverted a pinned assault re-develops for a hard minimum even
+  // under an aggressive SOP (developTime 0) — never assault↔suppress flip-flop.
+  if (t.revertedAt != null && w.state.clock - t.revertedAt < 12) return fixing;
   // The DECISION is otherwise cheap (no path search): commit when the squad can gain fire superiority
   // and has two fire teams to bound with. Covered-flank vs frontal route is decided at commit.
   const sq = buildSquad(w, members);
@@ -163,10 +201,15 @@ function commitDrill(w: World, t: Task, members: Unit[], threat: Vec2, drill: "a
   t.squadTimer = RECONSIDER + w.rng.next() * 0.6;
   if (drill === "assault") {
     assignElements(w, t, members, threat);
-    // Prefer a covered flank; null → stampAssault routes frontally (the fallback when no flank exists).
-    t.flankPt = findCoveredFlank(w, members, threat, aggressionOf(sop)) ?? undefined;
+    // Prefer a covered flank; null → stampAssault routes frontally (the fallback when no
+    // flank exists). After a pinned revert, prefer the side the last assault did NOT use.
+    const flank = findCoveredFlank(w, members, threat, aggressionOf(sop), t.lastFlankSide ? -t.lastFlankSide : undefined);
+    t.flankPt = flank?.pt;
+    if (flank) t.lastFlankSide = flank.side;
     t.boundPair = 0;
     t.boundUntil = w.state.clock + w.rng.range(3, 5);
+    t.assaultSince = w.state.clock;
+    t.mnvrPinnedSince = undefined;
   }
   runState(w, t, members, threat, enemyCount, eff, sop);
 }
@@ -196,7 +239,13 @@ function assessFireSuperiority(members: Unit[], enemyCount: number, eff: Eff): b
  * floor, so "more cover than bare dirt" doesn't qualify). The gate is SOP-keyed: hold needs a clearly
  * better flank; assault accepts a modest one. Returns the chosen flank point.
  */
-function findCoveredFlank(w: World, members: Unit[], threat: Vec2, aggression: number): Vec2 | null {
+function findCoveredFlank(
+  w: World,
+  members: Unit[],
+  threat: Vec2,
+  aggression: number,
+  preferSide?: number
+): { pt: Vec2; side: number } | null {
   const terrain = w.sim.terrain;
   const live = members.filter((m) => m.alive && m.conscious);
   const c = centroidOf(live.length ? live : members);
@@ -210,21 +259,23 @@ function findCoveredFlank(w: World, members: Unit[], threat: Vec2, aggression: n
   // gate is RELATIVE (not an absolute floor) so it still finds the best available approach on the
   // coarse 5 m cover raster; WS3's discrete cover objects will make the absolute gain much larger.
   const gate = lerp(1.25, 1.06, aggression); // hold ~1.15×, assault 1.06× the straight-line cover
-  let best: Vec2 | null = null;
+  let best: { pt: Vec2; side: number } | null = null;
   let bestCover = Math.max(0.04, straight * gate);
   // Sample both sides at two offsets and pick the most-covered cover-biased route (≤4 path queries,
-  // run ONCE per assault commit — never per reconsider).
+  // run ONCE per assault commit — never per reconsider). A re-commit after a pinned revert prefers
+  // the OTHER side: the dispreferred side must beat it by a margin to win again.
   for (const s of [1, -1]) {
+    const adj = preferSide != null && s !== preferSide ? 0.92 : 1;
     for (const frac of [0.55, 0.8]) {
       const sideDist = clamp(d * frac, 30, 80);
       const raw = add(threat, scale(perp, s * sideDist));
       const flankPt = terrain.passablePoint(raw.x, raw.y);
       const path = findPath(terrain, c, flankPt, { coverBias: 0.85, cheapFallback: true });
       if (!path.length) continue;
-      const routeCover = meanCoverPath(terrain, c, path);
+      const routeCover = meanCoverPath(terrain, c, path) * adj;
       if (routeCover > bestCover) {
         bestCover = routeCover;
-        best = flankPt;
+        best = { pt: flankPt, side: s };
       }
     }
   }
@@ -317,9 +368,11 @@ function stampAssault(w: World, t: Task, members: Unit[], threat: Vec2, sop: Squ
 
   // Bounding overwatch: which buddy pair of the maneuver element is rushing right now. Swap on a
   // 3–5 s clock so only one element is ever moving (the other lays overwatch on the objective).
+  let swapped = false;
   if ((t.boundUntil ?? 0) <= w.state.clock) {
     t.boundPair = 1 - (t.boundPair ?? 0);
     t.boundUntil = w.state.clock + w.rng.range(3, 5);
+    swapped = true;
   }
   const liveMnvr = mnvrIds
     .map((id) => w.sim.unit(id))
@@ -328,6 +381,28 @@ function stampAssault(w: World, t: Task, members: Unit[], threat: Vec2, sop: Squ
   // Sort by distance to the flank so the buddy pairs are spatially coherent (leaders/closest bound first).
   liveMnvr.sort((a, b) => dist(a.pos, flankPt) - dist(b.pos, flankPt));
   const movingPair = new Set((t.boundPair ? liveMnvr.slice(half) : liveMnvr.slice(0, half)).map((m) => m.id));
+  // The bound announces itself — once per swap, naturally sparsified by the bus dedup.
+  if (swapped && liveMnvr.length > 1) {
+    const overwatch = liveMnvr.find((m) => !movingPair.has(m.id));
+    const rusher = liveMnvr.find((m) => movingPair.has(m.id));
+    if (overwatch) w.sim.say(overwatch, "covering");
+    if (rusher) w.sim.say(rusher, "moving");
+  }
+  // Courage is fear held a second longer — and some men hold it longer than others.
+  // On each swap, every man of the moving pair gets a personal step-off beat from his
+  // STATIC nerve (live composure would double-count suppression): the steady team
+  // leader is up instantly, a shaken private freezes at the berm. Capped well under
+  // the 3 s minimum bound window so nobody is stranded when the pair flips back.
+  if (swapped) {
+    for (const m of liveMnvr) {
+      if (!movingPair.has(m.id)) continue;
+      const hes = (1 - nerve(m)) * 0.9 + ((m.shaken ?? 0) > 0 ? 0.3 : 0);
+      // SIM time, not world clock — friendlyBrain (the per-tick execution layer)
+      // enforces the beat; gating it here on the ~1.2 s reconsider would quantize
+      // every man's step-off back onto the same tick (measured: spread stayed 0.00).
+      m.boundDelayUntil = w.sim.timeS + Math.min(1.1, hes);
+    }
+  }
 
   let screened = false;
   for (const m of members) {
@@ -348,7 +423,7 @@ function stampAssault(w: World, t: Task, members: Unit[], threat: Vec2, sop: Squ
         m.orderType = "assault";
         m.orderTarget = { ...obj };
         m.rof = perManRof(m, sop, false, AUTO_ROLES.has(m.role)); // honor weapons-hold even while bounding
-        if (m.path.length === 0 && dist(m.pos, obj) > 3) {
+        if (m.path.length === 0 && dist(m.pos, obj) > 3 && w.sim.timeS >= (m.boundDelayUntil ?? 0)) {
           w.sim.pathTo(m, obj, { coverBias: 0.6, concealBias: 0.3, cheapFallback: true });
         }
         // screen the bound with smoke if it crosses open ground (throttled across the squad)
@@ -441,12 +516,24 @@ function enterBreak(w: World, t: Task, members: Unit[], threat: Vec2, forced: bo
   t.squadState = "break";
   t.squadTimer = RECONSIDER;
   t.rallyPt = rallyPoint(w, members, threat);
+  const caller = members.find((m) => m.alive && m.conscious);
+  if (caller) w.sim.say(caller, "falling_back");
   w.log(`${t.label}: ${forced ? "combat-ineffective — " : ""}breaking contact to the ${w.bearingDesc(t.rallyPt)}.`, "radio");
   w.interrupt(`${t.label} breaking contact`);
   stampBreak(w, t, members, threat, t.sop ?? defaultSOP(t.missionType));
 }
 
 // ───────────────────────────────────────────────────────────── helpers
+
+/** The threat's bearing as THIS man faces it — what he'd actually shout. Screen-space
+ *  y-down convention: positive angle offset from his facing is his right hand. */
+function relBearing(u: Unit, threat: Vec2): string {
+  const rel = angleDiff(u.facing, angle(sub(threat, u.pos)));
+  const a = Math.abs(rel);
+  if (a < Math.PI / 4) return "front";
+  if (a > (3 * Math.PI) / 4) return "rear";
+  return rel > 0 ? "right" : "left";
+}
 
 /** Per-man fire posture from the ROE. Under weapons-HOLD a man only opens up if he's
  *  actually being engaged (self-defense); otherwise tight/free fire freely (suppress for
@@ -475,9 +562,19 @@ function seekCover(w: World, u: Unit, threat: Vec2) {
   // balance.ts A/B): tightening this to <9 m cut KIA in short 18-min fights but REGRESSED the
   // 50-min deployment (KIA 0.83→1.08) — over many contacts men need to reach real terrain cover,
   // not hunker in marginal spots. The 24 m / +0.12 reach is the better-tuned long-run value.
-  if (w.sim.terrain.coverAt(c.x, c.y) > here + 0.12 && dist(c, u.pos) > 2 && dist(c, u.pos) < 18) {
+  // Per-man taste in cover, multiplicative around the tuned 0.12 so the POPULATION
+  // mean is unchanged (the covertune verdict stands): the green man bolts for the
+  // first rock that's any better; the experienced man holds out for a real piece.
+  const upgrade = 0.12 * (0.7 + 0.6 * RNG.hash01(u.id + ":cov"));
+  if (w.sim.terrain.coverAt(c.x, c.y) > here + upgrade && dist(c, u.pos) > 2 && dist(c, u.pos) < 18) {
     w.sim.moveTo(u, c);
   }
+}
+
+/** Static per-man nerve (0..1) — innate traits only, never live composure (which
+ *  would double-count suppression into every read). */
+function nerve(u: Unit): number {
+  return clamp(0.35 * u.composureMax + 0.35 * u.experience + 0.3 * u.aggression, 0, 1);
 }
 
 interface Eff {

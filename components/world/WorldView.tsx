@@ -6,6 +6,7 @@ import { Camera, drawTerrain, drawGrid, drawWeather, worldToScreen, screenToWorl
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
+import { CalloutPresenter } from "@/lib/render/callouts";
 import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
@@ -55,6 +56,12 @@ function haloText(ctx: CanvasRenderingContext2D, text: string, x: number, y: num
   ctx.strokeText(text, x, y);
   ctx.fillText(text, x, y);
 }
+
+// Diegetic shout plates ("contact left!", "man down!") — module-level for the same reason
+// combat-fx's high-water marks are: callout ids come from a module-level counter in
+// lib/sim/combat.ts (`_cid`), monotonic across CombatSim instances, so the presenter's
+// lastId mark stays valid across deploys/loads within a page session.
+const calloutPresenter = new CalloutPresenter();
 
 /** A capped maneuver arrow with a filled head (screen coords). */
 function drawManeuverArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number, color: string) {
@@ -583,6 +590,10 @@ export default function WorldView() {
     drawSuppressionCues(ctx, cam, sim.playerUnits());
     // arterial-bleed pools + buddy-aid links (the wounds-not-kills medical read)
     drawCasualtyCues(ctx, cam, sim.playerUnits());
+    // diegetic callouts — tick EVERY frame (the mark must never go stale, mapper-style);
+    // ingest only when running live so a warp/pause never dumps a backlog of stale shouts.
+    calloutPresenter.tick(sim, nowMs, !st.warp && !st.paused);
+    calloutPresenter.draw(ctx, cam);
     // LOD aggregation: below tactical zoom, small-arms fire collapses to a warm haze (drifts downwind)
     drawCombatHaze(ctx, cam, sim.projectiles, sim.effects, windV);
     // NIGHT LIGHT: at night, muzzle flashes / tracers / blasts emit additive light into the

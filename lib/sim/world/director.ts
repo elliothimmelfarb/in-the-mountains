@@ -221,6 +221,12 @@ function spawnFighter(w: World, pos: Vec2, i: number, total: number): Unit {
   // losses (casualty shock) and a fallen commander's cell promotes a new leader —
   // the enemy-side of #3, previously inert because insurgents had no squadId.
   e.squadId = `acm-${w.state.clock | 0}`;
+  // The first man of every batch leads the cell (he also holds the best-scored
+  // firing position — the anchor corner), which switches on the cell-combat
+  // coordinator (ai/cell-combat.ts). ≥6-man batches already minted a commander via
+  // enemyRoleFor; this extends C2 to the small cells. Key on isLeader, never role —
+  // spawnIedAmbush overwrites role to "ied_team" after spawn.
+  if (i === 0) e.isLeader = true;
   w.sim.addUnit(e);
   return e;
 }

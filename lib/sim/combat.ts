@@ -23,6 +23,7 @@ import {
   silhouetteRadius,
 } from "./ballistics";
 import { insurgentBrain } from "./ai/insurgent";
+import { runCellBrains } from "./ai/cell-combat";
 import { civilianBrain } from "./ai/civilian";
 import { friendlyBrain } from "./ai/friendly";
 
@@ -63,6 +64,56 @@ export interface LogEntry {
   msg: string;
   kind: LogKind;
 }
+
+/** The things a man actually shouts in a fight — surfaced on the map as brief plates
+ *  beside the figure (lib/render/callouts.ts). Sparse and weighty by construction:
+ *  `say()` dedups per (squad, type) on the sim clock, so a running drill cannot bark. */
+export type CalloutType =
+  | "contact" // first spotter, with the true relative bearing ("contact left!")
+  | "man_down" // a buddy saw him drop
+  | "covering" // bounding overwatch half, on the pair swap
+  | "moving" // bounding rush half, on the pair swap
+  | "doc" // buddy-aid peel / calling the medic up
+  | "on_me" // leader succession
+  | "falling_back" // break contact / assault reverted
+  | "head_count" // post-contact consolidation
+  | "set"; // security in place (medic-scene buddy, element set)
+
+/** A diegetic callout. Ephemeral presentation state like `sim.log` — NOT serialized;
+ *  replay-stable because every emission derives from deterministic sim transitions
+ *  and `say()` never draws from the rng (phrase variants are hash-picked). */
+export interface Callout {
+  id: number;
+  timeS: number;
+  type: CalloutType;
+  unitId: string;
+  squadId?: string;
+  pos: Vec2; // snapshot at emission — the plate anchors here
+  text: string;
+}
+
+/** Seconds before the same squad may repeat the same callout type. man_down repeats
+ *  faster (each casualty matters); the bound pair ("covering!"/"moving!") is throttled
+ *  hard — the swap fires every 3–5 s and announcing every one reads as bark soup
+ *  (measured: 10/min on bal-4 before the 22 s window). */
+const CALLOUT_DEDUP_S: Partial<Record<CalloutType, number>> = {
+  man_down: 3,
+  contact: 14,
+  covering: 22,
+  moving: 22,
+};
+
+const CALLOUT_TEXT: Record<CalloutType, string[]> = {
+  contact: ["contact!"], // overridden with the bearing at the call site
+  man_down: ["man down!", "he's hit!"],
+  covering: ["covering!"],
+  moving: ["moving!"],
+  doc: ["doc! over here!"],
+  on_me: ["on me!"],
+  falling_back: ["falling back!"],
+  head_count: ["head count!"],
+  set: ["set!"],
+};
 
 export type FireMissionType =
   | "mortar60"
@@ -213,6 +264,7 @@ export interface CombatInit {
 let _eid = 0;
 let _lid = 0;
 let _fmid = 0;
+let _cid = 0;
 
 /**
  * The tactical engagement simulator. Runs at a fixed timestep; advances every
@@ -228,6 +280,9 @@ export class CombatSim {
   ieds: IED[] = [];
   effects: Effect[] = [];
   log: LogEntry[] = [];
+  callouts: Callout[] = [];
+  // Last emission time per `${squadId}:${type}` — the sim-side spam guard.
+  private calloutLast: Map<string, number> = new Map();
   fireMissions: FireMission[] = [];
   timeS = 0;
   light: number;
@@ -327,6 +382,47 @@ export class CombatSim {
     if (this.log.length > 400) this.log.splice(0, this.log.length - 400);
   }
 
+  /** Emit a diegetic callout from this man. Dedups per (squad, type) on the sim clock —
+   *  the bus itself enforces sparseness, so no caller can spam. Draws no rng (variant
+   *  picked by a pure hash of unit + type + time) — replay-stable by construction. */
+  say(u: Unit, type: CalloutType, opts: { text?: string } = {}) {
+    const key = `${u.squadId ?? u.id}:${type}`;
+    const windowS = CALLOUT_DEDUP_S[type] ?? 10;
+    const last = this.calloutLast.get(key);
+    if (last !== undefined && this.timeS - last < windowS) return;
+    this.calloutLast.set(key, this.timeS);
+    const variants = CALLOUT_TEXT[type];
+    const text =
+      opts.text ??
+      variants[variants.length > 1 ? RNG.hashString(u.id + type + this.timeS.toFixed(1)) % variants.length : 0];
+    this.callouts.push({
+      id: _cid++,
+      timeS: this.timeS,
+      type,
+      unitId: u.id,
+      squadId: u.squadId,
+      pos: { ...u.pos },
+      text,
+    });
+    if (this.callouts.length > 64) this.callouts.splice(0, this.callouts.length - 64);
+  }
+
+  /** Nearest conscious same-faction man to a casualty — the buddy who shouts it. */
+  private nearestWitness(victim: Unit, radius = 30): Unit | null {
+    let best: Unit | null = null;
+    let bd = radius;
+    for (const o of this.units) {
+      if (o === victim || !o.alive || !o.conscious || o.evac) continue;
+      if (o.faction !== victim.faction) continue;
+      const d = dist(o.pos, victim.pos);
+      if (d < bd) {
+        bd = d;
+        best = o;
+      }
+    }
+    return best;
+  }
+
   addEffect(kind: EffectKind, pos: Vec2, ttl: number, opts: Partial<Effect> = {}) {
     this.effects.push({ id: _eid++, kind, pos: { ...pos }, t: 0, ttl, ...opts });
   }
@@ -359,7 +455,10 @@ export class CombatSim {
     }
     this.updateRevealed();
 
-    // 3. AI / order execution
+    // 3. AI / order execution — the enemy's group mind DECIDES first (cell leaders
+    // stamp per-fighter intent, mirroring how squadFight runs before friendlyBrain
+    // in the world tick), then each man's brain EXECUTES the same tick.
+    runCellBrains(this, dt);
     for (const u of this.units) {
       if (!u.alive || u.evac) continue;
       if (u.faction === "insurgent") insurgentBrain(this, u, dt);
@@ -1173,6 +1272,8 @@ export class CombatSim {
     if (u.faction === "us" || u.faction === "ana") {
       if (this.rng.chance(0.5))
         this.addLog(`${this.shortName(u)} is hit — "MAN DOWN!"`, "casualty");
+      const witness = this.nearestWitness(u);
+      if (witness) this.say(witness, "man_down");
     } else if (u.faction === "civilian") {
       this.addLog(`A civilian is wounded in the crossfire.`, "casualty");
     }
@@ -1182,6 +1283,8 @@ export class CombatSim {
     this.casualtyShock(u, true);
     if (u.faction === "us" || u.faction === "ana") {
       this.addLog(`${this.rankName(u)} is KIA (${cause}).`, "kia");
+      const witness = this.nearestWitness(u);
+      if (witness) this.say(witness, "man_down");
       if (u.isLeader) this.promoteSuccessor(u);
     } else if (u.faction === "civilian") {
       this.addLog(`A civilian has been killed.`, "kia");
@@ -1231,8 +1334,10 @@ export class CombatSim {
     for (const o of mates) if (score(o) > score(best)) best = o;
     best.isLeader = true;
     best.leadership = Math.max(best.leadership, 0.5);
-    if (best.faction === "us" || best.faction === "ana")
+    if (best.faction === "us" || best.faction === "ana") {
       this.addLog(`${this.shortName(best)} takes charge — "On me!"`, "radio");
+      this.say(best, "on_me");
+    }
   }
 
   shortName(u: Unit): string {

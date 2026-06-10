@@ -62,6 +62,11 @@ export function planFormation(w: World, t: Task, members: Unit[]): FormationPlan
     tech === "crawl" ? 3.5 : tech === "concealed" ? 4.5 : tech === "tactical" ? 5 : tech === "patrol" ? 5.5 : tech === "traveling" ? 7 : 8.5;
   if (expect) spacing *= 1.3; // open the interval up when contact is likely
   if (open < 0.4) spacing *= 0.78; // close it down in restrictive terrain for control
+  // Reduced visibility closes the interval (FM 3-21.8: keep visual contact with the man
+  // ahead) — at night, and harder still in rain/fog/snow, the file visibly tightens up.
+  if (w.isNight()) spacing *= 0.8;
+  const wl = w.state.weather.label;
+  if (wl === "Rain" || wl === "Snow" || wl === "Fog") spacing *= 0.88;
   spacing = clamp(spacing, 4, 12);
 
   // Formation choice. This valley is close, broken ground end to end — draws, benches,
@@ -185,6 +190,30 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   // throttle (no re-path), so cohesion and the stall watchdog are untouched; clears the
   // instant the lane is empty.
   if (civAhead(w, nav, headDir)) nav.paceScale = Math.min(nav.paceScale, 0.6);
+
+  // POINT-MAN CAUTION: he reads the ground AHEAD, not just underfoot. Sample the
+  // corridor 6/12/18 m up his planned route; when it pinches hard relative to here he
+  // eases off — and at the mouth of a true choke (<5 m) he halts one beat (the raised
+  // fist), the file accordioning in behind him, before leading through. One beat per
+  // choke (clock-latched + cooldown), never on an admin traveling march. Pure terrain
+  // reads — no rng, no re-path, the stall watchdog untouched.
+  if (plan.expectContact || t.technique === "patrol" || t.technique === "tactical") {
+    let aheadMin = Infinity;
+    for (const d of [6, 12, 18]) {
+      const p = aheadOnPath(nav, d);
+      const dir2 = norm(sub(p, nav.pos));
+      const perp2 = len(dir2) > 1e-3 ? { x: -dir2.y, y: dir2.x } : navPerp;
+      aheadMin = Math.min(aheadMin, freeWidth(w, p, perp2));
+    }
+    if (aheadMin < corridor * 0.6) nav.paceScale = Math.min(nav.paceScale, 0.7);
+    const clock = w.state.clock;
+    if ((t.chokeHoldUntil ?? 0) > clock) {
+      nav.formationHold = true; // the held beat at the mouth
+    } else if (aheadMin < 5 && corridor >= 5 && (t.chokeCooldownUntil ?? 0) <= clock) {
+      t.chokeHoldUntil = clock + 2.5;
+      t.chokeCooldownUntil = clock + 90;
+    }
+  }
 
   return centroidOf(members);
 }
@@ -654,6 +683,16 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
   // Pure id-hash (advances no RNG stream) → identical across replays.
   back *= 0.9 + 0.2 * hashUnit01(u.id);
 
+  // PERSONAL LINE-PICKING: each man also rides a small GROUND-STABLE lateral weave
+  // around the wake — his own amplitude, wavelength and phase, keyed to the terrain
+  // position (not the arc), so he picks the same line past the same rock every pass and
+  // nine men thread nine slightly different lines instead of one rail. Snapped onto
+  // passable ground by the same passTarget clamp as the wedge offset.
+  const mA = 0.3 + 0.5 * hashUnit01(u.id + "mA");
+  const mL = 18 + 12 * hashUnit01(u.id + "mL");
+  const mP = Math.PI * 2 * hashUnit01(u.id + "mP");
+  const meanderAt = (p: Vec2) => mA * Math.sin(((p.x + p.y) * 0.7071 * Math.PI * 2) / mL + mP);
+
   const slotSP = trailPoint(t, nav.pos, headDir, back);
   const slotPerp = { x: -slotSP.tan.y, y: slotSP.tan.x };
   // Clamp the wedge offset to the room ACTUALLY available abreast of this man's slot, so
@@ -670,7 +709,7 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
     }
     lat = sign * Math.min(Math.abs(lat), Math.max(0, room - 1.2));
   }
-  const slot = passTarget(w, add(slotSP.pt, scale(slotPerp, lat)), slotSP.pt);
+  const slot = passTarget(w, add(slotSP.pt, scale(slotPerp, lat + meanderAt(slotSP.pt))), slotSP.pt);
   u.pathGoal = slot;
 
   const proj = projectBack(nav.pos, tr, u.pos); // {back, dist} of the man's projection on the wake
@@ -704,7 +743,8 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
   for (let a = proj.back - WAKE_STEP; a > back; a -= WAKE_STEP) {
     const sp = trailPoint(t, nav.pos, headDir, a);
     const pp = { x: -sp.tan.y, y: sp.tan.x };
-    path.push(lat !== 0 ? passTarget(w, add(sp.pt, scale(pp, lat)), sp.pt) : { ...sp.pt });
+    const off = lat + meanderAt(sp.pt);
+    path.push(off !== 0 ? passTarget(w, add(sp.pt, scale(pp, off)), sp.pt) : { ...sp.pt });
   }
   path.push(slot);
   u.path = path;
