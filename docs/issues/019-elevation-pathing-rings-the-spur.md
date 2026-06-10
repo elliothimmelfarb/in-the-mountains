@@ -100,7 +100,10 @@ pipeline untouched. `ITM_NOSWITCH=1` / `OPROUTE_NOSWITCH=1` are A/B kill-switche
   reached **8/8** (Law 3 — fresh seeds never tuned on).
 - Climbable-face OPs land in the target band: korengal **×2.19 → ×1.31**, restrepo ×1.42 → **×1.21**,
   ridgeline ×1.88 → ×1.63, survey-52 ×1.07, kunar-9 ×1.54. Switchback jitter **3–6 → 1–2** reversals.
-- `route-quality` ALL 48 ratio 1.12 loopy 0 — **byte-identical**. `smoke` OK (no new persisted state).
+- `route-quality` ALL 48 ratio 1.12 loopy 0 — **byte-identical**. `reachability` (60 seeds): **arrival
+  counts identical on all 60** (2 seeds — survey-50/52, both elevated-village — shifted *which* village is
+  the worst-miss with no change to the count, i.e. the switchback rerouted an approach but lost no
+  reachability). `smoke` OK (no new persisted state).
 - **balance** A/B (same-seed): planner OFF = **byte-identical to HEAD** (KIA 0.92, WIA 7.33); planner ON =
   KIA 1.08, WIA 7.83 — the realistic, measured cost of squads now climbing **exposed** high ground; the
   **stall guard PASSES (0 stranded)**, the exact failure that reverted the two prior in-place attempts.
