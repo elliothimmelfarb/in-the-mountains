@@ -3,6 +3,10 @@ import { Vec2, dist, sub, norm, scale, add, len, fromAngle, angle, angleDiff, se
 import { Terrain } from "./terrain";
 import { Unit, unitHeight, eyeHeight, MoveTechnique } from "./entities";
 import { findPath, walkable } from "./path";
+
+// Issue 020 A/B kill-switch (read once): ITM_NOOBJCOVER=1 disables the directional cover-object
+// occlusion in coverFor, so a same-seed balance bisect can isolate its combat effect on the shared tree.
+const NO_OBJ_COVER = process.env.ITM_NOOBJCOVER === "1";
 import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
@@ -1119,13 +1123,22 @@ export class CombatSim {
     u.threatDir = norm(sub(fromPos, u.pos));
   }
 
-  /** Hard cover protecting `target` from incoming rounds (stance + microterrain). */
-  coverFor(target: Unit, _fromPos: Vec2): number {
+  /** Hard cover protecting `target` from a round fired at `fromPos` (stance + microterrain + the
+   *  DIRECTIONAL discrete cover objects — issue 020). */
+  coverFor(target: Unit, fromPos: Vec2): number {
     let cover = this.terrain.coverAt(target.pos.x, target.pos.y);
     // prone behind microterrain adds cover
     if (target.stance === "prone") cover = clamp01(cover + 0.18);
     else if (target.stance === "crouch") cover = clamp01(cover + 0.08);
-    return cover;
+    // Directional object cover (issue 020): a boulder/outcrop sitting between the shooter and the
+    // target adds hard cover FROM THIS BEARING only (a flanker still sees him exposed), scaled by
+    // posture (a low rock hides a prone man more). This is the sub-cell cover the 5 m raster can't
+    // represent — so open ground a soldier could only "stand and take it" on now has real, usable
+    // cover, without the omnidirectional grind that reverted the 2026-06-09 stamp.
+    if (NO_OBJ_COVER) return cover; // A/B kill-switch (ITM_NOOBJCOVER=1) for headless balance bisects
+    const h = target.stance === "prone" ? 0.5 : target.stance === "crouch" ? 1.0 : 1.6;
+    const objCov = this.terrain.coverOcclusion(fromPos, target.pos, h);
+    return Math.max(cover, objCov);
   }
 
   // ---------------------------------------------------------------- hit hooks
@@ -1712,11 +1725,19 @@ export class CombatSim {
     let best: Vec2 | null = null;
     let bestScore = -Infinity;
     const step = this.terrain.cellSize;
+    // A synthetic threat position down the threat bearing, so the directional object-cover query knows
+    // which way the rounds come from (issue 020, part B: the soldier seeks a rock that covers him from
+    // THIS threat — and goes prone behind it, so we evaluate at prone height for the best case).
+    const threatPos = threatDir ? add(from, scale(threatDir, 60)) : null;
     for (let r = step; r <= maxSearch; r += step) {
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
         const pt = add(from, fromAngle(a, r));
         if (pt.x < 0 || pt.y < 0 || pt.x > this.terrain.worldSize || pt.y > this.terrain.worldSize) continue;
-        const cover = this.terrain.coverAt(pt.x, pt.y);
+        // The cover this point offers FROM THE THREAT: the better of the 5 m raster and a discrete
+        // object that screens it from the threat bearing — so a man now moves to tuck behind a boulder
+        // on open ground the raster called bare. (Disabled by the ITM_NOOBJCOVER A/B kill-switch.)
+        const objCov = !NO_OBJ_COVER && threatPos ? this.terrain.coverOcclusion(threatPos, pt, 0.5) : 0;
+        const cover = Math.max(this.terrain.coverAt(pt.x, pt.y), objCov);
         if (cover < 0.2) continue;
         let score = cover * 10 - r / step;
         // prefer cover between us and the threat

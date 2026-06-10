@@ -52,3 +52,18 @@ The object is INVISIBLE to combat: behind ≈ open ≈ flank, and posture barely
 NOTE: "open" ≈ 0.39 (not 0.80) because lineOfSight already folds terrain micro-relief + open-slope veg
 concealment — so the DoD is RELATIVE: after the fix want **behind << open ≈ flank** (directional) and
 **prone < stand** behind a low object (posture). Oracle: `scripts/cover-directional-probe.ts` (a keeper).
+
+## AFTER #1 — directional cover in the hit roll (part A, passive) — MEASURED 2026-06-10
+`coverFor(target, fromPos)` now adds `terrain.coverOcclusion(fromPos, target, postureHeight)` via Math.max.
+cover-directional-probe (now measures coverOcclusion = the combat cover value, HIGHER=covered):
+```
+MEAN  behind 0.386 · open 0.006 · flank 0.000 · stand 0.241 · prone 0.616
+```
+✅ DIRECTIONAL (open~0, flank 0) and ✅ POSTURE (prone 0.62 > stand 0.24 — a low boulder hides a prone
+man 2.5× more). Uses INTRINSIC stop-prob per object (boulder 0.62, outcrop 0.72), NOT o.cover (the cell
+value). Fire-path only (coverFor), detection unchanged. A/B kill-switch ITM_NOOBJCOVER=1.
+
+**Balance A/B (12×50) RUNNING** — the gate. If directional cover is balance-neutral (the flank defeats
+it, so no symmetric grind), part A ships and part B (the AI actively SEEKS object cover via
+findCover/findCoveredFlank → coverOcclusion) follows with its own A/B. If it drags, tune (stop-prob,
+ahead-distance) before adding B. Baseline = committed combat (KIA ~1.08); delta = the directional cover.

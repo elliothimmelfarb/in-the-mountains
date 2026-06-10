@@ -18,7 +18,6 @@
  * Run: npx tsx scripts/cover-directional-probe.ts [N]
  */
 import { createWorld } from "../lib/sim/world";
-import { lineOfSight as los } from "../lib/sim/los";
 import { Land } from "../lib/sim/terrain";
 
 const N = Number(process.argv[2] ?? 6);
@@ -48,19 +47,20 @@ function run(seed: string) {
     if (!t.inBounds(Math.floor(tgt.x / t.cellSize), Math.floor(tgt.y / t.cellSize))) continue;
     if (!t.passableCell(Math.floor(tgt.x / t.cellSize), Math.floor(tgt.y / t.cellSize))) continue;
     nBehind++;
-    // behind the object, standing
-    behindSum += los(t, shooter, tgt, { targetHeight: 1.0 }).exposure;
-    // standing vs prone behind the object (posture)
-    standSum += los(t, shooter, tgt, { targetHeight: 1.6 }).exposure;
-    proneSum += los(t, shooter, tgt, { targetHeight: 0.5 }).exposure;
-    // open control: same target+shooter geometry but offset off any object (open ground 25 m to the side)
+    // DIRECTIONAL combat cover (terrain.coverOcclusion = what coverFor/the hit roll actually use).
+    // behind the object, standing height
+    behindSum += t.coverOcclusion(shooter, tgt, 1.0);
+    // posture: prone (low) should be covered MORE by a low object than standing (high)
+    standSum += t.coverOcclusion(shooter, tgt, 1.6);
+    proneSum += t.coverOcclusion(shooter, tgt, 0.5);
+    // open control: target offset 25 m to open ground (no object on the line) — should be ~0
     const offx = -uy * 25, offy = ux * 25;
     const oc = { x: tgt.x + offx, y: tgt.y + offy };
     const os = { x: shooter.x + offx, y: shooter.y + offy };
-    openSum += los(t, os, oc, { targetHeight: 1.0 }).exposure;
-    // flank: shooter 90 deg off the cover bearing — object should NOT help (directionality)
+    openSum += t.coverOcclusion(os, oc, 1.0);
+    // flank: shooter 90 deg off the cover bearing — the object is NOT on this line, so ~0 (directional)
     const fs = { x: o.x + -uy * 40, y: o.y + ux * 40 };
-    flankSum += los(t, fs, tgt, { targetHeight: 1.0 }).exposure;
+    flankSum += t.coverOcclusion(fs, tgt, 1.0);
   }
   const d = Math.max(1, nBehind);
   return {
@@ -70,7 +70,7 @@ function run(seed: string) {
   };
 }
 
-console.log("seed         |   n  | behind | open  | flank | stand | prone  (exposure 0..1; lower=more covered)");
+console.log("seed         |   n  | behind | open  | flank | stand | prone  (cover 0..1; HIGHER=more covered)");
 console.log("-------------|------|--------|-------|-------|-------|------");
 const rows: ReturnType<typeof run>[] = [];
 for (const s of SEEDS) {
@@ -83,4 +83,4 @@ for (const s of SEEDS) {
 const avg = (k: "behind" | "open" | "flank" | "stand" | "prone") => rows.reduce((a, r) => a + r[k], 0) / Math.max(1, rows.length);
 console.log("-------------|------|--------|-------|-------|-------|------");
 console.log(`MEAN behind ${avg("behind").toFixed(3)} · open ${avg("open").toFixed(3)} · flank ${avg("flank").toFixed(3)} · stand ${avg("stand").toFixed(3)} · prone ${avg("prone").toFixed(3)}`);
-console.log(`DoD (issue 020): behind ≤ 0.20, open ≥ 0.80, behind << flank (directional), prone < stand (posture)`);
+console.log(`DoD: behind HIGH, open~0, flank~0 (directional), prone > stand (posture)`);
