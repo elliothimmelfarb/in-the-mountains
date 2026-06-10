@@ -72,7 +72,7 @@ function run(seed: string) {
 
 console.log("seed         |   n  | behind | open  | flank | stand | prone  (exposure 0..1; lower=more covered)");
 console.log("-------------|------|--------|-------|-------|-------|------");
-const rows = [];
+const rows: ReturnType<typeof run>[] = [];
 for (const s of SEEDS) {
   const r = run(s);
   rows.push(r);

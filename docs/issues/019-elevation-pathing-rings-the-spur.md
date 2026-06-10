@@ -108,6 +108,15 @@ pipeline untouched. `ITM_NOSWITCH=1` / `OPROUTE_NOSWITCH=1` are A/B kill-switche
   KIA 1.08, WIA 7.83 — the realistic, measured cost of squads now climbing **exposed** high ground; the
   **stall guard PASSES (0 stranded)**, the exact failure that reverted the two prior in-place attempts.
 
+**Adversarial verification (4-agent workflow, all lenses no-issue):** an independent skeptical pass
+(determinism / generation byte-identity / perf / mover-stall) re-read the planner and re-measured from
+scratch — generation byte-identical confirmed on fresh seeds, held-out win reproduced independently, zero
+regressions. It caught one real fidelity gap my own testing missed: `thetaClimb`'s grid-edge corner-cut
+was looser than the mover's `walkable()` (7/601 legs clipped a corner — no stall, ≤0.9 s slide). Fixed by
+matching the mover's exact rule (strict corner-cut + the LOS shortcut now calls `walkable()` itself):
+non-walkable legs **7 → 1** (the residual is `stringPull`'s pre-existing best-effort, shared with the
+coarse pipeline), detour unchanged. Law 4 — the planner obeys the mover's real rules.
+
 **Honest residual (characterised, not hidden):** OPs the probe picks behind a genuinely impassable massif
 (valley-7 ×4.88, kunar-3 ×4.57, korengal-2 ×9.25) still detour — that is **real terrain**, not a planning
 failure (the probe deliberately targets the highest, most cliff-surrounded cell). korengal-2's true route

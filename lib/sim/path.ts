@@ -591,22 +591,6 @@ function legCost(terrain: Terrain, a: Vec2, b: Vec2): number {
   return cost;
 }
 
-/** Line-of-sight for the any-angle parent shortcut: every cell the straight segment a→b crosses is
- *  passable on foot. Sampled at half-cell steps (finer than the mover's own walkable check) so a
- *  Theta* shortcut can never jump a cliff band the mover would then be unable to follow. */
-function losClear(terrain: Terrain, a: Vec2, b: Vec2): boolean {
-  const dx = b.x - a.x, dy = b.y - a.y;
-  const d = Math.hypot(dx, dy);
-  const n = Math.max(1, Math.ceil((d / terrain.cellSize) * 2));
-  for (let k = 1; k <= n; k++) {
-    const t = k / n;
-    const cx = Math.floor((a.x + dx * t) / terrain.cellSize);
-    const cy = Math.floor((a.y + dy * t) / terrain.cellSize);
-    if (!terrain.passableCell(cx, cy)) return false;
-  }
-  return true;
-}
-
 // Box margins (cells) tried in turn for the switchback search. We escalate only when the goal is
 // NOT yet connected to the start inside the box (a cheap BFS pre-check, far cheaper than a failed
 // anisotropic Theta* run): a clean face connects in the tight box and pays nothing for the wider
@@ -634,7 +618,11 @@ function connectedInBox(terrain: Terrain, sx: number, sy: number, gx: number, gy
       const nx = x + COARSE_DIR8[d][0], ny = y + COARSE_DIR8[d][1];
       if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
       if (!terrain.passableCell(nx, ny)) continue;
-      if (COARSE_DIR8[d][0] !== 0 && COARSE_DIR8[d][1] !== 0 && !terrain.passableCell(x + COARSE_DIR8[d][0], y) && !terrain.passableCell(x, y + COARSE_DIR8[d][1])) continue;
+      // STRICT corner-cut — must MATCH thetaClimb's edge rule (reject when EITHER orthogonal is
+      // blocked). If this pre-check used the looser both-blocked rule it could green-light a goal the
+      // strict search can't actually reach, burning the full 120k-expansion Theta* before falling
+      // through. Same rule here = the (cheap) flood and the (expensive) search agree on reachability.
+      if (COARSE_DIR8[d][0] !== 0 && COARSE_DIR8[d][1] !== 0 && (!terrain.passableCell(x + COARSE_DIR8[d][0], y) || !terrain.passableCell(x, y + COARSE_DIR8[d][1]))) continue;
       const ni = ny * size + nx;
       if (closedGen[ni] === gen) continue;
       closedGen[ni] = gen;
@@ -721,13 +709,20 @@ function thetaClimb(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions
       const ni = ny * size + nx;
       if (closedGen[ni] === gen) continue;
       if (COARSE_DIR8[d][0] !== 0 && COARSE_DIR8[d][1] !== 0) {
-        if (!terrain.passableCell(cx, ny) && !terrain.passableCell(nx, cy)) continue; // no corner-cut
+        // STRICT corner-cut for the tactical planner: reject a diagonal when EITHER orthogonal is
+        // blocked. The coarse router rejects only when BOTH are (cheap, optimistic), but here the
+        // emitted leg must be one the MOVER can walk — walkable() samples the diagonal at half-cell
+        // and floors through a single blocked corner (adversarial pass: 7/601 legs clipped a corner
+        // the mover then slid around). Matching the mover's rule keeps every leg walkable by
+        // construction (Law 4 — the planner obeys the mover's real rules); the LOS shortcuts below
+        // still smooth genuine diagonals.
+        if (!terrain.passableCell(cx, ny) || !terrain.passableCell(nx, cy)) continue;
       }
       const nW = center(ni);
       // Theta*: prefer to connect ni straight to cur's PARENT (any-angle) when line-of-sight allows;
       // else fall back to the grid edge cur→ni. This is what frees the path from the 8 grid headings.
       let baseI: number, baseG: number, baseNode: Vec2, inHead: number;
-      if (parent !== -1 && losClear(terrain, pNode, nW)) {
+      if (parent !== -1 && walkable(terrain, pNode, nW)) {
         baseI = parent;
         baseG = gOf(parent);
         baseNode = pNode;

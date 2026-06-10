@@ -127,6 +127,9 @@ findPath():  if (switchback && 80 < crow ≤ 1300 && climb ≥ 60m && climb/crow
 <tr><td>determinism</td><td colspan="2" class="b">SMOKE OK · serialize round-trip · no new persisted state</td><td>pure planning function</td></tr>
 </table>
 
+<div class="callout">
+<strong>What the adversarial pass caught.</strong> A separate four-agent verification workflow re-read the planner with intent to <em>break</em> it (determinism, generation byte-identity, perf, and mover-stall lenses) and independently re-measured from scratch. All four returned <em>no-issue</em> — and one skeptic earned its keep with a real finding my own testing missed: <code>thetaClimb</code>'s grid-edge corner-cut was <em>looser</em> than the mover's <code>walkable()</code>, so <strong>7 of 601 legs</strong> clipped a corner the mover then had to slide around (no stall — ≤0.9&nbsp;s, well under the 2&nbsp;s watchdog). The fix made the planner obey the mover's <em>exact</em> rule (strict corner-cut + the LOS shortcut now calls <code>walkable()</code> itself): non-walkable legs dropped <strong>7&nbsp;→&nbsp;1</strong> (the residual matching the proven coarse pipeline's own best-effort behaviour), detour unchanged. The oracle must obey the mover's real rules — Law 4.</div>
+
 <div class="callout gn">
 <strong>Restraint logged.</strong> The wide-box search caps at a ~1.1&nbsp;km margin and fires <em>once per march</em> (the navigator re-paths only when the objective moves). Behind-massif OPs whose real route loops outside the cap are deliberately <em>not</em> chased — a near-whole-map anisotropic search every order is the wrong trade for one adversarial seed. The proven router owns those, exactly as it did before.</div>
 
