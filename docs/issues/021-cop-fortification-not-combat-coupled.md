@@ -1,6 +1,9 @@
 # 021 — COP fortification (`fob.hesco`) is written + read but not yet combat-coupled
 
-**Severity:** Low–Medium (depth) · **Status:** 🟡 Open (restraint-logged 2026-06-08)
+**Severity:** Low–Medium (depth) · **Status:** 🟢 LOGISTICS TEETH SHIPPED 2026-06-10 (Part 4); hesco/claymore
+combat-coupling (Parts 1, 3) DEFERRED on a measured finding — a complex attack on the COP is a STANDOFF
+(insurgents never close the wire), so there's no assault for fortification/claymores to bite on. See the
+Resolution at the bottom.
 
 ## Context
 
@@ -42,3 +45,32 @@ and lead the report with the unflattering casualty delta. Keep every modifier a 
 - **The Mk19 isn't crewed full-time** — only two machine-gunners exist, so it sits emplaced and
   manned at stand-to. Adding a third crew (or a stand-to pick-up-the-emplaced-weapon behaviour) is
   optional polish, not a stub to paper over.
+
+## Resolution — LOGISTICS TEETH shipped 2026-06-10; hesco/claymore coupling deferred on a measured finding
+
+**Law-1 redirect (the key finding):** before coupling `fob.hesco`, I metricized whether a COP assault even
+produces casualties to protect against. `cop-defense-probe.ts` + a 20-min trace: a "complex attack" stages
+8–16 fighters at 260–560 m who **harass from ~340 m and never close the wire** (garrison KIA/WIA ≈ 0, enemy
+down 0, ×8 seeds). Cause: `insurgent.ts` is engage + shoot-and-scoot **lateral** bounds — there is **no
+close-the-wire / assault behaviour**. So `fob.hesco` (wire fortification) and `claymores` (detonated on an
+assaulting element) have **no event to bite on**; coupling them couples to a near-zero. This is the realistic
+Korengal dynamic (ridge harassment, not assaults), so **Parts 1 + 3 are DEFERRED with this measured reason**,
+not faked. (Part 2, the Harden work order, is marginal while hesco stays combat-inert.) A genuine fix would
+first add an occasional press-the-wire assault behaviour — a bigger, balance-risky AI change beyond
+"couple the existing stat."
+
+**SHIPPED — logistics teeth (Part 4), the salvageable high-value win (it affects the PATROL):** the four
+drained-but-inert supplies now bite, as **bounded clamps** (recovery never zeroes):
+- **batteries → US night-vision** (`combat.ts` nvg gated on `sim.nvgPower`, pushed from `supplies.batteries`):
+  NVG = **2.4× night detection** vs naked-eye (50–250 m, non-firing target); end-to-end gate verified
+  (batteries 2 → NODs dark). A patrol that neglects resupply fights the dark on the naked eye.
+- **water/food → fatigue recovery** (`combat.ts` stationary recovery × `sim.hydration`): full→depleted
+  **0.43 → 0.21 (50%)**.
+- **medical → wound-recovery time** (`world.ts` `daysToRecover` × `medFactor`): **54%** of full rate.
+
+**Balance-neutral by construction:** at full (default) supplies every factor = 1, and a 50-min deployment
+drains < 1 unit, so normal play is unchanged (6×40 balance KIA 1.17 / WIA 7.00 / 0 stranded == committed
+post-B). The teeth only bite a NEGLECTED COP — the intended decision. smoke OK (no new persisted state; the
+sim factors are transient, pushed each tick). tsc clean. Oracle: `scripts/logistics-probe.ts`. See
+`docs/progress/2026-06-10-open-issues/021-cop-fortification/` +
+`public/manual/archive/reports/2026-06-10-supplies-that-bite/`.
