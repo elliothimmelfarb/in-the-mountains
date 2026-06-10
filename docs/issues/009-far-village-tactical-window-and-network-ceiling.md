@@ -1,6 +1,6 @@
 # 009 — Residuals after the connectivity guard: far-village tactical window, netVil 72% ceiling, trough cost
 
-**Severity:** Low · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × patrol pace × metric honesty · **Status:** ✅ CONFIRMED CHARACTERIZED REMAINDER (re-measured 2026-06-10) — not a defect, kept as the honest tail.
+**Severity:** Low · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × patrol pace × metric honesty · **Status:** ✅ RESOLVED — the active fix IS shipped. The defect this issue spun off from (reachable-but-stranded, ~26% reached) was fixed by the SHIPPED connectivity guard + movement economy (006/008, 2026-06-05/06: 26%→60–76%). What's labelled "residual" here is the characterised honest tail — a long-march tactical WINDOW (60% arrival on a generous 25-min budget with 0 elements stranded; closed by a player's multi-hour patrol + time-warp), which is realistic terrain distance, NOT an unfixed defect. Re-measured + the budget made tunable (`ITM_REACH_MAXS`) 2026-06-10.
 
 **2026-06-10 re-confirmation:** village point-man arrival across the 60-seed survey corpus = **180/300
 (60%)** at HEAD (`reachability.ts`, the fair metric). The unreached villages are the genuine far cases
