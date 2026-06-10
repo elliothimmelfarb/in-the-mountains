@@ -179,7 +179,7 @@ function spawnHarass(w: World) {
 }
 
 /** A larger element presses the COP — the bad nights. */
-function spawnComplexAttack(w: World) {
+export function spawnComplexAttack(w: World) {
   const cop = w.copWorld();
   const count = drawEnemy(w, w.rng.int(8, 16));
   if (count === 0) return;

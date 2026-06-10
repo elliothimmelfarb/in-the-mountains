@@ -7,6 +7,10 @@ import { findPath, walkable } from "./path";
 // Issue 020 A/B kill-switch (read once): ITM_NOOBJCOVER=1 disables the directional cover-object
 // occlusion in coverFor, so a same-seed balance bisect can isolate its combat effect on the shared tree.
 const NO_OBJ_COVER = process.env.ITM_NOOBJCOVER === "1";
+
+// Battery reserve below which the US lose their NODs at night (issue 021 logistics teeth). The World
+// pushes supplies.batteries into sim.nvgPower each tick; below this the night-vision edge goes dark.
+const NVG_MIN_BATTERIES = 8;
 import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
@@ -228,6 +232,13 @@ export class CombatSim {
   timeS = 0;
   light: number;
   weather: CombatInit["weather"];
+  // Battery supply level, pushed each tick by the World (issue 021 logistics teeth). When it runs
+  // critically low the US lose their NIGHT-VISION edge — dead batteries = no NODs, a real reason the
+  // draining `supplies.batteries` matters. Defaults high so a standalone CombatSim keeps its NODs.
+  nvgPower = 999;
+  // Water/food supply factor (0.4..1), pushed each tick by the World (issue 021). A dehydrated,
+  // underfed soldier shakes off fatigue slower even when stationary. Defaults 1 (standalone sim).
+  hydration = 1;
   context: string;
   mortars: NonNullable<CombatInit["mortars"]>;
   casAvailable: boolean;
@@ -451,8 +462,12 @@ export class CombatSim {
       }
     }
 
-    // fatigue recovers when stationary
-    if (!u.moving && u.fatigue > 0) u.fatigue = Math.max(0, u.fatigue - dt * 0.01);
+    // fatigue recovers when stationary — slower when the patrol is short on water/food (issue 021),
+    // and only for the US/ANA the COP actually supplies (the enemy isn't on our logistics).
+    if (!u.moving && u.fatigue > 0) {
+      const hyd = u.faction === "us" || u.faction === "ana" ? this.hydration : 1;
+      u.fatigue = Math.max(0, u.fatigue - dt * 0.01 * hyd);
+    }
   }
 
   /** Is a conscious, not-badly-bleeding friendly within `r` m to apply buddy aid (a
@@ -475,7 +490,9 @@ export class CombatSim {
       return;
     }
     const opticRange = this.weaponOf(u).opticRange * (0.6 + 0.4 * u.experience);
-    const nvg = (u.faction === "us" || u.faction === "ana"); // US have NODs at night
+    // US/ANA fight at night on NODs — UNLESS the batteries are gone (issue 021): below the reserve
+    // the night-vision goes dark and they're back to the naked eye, the real cost of neglecting resupply.
+    const nvg = (u.faction === "us" || u.faction === "ana") && this.nvgPower > NVG_MIN_BATTERIES;
     const thermal = u.faction === "us" && THERMAL_ROLES.has(u.role); // CLU/LRAS3/thermal sights
     const visible: string[] = [];
     for (const e of this.units) {

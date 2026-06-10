@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>In the Mountains — Supplies That Bite</title>
+<style>
+:root{--bg:#070b12;--panel:#0d1320;--panel2:#111a2b;--ink:#e7edf5;--dim:#93a4ba;--line:#1e2c40;--cy:#38bdf8;--am:#f4b740;--rd:#e05028;--gn:#5fd08a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.65 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:920px;margin:0 auto;padding:34px 22px 90px}
+a{color:var(--cy)}
+.kick{color:var(--am);font:600 11px/1 ui-monospace,monospace;letter-spacing:3px;text-transform:uppercase;margin:0 0 10px}
+h1{font-size:32px;line-height:1.12;margin:0 0 8px;letter-spacing:-.4px}
+h1 span{color:var(--am)}
+.lede{color:var(--dim);font-size:16.5px;margin:6px 0 4px;max-width:820px}
+h2{font-size:21px;margin:48px 0 6px;border-bottom:1px solid var(--line);padding-bottom:7px}
+h2 .n{color:var(--am);font:700 13px/1 ui-monospace,monospace;margin-right:8px}
+p{color:#cfdaea;margin:9px 0}
+em{color:#fff;font-style:italic}strong{color:#fff}
+code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1px 5px;font:12.5px ui-monospace,monospace;color:#bfe3ff}
+.statstrip{display:flex;flex-wrap:wrap;gap:10px;margin:24px 0 8px}
+.statstrip .s{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:11px 15px;min-width:150px;flex:1}
+.statstrip .s b{display:block;color:var(--am);font-size:19px;font-weight:900;line-height:1.05}
+.statstrip .s span{color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.6px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--am);font:600 11px/1.3 ui-monospace,monospace;text-transform:uppercase;letter-spacing:.5px}
+td .b{color:var(--gn);font-weight:700}td .w{color:var(--dim)}
+figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+figure img{width:100%;display:block}
+figcaption{color:var(--dim);font-size:12.5px;font-style:italic;padding:11px 14px;line-height:1.5}
+.callout{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--am);border-radius:6px;padding:12px 16px;margin:18px 0}
+.callout.gn{border-left-color:var(--gn)}.callout.rd{border-left-color:var(--rd)}
+.foot{color:var(--dim);font-size:12px;border-top:1px solid var(--line);margin-top:40px;padding-top:14px}
+.mech{font:12.5px/1.6 ui-monospace,monospace;background:#0a0f1a;border:1px solid var(--line);border-radius:6px;padding:12px 14px;color:#bfe3ff;overflow-x:auto;white-space:pre-wrap}
+ul{color:#cfdaea}li{margin:4px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+<p class="kick">Field Engineering Report · 2026-06-10 · Issue 021</p>
+<h1>Supplies That Bite — <span>and the COP assault that wasn't there</span></h1>
+<p class="lede">Issue 021 asked to couple the COP's fortification to combat: a hardened wire should blunt a costly assault. Metricizing it first — Law 1 — turned the campaign on its head. The assault the fortification was supposed to defend against <strong>doesn't happen</strong>. So the real, shippable realism win turned out to be the issue's "adjacent" item: making the supplies that drain every day actually <em>cost</em> you something.</p>
+
+<div class="statstrip">
+<div class="s"><b>2.4×</b><span>night detection lost (dead batteries)</span></div>
+<div class="s"><b>50%</b><span>fatigue recovery (dehydrated)</span></div>
+<div class="s"><b>54%</b><span>wound recovery (no medical)</span></div>
+<div class="s"><b>0</b><span>balance change at full supplies</span></div>
+</div>
+
+<h2><span class="n">01</span>The finding that redirected the campaign</h2>
+<p>The premise was "a hardened wire blunts a costly assault." So I built a probe (<code>cop-defense-probe.ts</code>) to stage the complex attack and measure garrison casualties with the wire hardened vs neglected. The result, across 8 seeds and a 20-minute trace, was <strong>zero either way</strong> — and the trace showed why:</p>
+<div class="mech">complex attack: 8–16 fighters spawn at 260–560 m, harass from ~340 m
+  min 1..20: enemyAlive 7–8, closest ~340 m, garrison KIA 0 / WIA 0, enemy down 0
+the insurgent AI (insurgent.ts): engage + shoot-and-scoot LATERAL bounds — and NO
+  close-the-wire / assault behavior. The attackers never press the wire.</div>
+<p>A "complex attack" on the COP is a <strong>standoff harassment from the ridges</strong>, never an assault on the wire. That's the real Korengal dynamic — defensible, not a bug. But it means <code>fob.hesco</code> (wire fortification) and <code>claymores</code> (detonated on an assaulting element) have <em>no event to bite on</em>. Coupling them would couple to a number that never matters.</p>
+<div class="callout rd"><strong>Restraint logged.</strong> Parts 1 (hesco→resilience) and 3 (claymores) are <strong>deferred with this measured reason</strong> — and Part 2 (a "Harden the COP" work order) is marginal while hesco stays combat-inert. The honest move is not to fake a coupling to a non-event, but to ship the part of 021 that affects the gameplay you actually have: the patrol.</p></div>
+
+<h2><span class="n">02</span>What shipped — four supplies that finally cost you</h2>
+<p>Water, food, batteries, and medical all drained every day to a floor with <em>zero</em> consequence (only ammo fed any metric). Now each one bites — as a <strong>bounded clamp</strong>, so a stocked COP is unaffected and only a neglected one pays:</p>
+<figure><img src="logistics-bite.png" alt="Bar chart: dead batteries cut night detection to 41%, dehydration cuts fatigue recovery to 50%, no medical cuts wound recovery to 54%"><figcaption>Each supply's effect, measured full vs. depleted (<code>logistics-probe.ts</code>). The bars are the <em>depleted</em> rate as a fraction of full — recovery never reaches zero (a bounded clamp), but a neglected COP is measurably worse off.</figcaption></figure>
+<table>
+<tr><th>supply</th><th>coupling</th><th>full → depleted</th></tr>
+<tr><td><strong>batteries</strong></td><td>US night-vision edge (NODs gate on the supply)</td><td class="b">2.4× night detection lost — naked-eye in the dark</td></tr>
+<tr><td><strong>water/food</strong></td><td>fatigue recovery (a dehydrated, underfed soldier rests poorly)</td><td class="b">0.43 → 0.21 (50%) in 40 s stationary</td></tr>
+<tr><td><strong>medical</strong></td><td>wound-recovery time (heals slower without supplies)</td><td class="b">54% of the full rate</td></tr>
+</table>
+<p>The night-vision one is the sharpest: NODs are why the US own the night here, and a patrol that lets its batteries run dry is, at a stroke, fighting the dark on the naked eye — a <strong>2.4×</strong> detection penalty against a non-firing infiltrator at 50–250 m. The draining number on the supply screen finally means something.</p>
+
+<div class="callout gn"><strong>Balance-safe by construction.</strong> At the default stocked levels every factor equals 1 (full hydration, full medical, NODs on), and a 50-minute deployment drains less than one unit — so normal play is <em>unchanged</em>. The teeth only bite a COP the player has neglected. Determinism intact (the factors are transient, pushed into the sim each tick — no new persisted state; <code>smoke</code> clean).</div>
+
+<p class="foot">Mechanism: <code>lib/sim/combat.ts</code> (nvg / hydration gates) · <code>lib/sim/world/world.ts</code> (supply factors, wound recovery). Oracle: <code>scripts/logistics-probe.ts</code> · finding: <code>scripts/cop-defense-probe.ts</code>. Raw record: <code>docs/progress/2026-06-10-open-issues/021-cop-fortification/</code>. The hesco/claymore combat-coupling is deferred with the measured standoff finding, not faked. Built by an autonomous agent fleet.</p>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
