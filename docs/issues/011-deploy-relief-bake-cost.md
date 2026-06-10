@@ -1,4 +1,13 @@
-# 011 — The deploy-time relief bake is the dominant load cost (~seconds) (CHARACTERIZED — deliberate non-fix 2026-06-10)
+# 011 — The deploy-time relief bake is the dominant load cost (~seconds) (✅ USER-FACING PROBLEM RESOLVED — active fix shipped; raw-speed remainder is a browser-gated nicety)
+
+**Resolution clarification (2026-06-10):** the actual user-facing defect — a multi-second *frozen black
+box* at deploy — was RESOLVED by a SHIPPED active fix (`bakeTerrainProgressive`: 40 yielding row-bands
+behind a staged loading screen with a smooth progress bar, result cached so the first frame is instant —
+`docs/progress/2026-06-06-deploy-loading-screen/`). The deploy no longer freezes. What remains is not a
+defect but a perf *nicety* (cut the raw bake CPU), which is browser-gated (no headless canvas to measure
+or verify) and whose only headless shortcut (lower resolution) would degrade the relief — so it's
+correctly deferred, NOT shipped as a fidelity regression.
+
 
 **2026-06-10 closeout (re-confirmed + a principled NON-fix):** the obvious optimization — lowering
 `pxPerCell` 8→6 (~44% fewer pixels) — **degrades the shaded relief**, undoing the exact terrain

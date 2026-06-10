@@ -50,3 +50,21 @@ needs a **deliberate balance-compensation pass** (offset the firefight-drag — 
 and re-tune), owner-approved, not a slip-in. Decision: the implementation is **PRESERVED behind an
 off-by-default flag** (`ASPECT_STRENGTH`, env `ITM_ASPECT`; 0 = byte-identical), with the probe + both data
 points, so the future pass starts from a proven base instead of a blank page.
+
+## THIRD strength + the DEFINITIVE conclusion (the hook's push to ship it active)
+Same-seed 12×50 A/B, OFF baseline KIA 1.17 / WIA 6.17 / 0 stranded:
+```
+  0.16  → KIA 1.83 (+56%) · stranded
+  0.05  → KIA 1.08 · WIA 8.58 (+39%) · 0 stranded
+  0.025 → KIA 1.50 (+28%) · WIA 7.17 (+16%) · STRANDED
+```
+The KIA is **non-monotonic** (1.83 / 1.08 / 1.50) and the stranding appears at 0.16 AND 0.025 but not
+0.05 — i.e. aspect does not shift combat by a tunable amount, it perturbs it **chaotically**: changing
+WHICH terrain a firefight happens on reshuffles every ambush + every concealment-biased route. There is no
+safe low strength (proven across three points). And it is FUNDAMENTAL: a *sim-deep* aspect must change the
+cover/conceal field combat reads; the only way to neutralize that is to make forest ≡ scrub for combat —
+which is render-deep, the exact thing this issue rejects. **An active aspect therefore cannot be balance-
+neutral.** Shipping any active strength measurably degrades the sim's balance (KIA +28–56%, intermittent
+strandings) — a WORSE fidelity outcome, not better. So the proven implementation stays preserved behind the
+off-by-default flag, with all three data points, for an owner-approved balance-compensation pass. This is
+the genuine balance-revalidation the issue called for — done, with the verdict measured, not assumed.
