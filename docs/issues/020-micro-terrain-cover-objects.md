@@ -82,7 +82,15 @@ arc, so the already-shipped autonomous flank fires from a new bearing and the fi
 vs stand **0.24** (posture). Balance A/B (12×50, `ITM_NOOBJCOVER` kill-switch) — the OPPOSITE of the
 2026-06-09 +89% grind: tuned `bal-*` WIA **7.92→6.17 (−22%)**, **held-out** `holdout-*` WIA
 **6.75→4.33 (−36%)**, KIA flat, enemy preserved (+1–7%), **0 stranded** both. tsc/build/lint/smoke green;
-no new persisted state. Params from physical reasoning, not curve-fit. See
+no new persisted state. Params from physical reasoning, not curve-fit.
+
+**Adversarially verified** (2-agent workflow, both lenses `no-issue`, conf 0.9): independent A/B reproduced
+the win (WIA 9.83→7.00, enemy 3.50→4.50 UP); geometry traced line-by-line (cover only when an object is on
+the target→shooter ray, bounded ≤0.72, posture-scaled — not too strong); **fire-path only** (coverFor at
+the hit-plane only, NOT detection/targeting/blast/civClear — ROE intact, civ cas 0 both arms); determinism
+byte-identical on load (coverObjects regenerated, nothing new serialized); perf neutral (cover path ~0.5%
+faster — a 3×3 bucket scan on the terminal hit only). The enemy-up result is the designed maneuver dynamic,
+not an artifact. See
 `docs/progress/2026-06-10-open-issues/020-directional-cover/` +
 `public/manual/archive/reports/2026-06-10-directional-cover/`. _(Remaining polish, not blocking: terrace
 walls / qalat walls as linear cover objects; the AI preferring a prone stance specifically behind low cover.)_
