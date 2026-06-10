@@ -67,3 +67,11 @@ value). Fire-path only (coverFor), detection unchanged. A/B kill-switch ITM_NOOB
 it, so no symmetric grind), part A ships and part B (the AI actively SEEKS object cover via
 findCover/findCoveredFlank → coverOcclusion) follows with its own A/B. If it drags, tune (stop-prob,
 ahead-distance) before adding B. Baseline = committed combat (KIA ~1.08); delta = the directional cover.
+
+## SHIPPED 2026-06-10 — directional + posture cover (parts A+B)
+cover-directional-probe: behind 0.39 · open 0.006 · flank 0.000 · stand 0.241 · prone 0.616 ✅
+Balance A/B (12×50, ITM_NOOBJCOVER kill-switch):
+  TUNED bal-*:    KIA 1.25→1.17 · WIA 7.92→6.17 (−22%) · enemy 4.50→4.83 · 0 stranded
+  HELD-OUT hold-*: KIA 0.50→0.50 · WIA 6.75→4.33 (−36%) · enemy 5.50→5.58 · 0 stranded
+The OPPOSITE of the 2026-06-09 omnidirectional grind (+89% WIA): directional → the flank defeats the
+cover → fights resolve by maneuver. Cover params from physical reasoning, NOT curve-fit. Committed a57da45.
