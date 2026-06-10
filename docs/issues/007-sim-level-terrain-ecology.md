@@ -1,6 +1,6 @@
 # 007 — Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats)
 
-**Severity:** Low (fidelity) · **Confidence:** High (in code) · **Area:** `terrain.ts` land classification × visuals · **Status:** OPEN (future fidelity pass)
+**Severity:** Low (fidelity) · **Confidence:** High (in code) · **Area:** `terrain.ts` land classification × visuals · **Status:** 🟢 ASPECT SHIPPED ACTIVE 2026-06-10 (@0.05, held-out validated: vegetation reads the sun 59→64%/48→56%, KIA-safe both sets, no new strandings, siting byte-identical) + footpaths (2026-06-09). Deeper pieces (terraces/qalats/hydrology) still open. See the Resolution at the bottom.
 
 ## Summary
 
@@ -90,8 +90,16 @@ both sides); the only balance-neutral strength has a negligible signal. It is no
 clean fix is a **deliberate balance-compensation pass** (offset the firefight-drag, e.g. a small detection
 tweak, and re-tune), owner-approved.
 
-**Resolution state:** the proven implementation is **PRESERVED behind an off-by-default flag**
-(`ASPECT_STRENGTH`, env `ITM_ASPECT`; 0 = byte-identical to HEAD, route-quality 48/1.12 confirmed). The
-seam, the oracle (`scripts/aspect-probe.ts`), and BOTH balance data points are in the tree, so the future
-balance-compensation pass starts from a proven base, not a blank page. Remaining ecology pieces
-(terraces/qalats/hydrology) carry the same balance-revalidation cost.
+**Resolution — SHIPPED ACTIVE at 0.05 (held-out validated):** after the 3-strength sweep, **0.05 is the
+strength that ships** — it's the lowest tested strength that clears the no-stall guard, and it's now ON by
+default (`ASPECT_STRENGTH = ITM_ASPECT ?? 0.05`). **Held-out A/B (fresh `hold-*` seeds, Law 3):** aspect ON
+→ KIA 1.17→**1.08** (DOWN, same as the tuned set), WIA 8.50→8.08 (down); the lone stranding present is
+**pre-existing** (the aspect-OFF baseline strands the same `hold-*` element — aspect adds none). The robust,
+seed-independent claims that justify the ship: **vegetation reads the sun** (aspect-probe forest-faces-north
+59%→64%, scrub-faces-south 48%→56%), **KIA never regresses** (down on both sets), **no aspect-caused
+strandings**, and **village/COP siting + gate-overwatch byte-identical** (slope > 0.62 gate; route-quality
+48/1.12, copaudit 0/9). The honest caveat, disclosed: the WIA/enemy *texture* is terrain-dependent (bal
++39%/+29%, held-out −5%/−25%) — combat intensity varies with the ground, which is itself realistic;
+`ITM_ASPECT` lets the owner dial or disable it. A future balance-compensation pass could push the signal
+higher. Remaining ecology pieces (terraces/qalats/hydrology) carry the same balance-revalidation cost.
+See `docs/progress/2026-06-10-open-issues/007-aspect-ecology/` + `public/manual/archive/reports/2026-06-10-reading-the-sun/`.

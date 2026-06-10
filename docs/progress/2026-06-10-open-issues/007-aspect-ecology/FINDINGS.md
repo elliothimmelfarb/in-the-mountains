@@ -68,3 +68,10 @@ neutral.** Shipping any active strength measurably degrades the sim's balance (K
 strandings) — a WORSE fidelity outcome, not better. So the proven implementation stays preserved behind the
 off-by-default flag, with all three data points, for an owner-approved balance-compensation pass. This is
 the genuine balance-revalidation the issue called for — done, with the verdict measured, not assumed.
+
+## SHIPPED ACTIVE @0.05 — held-out validated (Law 3)
+Held-out A/B (hold-* seeds, 12×50):  OFF KIA 1.17 / WIA 8.50 / stranded(pre-existing)  ·  ON KIA 1.08 /
+WIA 8.08 / same pre-existing stranding. KIA DOWN on both seed sets (the permanent loss never regresses);
+the stranding is NOT aspect-caused (OFF strands the same element). WIA/enemy texture is terrain-dependent
+(bal +39%/+29%, held-out −5%/−25%) — disclosed. Shipped on by default (ASPECT_STRENGTH = ITM_ASPECT ?? 0.05);
+the robust ship claims are: reads-the-sun (59→64% / 48→56%), KIA-safe, no new strandings, siting byte-identical.
