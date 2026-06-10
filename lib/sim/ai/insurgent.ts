@@ -50,6 +50,10 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
       // A cell waiting on an IED holds fire no matter how close the patrol gets — the
       // CHARGE initiates the ambush (stepIeds flips them to engage), not the small arms.
       const inKillZone = !u.iedInit && enemy && dist(u.pos, enemy.pos) <= trigger;
+      // A LED cell holds the trigger for its leader (ai/cell-combat.ts springs the trap
+      // as one volley); the man's own kill zone and patience defer to him. The
+      // acquireTarget call above still runs every tick (rng stream unchanged).
+      if (u._cellHold) break;
       if ((inKillZone || (!u.iedInit && u.brainTimer <= -8)) && tgt) {
         u.targetId = tgt;
         u.rof = "free";
@@ -174,7 +178,7 @@ function nearImpacts(sim: CombatSim, u: Unit): boolean {
  * a LATERAL defilade bound off the gun-target line — break the line, re-engage from a new spot;
  * cover is a bonus, not a requirement.
  */
-function displacePosition(sim: CombatSim, u: Unit): { x: number; y: number } | null {
+export function displacePosition(sim: CombatSim, u: Unit): { x: number; y: number } | null {
   const cover = sim.findCover(u.pos, u.threatDir, 55);
   if (cover && dist(cover, u.pos) > 6) return cover;
   // No cover within reach → lateral scoot perpendicular to the threat line.
@@ -191,7 +195,7 @@ function displacePosition(sim: CombatSim, u: Unit): { x: number; y: number } | n
 }
 
 /** Where to run to break contact — away from the nearest enemy and uphill, toward the map edge. */
-function exfilPoint(sim: CombatSim, u: Unit) {
+export function exfilPoint(sim: CombatSim, u: Unit) {
   // direction away from nearest enemy
   let away = { x: 0, y: 0 };
   let nd = Infinity;

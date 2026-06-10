@@ -20,6 +20,12 @@ export class RNG {
     return (h ^ (h >>> 16)) >>> 0;
   }
 
+  /** Pure stable hash → [0,1). For per-man trait variance that must NOT advance any
+   *  rng stream (the formation.ts hashUnit01 convention, shared engine-wide). */
+  static hash01(s: string): number {
+    return (RNG.hashString(s) % 9973) / 9973;
+  }
+
   /** Raw uniform [0,1). */
   next(): number {
     this.s |= 0;

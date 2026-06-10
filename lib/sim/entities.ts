@@ -159,6 +159,7 @@ export interface Unit {
   rof: "free" | "hold" | "suppress"; // fire posture (mechanical gate): set by the squad-combat AI each tick
   roe?: ROE; // standing rules of engagement (derived from the squad SOP); gates the civilian-fire check
   civGuard?: number; // meters — no-fire keep-out around a visible civilian, derived from roe + weapon class
+  boundDelayUntil?: number; // assault-bound hesitation: this man steps off when the clock passes (nerve)
   brainState: string; // AI state label
   brainTimer: number; // seconds in state / until reconsider
   lastSeenEnemy: Record<string, { pos: Vec2; t: number }>; // enemyId -> last known
@@ -166,6 +167,24 @@ export interface Unit {
   visibleEnemyIds: string[]; // currently perceived enemies
   threatDir: Vec2 | null; // direction of most recent incoming fire (for cover)
   iedInit?: boolean; // ambusher holding fire until the IED initiates (won't auto-trigger)
+
+  // --- enemy cell coordination (ai/cell-combat.ts) ---
+  // Cell-level state lives on the cell LEADER's unit, so it rides serialize()'s
+  // whole-unit spread with no new save surface. A leaderless cell runs the old
+  // per-fighter FSM unchanged.
+  cellState?: "engage" | "break"; // the leader's read of the fight once the trap is sprung
+  cellTimer?: number; // leader: seconds until the cell reconsiders
+  cellBound?: number; // leader: which half of the cell is displacing (0/1)
+  cellBoundUntil?: number; // leader: sim clock when the displacing half swaps
+  cellRally?: Vec2 | null; // leader: shared withdrawal rally (toward the draws, uphill)
+  cellPeelNextS?: number; // leader: sim clock when the next man peels out
+  fledShock?: boolean; // this fighter's individual rout already shocked his mates (one-shot)
+  /** Transient, re-stamped every tick by the coordinator (cleared on serialize):
+   *  hold your trigger — the LEADER springs this ambush, not your own kill zone. */
+  _cellHold?: boolean;
+
+  /** Latched once a buddy has shouted for this casualty — one "doc!" per man down. */
+  docCalled?: boolean;
   evac: boolean; // removed from the field (MEDEVAC'd / fled off-map)
   spawnAtM?: number; // reinforcement schedule (game minutes)
   hasFired: boolean;

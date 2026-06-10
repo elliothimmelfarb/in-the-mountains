@@ -117,6 +117,25 @@ export interface Task {
    *  situation" timer. An aggressive SOP commits the assault immediately; a cautious one fixes and
    *  develops first (and many contacts end before it commits), so the SOP is a real behavioral lever. */
   fixSince?: number;
+  /** Pinned-revert bookkeeping (squad-combat): when the current assault committed, when its
+   *  maneuver element became majority-pinned, which flank sign it used (a re-commit prefers
+   *  the OTHER side), and when the squad last reverted (a re-develop floor so an aggressive
+   *  SOP can't flip-flop assault↔suppress on consecutive reconsiders). */
+  assaultSince?: number;
+  mnvrPinnedSince?: number;
+  lastFlankSide?: number;
+  revertedAt?: number;
+  /** Post-contact CONSOLIDATE & REORGANIZE (FM 3-21.8): until this world-clock the element
+   *  holds a tight ring, the SL walks the line team to team (consolidateStep), and rifle
+   *  ammo is cross-levelled onto the guns once (aceDone). Cleared the instant contact
+   *  resumes; the march/exfil resumes when it expires. */
+  consolidateUntil?: number;
+  consolidateStep?: number;
+  aceDone?: boolean;
+  /** Point-man caution: the held beat at a choke mouth (raised fist) and its per-choke
+   *  cooldown, both on the world clock. */
+  chokeHoldUntil?: number;
+  chokeCooldownUntil?: number;
   lastSmokeClock?: number; // world clock of the squad's last smoke pop (throttle)
   /** Throttle clock (seconds) for the on-station dwell event-roll. A long realistic dwell is
    *  patient hours the player WARPS through; this rolls occasionally for a moment that pulls him

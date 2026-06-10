@@ -1,7 +1,7 @@
 import type { CombatSim } from "../combat";
 import { Unit } from "../entities";
-import { dist } from "../vec";
-import { clamp01 } from "../rng";
+import { dist, sub, norm, add, scale } from "../vec";
+import { clamp01, RNG } from "../rng";
 
 /** Automatic weapons — the squad's base of fire in a deliberate assault. */
 const AUTO_ROLES = new Set(["saw_gunner", "auto_rifleman", "machinegunner"]);
@@ -36,7 +36,12 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   // not require the old, never-reached 0.35/0.8 gates. The lever is THIS threshold + the
   // stance block below, NOT seekCover reach (covertune A/B regressed 50-min KIA).
   const underFire = u.suppression > 0.18;
-  const pinned = u.composure < 0.25 || u.suppression > 0.55;
+  // Men differ in where they break: a zero-mean, hash-stable per-man jitter on the
+  // pin gates (±0.06 composure / ±0.06 suppression) — the population means stay at
+  // the tuned 0.25/0.55, but the same volume of fire pins THIS private and not THAT
+  // team leader. Pure hash: advances no rng stream, identical across replays.
+  const pinJit = 0.12 * (RNG.hash01(u.id + ":pin") - 0.5);
+  const pinned = u.composure < 0.25 + pinJit || u.suppression > 0.55 - pinJit;
   const contact = u.visibleEnemyIds.length > 0 || underFire;
 
   // Casualty care is every soldier's job, not just the medic's. If a buddy is down
@@ -46,6 +51,42 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
   if (u.role !== "medic" && !pinned && u.orderType !== "assault") {
     const cas = sim.nearestDownedNeedingHelp(u, 24);
     if (cas && sim.nearestAbleBuddy(cas) === u) {
+      // The peel is a shout, ONCE PER CASUALTY (latched on the casualty, not the
+      // responder — the buddy election flickers between ticks, and a responder-state
+      // edge re-fired every dedup window forever; measured 390 emissions on bal-0).
+      if (!cas.docCalled) {
+        cas.docCalled = true;
+        const hasMedic = sim.units.some(
+          (o) => o.role === "medic" && o.alive && o.conscious && !o.evac && o.squadId === u.squadId
+        );
+        sim.say(u, "doc", { text: hasMedic ? "doc! over here!" : "i got you" });
+      }
+      // THE THIRD FIGURE (TCCC: security IS the first treatment). Once the medic is
+      // working this casualty, the aid buddy doesn't crowd the patient — he takes a
+      // knee 2.5 m off on the THREAT side, facing OUT, weapons up: someone guards the
+      // men who can't. Re-derived every tick (the squad coordinator's per-tick stamps
+      // overwrite any stored one-shot state — the treating/aiding precedent).
+      const medicOn = sim.units.some(
+        (o) =>
+          o.role === "medic" && o.alive && o.conscious && !o.evac &&
+          o.brainState === "treating" && dist(o.pos, cas.pos) < 4
+      );
+      if (medicOn) {
+        const td = cas.threatDir ?? u.threatDir;
+        const dir = td && (td.x || td.y) ? norm(td) : norm(sub(u.pos, cas.pos));
+        const post = add(cas.pos, scale(dir, 2.5));
+        if (u.brainState !== "securing") sim.say(u, "set");
+        u.brainState = "securing";
+        u.faceLock = Math.atan2(dir.y, dir.x);
+        u.stance = "crouch";
+        if (dist(u.pos, post) > 1.4) {
+          if (u.path.length === 0) sim.moveTo(u, post);
+        } else {
+          u.path = [];
+          u.moving = false;
+        }
+        return;
+      }
       u.faceLock = null;
       const d = dist(u.pos, cas.pos);
       if (d > 2.2) {
@@ -61,7 +102,7 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
       if (sim.terrain.coverAt(cas.pos.x, cas.pos.y) < 0.3) sim.dragToCover(u, cas, dt);
       return;
     }
-    if (u.brainState === "aiding") u.brainState = "holding"; // casualty handled / gone
+    if (u.brainState === "aiding" || u.brainState === "securing") u.brainState = "holding"; // casualty handled / gone
   }
 
   // In contact, break the march formation: orient on the threat and move freely.
@@ -99,6 +140,14 @@ export function friendlyBrain(sim: CombatSim, u: Unit, dt: number) {
       // set a BASE OF FIRE on the objective from cover while the riflemen and leaders
       // BOUND onto it under that suppression.
       if (u.orderType === "assault") {
+        // The step-off beat (nerve): the bound coordinator stamps boundDelayUntil on
+        // the swap; THIS layer enforces it per tick, so each man of the pair rises
+        // when HIS beat passes — not when the squad next reconsiders.
+        if ((u.boundDelayUntil ?? 0) > sim.timeS && !AUTO_ROLES.has(u.role)) {
+          u.path = [];
+          u.moving = false;
+          break;
+        }
         if (AUTO_ROLES.has(u.role) && contact) {
           u.rof = "suppress"; // hose the objective so the assault element can move
           if (sim.terrain.coverAt(u.pos.x, u.pos.y) < 0.25 && u.path.length === 0) {
@@ -229,6 +278,10 @@ function medicTreat(sim: CombatSim, u: Unit, dt: number): boolean {
     return false;
   }
   const d = dist(u.pos, patient.pos);
+  // NEVER publish the patient via targetId — updateFiring takes targetId on faith
+  // (no hostility re-check) and a weapons-free medic would service his own patient
+  // (measured: the KIA-up/WIA-down signature). The securing-buddy gate matches the
+  // patient by PROXIMITY instead.
   if (d > 2.5) {
     sim.moveTo(u, patient.pos);
     u.brainState = "treating";
