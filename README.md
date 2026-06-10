@@ -62,15 +62,24 @@ Three read-anytime documents are served statically (also linked from the title-s
   dispersion folded from weapon mechanics, marksmanship, stance, fatigue, movement, and suppression.
 - **People, not pieces** — named soldiers with attributes, morale, suppression, fatigue, regional
   wounds (with body armor), bleeding, buddy aid, and medics. Losses are permanent.
-- **AI** — insurgents that infiltrate the draws, ambush from defilade, shoot-and-scoot, and exfil;
-  civilians with pattern-of-life and panic flight; friendly soldiers that execute your intent. The
-  squad leader runs the firefight (base-of-fire/maneuver, bound, break contact) and raises a
+- **AI** — group minds decide, individuals execute, on both sides. Insurgent **cells fight as led
+  elements** (a disciplined one-volley ambush initiation, fire-and-movement by halves, a coordinated
+  peel to a shared rally, rout contagion — not four private state machines); the friendly **squad
+  leader runs the firefight** (base-of-fire/maneuver, bounding pairs with per-man nerve, a pinned
+  assault falls back and tries the other flank, automatic break contact) and raises a
   **call-for-fire** like a real forward observer — only onto a PID'd, observed enemy and never inside
-  its own danger-close radius — for you to approve or deny.
+  its own danger-close radius — for you to approve or deny. What the men shout ("contact left!",
+  "man down!", "covering!") surfaces as diegetic callouts on the map. Civilians keep a **pattern of
+  life** — a diurnal rhythm, the melt-away tell before an ambush, kids trailing a friendly patrol —
+  and panic flight.
 - **COIN — the real game.** Village attitudes you actually *move*: show up (presence), hold shuras
   (KLE) where elders make **asks** you keep or break (broken promises hurt more than kept ones
   help), and **secure a CERP project to completion** (a clinic they asked for moves a village far
-  more than a culvert nobody wanted). **CERP is a managed two-way budget** (battalion stipend +
+  more than a culvert nobody wanted). Villages **remember**: the shura is a staged meeting with a
+  real elder who walks out and sits down with your squad leader; a civilian casualty of your fire
+  becomes a **named blood debt** — a first-light funeral, a sympathy floor — that solatia settles by
+  name; and the children (trailing a friendly patrol, absent in a hostile village) tell you where
+  you stand. **CERP is a managed two-way budget** (battalion stipend +
   project refunds, not a countdown). **Battalion directives** arrive on a cadence with deadlines —
   miss one and Higher's confidence drops; a civilian casualty fails *protect-the-population* on the
   spot. The end-of-tour score grades **counterinsurgency, not body count**. You can win every
@@ -88,9 +97,9 @@ lib/sim/            Pure simulation engine (no React)
   weapons.ts        US + insurgent weapon catalog
   ballistics.ts     Projectile + hit + wound model
   entities.ts       Soldiers / insurgents / civilians + factories + move postures
-  combat.ts         Unit-level tick: perception, fire, projectiles, morale, fire support
-  ai/               insurgent.ts · civilian.ts · friendly.ts
-  campaign.ts       Shared campaign types + helpers (supplies, villages, weather)
+  combat.ts         Unit-level tick: perception, fire, projectiles, morale, fire support, callout bus
+  ai/               squad-combat.ts + cell-combat.ts (the two group minds) · friendly.ts · insurgent.ts · civilian.ts
+  campaign.ts       Shared campaign types + helpers (supplies, villages, grievances, weather)
   world/            The continuous world (one package, split by concern)
     world.ts        World class — the master clock, orchestration, orders
     types.ts        WorldState, Task, Project, MissionType, ids
@@ -105,6 +114,7 @@ lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD syst
   sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
   draw.ts           Units (symbol→figure LOD), COP structures, effects
   decoration.ts     Stable-hash vegetation/rock scatter by landcover
+  callouts.ts       Diegetic callout plates (the sim's say() bus → the map)
 lib/audio/          Procedural soundscape — combat + living valley (render-side; no assets, no deps)
   mapper.ts/cue.ts  PURE: sim events (effects/log/fire-missions/TIC) → AudioCue[] (headless)
   ambient-state.ts  PURE: World signals (sun/wind/weather/contact) → AmbientMix (headless)

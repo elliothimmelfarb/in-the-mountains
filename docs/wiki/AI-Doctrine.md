@@ -7,13 +7,16 @@ not steer a single soldier. There is no man-select, no order tool, no manual tar
 in-fight levers are narrow and deliberate: **approve or deny a call-for-fire**, **call the MEDEVAC**,
 and the **SOP and route you set before step-off**.
 
-Four brains in `lib/sim/ai`. Three are per-man brains — `(sim, unit, dt)` pure functions called every
-tick (`friendlyBrain`, `insurgent`, `civilianBrain`). Above the friendly per-man brain sits a
-squad-level coordinator, `squadFight` (`squad-combat.ts`) — the squad leader's tactical brain, run
-from the world tick once per squad. The per-man brains read the sim through public helpers
-(`acquireTarget`, `los`, `findCover`, `moveTo`, `nearestCasualty`, `throwSmoke/throwFrag`, `addLog`,
-`enemyFireMission`, `civClear`) and mutate the unit's brain state; movement and firing are then
-executed by the core tick. The coordinator decides; the per-man brains execute.
+Five brains in `lib/sim/ai`. Three are per-man brains — `(sim, unit, dt)` pure functions called every
+tick (`friendlyBrain`, `insurgent`, `civilianBrain`). Above them sit two **group minds**, the same
+architecture on both sides of the fight: the friendly squad coordinator `squadFight`
+(`squad-combat.ts`) — the squad leader's tactical brain, run from the world tick once per squad —
+and its exact enemy mirror, the cell coordinator `runCellBrains`/`cellFight` (`cell-combat.ts`),
+run inside the combat tick before the per-man brains, once per led cell. The per-man brains read
+the sim through public helpers (`acquireTarget`, `los`, `findCover`, `moveTo`, `nearestCasualty`,
+`throwSmoke/throwFrag`, `addLog`, `enemyFireMission`, `civClear`) and mutate the unit's brain state;
+movement and firing are then executed by the core tick. **The coordinators decide; the per-man
+brains execute.**
 
 ## Insurgent (`insurgent.ts`)
 
@@ -43,6 +46,37 @@ A small state machine modeling real valley doctrine:
 **Break-contact triggers** (`shouldBreak`): badly wounded, low composure, air on station or heavy
 indirect landing nearby, or isolated (few friends, many enemies). They fight hardest near their
 villages (skill/aggression scale with valley "heat").
+
+## Enemy cell coordinator (`cell-combat.ts`)
+
+The enemy is no longer atomized fighters running private state machines: every spawned cell gets a
+**leader** (flagged at spawn — `director.ts` marks batch index 0 `isLeader`; all leader detection
+keys on `isLeader`, never role), and `cellFight` is the exact architectural mirror of `squadFight`:
+the **leader DECIDES** (throttled), his **fighters EXECUTE** through the same per-man fields
+`insurgent.ts` already honors. What a led cell does that four private trigger radii never could:
+
+- **Disciplined initiation** — pre-contact, every man's trigger is deferred (`_cellHold`); the
+  leader springs the trap on the **most casualty-producing weapon's kill zone** (the PKM's, if they
+  have one), and the whole cell opens up the same tick — one volley, targets distributed across the
+  L, each man only ever handed a target **from his own sight picture** (a stamped target with no LOS
+  sat silent). Measured: volley spread p50 0.1 s / p90 0.6 s, vs 11.2 s uncoordinated.
+- **Fire-and-movement as a group** — half the guns displace while the other half covers, swapped on
+  the leader's clock; a man never displaces before his first shot (you scoot *off* a position
+  you've burned). Incoming fire never lapses, and arrives from a new angle each minute.
+- **A coordinated peel** — the cell breaks as a drill to a **shared rally** toward the draws,
+  farthest man first, the men still working their guns forming the rear guard by construction. A
+  breaking cell *converges* on its rally (54→34 m spread) where an uncoordinated rout *disperses*
+  (40→61 m).
+- **Rout contagion** — a man who breaks on his own (not an ordered peel) shocks the cellmates who
+  watch him run; and **the leader fleeing IS the order** — his cell breaks with him.
+
+Per-man fear still overrides the plan (a pressed fighter scoots, a broken one runs — the cell is
+coordinated, not choreographed); leaderless cells fall through to the unchanged per-fighter FSM
+(`promoteSuccessor` re-flags a new leader when one falls, so a cell rarely stays headless); IED
+cells stay the charge's to initiate (`stepIeds`). The civilian melt tell is preserved **by
+construction**: pre-contact members keep `brainState "ambush"` / `hasFired false` — exactly what
+`civilian.ts` senses — if anything for longer, since nobody leaks early. `ITM_NOCELL=1` disables
+the coordinator for same-seed A/B (`scripts/cell-coordination-probe.ts`).
 
 ## Civilian (`civilian.ts`)
 
@@ -83,9 +117,25 @@ mid-distance *before* the they're-on-top Wary/Flee). Departures are **staggered*
 `rng.chance`, so the fields thin rather than teleport. This is the flagship COIN tell the tutorial
 teaches; the engine now produces it. Verify with `scripts/atmospherics-probe.ts melt <seed>`.
 
+**The village wave (people-immersion).** Civilians now carry standing relationships, not just
+threat reactions. A **civic summons** (`Unit.summons` — the elder walking out to a shura, kin
+gathering at a funeral) sits *below* Flee and the melt in precedence: gunfire always wins, and a
+staged threat **aborts** the summons latched (`summonsAborted` — per-tick precedence alone would
+oscillate him between home and the shura), but a summoned man is **calm among troops** — un-fired
+US/ANA are excluded from his proximity threat, or the Flee tier would fire inside the 9 m shura
+ring. In a friendly village (per-village **mood** pushed into the sim each tick, like `sim.light`)
+curious **children trail** a weapons-cold patrol at a respectful ~9 m, scampering to keep up; in a
+hostile or grieving village they are simply not out near your men — the melt's quieter sibling,
+running on attitude. A household with an unpaid **blood debt** clears the road from troops, always,
+and its children never trail. Per-village **reception** (attitude + presence familiarity −
+unresolved grievances) scales how fast a villager *relaxes* around armed men — the tier-**fall**
+rate only, rise logic untouched. The strategic half — elders, households, the grievance ledger —
+lives in Campaign & COIN.
+
 Every trait/decision is derived from a pure hash of the unit id or the seeded RNG and the
-deterministic `sim.light`, so the world stays **replay-deterministic** and `serialize()` is unchanged
-(no new persisted fields). Their sudden absence is still the oldest tell in the valley; from the
+deterministic `sim.light`, so the world stays **replay-deterministic** (the few persisted people
+fields — `summons`, `householdId` — ride the save's unit spread with `loadWorld` defaults; the
+per-village mood/reception context is derived each tick and never persisted). Their sudden absence is still the oldest tell in the valley; from the
 friendly side a patrol **eases its pace (escalation of force)** to let a villager on the track clear
 rather than barging through. All of it complicates fire and risks the COIN catastrophe of civilian
 casualties. Headless metric: `scripts/atmospherics-probe.ts diurnal <seed>` (outdoor occupancy by hour)
@@ -110,8 +160,21 @@ brain takes over each man individually, re-forming on the lull.
   not a banzai walk: a man carrying an automatic weapon (SAW/240) holds cover and adds to the **base
   of fire** suppressing the objective while riflemen and leaders **bound** onto it under that fire.
 - **withdrawing** → bound back toward the rally point the coordinator set, peeling fire as you go.
+- **No two men break alike (nerve).** The pin gates carry a zero-mean, hash-stable per-man jitter
+  (±0.06 composure/suppression — the population means stay at the tuned values), so the same volume
+  of fire pins *this* private and not *that* sergeant. On an assault, each man of a bounding pair
+  gets a personal **step-off beat** from his STATIC nerve (`composureMax` + experience + aggression
+  — never live composure, which would double-count suppression), stamped by the coordinator and
+  **enforced per tick here** (`boundDelayUntil`); cover taste is per-man too (the green man bolts
+  for the first rock that's any better, the veteran holds out for a real piece — multiplicative
+  around the tuned threshold, population mean unchanged). Measured
+  (`scripts/drill-timeline-probe.ts`): bound step-off spread 0.00→0.10 s σ; two same-SOP squads on
+  the same objective drift 0.4→6.0 s apart.
 - **Casualty care is every soldier's job** (TCCC), not just the medic's: when a buddy goes down the
   nearest able man (one per casualty) breaks to him, **drags him to cover**, and applies a tourniquet.
+  Once the medic is working the casualty, the aid buddy becomes the scene's **third figure**: he
+  takes a knee 2.5 m off on the threat side, **facing out**, weapons up, while the doc works
+  (`securing`, re-derived every tick) — security is the first treatment.
 - **Medics** auto-seek and stabilize the nearest casualty; they alone can stop **internal/junctional**
   bleeds, which a buddy's tourniquet cannot (the medic is essential for the wounds that kill slowly).
 - **Buddy-down shock**: a man hit nearby drops the composure of his fire team and gives them a few
@@ -177,6 +240,12 @@ situation timer*: **Assault** commits at once, **Hold** fixes and develops ~7 s 
 (measured: Assault > Hold > Suppress at every heat; before this work, the SOP was cosmetic and the
 squad *never* autonomously flanked). When no covered flank exists the squad fixes, or assaults
 frontally only if clearly dominant; the automatic break-safety (below) still overrides everything.
+
+The commitment is also **revocable — the pinned revert**: an assault whose maneuver element is
+**majority-pinned for >4 s** (after ≥6 s committed, so a single suppression spike can't cancel a
+fresh order) falls back to suppress ("maneuver element pinned — falling back to suppress"),
+re-develops the situation for a hard 12 s minimum, and any re-commit **prefers the OTHER flank**
+(`t.lastFlankSide`). A real squad leader doesn't feed a pinned team forward forever.
 
 ### Base of fire vs. maneuver — the two fire teams
 
@@ -277,6 +346,19 @@ danger-close radius `blast×2.5`; the FDC check-fire aborts only at the narrower
 `blast×1.3` — a deliberate asymmetry so the AI never proposes danger-close, yet a player who
 knowingly calls danger-close fire still gets it unless a round would actually land on a man.)*
 
+## The callout layer (`combat.ts` `say()` → `lib/render/callouts.ts`)
+
+The coordinators' decisions are *watchable*: the things a man actually shouts in a fight surface as
+brief plates beside his figure. The first spotter calls **contact with the true relative bearing**
+("contact left!"); a buddy who sees a man drop yells **"man down!"** (witnessed, and the "doc!"
+buddy-aid call is **latched once per casualty** — measured: 390→6 emissions, before→after the
+latch); the bounding pairs swap **"covering!"/"moving!"**; succession is **"on me!"**; a reverted
+assault or a break contact calls **"falling back!"**; consolidation opens on **"head count!"**; the
+medic-scene security buddy reports **"set!"**. Emission is sim-side (`CombatSim.say`, per-squad
+dedup windows on the sim clock, hash-picked phrase variants, **zero rng draws**, never serialized);
+presentation is a separate render-side presenter. Architecture and proof numbers in Simulation
+Systems → the diegetic callout bus.
+
 ## Strategic / COIN feedback (`world/`)
 
 - **The insurgency regenerates from the population** (`tickInsurgency`): hostile/high-sympathy
@@ -286,4 +368,5 @@ knowingly calls danger-close fire still gets it unless a round would actually la
   faction**: a CIVCAS by *our* fires hardens the nearest village, mobilizes fighters and costs higher
   confidence; the enemy killing locals is a small information-operations win for us.
 - **Enemy cells** share a `squadId`, so they feel each other's losses and a fallen commander's cell
-  promotes a successor — the enemy side of buddy-down shock and NCO succession.
+  promotes a successor (`promoteSuccessor` re-flags `isLeader`, so the cell coordinator picks the
+  new man up) — the enemy side of buddy-down shock and NCO succession.
