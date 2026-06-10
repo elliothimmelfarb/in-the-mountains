@@ -19,7 +19,7 @@ const SEEDS = process.argv[2]
 
 const cs = 5;
 const ARRIVE = 50; // m
-const MAX_S = 1500; // generous window — a far village around a cliff is a long march
+const MAX_S = Number(process.env.ITM_REACH_MAXS ?? 1500); // generous window — a far village around a cliff is a long march (ITM_REACH_MAXS tunes it: proving the residual is a tactical WINDOW, not a block — issue 009)
 
 let totalVil = 0;
 let totalArrived = 0;

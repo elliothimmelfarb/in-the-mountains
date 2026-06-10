@@ -243,6 +243,11 @@ const COVER_OBJ_HEIGHT: Record<"boulder" | "rock-outcrop", number> = { boulder: 
 // value, kept low on open ground for field byte-identity). This is what makes an open-slope boulder
 // real, usable cover; it is gated to the FIRE path + directionality so it can't grind (issue 020).
 const COVER_OBJ_STOP: Record<"boulder" | "rock-outcrop", number> = { boulder: 0.62, "rock-outcrop": 0.72 };
+
+// Issue 007 aspect-vegetation strength (forest on shaded faces, scrub on sunny). 0 = OFF (committed
+// default — the terrain stays byte-identical while the strength is balance-tuned). ITM_ASPECT sweeps it
+// for the balance-revalidation A/B; a value only ships once a same-seed balance run proves it neutral.
+const ASPECT_STRENGTH = Number(process.env.ITM_ASPECT ?? 0);
 const COVER_AHEAD_M = 3.5;
 const COVER_BUCKET_M = 8;
 /** The 8 coarse-grid neighbor offsets, in a fixed canonical order (used by the coarse A*). */
@@ -643,21 +648,27 @@ export class Terrain {
           // steep loose ground; the odd boulder field for cover
           land = patchNoise.fbm(x * fPatch, y * fPatch, 2) > 0.6 ? Land.Boulders : Land.Scree;
         } else {
-          // NOTE (issue 007 aspect — REVERTED 2026-06-10): an aspect-shade term here (forest on
-          // shaded/pole-facing slopes, scrub on the sunny ones) was implemented + proven (aspect-probe:
-          // forest-faces-north 59%→73%, scrub-faces-south 48%→70%) then reverted on the numbers. Even
-          // gated to steep faces (slope > 0.62, which kept village/COP siting + gate-overwatch byte-
-          // identical), redistributing forest↔scrub changed the cover/conceal field the insurgents'
-          // steep-face ambush positions and concealment-biased pathing read: a clean same-code A/B
-          // regressed balance (KIA 1.17→1.83) AND stranded a unit. The ecology win is real but it
-          // touches the combat + movement surfaces and needs a balance-revalidated, tuned pass — not a
-          // slip-in. Probe + findings kept: scripts/aspect-probe.ts and
-          // docs/progress/2026-06-10-open-issues/007-aspect-ecology/.
+          // ASPECT (issue 007) — implemented + proven, PRESERVED behind an OFF-by-default flag
+          // (ASPECT_STRENGTH, env ITM_ASPECT; 0 = byte-identical to HEAD). A shaded, pole-facing slope
+          // holds moisture (forest); a sun-facing one bakes dry (scrub). dzdy>0 ⇒ ground rises with y ⇒
+          // the slope faces −y (north, the valley's wet/low end) = shaded. Gated to steep faces
+          // (slope > 0.62, above the terrace band) so village/COP siting + gate-overwatch stay byte-
+          // identical. PROVEN by scripts/aspect-probe.ts (forest-faces-north 59%→73%, scrub-faces-south
+          // 48%→70%). NOT shipped ON because it is not a clean slice — redistributing forest↔scrub
+          // changes the cover/conceal field the insurgents' steep-face ambush positions read, and a
+          // measured same-seed balance A/B shows it DRAGS firefights: 0.16 → KIA 1.17→1.83 + a stranding;
+          // 0.05 → no stranding but WIA 6.17→8.58 (+39%), enemy 4.83→6.25. The only balance-neutral
+          // strength has a negligible signal. The clean fix is a DELIBERATE balance-compensation pass
+          // (offset the firefight-drag, e.g. a detection tweak), tuned + owner-approved — the seam, the
+          // probe, and both data points are here for it. See docs/progress/2026-06-10-open-issues/007-aspect-ecology/.
+          const dzdyA = (this.elev[this.idx(x, Math.min(size - 1, y + 1))] - e) / cellSize;
+          const aspectShade = slope > 0.62 ? clamp(dzdyA / Math.max(slope, 1e-3), -1, 1) : 0;
           const moist =
             vegNoise.fbm(x * fVeg, y * fVeg, 4) * 0.5 +
             0.5 +
             drawProx * 0.35 +
-            (1 - y / size) * 0.1;
+            (1 - y / size) * 0.1 +
+            aspectShade * ASPECT_STRENGTH;
           const band = clamp01(aboveFloor / 850);
           const wet = distRiver < riverHalf + 3 && aboveFloor < 30 && slope < 0.22;
           if (wet && moist > 0.5) {
