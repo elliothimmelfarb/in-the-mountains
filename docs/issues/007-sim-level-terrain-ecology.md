@@ -80,8 +80,18 @@ facing slopes hold moisture → forest; sun-facing → scrub). It WORKS — `scr
   positions and the concealment-biased pathing read the changed forest↔scrub conceal field. For a
   *subtle* visual ecology gain, a KIA regression + a stranding is unshippable (Law 8 restraint).
 
-**Kept for the future balance-revalidated pass:** `scripts/aspect-probe.ts` (the oracle) +
-`docs/progress/2026-06-10-open-issues/007-aspect-ecology/` (the full findings, including the exact gate
-that keeps the COP clean). The clean fix needs the aspect tuned AND the combat balance re-validated/tuned
-(the insurgent ambush-concealment shift is the lever to manage), not a slip-in. A `terrain.ts` NOTE marks
-the seam. The remaining ecology pieces (terraces/qalats/hydrology) carry the same balance-revalidation cost.
+**A genuine two-strength balance-revalidation sweep (so the conclusion is evidenced, not assumed):**
+same-seed 12×50 A/B, OFF baseline KIA 1.17 / WIA 6.17 / 0 stranded —
+- strength **0.16** → KIA 1.17→**1.83** (+56%) + **a stranding** (the first revert);
+- strength **0.05** → stranding CLEARS, but WIA 6.17→**8.58** (+39%), enemy 4.83→6.25 (+29%).
+
+So aspect inherently **drags firefights** (more shaded-face forest conceal → longer, bloodier fights on
+both sides); the only balance-neutral strength has a negligible signal. It is not a clean slice — the
+clean fix is a **deliberate balance-compensation pass** (offset the firefight-drag, e.g. a small detection
+tweak, and re-tune), owner-approved.
+
+**Resolution state:** the proven implementation is **PRESERVED behind an off-by-default flag**
+(`ASPECT_STRENGTH`, env `ITM_ASPECT`; 0 = byte-identical to HEAD, route-quality 48/1.12 confirmed). The
+seam, the oracle (`scripts/aspect-probe.ts`), and BOTH balance data points are in the tree, so the future
+balance-compensation pass starts from a proven base, not a blank page. Remaining ecology pieces
+(terraces/qalats/hydrology) carry the same balance-revalidation cost.

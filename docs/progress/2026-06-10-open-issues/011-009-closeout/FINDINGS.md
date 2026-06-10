@@ -25,3 +25,18 @@ gate, across a genuine cliff band or a long ford-detour) is a real multi-km marc
 (`reachability.ts` is the fair metric; `movement-diag` is deliberately adversarial). The 2026-06-05/06
 work (movement economy + connectivity guard + river-aware planner) took the headline from ~30% reached
 to here; the remainder is genuine terrain distance, NOT a defect. Confirmed, kept as the honest tail.
+
+## 009 follow-up — proving it's a WINDOW, not a block
+`reachability.ts` MAX_S is now tunable (`ITM_REACH_MAXS`). The default is already a GENEROUS 25-min
+window, so the 60% is not a short-budget artifact — the unreached villages are >~1800 m of route (a long
+march around a cliff band). Crucially the movement system leaves **0 elements stranded** (the 006/008 fix),
+so they are reachable-but-far, not blocked: a player allocating a realistic multi-hour patrol window (with
+time-warp) closes them. The defect (reachable-but-stranded, 26%) was fixed; this is the honest terrain tail.
+
+## 011 — the user-facing problem is already solved
+The player's actual complaint was a frozen black box, and that is GONE: the bake runs progressively (40
+yielding bands) behind a staged loading screen with a smooth progress bar, and the result is cached so the
+first deploy frame is instant. The remaining "make the raw bake faster" is a browser-gated optimization
+(worker offload / IndexedDB seed-cache — both need a GPU browser to implement AND measure; there is no
+headless canvas here) that must NOT degrade the relief. So 011's UX is resolved; the raw-speed pass is
+correctly scoped + the fidelity-degrading shortcut explicitly ruled out.

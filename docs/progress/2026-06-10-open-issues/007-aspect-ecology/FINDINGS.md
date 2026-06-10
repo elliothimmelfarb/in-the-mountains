@@ -35,3 +35,18 @@ don't ship a combat-defense regression for a vegetation nicety — find the gate
 ## Still open (the rest of 007)
 Stacked contour terraces, denser qalat wall-lattices, and flow-accumulation hydrology — each a larger,
 siting-touching pass (the same blast-radius care this slice needed). Aspect was the cleanest slice.
+
+## Follow-up: a TWO-STRENGTH balance sweep (the genuine balance-revalidation attempt)
+After the first revert, I tested whether a WEAKER aspect could be balance-neutral. Same-seed 12×50 A/B,
+ITM_ASPECT env sweep, OFF baseline = KIA 1.17 / WIA 6.17 / 0 stranded:
+```
+  strength 0.16:  KIA 1.17→1.83 (+56%) · stranded a unit          (the first revert)
+  strength 0.05:  KIA 1.17→1.08 · WIA 6.17→8.58 (+39%) · 0 stranded
+```
+At 0.05 the **stranding clears** (it was a high-strength artifact) but firefights still **drag**: WIA +39%,
+enemy accounted +29% — more shaded-face forest (conceal) makes fights longer and bloodier on BOTH sides.
+The only strength that's truly neutral has a negligible ecology signal. So aspect is NOT a clean slice: it
+needs a **deliberate balance-compensation pass** (offset the firefight-drag — e.g. a small detection tweak —
+and re-tune), owner-approved, not a slip-in. Decision: the implementation is **PRESERVED behind an
+off-by-default flag** (`ASPECT_STRENGTH`, env `ITM_ASPECT`; 0 = byte-identical), with the probe + both data
+points, so the future pass starts from a proven base instead of a blank page.
