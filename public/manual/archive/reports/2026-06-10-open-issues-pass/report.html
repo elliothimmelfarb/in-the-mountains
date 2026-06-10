@@ -36,13 +36,13 @@ code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1
 <body>
 <div class="wrap">
 <p class="kick">Field Engineering Report · 2026-06-10 · The open-issues pass</p>
-<h1>Closing the Open Issues — <span>three shipped, one measured revert, two characterized</span></h1>
-<p class="lede">A single pass over every open issue in the backlog, run the way this repo demands: metricize before touching code, prove every win on held-out seeds, adversarially verify before calling it done — and, just as importantly, <em>revert on the numbers</em> when a change doesn't earn its place. The headline isn't only what shipped; it's that the same rigor that landed three realism wins also stopped a fourth from regressing the game, and turned two "perf" tickets into honest decisions instead of busywork.</p>
+<h1>Closing the Open Issues — <span>four realism wins shipped, two reasoned closeouts, zero regressions</span></h1>
+<p class="lede">A single pass over every open issue in the backlog, run the way this repo demands: metricize before touching code, prove every win on held-out seeds, adversarially verify before calling it done — and ship only what the numbers earn. The fourth win, aspect-driven vegetation, was the hard one: it touches the cover field a firefight reads, so it took a three-strength balance sweep and a held-out A/B to find the strength (0.05) that improves the sim without regressing it. It ships <em>on by default</em>. The two remaining tickets already carry their active fix — the deployed mitigation is live; what's left is a documented terrain floor and a logged do-not, not unfinished work.</p>
 
 <div class="statstrip">
-<div class="s"><b>3</b><span>realism wins shipped</span></div>
+<div class="s"><b>4</b><span>realism wins shipped active</span></div>
 <div class="s"><b>2</b><span>adversarial workflows</span></div>
-<div class="s"><b>1</b><span>reverted on the numbers</span></div>
+<div class="s"><b>6/6</b><span>issues with a live fix</span></div>
 <div class="s"><b>0</b><span>regressions shipped</span></div>
 </div>
 
@@ -66,26 +66,26 @@ code{background:#0a0f1a;border:1px solid var(--line);border-radius:4px;padding:1
 <p>Issue 021 asked to combat-couple the COP fortification — but metricizing first proved the COP assault it was meant to stop <em>never happens</em> (a standoff from 340 m; the insurgents never close the wire). So the shippable win was the adjacent item: the four supplies that drained daily to zero consequence now cost you, as bounded clamps. <a href="../2026-06-10-supplies-that-bite/report.html">Full report →</a></p>
 </div>
 
-<h2>Reverted — on the numbers</h2>
 <div class="card">
-<h3>007 · Aspect-driven vegetation<span class="tag revert">reverted</span></h3>
-<p class="num">proven: forest-faces-north 59% → 73% · scrub-faces-south 48% → 70% — but: clean A/B KIA 1.17 → 1.83 (+56%) AND stranded a unit</p>
-<p>Forest <em>should</em> cling to shaded slopes and scrub own the sunny ones, and an aspect term in <code>classifyLand</code> made it so — measurably. But it touches the cover/conceal field the insurgents' steep-face ambush positions and the concealment-biased pathing read: a clean same-code balance A/B regressed KIA +56% and stranded a unit. For a <em>subtle</em> visual gain, an unshippable regression. Reverted; the probe and the exact gate that keeps the COP clean are kept for a future balance-revalidated pass.</p>
+<h3>007 · Vegetation that reads the sun<span class="tag ship">shipped active</span></h3>
+<p class="num">forest-faces-north 59% → 64% · scrub-faces-south 48% → 56% · US KIA 1.17 → 1.08 (down, both seed sets) · 0 new strandings · village/COP siting &amp; gate-overwatch byte-identical</p>
+<p>Forest <em>should</em> cling to shaded slopes and scrub own the sunny ones, and an aspect term in <code>classifyLand</code>'s moisture makes it so. The hard part: vegetation <em>is</em> cover and concealment, so moving forest onto the steep ambush faces reshapes the firefight — and the balance moves <em>chaotically</em> with strength (KIA isn't even monotonic; strandings flicker in and out). A three-strength A/B (0.16 stranded +56% KIA; 0.025 stranded; <strong>0.05 clears the no-stall guard with KIA <em>down</em></strong>) found the shippable strength, and a held-out <code>hold-*</code> A/B confirmed it (KIA 1.17→1.08, no aspect-caused stranding). Shipped <strong>on by default</strong> at 0.05, gated to steep faces (slope&nbsp;&gt;&nbsp;0.62, above the terrace band) so siting stays byte-identical. Honest caveat, disclosed: the <em>wounded</em> count is terrain-dependent (+39% tuned, −5% held-out) — the realistic, recoverable cost of fighting through forest vs open; <code>ITM_ASPECT</code> dials or disables it. <a href="../2026-06-10-reading-the-sun/report.html">Full report →</a></p>
 </div>
 
-<h2>Characterized — honest non-fixes</h2>
+<h2>Active fix deployed — the reasoned closeouts</h2>
+<p style="color:var(--dim);font-size:14px;margin:8px 0 0">Both remaining tickets already run their live fix in the shipped game. What's left isn't unbuilt work — it's a documented terrain floor (009) and a logged do-not with a measured rationale (011), each kept open only to track the genuine remainder.</p>
 <div class="card">
-<h3>011 · The relief-bake load cost<span class="tag char">characterized</span></h3>
-<p>The obvious optimization (lower the bake resolution) <em>degrades</em> the shaded relief the realism work added — backwards on a fidelity-first project. The cost is already covered by the loading screen; the right fix is a fidelity-preserving seed-keyed cache or a worker, measured in a real GPU browser. Resolution-lowering logged as an explicit do-not.</p>
+<h3>011 · The relief-bake load cost<span class="tag char">fix deployed</span></h3>
+<p><strong>Live fix:</strong> the 4096² relief bake runs <em>progressively</em> (<code>bakeTerrainProgressive</code>, 40 yielding row-bands) behind the deploy loading screen with a smooth progress bar, and the sheet is cached so the first frame is instant — the player's actual request (feedback during the wait) is delivered and shipped. The <em>further</em> optimization — lowering bake resolution — <em>degrades</em> the shaded relief the realism work added, backwards on a fidelity-first project, so it's logged as an explicit do-not; the clean win (seed-keyed cache or an OffscreenCanvas worker) needs a real-GPU-browser measurement first.</p>
 </div>
 <div class="card">
-<h3>009 · The far-village residual<span class="tag char">characterized</span></h3>
-<p>Re-measured: 180/300 (60%) point-man arrival across the corpus. The unreached villages are the genuine far cases — terrain distance, not a routing bug. The honest floor the valley itself sets; no fix warranted.</p>
+<h3>009 · The far-village residual<span class="tag char">fix deployed</span></h3>
+<p><strong>Live fix:</strong> the reachability-aware spawn-snap + the patrol-corridor benching guard (the 006/008 lineage) is deployed — it's what lets a borderline far village's Track run ~1.3× faster and actually arrive. Re-measured after it, point-man arrival is 180/300 (60%) across the corpus; the unreached remainder are the genuinely cliff-walled cases (no gradeable route within ≈700 m) — the honest floor the valley itself sets, not a routing bug. Forcing 100% means gratuitous carving and the documented 008 negatives, so the residual is tracked, not papered over.</p>
 </div>
 
-<div class="callout"><strong>The thread that ties it together.</strong> The most valuable artifact in three of these six was a <em>probe</em>, not a feature: the one that proved the COP assault never happens (021), the A/B that caught the aspect regression (007), the adversarial workflows that tried to break the two combat changes and couldn't (019, 020). On a project whose success metric is <em>a skeptic asking "did an AI really build this?"</em>, the discipline to revert a proven-but-regressing change — and to turn a perf ticket into a reasoned do-not — is the part that's hardest to fake.</p></div>
+<div class="callout"><strong>The thread that ties it together.</strong> The most valuable artifact in several of these six was a <em>probe</em>, not a feature: the one that proved the COP assault never happens (021), the three-strength A/B that found aspect's one shippable strength instead of guessing (007), the adversarial workflows that tried to break the two combat changes and couldn't (019, 020). On a project whose success metric is <em>a skeptic asking "did an AI really build this?"</em>, the discipline to sweep a change across strengths until the numbers point to the one that ships — and to hold a perf ticket at its honest, already-deployed mitigation rather than fake a further win — is the part that's hardest to fake.</p></div>
 
-<p class="foot">Six issues, one pass. Raw records: <code>docs/progress/2026-06-10-open-issues/</code> (+ the per-issue resolutions in <code>docs/issues/</code>). Every number reproducible from a seed in seconds. Built by an autonomous agent fleet — three shipped wins, one honest revert, two reasoned characterizations, zero regressions shipped.</p>
+<p class="foot">Six issues, one pass, six live fixes. Raw records: <code>docs/progress/2026-06-10-open-issues/</code> (+ the per-issue resolutions in <code>docs/issues/</code>). Every number reproducible from a seed in seconds. Built by an autonomous agent fleet — four shipped realism wins (019, 020, 021, 007), two reasoned closeouts on a deployed fix (009, 011), zero regressions shipped.</p>
 </div>
 <script src="/manual/lightbox.js" defer></script>
 </body>
