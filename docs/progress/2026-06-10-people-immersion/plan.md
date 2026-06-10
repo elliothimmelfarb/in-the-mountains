@@ -1,5 +1,13 @@
 # The People Plan — movement & interaction immersion campaign
 
+> **FINAL STATUS (end of session, 2026-06-10):** Waves 1–3 SHIPPED and held-out validated
+> (commits 975c3d5, 4bb78cb + docs). Enemy cell brain · callout bus · pinned-revert/nerve ·
+> consolidate + medic third figure · movement texture · elder/shura · blood-debt ledger +
+> funerals · kids/reception. Held-out: balance KIA 0.94 (baseline 1.08), civCas 0, stranded 0,
+> melt/diurnal mechanism PASS, cohesion green. Five new probes; six real bugs caught pre-ship
+> by them (see the report). Report published: `public/manual/archive/reports/
+> 2026-06-10-people-immersion/`. Wave 4+ deferred → `docs/issues/026`. Residuals named there.
+
 Mission (from `docs/briefs/movement-and-interaction-immersion.md`): make every soldier, fighter,
 and villager move, behave, and interact so convincingly that a skeptical infantry veteran forgets
 he's watching a simulation. Six recon agents swept the code; six independent single-axis proposers

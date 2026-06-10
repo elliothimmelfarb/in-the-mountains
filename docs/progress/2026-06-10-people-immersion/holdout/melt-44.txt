@@ -1,0 +1,26 @@
+
+=== MODE B · PRE-CONTACT 'CALM BEFORE' MELT-AWAY · seed survey-44 ===
+cells staged: 4  ·  threatened cohort=14 (kids out 1, meanD 87m)  ·  control cohort=5 (meanD 73m)
+
+   t(s)  THREATENED out  meanD  kidMeanD    CONTROL out  meanD   shots
+     1         14     87      76          5     73      0
+    10         14     85      69          5     72      0
+    20         14     82      63          5     73      0
+    30         13     76      57          5     73      0
+    40         13     71      51          4     74      0
+    50         12     66      46          4     75      0
+    60         10     60      40          4     76      0
+    70          9     56      34          4     77      0
+    80          8     51      29          4     77      0
+    90          8     48      24          4     77      0
+
+  ── GATES ──
+  threatened cohort distance-to-home closed 45% (meanD 87→48 m; out 14→8)  [>=40%]  PASS
+     (full arrivals lag intent: out-count drop = 43% over 90s)
+  NO shots fired in window (shots=0)  [proves before-contact]  PASS
+  children melt first: kid-dist halved t=63s  adult-mean halved t=-1s  PASS
+  control cohort barely moves: closed -6% vs threatened 45%  [gap>=15]  PASS
+
+  DETERMINISM (melt): two same-seed runs civ-pos-hash 1311034700 vs 1311034700  PASS
+
+ATMOSPHERICS-PROBE OK

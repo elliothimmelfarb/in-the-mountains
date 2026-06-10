@@ -1,0 +1,9 @@
+Callout-bus probe: 3 seeds × 2 runs × 25 game-min, sq1+medic patrol, heat 0.85
+seed         events perType(c/md/cov/mov/doc/onme/fb)  ctcMin maxPM  sqPM  cas elig  mdCov%  dup   det
+hold-0            7                     1/0/3/3/0/0/0     3.6     6     6    0    0       -    0    OK
+hold-1           15                    1/10/0/0/4/0/0     0.2    15     5   22   22    100%    0    OK
+hold-2           12                     1/0/5/5/0/0/0     8.4     6     6    3    0       -    0    OK
+------------------------------------------------------------------------------------------------------------
+MEAN           11.3                                       4.1   9.0   5.7  8.3  7.3    100%  0.0 
+aggregate man_down coverage: 22/22 witness-eligible casualty events
+✓ all assertions pass (det OK, dup 0, mdCov ≥ 95%, per-squad sqPM ≤ 8)
