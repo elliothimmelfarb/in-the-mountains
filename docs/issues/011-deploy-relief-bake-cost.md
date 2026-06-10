@@ -1,4 +1,18 @@
-# 011 — The deploy-time relief bake is the dominant load cost (~seconds) (OPEN — restraint-logged 2026-06-06)
+# 011 — The deploy-time relief bake is the dominant load cost (~seconds) (CHARACTERIZED — deliberate non-fix 2026-06-10)
+
+**2026-06-10 closeout (re-confirmed + a principled NON-fix):** the obvious optimization — lowering
+`pxPerCell` 8→6 (~44% fewer pixels) — **degrades the shaded relief**, undoing the exact terrain
+legibility the 2026-06 realism work added (sheer-rock cliffs, scaled paths). Trading visual fidelity for
+load speed is backwards on a fidelity-first project, so resolution-lowering is explicitly a **do-not**.
+The cost is already COVERED by the staged loading screen + progressive bake (the player's actual ask —
+feedback, not raw speed). The right fix is **fidelity-PRESERVING + GPU-measured**: a seed-keyed IndexedDB
+cache (deterministic seed → deterministic sheet → re-deploy skips the bake, zero fidelity loss) or an
+OffscreenCanvas worker — both need a real GPU browser to measure, not the software-canvas headless figure.
+See `docs/progress/2026-06-10-open-issues/011-009-closeout/`.
+
+---
+_(original 2026-06-06 restraint-log below)_
+
 
 **Severity: Low–Medium (perf/UX, not correctness).** Surfaced while adding the deploy **loading
 screen** (`docs/progress/2026-06-06-deploy-loading-screen/`). The loading screen now *covers* this
