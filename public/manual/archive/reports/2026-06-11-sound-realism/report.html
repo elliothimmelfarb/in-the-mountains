@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calibre Voices — every weapon gets its real sound</title>
+<style>
+  :root{--bg:#11130d;--panel:#1a1d14;--line:#2e3323;--ink:#d8d4c2;--dim:#8b8a76;--amber:#d9a441;--good:#7a9c52;--rust:#b0563b}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",sans-serif;margin:0;padding:0 0 80px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+  header{border-bottom:1px solid var(--line);padding:36px 0 22px;margin-bottom:28px}
+  h1{font-size:26px;margin:0 0 6px;color:var(--amber);letter-spacing:.5px}
+  h2{font-size:19px;color:var(--amber);margin:40px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:15px;margin:22px 0 6px;color:var(--ink)}
+  .sub{color:var(--dim);font-size:13px}
+  p{margin:10px 0}
+  code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:3px;font-size:12.5px}
+  .ab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:14px 0}
+  .abhead{display:flex;justify-content:space-between;gap:14px;align-items:baseline;margin-bottom:8px;flex-wrap:wrap}
+  .abhead b{color:var(--amber)}
+  .why{color:var(--dim);font-size:13px}
+  .abrow{display:flex;gap:18px;flex-wrap:wrap}
+  .cell{flex:1;min-width:260px}
+  .cap{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .none{color:var(--dim);font-style:italic;padding:10px 0;font-size:13px}
+  audio{width:100%;height:36px}
+  .chips{margin:8px 0 2px;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:2px 10px;font-size:12px;color:var(--dim)}
+  .chip b{color:var(--good)}
+  img{max-width:100%;border:1px solid var(--line);border-radius:6px;margin:8px 0}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{background:var(--panel);color:var(--dim);font-weight:600}
+  .good{color:var(--good)} .bad{color:var(--rust)}
+  ul{margin:8px 0 8px 22px;padding:0}
+  li{margin:5px 0}
+  .res{background:var(--panel);border-left:3px solid var(--rust);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Calibre Voices — every weapon gets its real sound</h1>
+  <div class="sub">2026-06-11 · lib/sim + lib/audio · all sound 100% procedural (zero binary assets) ·
+  oracle: scripts/audio-render.ts (offline render of the REAL synth graph) · every number below is from the
+  seed-pinned oracle, before = HEAD@54a3091, after = this pass</div>
+</header>
+
+<h2>What this pass did</h2>
+<p>One sentence of sim code unlocked the whole thing: the engine now stamps <b>which weapon</b> produced
+each muzzle/blast effect (<code>Effect.weapon</code>, combat.ts). Before this, the audio layer knew only
+<i>faction</i> and <i>"is it a machine gun"</i> — so an M2 .50, an RPG leaving the tube, an M9 pistol and an
+M4 all collapsed into two faction rifle cracks. The synth's own comment admitted it: <i>"we have no
+per-weapon id on the Effect."</i> Now the .50s hammer, rockets pop-and-whoosh, 40 mm bloops, bolt guns cycle
+their bolts, pistols bark, mortars grade by calibre — and the battlefield gained sounds it never had:
+the RPG launch, the Mk19's thunk, and a man two metres away swapping mags.</p>
+
+<h2>1 · The calibre ladder</h2>
+<p>A soldier tells weapons apart by ear before he sees anything — the report's pitch and weight ARE the
+information. That ladder is now real and measurable (spectral centroid, solo/near):
+<b>M9 7701&nbsp;Hz &gt; M4 6860 &gt; M24 6450 &gt; Enfield 5876 &gt; DShK 5242</b>. The .50s needed more than a
+deeper bandpass: the shared 6&nbsp;kHz attack transient had made every gun equally bright, so the transient
+itself is now weapon-tinted (<code>transHP/transPeak</code>, the M2's attack is a low WHUMP).</p>
+<div class="ab">
+    <div class="abhead"><b>the medium gun vs the heavy gun</b><span class="why">the dreaded ridge gun is darker by 772 Hz and you feel it before you place it</span></div>
+    <div class="abrow">
+    <div class="cell"><div class="cap">PKM (7.62×54R)</div><audio controls preload="none" src="after/palette-mg_insurgent.wav"></audio></div>
+    <div class="cell"><div class="cap">DShK (.50)</div><audio controls preload="none" src="after/palette-hmg_insurgent.wav"></audio></div></div>
+  </div>
+<img src="viz/cmp-pkm-dshk.png" alt="Spectrogram: PKM (top) vs DShK .50 (bottom)">
+<div class="ab">
+    <div class="abhead"><b>the rifle vs the sidearm</b><span class="why">a pistol is a small sharp bark, nearly subless — the last-resort sound</span></div>
+    <div class="abrow">
+    <div class="cell"><div class="cap">M4 (5.56)</div><audio controls preload="none" src="after/palette-muzzle_us.wav"></audio></div>
+    <div class="cell"><div class="cap">M9 (9 mm)</div><audio controls preload="none" src="after/wpn-m9.wav"></audio></div></div>
+  </div>
+<div class="ab">
+    <div class="abhead"><b>M24 sniper — shot, then the bolt cycle</b><span class="why">the two-clack extract/chamber ~0.5 s after the report; the Enfield does it slower</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/wpn-m24.wav"></audio></div></div>
+  </div>
+<img src="viz/m24.png" alt="Spectrogram: M24 shot + bolt cycle">
+<div class="chips"><span class="chip">audible: — → <b>920 ms</b></span><span class="chip">centroid: — → <b>6450 Hz</b></span></div>
+
+<h2>2 · The missing battle sounds</h2>
+
+<h3>2.1 · The RPG launch (new)</h3>
+<p><b>Why:</b> "RPG!" is one of the defining calls of the Korengal accounts — and the game only voiced the
+<i>impact</i>. The launch is now its own event: booster POP, then the sustainer motor lights ~10 m out and
+the whoosh rises as the rocket departs. AT4/SPG-9 (recoilless) get the other signature: no flight motor,
+one violent venturi bang with a heavy rearward wash.</p>
+<div class="chips"><span class="chip">audible: — → <b>1100 ms</b></span><span class="chip">rms: — → <b>-35.36 dB</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>RPG-7 leaving the tube</b><span class="why">pop → rising whoosh; in game the blast arrives separately at the impact point</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-rocket_launch.wav"></audio></div></div>
+  </div>
+<img src="viz/rocket.png" alt="Spectrogram: RPG-7 launch pop + whoosh">
+<div class="ab">
+    <div class="abhead"><b>two launch physics, two sounds</b><span class="why">the RPG departs; the AT4 just detonates a charge behind the gunner's shoulder</span></div>
+    <div class="abrow">
+    <div class="cell"><div class="cap">RPG-7 (booster + motor)</div><audio controls preload="none" src="after/palette-rocket_launch.wav"></audio></div>
+    <div class="cell"><div class="cap">AT4 (recoilless bang)</div><audio controls preload="none" src="after/wpn-at4.wav"></audio></div></div>
+  </div>
+
+<h3>2.2 · The 40 mm launchers (new)</h3>
+<div class="ab">
+    <div class="abhead"><b>M320 — the hollow bloop</b><span class="why">tube resonance ~280→180 Hz; almost comic until you know what follows</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-gl_launch.wav"></audio></div></div>
+  </div>
+<div class="ab">
+    <div class="abhead"><b>hand launcher vs crew-served AGL</b><span class="why">the Mk19's heavy bolt clanks 55 ms after the deep thunk</span></div>
+    <div class="abrow">
+    <div class="cell"><div class="cap">M320 bloop</div><audio controls preload="none" src="after/palette-gl_launch.wav"></audio></div>
+    <div class="cell"><div class="cap">Mk 19 thunk</div><audio controls preload="none" src="after/wpn-mk19.wav"></audio></div></div>
+  </div>
+
+<h3>2.3 · Reload (new)</h3>
+<p><b>Why:</b> a fight breathes — bursts, then lulls where men service weapons. The sim already modeled
+reloading (<code>u.reloading</code>); it just happened silently. It now emits a <code>reload</code> effect →
+a strictly near-field cue: mag-out clack, kit rattle, mag seated, bolt release, at −51.6 dB RMS. You will
+only ever hear it standing next to your own men in a lull — which is exactly where it belongs.</p>
+<div class="chips"><span class="chip">rms: — → <b>-51.59 dB</b></span><span class="chip">audible: — → <b>520 ms</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>reload, solo/near</b><span class="why">mag out → seat → bolt release over ~0.6 s</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-reload.wav"></audio></div></div>
+  </div>
+<img src="viz/reload.png" alt="Spectrogram: the reload clatter">
+
+<h2>3 · Mortar calibre gradation</h2>
+<p><b>Why:</b> a 60 mm crump and a 120 mm valley-shaker were the same sound at the same volume. Now
+<code>BLAST_SCALE</code> grades sub onset and rumble length by calibre (duration grows faster than pitch
+falls — the big tube ROLLS). The honest metric story: centroid and HF% barely moved because broadband noise
+dominates them by bin count, so the oracle gained a <b>low-band share metric</b> (<code>lf200Pct</code> —
+energy below 200 Hz, where a blast's calibre actually lives): <b>60 mm 14.1% vs 120 mm 19.9%</b>.</p>
+<div class="ab">
+    <div class="abhead"><b>the small tube vs the big tube</b><span class="why">same peak discipline, different event: the 120's rumble is ~2× longer and sits lower</span></div>
+    <div class="abrow">
+    <div class="cell"><div class="cap">60 mm impact</div><audio controls preload="none" src="after/blast-m60.wav"></audio></div>
+    <div class="cell"><div class="cap">120 mm impact</div><audio controls preload="none" src="after/blast-m120.wav"></audio></div></div>
+  </div>
+<img src="viz/cmp-m60-m120.png" alt="Spectrogram: 60 mm (top) vs 120 mm (bottom)">
+
+<h2>4 · Realism upgrades to existing sounds</h2>
+
+<h3>4.1 · The IED — soil heave, not a big firecracker</h3>
+<p><b>Why:</b> a buried charge doesn't crack like shell HE — the ground HEAVES. The sub-bass and a new
+seismic ground wave (26→16 Hz, 1.1 s, riding the soft-clipper so harmonics carry it on small speakers) now
+<i>lead</i>, the airborne transient arrives 8 ms late through the lofted soil cap, and the rumble is duller
+(350→280 Hz) and longer. Centroid drops 5233 → <b>3951 Hz</b>; 37.9% of the energy now sits below 200 Hz.</p>
+<div class="chips"><span class="chip">centroid: 5233 Hz → <b>3951 Hz</b></span><span class="chip">LF share: — → <b>37.88%</b></span><span class="chip">rms: -21.06 dB → <b>-19.23 dB</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>IED — before / after</b><span class="why">before: a loud blast; after: the ground moves first</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/palette-ied.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-ied.wav"></audio></div></div>
+  </div>
+<img src="viz/ab-ied.png" alt="Spectrogram A/B: IED before and after">
+
+<h3>4.2 · The incoming shell — chaotic, not musical</h3>
+<p><b>Why:</b> the whistle swept cleanly — physically a siren, not a tumbling shell. A second
+incommensurate fast wobble (23–37 Hz, deepening) now rides the pitch so the two modulators never
+phase-lock, and a broadband shrill (high-Q noise fused to the tone) adds the tearing component. Keyed off
+the cue hash: no two shells wail alike, same seed wails the same.</p>
+<div class="chips"><span class="chip">audible: 2260 ms → <b>2400 ms</b></span><span class="chip">centroid: 1707 Hz → <b>1675 Hz</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>incoming — before / after</b><span class="why">before: a clean descending tone; after: it tears</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/palette-incoming.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-incoming.wav"></audio></div></div>
+  </div>
+<img src="viz/ab-incoming.png" alt="Spectrogram A/B: incoming whistle before and after">
+
+<h3>4.3 · The near miss — the full N-wave</h3>
+<p><b>Why:</b> a passing supersonic round is compression THEN rarefaction THEN turbulent wake — the old
+synth had only the leading snap. Added: the rarefaction lobe 1.5 ms behind (softer, lower — the "suck"
+that completes the N) and a 7 kHz wake sizzle. Centroid 7794 → 8443 Hz (the wake is the brightness).</p>
+<div class="ab">
+    <div class="abhead"><b>near miss — before / after</b><span class="why">subtle by design — the snap-crack of a round passing close</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/palette-nearmiss.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-nearmiss.wav"></audio></div></div>
+  </div>
+<img src="viz/ab-nearmiss.png" alt="Spectrogram A/B: near miss before and after">
+
+<h3>4.4 · Radio net texture (sparse by design)</h3>
+<p><b>Why:</b> a combat net has crosstalk and multipath dropouts — but texture on EVERY keying reads as a
+broken radio. So it keys off the cue hash at the extremes only: ~15% of squelches carry a faint second
+station stepping on the net, ~10% stutter once before the beep. The default squelch is byte-identical to
+before (the palette scene metrics did not move) — restraint you can verify in the table below.</p>
+
+<h2>5 · The numbers, all in one table</h2>
+<table>
+<tr><th>scene</th><th>rms dB</th><th>centroid Hz</th><th>audible ms</th><th>LF&lt;200 Hz %</th></tr>
+<tr><td>palette-ied</td><td>-21.06 → -19.23</td><td>5233 → 3951</td><td>1300 → 1300</td><td>— → 37.88</td></tr>
+<tr><td>palette-incoming</td><td>-29.5 → -29.3</td><td>1707 → 1675</td><td>2260 → 2400</td><td>— → 0.18</td></tr>
+<tr><td>palette-nearmiss</td><td>-38.72 → -38.84</td><td>7794 → 8443</td><td>420 → 420</td><td>— → 17.93</td></tr>
+<tr><td>palette-hmg_us</td><td>— → -30.41</td><td>— → 5328</td><td>— → 1120</td><td>— → 2.15</td></tr>
+<tr><td>palette-hmg_insurgent</td><td>— → -30.27</td><td>— → 5242</td><td>— → 1120</td><td>— → 2.18</td></tr>
+<tr><td>palette-rocket_launch</td><td>— → -35.36</td><td>— → 5063</td><td>— → 1100</td><td>— → 5.16</td></tr>
+<tr><td>palette-gl_launch</td><td>— → -40.14</td><td>— → 3905</td><td>— → 740</td><td>— → 5.77</td></tr>
+<tr><td>palette-reload</td><td>— → -51.59</td><td>— → 6559</td><td>— → 520</td><td>— → 0.69</td></tr>
+<tr><td>wpn-m9</td><td>— → -40.42</td><td>— → 7701</td><td>— → 740</td><td>— → 3.23</td></tr>
+<tr><td>wpn-m24</td><td>— → -36.49</td><td>— → 6450</td><td>— → 920</td><td>— → 3.2</td></tr>
+<tr><td>wpn-enfield</td><td>— → -35.19</td><td>— → 5876</td><td>— → 960</td><td>— → 2.57</td></tr>
+<tr><td>blast-m60</td><td>— → -26.17</td><td>— → 5987</td><td>— → 1140</td><td>— → 14.13</td></tr>
+<tr><td>blast-m120</td><td>— → -23.25</td><td>— → 5952</td><td>— → 1140</td><td>— → 19.9</td></tr>
+<tr><td>palette-radio</td><td>-22.34 → -22.34</td><td>1784 → 1784</td><td>120 → 120</td><td>— → 0.01</td></tr>
+<tr><td>palette-muzzle_us</td><td>-37.65 → -37.65</td><td>6860 → 6860</td><td>900 → 900</td><td>— → 2.94</td></tr>
+<tr><td>firefight</td><td>-26.74 → -25.29</td><td>5334 → 5184</td><td>18140 → 18280</td><td>— → 6.55</td></tr>
+</table>
+<p class="sub">Oracle after this pass: <b>RENDER OK — 39 scenes (12 new), 13/13 assertions green</b>, incl.
+5 new: the .50 darker than the PKM by 772 Hz · RPG launch sustains 1100 ms · reload whisper (−51.6 dB,
+520 ms) · mortar LF gradation 19.9 vs 14.1% · M24 bolt cycle spans 920 ms. The firefight scene now contains
+the M2 answering and an RPG launch, hence its small rms/centroid shift. Plus scripts/audio-probe.ts green
+(1:1 cue mapping now incl. reload effects, determinism, layer purity) and a 3-seed held-out run where the
+new cues emerged from ORGANIC combat: hmg_us 75–900 cues (the COP's M2), gl_launch 34 (Mk19), reload 5–151,
+M9 sidearms 42–130.</p>
+
+<h2>6 · Honest residuals</h2>
+<div class="res">
+<ul>
+<li><b>rocket_launch never fired organically in the 3 held-out runs</b> — RPG gunners carry one round and
+these fights didn't trigger it. The routing is proven by a direct mapper check (rpg7/spg9/at4 →
+rocket_launch) and the synth by the oracle; an organic occurrence remains unobserved.</li>
+<li><b>Backblast is folded into the launch sound</b>, not a separate directional cue — a true
+listener-relative backblast cone needs facing-aware spatialization. Deferred, recorded.</li>
+<li><b>No wounded vocalizations.</b> Deliberate: synthesized screams are the same trap as the rejected
+synthesized radio voice ("reads cheesy faster than squelch reads sparse"), with higher stakes. The
+casualty's weight stays in the radio traffic and the visual.</li>
+<li><b>No MEDEVAC rotor</b> — still no aircraft entity in the sim to attach it to (recorded negative).</li>
+<li><b>SAW vs M4 share a voice</b> — same 5.56 calibre; the cadence difference already comes from the sim's
+true cyclic timing, which is the audible difference in reality.</li>
+<li><b>npm run lint: 0 problems in lines this pass authored</b> (two findings in combat.ts predate it,
+outside this pass's hunks). Repo-wide count unchanged in spirit; not fixed here.</li>
+</ul>
+</div>
+
+<h2>7 · How to verify this yourself</h2>
+<ul>
+<li><code>npx tsx scripts/audio-render.ts</code> — re-renders all 39 scenes, prints the table + 13 assertions (expect RENDER OK).</li>
+<li><code>npx tsx scripts/audio-probe.ts</code> — mapper purity/determinism/1:1 incl. reload (expect AUDIO OK).</li>
+<li>In game: watch a COP defense — the M2 hammers under the rifle fire; an insurgent RPG announces itself before the blast; in a lull, zoom to your men and listen for the mag change.</li>
+</ul>
+
+</div><script src="/manual/lightbox.js" defer></script></body></html>

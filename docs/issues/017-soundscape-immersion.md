@@ -46,3 +46,31 @@ gunfire** (`synth.ts`); HDR auto-mixer + control-side ducking + priority voice-s
   render. A future oracle could model the dynamic mix for fully faithful busy-scene numbers.
 - Kept `StereoPanner` (not HRTF — wasted on a top-down camera) and `tic_sting` as the only musical
   element. Both deliberate.
+
+## 2026-06-11 follow-up — calibre voices (the weapon-identity pass)
+
+The remaining "weapon-tell" coarseness (two faction cracks for ~24 weapon systems) is closed.
+The unlock was sim-side: `Effect.weapon` (weapons.ts id) now stamped on muzzle/blast/reload
+effects (`combat.ts` fireRound/detonate/reload; effects are transient — save schema untouched).
+
+- **5 new cue kinds:** `hmg_us`/`hmg_insurgent` (M2/DShK — body an octave down, weapon-tinted
+  attack transient; DShK centroid darker than PKM by **772 Hz**), `rocket_launch` (RPG-7 pop +
+  booster whoosh, 1100 ms; AT4/SPG-9 recoilless bang), `gl_launch` (M320 bloop / Mk19 thunk),
+  `reload` (mag swap at **−51.6 dB** RMS — sim now emits a reload effect; NEW sound, was silent).
+- **Per-weapon voice rows** (`WEAPON_VOICES`, cue.wpn): M9 bark, M110/M24/SVD/Enfield; bolt guns
+  cycle the bolt ~0.5 s after the report (M24 span 920 ms). Mortar **calibre gradation**
+  (`BLAST_SCALE`): 60 vs 120 mm LF-share **14.1 vs 19.9%** (new `lf200Pct` oracle metric —
+  centroid/HF are bin-count-blind to sub-bass).
+- **Physics upgrades:** IED seismic heave + soil lag (centroid 5233→**3951 Hz**, LF 37.9%),
+  incoming-shell chaotic shrill (two incommensurate modulators), near-miss rarefaction + wake,
+  sparse radio net texture (default squelch byte-identical — restraint proven by unchanged palette).
+- **Verification:** oracle 39 scenes, **13/13 assertions**; probe 1:1/determinism/purity green;
+  3 held-out seeds emit the new kinds from organic combat (hmg_us 75–900, gl_launch 34,
+  reload 5–151, m9 42–130). Report + A/B: `docs/progress/2026-06-11-sound-realism/report.html`
+  (published to the archive).
+- **New residuals:** rocket_launch unobserved organically in the 3 holdout runs (RPG gunners
+  carry 1 round; routing proven by direct mapper check) · backblast directionality folded into
+  the launch sound (listener-relative cone = renderer work, deferred) · **no synthesized
+  screams, deliberately** — the recorded negative on synthesized radio voice extends to wounded
+  men, with higher stakes · SAW vs M4 share the 5.56 voice (cadence is the sim's real cyclic
+  timing — that IS the audible difference).
