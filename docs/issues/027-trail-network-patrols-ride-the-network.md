@@ -49,10 +49,12 @@ Balance 12×50 attribution (tuned seed set):
   steep sections — a valley-wide tempo speedup for BOTH sides (more contacts reach engagement
   range). Removed: `TREAD_GRADE_CAP` now covers **Trail + Footbridge only** (~0.4 % of map, up on
   the walls where the climbing fan lives — the steep-traversal ask without the valley tempo shift).
-- The landcover-only WIA 8.42 sits **inside the historical tuned band** (~8.58 — issue 026 had
-  flagged HEAD's 6.92 as *below* band, "friendly side safer; watching"), with KIA down (1.67→1.00)
-  and 0 civ cas, 0 strands. Final-code balance run recorded in
-  `docs/progress/2026-06-11-trail-network/after/balance-final.txt`.
+- The ladder: HEAD **6.92** (issue 026 had flagged this as *below* the ~8.58 band, "friendly side
+  safer; watching") → landcover-only **8.42** (in band) → trail-only caps, final code **9.42**
+  (+10 % over band; KIA 1.75 ≈ HEAD's 1.67, enemy 7.08, civ 0, 0 strands) → all-caps **12.58**
+  (rejected). Residual: final WIA ~0.8 over band, within the same-family run spread (026's open
+  σ-floor harness debt) — watch, don't tune to it. Runs:
+  `docs/progress/2026-06-11-trail-network/after/balance-{final,nocaps,allcaps}.txt`.
 - The far-village window residual (`reachability` 28/44 → 27/44; Donga 1321→~1700 s, arrives) is the
   landcover corridor drift — patrols riding the denser network like a real column. Kept deliberately:
   network-riding is the realistic behaviour, nothing strands, near villages got faster. If a future

@@ -182,6 +182,7 @@
     <a class="rep" href="reports/2026-06-10-open-issues-pass/report.html"><span class="rd">2026-06-10</span><span class="rt">Closing the open issues</span><span class="rs">One pass over the whole backlog: four realism wins shipped <em>active</em> (a squad that switchbacks up a face, a soldier who uses <em>that</em> rock, supplies that finally bite, and vegetation that reads the sun) — the fourth earned by a 3-strength balance sweep + held-out A/B that found the one strength (0.05) which improves the sim with KIA down on both seed sets. The two remaining tickets already run their live fix; what's left is a documented terrain floor and a logged do-not. Six issues, six live fixes, zero regressions shipped. The thread: the most valuable artifact in half of these was a probe, not a feature.</span><span class="go">Open the overview →</span></a>
     <a class="rep" href="reports/2026-06-10-people-immersion/report.html"><span class="rd">2026-06-10</span><span class="rt">Making the people real</span><span class="rs">One architecture, four places: the enemy cell gets the friendly squad's decide/execute split (ambush volley p90 11.2→0.6 s, a peel that converges while a rout disperses), men hesitate like men, a deterministic callout bus makes the brotherhood audible (man-down 100%, two-run identical) — and the village remembers: the elder physically walks out to the shura, a civilian death writes a named blood debt his household buries at first light, and children trail only the patrols a village trusts. Five new probes caught six real bugs before ship.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-11-sound-pass/report.html"><span class="rd">2026-06-11</span><span class="rt">The mixer and the whistle</span><span class="rs">A per-category sound mixer (combat / ambience / radio / alerts, each with on/off + level, persisted) wired between the buses and master so user trim never fights the contact-duck — plus five audible improvements with oracle numbers: the incoming-shell whistle the valley was missing (2.26 s, deterministic off the fire mission's own countdown), real stereo width for the calm bed (4%→12.4% — the fix was loop offsets, not panning), thunder that crosses the valley, an adhan that finally sounds sung (5.3 Hz vibrato), and three ricochet families. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-11-sound-realism/report.html"><span class="rd">2026-06-11</span><span class="rt">Calibre voices</span><span class="rs">One sentence of sim code — stamping which weapon produced each effect — unlocked the sound pass the synth itself had been asking for ("we have no per-weapon id on the Effect"). The .50s now hammer an octave below the 7.62 guns (DShK darker than the PKM by 772 Hz, measured), the RPG announces its launch before the blast, the M320 bloops, bolt guns cycle their bolts, pistols bark, and 60 vs 120 mm mortars grade by calibre (LF share 14.1→19.9%). Plus the sounds that were missing: reload clatter at −51.6 dB, and upgrades that make the IED heave (centroid 5233→3951 Hz), the incoming shell tear instead of sing, and the near miss complete its N-wave. 13/13 oracle assertions; new cues proven on 3 held-out seeds of organic combat. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1067,6 +1068,47 @@
       in the sim, so a rotor loop has nothing to attach to, and faking one with a timer in the audio layer
       was the change deliberately not made.</p>
       <a class="readmore" href="reports/2026-06-11-sound-pass/report.html">Read the full report (with playable A/B audio) →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-11-sound-realism">
+    <div class="shot">
+      <a href="reports/2026-06-11-sound-realism/report.html"><img src="assets/2026-06-11-sound-realism.png" alt="Spectrogram comparison: the PKM's energy (top) vs the DShK .50 sitting visibly lower (bottom)" loading="lazy"></a>
+      <div class="cap">The calibre tell on the spectrogram: the PKM (top) vs the DShK .50 (bottom) — the heavy gun's energy mass sits visibly lower. Opens the full report (with playable A/B audio).</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-11</span></div>
+      <h3>Calibre voices: every weapon gets its real sound</h3>
+      <div class="tags"><span class="tag">Audio</span><span class="tag">Simulation</span><span class="tag">Verification</span></div>
+      <p>A soldier tells weapons apart by ear before he sees anything — the report's pitch and weight ARE
+      the information. But the audio layer only knew <em>faction</em> and <em>"is it a machine gun"</em>, so
+      an M2 .50, an RPG launch, an M9 pistol and an M4 all collapsed into two rifle cracks. The unlock was
+      one sentence of sim code: the engine now stamps which weapon produced each muzzle/blast effect, and
+      the whole calibre ladder fell out of it — measured, solo/near: M9 7701&nbsp;Hz &gt; M4 6860 &gt; M24
+      6450 &gt; Enfield 5876 &gt; DShK 5242. The .50s needed one more honesty: the shared 6&nbsp;kHz attack
+      transient had made every gun equally bright, so the attack itself is now weapon-tinted — the M2's is
+      a low whump.</p>
+      <p class="shape"><b>The shape:</b> new sounds where the battlefield was silent (the RPG's pop-and-whoosh
+      launch — "RPG!" is finally audible as a launch, not just an arrival; the M320's bloop and the Mk19's
+      bolt-thunk; a man two metres away swapping mags at −51.6 dB), per-weapon voice rows refining the class
+      voices (bolt guns cycle their bolts ~0.5 s after the report), and physics upgrades to the loudest
+      moments: the IED now <em>heaves</em> (seismic 26→16 Hz ground wave leads, the airborne crack arrives
+      8 ms late through the soil cap), the incoming shell tears instead of singing (two incommensurate
+      modulators that never phase-lock), the near miss completes its N-wave. Where the standard metrics
+      went blind — centroid and HF% are bin-count-dominated by broadband noise — the oracle grew a low-band
+      share metric, because a blast's calibre lives below 200 Hz.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">weapon voices (distinct)</span><span class="b">2 faction cracks</span><span class="ar">→</span><span class="a">11 (+5 cue kinds)</span></span>
+        <span class="m"><span class="lbl">DShK vs PKM centroid</span><span class="b">same voice</span><span class="ar">→</span><span class="a">darker by 772 Hz</span></span>
+        <span class="m"><span class="lbl">IED centroid / LF share</span><span class="b">5233 Hz / —</span><span class="ar">→</span><span class="a">3951 Hz / 37.9%</span></span>
+        <span class="m"><span class="lbl">60 vs 120 mm mortar LF share</span><span class="b">identical</span><span class="ar">→</span><span class="a">14.1% vs 19.9%</span></span>
+        <span class="m"><span class="lbl">oracle assertions</span><span class="b">8</span><span class="ar">→</span><span class="a">13/13 green (39 scenes)</span></span>
+      </div>
+      <p class="quote">The residuals are named: the RPG launch never fired organically in the three held-out
+      runs (gunners carry one round) — routing proven by direct mapper check, organic occurrence unobserved;
+      and there are still no synthesized screams, deliberately — the recorded negative on synthesized radio
+      voice ("reads cheesy faster than squelch reads sparse") extends to wounded men, with higher stakes.</p>
+      <a class="readmore" href="reports/2026-06-11-sound-realism/report.html">Read the full report (with playable A/B audio) →</a>
     </div>
   </article>
 

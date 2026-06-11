@@ -74,10 +74,14 @@ Tune set = the 8 documented footpath seeds; holdout = survey-40..59 (never tuned
 - route-quality: meanRatio 1.12, loopy 0 % — unchanged.
 - **Balance WIA, attributed and resolved** (12×50, tuned seed set): the first cap set (Road/Track/
   Trail) measured WIA 12.58 (+82 %) — `ITM_NOTREADCAP` A/B pinned it on the ROAD/TRACK caps (already-
-  benched ground; capping them was a pure tempo amplifier for both sides: HEAD 6.92 → landcover-only
-  8.42 → all-caps 12.58). Caps narrowed to **Trail + Footbridge only**; landcover-only WIA 8.42 sits
-  inside the historical ~8.58 band that issue 026 flagged HEAD's 6.92 as BELOW. KIA 1.67 → 1.00,
-  enemy 5.50 → 7.00, civ 0, 0 strands. Final-code run: `after/balance-final.txt` (all-caps attribution run preserved as `after/balance-allcaps.txt`).
+  benched ground; capping them was a pure tempo amplifier for both sides). Caps narrowed to
+  **Trail + Footbridge only**. The ladder: HEAD **6.92** (issue 026 had flagged this as BELOW the
+  ~8.58 historical band) → landcover-only **8.42** (in band) → trail-only caps, final code **9.42**
+  (+10 % over band; KIA 1.75 ≈ HEAD's 1.67) → all-caps **12.58** (rejected). Enemy accounted
+  5.50 → 7.08, civ 0 and 0 strands in every config. Final-code run: `after/balance-final.txt`;
+  attribution runs preserved as `after/balance-nocaps.txt` and `after/balance-allcaps.txt`.
+  Residual: WIA ~0.8 above the band — within the spread of the same-family runs (026 flags the
+  balance σ floor as open harness debt); watch it, don't tune to it.
 - korengal-2 strict-graph big% 99.2 → 51.8 (probe's conservative ≤1.25 graph only — the ENGINE-true
   gate reach% is unchanged at 82.1; tracks re-routed under shifted block costs bench different ground).
 - Climb-time to high shoulders (trail-utility, fixed oracle, arrived-only, FINAL code):
