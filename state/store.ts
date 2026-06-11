@@ -9,7 +9,7 @@ import { loadSprites } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 // Procedural audio is a RENDER-SIDE OBSERVER (like lib/render/combat-fx.ts): the bridge owns
 // the real-time loop, so it drives the audio tick. lib/sim imports NOTHING from lib/audio.
-import { AudioEngine } from "@/lib/audio";
+import { AudioEngine, AUDIO_CATEGORIES, type AudioCategory } from "@/lib/audio";
 
 export type Screen = "menu" | "loading" | "deploy" | "tourend";
 
@@ -93,8 +93,11 @@ interface GameStore {
   // ---- audio (UI preference; persisted in itm-ui-v1, NOT the campaign save) ----
   audioMuted: boolean;
   audioVolume: number;
+  audioCats: Record<AudioCategory, { v: number; on: boolean }>; // per-category volume + on/off
   setAudioVolume: (v: number) => void;
   toggleAudioMute: () => void;
+  setAudioCatVolume: (cat: AudioCategory, v: number) => void;
+  toggleAudioCat: (cat: AudioCategory) => void;
 
   // ---- call-for-fire auto-pause (UI preference; itm-ui-v1, NOT the campaign save) ----
   autoPauseOnFire: boolean;
@@ -240,25 +243,38 @@ export interface PanelLayout {
   // gotcha). Default volume 0.6, unmuted: the player who turns sound on should get the genre.
   audioMuted: boolean;
   audioVolume: number;
+  // Per-CATEGORY mixer (combat/ambience/radio/alerts): volume 0..1 + on/off, so a player can e.g.
+  // keep the war but silence the wildlife. Same blob, same per-device semantics as audioVolume.
+  audioCats: Record<AudioCategory, { v: number; on: boolean }>;
   // Auto-pause the clock the instant the AI raises a NEW call-for-fire, so the commander reads the
   // call before clearing/denying. A UI preference (same blob as audio), default ON — it's the
   // urgency cue that makes the approve/deny lever land. It NEVER restores speed afterward.
   autoPauseOnFire: boolean;
 }
 const AUDIO_VOLUME_DEFAULT = 0.6;
+function defaultAudioCats(): PanelLayout["audioCats"] {
+  return { combat: { v: 1, on: true }, ambience: { v: 1, on: true }, radio: { v: 1, on: true }, alerts: { v: 1, on: true } };
+}
 function loadLayout(): PanelLayout {
-  const base: PanelLayout = { collapsed: {}, heights: {}, seenCombatId: 0, audioMuted: false, audioVolume: AUDIO_VOLUME_DEFAULT, autoPauseOnFire: true };
+  const base: PanelLayout = { collapsed: {}, heights: {}, seenCombatId: 0, audioMuted: false, audioVolume: AUDIO_VOLUME_DEFAULT, audioCats: defaultAudioCats(), autoPauseOnFire: true };
   try {
     if (typeof window === "undefined") return base;
     const r = window.localStorage.getItem(LAYOUT_KEY);
     if (!r) return base;
     const p = JSON.parse(r) as Partial<PanelLayout>;
+    // merge categories per key so a future category gets its default instead of undefined.
+    const cats = defaultAudioCats();
+    for (const c of AUDIO_CATEGORIES) {
+      const saved = p.audioCats?.[c];
+      if (saved) cats[c] = { v: typeof saved.v === "number" ? Math.max(0, Math.min(1, saved.v)) : 1, on: saved.on !== false };
+    }
     return {
       collapsed: p.collapsed ?? {},
       heights: p.heights ?? {},
       seenCombatId: p.seenCombatId ?? 0,
       audioMuted: p.audioMuted ?? false,
       audioVolume: typeof p.audioVolume === "number" ? p.audioVolume : AUDIO_VOLUME_DEFAULT,
+      audioCats: cats,
       autoPauseOnFire: p.autoPauseOnFire ?? true,
     };
   } catch {
@@ -397,6 +413,7 @@ export const useGame = create<GameStore>((set, get) => ({
   // the engine is synced to them on the first user gesture (it has no context before unlock).
   audioMuted: loadLayout().audioMuted,
   audioVolume: loadLayout().audioVolume,
+  audioCats: loadLayout().audioCats,
   // call-for-fire auto-pause preference, mirrored top-level for HUD subscription (read in frame()).
   autoPauseOnFire: loadLayout().autoPauseOnFire,
 
@@ -811,6 +828,24 @@ export const useGame = create<GameStore>((set, get) => ({
     const muted = !get().audioMuted;
     audio.setMuted(muted);
     set((st) => ({ audioMuted: muted, layout: { ...st.layout, audioMuted: muted } }));
+    persistLayout(get().layout);
+  },
+  setAudioCatVolume: (cat, v) => {
+    const vol = Math.max(0, Math.min(1, v));
+    audio.setCategoryVolume(cat, vol);
+    set((st) => {
+      const cats = { ...st.audioCats, [cat]: { ...st.audioCats[cat], v: vol } };
+      return { audioCats: cats, layout: { ...st.layout, audioCats: cats } };
+    });
+    persistLayout(get().layout); // itm-ui-v1 only — never the campaign save
+  },
+  toggleAudioCat: (cat) => {
+    const on = !get().audioCats[cat].on;
+    audio.setCategoryMuted(cat, !on);
+    set((st) => {
+      const cats = { ...st.audioCats, [cat]: { ...st.audioCats[cat], on } };
+      return { audioCats: cats, layout: { ...st.layout, audioCats: cats } };
+    });
     persistLayout(get().layout);
   },
 

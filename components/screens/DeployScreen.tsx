@@ -1,6 +1,7 @@
 "use client";
-import { useEffect, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useRef, useState, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { useGame, SPEEDS, type ToastSev } from "@/state/store";
+import type { AudioCategory } from "@/lib/audio";
 import WorldView from "@/components/world/WorldView";
 import { getWeapon } from "@/lib/sim/weapons";
 import { Unit, ROE } from "@/lib/sim/entities";
@@ -375,8 +376,8 @@ function CommandBar() {
             call (clear hot [F] / deny [X]). Never auto-restores speed — TIC owns that one-way drop. */}
         <button className={`tac-btn px-2 py-1 ${autoPauseOnFire ? "active" : ""}`} onClick={toggleAutoPauseOnFire} title="Auto-pause on a new call-for-fire" aria-label="Toggle auto-pause on a new call-for-fire" aria-pressed={autoPauseOnFire}>⏸▲</button>
       </div>
-      {/* audio — master mute + volume (persisted in itm-ui-v1, NOT the campaign save) */}
-      <div className="flex items-center px-2 gap-1 border-l border-line">
+      {/* audio — master mute + volume + the per-category mixer (persisted in itm-ui-v1, NOT the campaign save) */}
+      <div className="flex items-center px-2 gap-1 border-l border-line relative">
         <button className={`tac-btn px-2 py-1 ${audioMuted ? "active" : ""}`} onClick={toggleAudioMute} title="Mute (M)" aria-label={audioMuted ? "Unmute audio" : "Mute audio"} aria-pressed={audioMuted}>{audioMuted ? "🔇" : "🔊"}</button>
         <input
           type="range"
@@ -390,9 +391,88 @@ function CommandBar() {
           title="Volume"
           aria-label="Master volume"
         />
+        <AudioMixer />
       </div>
       <button className="tac-btn rounded-none border-y-0 px-3" onClick={() => useGame.getState().toggleHelp()} aria-label="Controls & shortcuts reference" title="Controls & shortcuts (H or ?)">?</button>
       <button className="tac-btn rounded-none border-y-0 border-r-0 px-3" onClick={gotoMenu} aria-label="Menu — return to main menu" title="Menu">☰</button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------- audio mixer popover
+/** The per-category sound mixer: combat / ambience / radio / alerts, each with an on/off toggle
+ *  and a level slider. Lives in the command bar's audio cluster; prefs persist in itm-ui-v1 and
+ *  map 1:1 onto the engine's category gains (bus → category → master, lib/audio/player.ts). */
+const AUDIO_CAT_ROWS: { cat: AudioCategory; label: string; hint: string }[] = [
+  { cat: "combat", label: "COMBAT", hint: "gunfire, explosions, the valley echo" },
+  { cat: "ambience", label: "AMBIENCE", hint: "wind, river, generator, wildlife, weather" },
+  { cat: "radio", label: "RADIO", hint: "net traffic squelch + beeps" },
+  { cat: "alerts", label: "ALERTS", hint: "contact sting + danger-close klaxon" },
+];
+function AudioMixer() {
+  const [open, setOpen] = useState(false);
+  const audioCats = useGame((s) => s.audioCats);
+  const setVol = useGame((s) => s.setAudioCatVolume);
+  const toggle = useGame((s) => s.toggleAudioCat);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  // close on click-outside / Escape — standard popover hygiene.
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("pointerdown", onDown);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("pointerdown", onDown);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        className={`tac-btn px-2 py-1 ${open ? "active" : ""}`}
+        onClick={() => setOpen(!open)}
+        title="Sound mixer — per-category volume"
+        aria-label="Sound mixer"
+        aria-expanded={open}
+        aria-haspopup="true"
+      >🎚</button>
+      {open && (
+        <div className="absolute right-0 top-full mt-1 z-50 panel p-2 w-64 flex flex-col gap-1.5 shadow-lg" role="group" aria-label="Sound categories">
+          <div className="text-inkdim text-[10px] font-mono tracking-wider">SOUND MIXER</div>
+          {AUDIO_CAT_ROWS.map(({ cat, label, hint }) => {
+            const { v, on } = audioCats[cat];
+            return (
+              <div key={cat} className="flex items-center gap-2" title={hint}>
+                <button
+                  className={`tac-btn px-1.5 py-0.5 text-[10px] w-[72px] text-left ${on ? "" : "active"}`}
+                  onClick={() => toggle(cat)}
+                  aria-pressed={!on}
+                  aria-label={`${on ? "Mute" : "Unmute"} ${label.toLowerCase()} sounds`}
+                >{on ? "● " : "○ "}{label}</button>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={v}
+                  onChange={(e) => setVol(cat, +e.target.value)}
+                  disabled={!on}
+                  className="flex-1 h-5 accent-amber"
+                  aria-label={`${label} volume`}
+                />
+                <span className="font-mono text-[10px] text-inkdim w-7 text-right">{on ? Math.round(v * 100) : "off"}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

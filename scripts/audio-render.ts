@@ -58,7 +58,9 @@ const SR = 48000;
 const MAX_VOICES = 32; // MIRRORS player.ts MAX_VOICES
 const MASTER = 0.6; // MIRRORS player.ts DEFAULT_VOLUME
 const dbToLin = (db: number) => Math.pow(10, db / 20);
-const BUS_TRIM = { combat: dbToLin(0), atmos: dbToLin(-20), radio: dbToLin(-3), score: dbToLin(-9) }; // MIRRORS player.ts
+const BUS_TRIM = { combat: dbToLin(0), atmos: dbToLin(-20), radio: dbToLin(-3), score: dbToLin(0) }; // MIRRORS player.ts
+// NOTE the category mixer (bus → category → master, player.ts cats) is all-unity by default, so
+// the oracle renders the default mix without modeling it; if category defaults ever change, add it.
 
 // ----------------------------------------------------------------------------- scene model
 interface TimedCue {
@@ -130,7 +132,7 @@ async function renderScene(scene: Scene): Promise<{ L: Float32Array; R: Float32A
   const reverb = createValleyReverb(ctx, { seed: 0x4b4f52, rt60: 1.8 });
   reverb.output.connect(master);
 
-  const busFor = (k: CueKind) => (k === "radio" ? radioBus : k === "tic_sting" ? scoreBus : combatBus);
+  const busFor = (k: CueKind) => (k === "radio" ? radioBus : k === "tic_sting" || k === "dangerclose" ? scoreBus : combatBus); // MIRRORS player.busFor
   const sendReverb = (srcGain: GainNode, wet: number, preDelay: number) => {
     if (!(wet > 0.001)) return;
     const send = ctx.createGain(); send.gain.value = wet;

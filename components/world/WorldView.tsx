@@ -123,6 +123,10 @@ export default function WorldView() {
       const st = useGame.getState();
       a.setMasterVolume(st.audioVolume);
       a.setMuted(st.audioMuted);
+      for (const cat of Object.keys(st.audioCats) as (keyof typeof st.audioCats)[]) {
+        a.setCategoryVolume(cat, st.audioCats[cat].v);
+        a.setCategoryMuted(cat, !st.audioCats[cat].on);
+      }
     };
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });

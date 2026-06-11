@@ -7,8 +7,8 @@
  * probe deliberately imports only mapper+cue so a regression that leaks a browser global into
  * the pure path is caught (audio-probe.ts assertion C).
  */
-export { AudioEngine } from "./player";
-export type { AudioFlags } from "./player";
+export { AudioEngine, AUDIO_CATEGORIES } from "./player";
+export type { AudioFlags, AudioCategory } from "./player";
 export { CueMapper } from "./mapper";
 export type { CueSource } from "./mapper";
 export type { AudioCue, CueKind } from "./cue";
