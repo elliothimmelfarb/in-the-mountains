@@ -6,15 +6,17 @@
  * `tick()` collects fresh cues from the live sim and schedules them. Render-side: it freely uses
  * ctx.currentTime for scheduling and never feeds anything back into lib/sim (Law 7).
  *
- * THE GRAPH (built once at unlock):
+ * THE GRAPH (built once at unlock). The user's category mixer sits between the buses and
+ * master (bus → category → master) so per-category volume/mute NEVER fights the control-side
+ * ducking, which rides the bus gains upstream:
  *   destination
  *    └ limiter (DynamicsCompressor, conservative brickwall)
  *       └ master (volume/mute)
- *          ├ combatBus      ← positional fire + HE + the HDR window
- *          ├ atmosBus       ← AmbientEngine (wind/river/generator/wildlife); ducks on TIC/HE
- *          ├ radioBus       ← fixed in-handset chain (HP550→LP3k→tanh→comp→peak+6@1.5k)
- *          ├ scoreBus       ← tic_sting only (the lone musical element)
- *          └ reverbReturn ← ValleyReverb.convolver ← per-cue wet sends (HP+preDelay)
+ *          ├ cat.combat   ← combatBus (positional fire + HE + the HDR window)
+ *          │               ← reverbReturn ← ValleyReverb.convolver ← per-cue wet sends (HP+preDelay)
+ *          ├ cat.ambience ← atmosBus (AmbientEngine: wind/river/generator/wildlife); ducks on TIC/HE
+ *          ├ cat.radio    ← radioBus (fixed in-handset chain HP550→LP3k→tanh→comp→peak+6@1.5k)
+ *          └ cat.alerts   ← scoreBus (tic_sting + the danger-close klaxon — the command channel)
  *
  * Per positional combat cue: cueGain → lowpass(occlusion/air) → [elevation shelf] → pan → combatBus,
  * plus a parallel wet tap cueGain → sendGain → highpass 300 → preDelay → reverb.input. The dry path
@@ -34,6 +36,21 @@ const SPEED_OF_SOUND = 343; // m/s — the crack-thump split
 const MAX_VOICES = 32; // raised from 24: the HDR window pre-culls and the limiter protects the sum
 const DEFAULT_VOLUME = 0.6;
 const dbToLin = (db: number) => Math.pow(10, db / 20);
+
+/**
+ * Player-facing sound CATEGORIES — the on/off + volume groups the settings UI exposes. Each is
+ * one gain node between its bus(es) and master (bus → category → master), so user trim NEVER
+ * fights the control-side ducking (which rides the bus gains upstream):
+ *   combat   — positional fire/HE (combatBus) + the shared valley-reverb return (only combat
+ *              kinds have a wet send, so the tail belongs to this category: muting combat must
+ *              also silence its echo).
+ *   ambience — the AmbientEngine bed (atmosBus): wind/river/generator/wildlife/weather.
+ *   radio    — the in-handset net chain (radioBus).
+ *   alerts   — the non-diegetic command-channel cues (scoreBus): tic_sting + the danger-close
+ *              klaxon. Kept separate so a player can silence the "game" sounds but keep the war.
+ */
+export type AudioCategory = "combat" | "ambience" | "radio" | "alerts";
+export const AUDIO_CATEGORIES: AudioCategory[] = ["combat", "ambience", "radio", "alerts"];
 
 /** Per-cue static loudness trim so the mix sits right (a single muzzle must not be as loud as
  *  an IED). Multiplies the cue's own gain + distance + master. Exported so the offline render
@@ -56,7 +73,8 @@ export const KIND_TRIM: Record<CueKind, number> = {
   shot: 0.6,
   splash: 0.9,
   dangerclose: 0.7,
-  tic_sting: 0.7,
+  tic_sting: 0.25, // was 0.7 @ scoreBus −9 dB; scoreBus is now 0 dB (so the klaxon can join it at
+  //                  its old level) — 0.25 ≈ 0.7 × 10^(−9/20) keeps the sting's absolute level.
 };
 
 /** Per-cue REVERB SEND (0..1), multiplied by the distance wet factor. HE/distant fire rings down
@@ -129,7 +147,9 @@ const KIND_PRIORITY: Record<CueKind, number> = {
   flare: 1,
 };
 
-const BUS_TRIM = { combat: dbToLin(0), atmos: dbToLin(-20), radio: dbToLin(-3), score: dbToLin(-9) };
+// score moved −9 → 0 dB when dangerclose joined it (the klaxon was tuned at a 0 dB bus);
+// KIND_TRIM.tic_sting absorbed the −9 dB so the sting's absolute level is unchanged.
+const BUS_TRIM = { combat: dbToLin(0), atmos: dbToLin(-20), radio: dbToLin(-3), score: dbToLin(0) };
 const HDR_FLOOR = 55; // dB the window decays toward in silence
 const HDR_SIZE = 38; // window height: sounds > HDR_SIZE below the top are culled
 const HDR_RELEASE_TAU = 0.9; // s — how fast the window sinks back so quiet valley sounds re-emerge
@@ -192,6 +212,15 @@ export class AudioEngine {
   private scoreBus: GainNode | null = null;
   private reverb: ValleyReverb | null = null;
   private ambient: AmbientEngine | null = null;
+  /** category gain nodes (bus → category → master); null until unlock builds the graph. */
+  private cats: Record<AudioCategory, GainNode> | null = null;
+  /** persisted-pref mirror so settings set before unlock apply when the graph is built. */
+  private readonly catPrefs: Record<AudioCategory, { volume: number; muted: boolean }> = {
+    combat: { volume: 1, muted: false },
+    ambience: { volume: 1, muted: false },
+    radio: { volume: 1, muted: false },
+    alerts: { volume: 1, muted: false },
+  };
 
   private readonly mapper = new CueMapper();
   private cam: Camera | null = null;
@@ -235,15 +264,26 @@ export class AudioEngine {
       master.connect(limiter);
       this.master = master;
 
-      // buses → master
-      this.combatBus = this.makeBus(BUS_TRIM.combat);
-      this.atmosBus = this.makeBus(BUS_TRIM.atmos);
-      this.scoreBus = this.makeBus(BUS_TRIM.score);
-      this.radioBus = this.makeRadioBus(BUS_TRIM.radio);
+      // category gains → master (the user's mixer; ducking rides the buses upstream)
+      const mkCat = (c: AudioCategory): GainNode => {
+        const g = ctx.createGain();
+        const p = this.catPrefs[c];
+        g.gain.value = p.muted ? 0 : p.volume;
+        g.connect(master);
+        return g;
+      };
+      this.cats = { combat: mkCat("combat"), ambience: mkCat("ambience"), radio: mkCat("radio"), alerts: mkCat("alerts") };
 
-      // shared valley reverb → master
+      // buses → their category → master
+      this.combatBus = this.makeBus(BUS_TRIM.combat, this.cats.combat);
+      this.atmosBus = this.makeBus(BUS_TRIM.atmos, this.cats.ambience);
+      this.scoreBus = this.makeBus(BUS_TRIM.score, this.cats.alerts);
+      this.radioBus = this.makeRadioBus(BUS_TRIM.radio, this.cats.radio);
+
+      // shared valley reverb → combat category (only combat kinds have a wet send — muting
+      // combat must also silence its valley tail, not leave a ghost echo).
       this.reverb = createValleyReverb(ctx, { seed: 0x4b4f52, rt60: 1.8 });
-      this.reverb.output.connect(master);
+      this.reverb.output.connect(this.cats.combat);
 
       // ambient bed → atmosBus (its own voice bank, outside the combat voice pool)
       try {
@@ -261,19 +301,19 @@ export class AudioEngine {
     this.unlocked = true;
   }
 
-  /** A plain submix bus → master. */
-  private makeBus(trim: number): GainNode {
+  /** A plain submix bus → its category gain. */
+  private makeBus(trim: number, dst: AudioNode): GainNode {
     const ctx = this.ctx!;
     const g = ctx.createGain();
     g.gain.value = trim;
-    g.connect(this.master!);
+    g.connect(dst);
     return g;
   }
 
   /** The radio bus IS the in-handset chain: entry gain → HP550 → LP3k → tanh grit → comp → peak
-   *  +6 @1.5k → master. Cues connect their synth to the returned ENTRY gain; the chain band-limits
-   *  it to a degraded field-radio speaker (reference-acoustics dossier). */
-  private makeRadioBus(trim: number): GainNode {
+   *  +6 @1.5k → the radio category. Cues connect their synth to the returned ENTRY gain; the chain
+   *  band-limits it to a degraded field-radio speaker (reference-acoustics dossier). */
+  private makeRadioBus(trim: number, dst: AudioNode): GainNode {
     const ctx = this.ctx!;
     const entry = ctx.createGain();
     entry.gain.value = trim;
@@ -298,7 +338,7 @@ export class AudioEngine {
     peak.frequency.value = 1500;
     peak.Q.value = 1.2;
     peak.gain.value = 6;
-    entry.connect(hp).connect(lp).connect(shaper).connect(comp).connect(peak).connect(this.master!);
+    entry.connect(hp).connect(lp).connect(shaper).connect(comp).connect(peak).connect(dst);
     return entry;
   }
 
@@ -324,6 +364,24 @@ export class AudioEngine {
     if (this.master && this.ctx) {
       this.master.gain.setTargetAtTime(m ? 0 : this.volume, this.ctx.currentTime, 0.02);
     }
+  }
+
+  /** Per-category volume (0..1). Safe before unlock — prefs apply when the graph is built. */
+  setCategoryVolume(cat: AudioCategory, v: number): void {
+    this.catPrefs[cat].volume = Math.max(0, Math.min(1, v));
+    this.applyCategory(cat);
+  }
+
+  /** Per-category on/off. Mute keeps the volume so toggling back restores the player's level. */
+  setCategoryMuted(cat: AudioCategory, muted: boolean): void {
+    this.catPrefs[cat].muted = muted;
+    this.applyCategory(cat);
+  }
+
+  private applyCategory(cat: AudioCategory): void {
+    if (!this.cats || !this.ctx) return;
+    const p = this.catPrefs[cat];
+    this.cats[cat].gain.setTargetAtTime(p.muted ? 0 : p.volume, this.ctx.currentTime, 0.02);
   }
 
   // -------------------------------------------------------------- the per-frame tick
@@ -527,8 +585,8 @@ export class AudioEngine {
 
   private busFor(kind: CueKind): GainNode {
     if (kind === "radio") return this.radioBus!;
-    if (kind === "tic_sting") return this.scoreBus!;
-    return this.combatBus!;
+    if (kind === "tic_sting" || kind === "dangerclose") return this.scoreBus!; // both are command-
+    return this.combatBus!; // channel alerts, not battlefield sound — they belong to the alerts category
   }
 
   /** Control-side ducking (DynamicsCompressor can't be sidechained). A trigger cue ramps the
