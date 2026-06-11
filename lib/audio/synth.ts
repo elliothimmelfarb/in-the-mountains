@@ -273,30 +273,44 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       return { endTime: crack + 0.1 };
     }
     case "ricochet": {
-      // The classic zing: a sine swept down with a fast vibrato through a bandpass.
+      // THREE deterministic timbre families off cue.v — every deflection identical was the single
+      // most repetitive sound in a long firefight. All share the swept-sine-through-bandpass core;
+      // what varies is what a real deflection varies by: how long the fragment sings (dwell), how
+      // fast it tumbles (vibrato rate), and how far the pitch falls.
+      //   v<0.45 ZING  — the classic long singing whine (rock face, shallow graze)
+      //   v<0.75 BUZZ  — short, hard, fast-tumbling (a destabilized fragment, barely sings)
+      //   else   WHINE — high thin start, long slow fall (the Hollywood spinner, kept rare)
+      const fam = cue.v < 0.45 ? 0 : cue.v < 0.75 ? 1 : 2;
+      const dur = fam === 0 ? j(0.16, 0.2) : fam === 1 ? j(0.07, 0.1) : j(0.26, 0.34);
+      const fStart = fam === 2 ? j(3200, 3800) : j(2300, 2700);
+      const fEnd = fam === 1 ? j(1100, 1400) : j(550, 800);
+      const vibRate = fam === 1 ? 70 : 30;
+      const vibDepth = fam === 1 ? 140 : 60;
       const o = ctx.createOscillator();
       o.type = "sine";
-      o.frequency.setValueAtTime(j(2300, 2700), crack);
-      o.frequency.exponentialRampToValueAtTime(j(600, 800), crack + 0.18);
+      o.frequency.setValueAtTime(fStart, crack);
+      o.frequency.exponentialRampToValueAtTime(fEnd, crack + dur);
       const lfo = ctx.createOscillator();
-      lfo.frequency.value = 30;
+      lfo.frequency.value = vibRate;
       const lfoGain = ctx.createGain();
-      lfoGain.gain.value = 60;
+      lfoGain.gain.value = vibDepth;
       lfo.connect(lfoGain).connect(o.frequency);
       const bp = ctx.createBiquadFilter();
       bp.type = "bandpass";
-      bp.frequency.value = 1500;
+      bp.frequency.value = fam === 2 ? 2100 : 1500;
       bp.Q.value = 2;
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, crack);
-      g.gain.exponentialRampToValueAtTime(0.7, crack + 0.01);
-      g.gain.exponentialRampToValueAtTime(0.0001, crack + 0.18);
+      g.gain.exponentialRampToValueAtTime(fam === 1 ? 0.8 : 0.7, crack + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, crack + dur);
       o.connect(bp).connect(g).connect(out);
       o.start(crack);
-      o.stop(crack + 0.2);
+      o.stop(crack + dur + 0.02);
       lfo.start(crack);
-      lfo.stop(crack + 0.2);
-      return { endTime: crack + 0.22 };
+      lfo.stop(crack + dur + 0.02);
+      // the initial impact tick the whine spins off from (all families) — grounds the zing in a hit.
+      noiseBurst(ctx, out, crack, 0.012, "bandpass", j(2500, 3500), 3, 0.5, 0.0005);
+      return { endTime: crack + dur + 0.04 };
     }
 
     // --- high explosive ---------------------------------------------------------------
@@ -378,6 +392,52 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       noiseBurst(ctx, out, crack, 0.004, "lowpass", 600, 0.5, 0.5); // click
       sub(ctx, out, crack, 60, 40, 0.2, 0.7);
       return { endTime: crack + 0.24 };
+    }
+    case "incoming": {
+      // The descending shell whistle — the 2.2 s shriek before the splash (the mapper fires this
+      // INCOMING_LEAD_S before the round lands, so the whistle ends as the blast arrives). Two
+      // swelling layers: a pitched whine sweeping down ~1.3 kHz→320 Hz with a growing flutter
+      // (the tumbling-shell instability), and a bandpass whoosh tracking an octave above it.
+      // Approach physics in the envelope: starts a whisper, peaks just before impact.
+      const dur = 2.2;
+      const f0 = 1200 + cue.v * 350;
+      const o = ctx.createOscillator();
+      o.type = "triangle";
+      o.frequency.setValueAtTime(f0, crack);
+      o.frequency.exponentialRampToValueAtTime(320, crack + dur);
+      const flut = ctx.createOscillator(); // flutter deepens as the round closes
+      flut.frequency.setValueAtTime(6, crack);
+      flut.frequency.linearRampToValueAtTime(11, crack + dur);
+      const flutAmt = ctx.createGain();
+      flutAmt.gain.setValueAtTime(4, crack);
+      flutAmt.gain.linearRampToValueAtTime(38, crack + dur);
+      flut.connect(flutAmt).connect(o.frequency);
+      const og = ctx.createGain();
+      og.gain.setValueAtTime(0.0001, crack);
+      og.gain.exponentialRampToValueAtTime(0.55, crack + dur * 0.85); // the swell IS the dread
+      og.gain.exponentialRampToValueAtTime(0.0001, crack + dur);
+      o.connect(og).connect(out);
+      o.start(crack);
+      o.stop(crack + dur + 0.02);
+      flut.start(crack);
+      flut.stop(crack + dur + 0.02);
+      // the air-tearing whoosh: swept bandpass noise an octave up, same swell.
+      const src = ctx.createBufferSource();
+      src.buffer = noiseBuffer(ctx);
+      src.loop = true;
+      const bp = ctx.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.Q.value = 2.2;
+      bp.frequency.setValueAtTime(f0 * 2, crack);
+      bp.frequency.exponentialRampToValueAtTime(650, crack + dur);
+      const ng = ctx.createGain();
+      ng.gain.setValueAtTime(0.0001, crack);
+      ng.gain.exponentialRampToValueAtTime(0.4, crack + dur * 0.9);
+      ng.gain.exponentialRampToValueAtTime(0.0001, crack + dur);
+      src.connect(bp).connect(ng).connect(out);
+      src.start(crack);
+      src.stop(crack + dur + 0.02);
+      return { endTime: crack + dur + 0.05 };
     }
     case "splash": {
       // Rounds landing AT the target: a positional blast_large body (the individual landing

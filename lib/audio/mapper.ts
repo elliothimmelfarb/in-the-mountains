@@ -28,6 +28,11 @@ const RADIO_KINDS = new Set<LogEntry["kind"]>([
   "objective",
 ]);
 
+/** Seconds before a fire mission's first round lands that its incoming whistle voices —
+ *  matches the ~2.2 s whistle the synth renders (synth.ts `incoming`), so the shriek ends
+ *  right as the splash blast arrives. Exported for the probe/oracle. */
+export const INCOMING_LEAD_S = 2.4;
+
 /** The minimal read surface the mapper needs from a CombatSim — kept structural so the
  *  probe can feed a hand-built object and the real `world.sim` both satisfy it. */
 export interface CueSource {
@@ -42,6 +47,8 @@ export class CueMapper {
   private lastLogId = -1;
   /** fm.id -> last status we already voiced, so a transition fires once. */
   private readonly fmSeen = new Map<number, FireMission["status"]>();
+  /** fm ids whose incoming-shell whistle already fired (one whistle per mission). */
+  private readonly fmWhistled = new Set<number>();
   private wasContact = false;
 
   /**
@@ -95,11 +102,20 @@ export class CueMapper {
         }
         this.fmSeen.set(fm.id, fm.status);
       }
+      // INCOMING — the descending shell whistle. etaS counts down live (combat.ts:1544); when the
+      // first round is INCOMING_LEAD_S out, voice one whistle at the aimpoint so anyone near the
+      // target hears the shriek before the splash. Once per mission (a barrage's later rounds
+      // arrive on the gun's interval without a fresh whistle — the announcement already happened).
+      if (!this.fmWhistled.has(fm.id) && fm.status !== "firing" && fm.status !== "complete" && fm.etaS > 0 && fm.etaS <= INCOMING_LEAD_S) {
+        out.push({ kind: "incoming", pos: { ...fm.target }, v: cueVar(fm.id, "inc"), gain: 1, srcId: fm.id, srcStream: "fm" });
+        this.fmWhistled.add(fm.id);
+      }
     }
     // GC completed/culled missions so the memory map doesn't grow unbounded across a tour.
-    if (this.fmSeen.size) {
+    if (this.fmSeen.size || this.fmWhistled.size) {
       const live = new Set(sim.fireMissions.map((fm) => fm.id));
       for (const id of this.fmSeen.keys()) if (!live.has(id)) this.fmSeen.delete(id);
+      for (const id of this.fmWhistled) if (!live.has(id)) this.fmWhistled.delete(id);
     }
 
     // 4) TIC ONSET — the chills beat, fired once on the rising edge of contact (mirrors the
@@ -120,10 +136,16 @@ export class CueMapper {
   skip(sim: CueSource): void {
     for (const e of sim.effects) if (e.id > this.lastFxId) this.lastFxId = e.id;
     for (const l of sim.log) if (l.id > this.lastLogId) this.lastLogId = l.id;
-    for (const fm of sim.fireMissions) this.fmSeen.set(fm.id, fm.status);
-    if (this.fmSeen.size) {
+    for (const fm of sim.fireMissions) {
+      this.fmSeen.set(fm.id, fm.status);
+      // a mission already inside its whistle window fast-forwards as "whistled" — resuming from
+      // pause/warp must not voice a whistle for a round that's about to land (no backlog dump).
+      if (fm.etaS <= INCOMING_LEAD_S) this.fmWhistled.add(fm.id);
+    }
+    if (this.fmSeen.size || this.fmWhistled.size) {
       const live = new Set(sim.fireMissions.map((fm) => fm.id));
       for (const id of this.fmSeen.keys()) if (!live.has(id)) this.fmSeen.delete(id);
+      for (const id of this.fmWhistled) if (!live.has(id)) this.fmWhistled.delete(id);
     }
     this.wasContact = sim.inContact;
   }

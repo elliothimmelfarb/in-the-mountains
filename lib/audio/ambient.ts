@@ -20,7 +20,8 @@
  *
  * ACOUSTIC-NICHE PARTITIONING (the mix-mud cure — enforced HERE by each layer's filters):
  *   wind howl 100–400 Hz + whistle 1–3 kHz · river 0.4–6 kHz notched 3–4 kHz · generator <250 Hz
- *   · birds 2–5 kHz · insects 4–7 kHz · adhan 0.3–2 kHz · rain bed broadband-low.
+ *   · birds 2–5 kHz · insects 4–7 kHz · adhan 0.3–2 kHz · rain bed broadband-low · thunder
+ *   transient mid-burst then <300 Hz (a rare event, not a bed — it may briefly own the room).
  *
  * DETERMINISM (Law 7): scheduling DECISIONS read the internal `clock` (advanced by the caller's
  * dt), NEVER ctx.currentTime — ctx.currentTime is used ONLY as a setTargetAtTime/start ramp
@@ -105,10 +106,12 @@ export class AmbientEngine {
   private windGustLfo!: OscillatorNode;
   private windGustAmt!: GainNode;
   private windWhistleGain!: GainNode; // whistle group gain, driven by a LAGGED gust follower
-  private river!: BedVoice & { notch: BiquadFilterNode };
+  /** TWO band voices panned either side of the river's bearing — different filtered content off
+   *  the shared noise genuinely decorrelates L/R, so the water has WIDTH (the calm-bed residual). */
+  private river!: { lo: BedVoice; hi: BedVoice; loPan: StereoPannerNode; hiPan: StereoPannerNode; group: GainNode };
   private riverLfo!: OscillatorNode;
   private riverLfoAmt!: GainNode;
-  private generator!: { gain: GainNode; lopeLfo: OscillatorNode; lopeAmt: GainNode };
+  private generator!: { gain: GainNode; pan: StereoPannerNode; lopeLfo: OscillatorNode; lopeAmt: GainNode };
   private rain!: BedVoice;
 
   // ---- spot scheduling (pure deterministic clock) ----
@@ -119,6 +122,7 @@ export class AmbientEngine {
     insects: { next: 0, n: 0 },
     dogs: { next: 0, n: 0 },
     drops: { next: 0, n: 0 },
+    thunder: { next: 0, n: 0 },
   };
   private adhanFired = -1; // last adhanMark we voiced (latch: one melisma per prayer window)
 
@@ -194,8 +198,12 @@ export class AmbientEngine {
     this.buildRain();
   }
 
-  /** A looping filtered-noise bed voice → (caller wires .gain to a group/bus). */
-  private bedVoice(type: BiquadFilterType, freq: number, q: number, gain0 = 0): BedVoice {
+  /** A looping filtered-noise bed voice → (caller wires .gain to a group/bus). `offsetS` starts
+   *  the voice that far into the shared 4 s loop: two voices at different offsets read
+   *  UNCORRELATED noise even off one buffer (noise autocorrelation dies in samples), which is
+   *  what makes panning them produce real stereo width — two in-phase filters of the same
+   *  source stay correlated no matter how they're panned. */
+  private bedVoice(type: BiquadFilterType, freq: number, q: number, gain0 = 0, offsetS = 0): BedVoice {
     const ctx = this.ctx;
     const src = ctx.createBufferSource();
     src.buffer = noiseBuffer(ctx);
@@ -207,7 +215,7 @@ export class AmbientEngine {
     const gain = ctx.createGain();
     gain.gain.value = gain0;
     src.connect(filter).connect(gain);
-    src.start();
+    src.start(0, offsetS);
     return { src, filter, gain };
   }
 
@@ -227,11 +235,13 @@ export class AmbientEngine {
       n.gain.connect(p).connect(dst);
     };
 
-    // HOWL band (the body) — reserved 100–400 Hz, kept near-center (low end localizes poorly).
-    const howlLo = this.bedVoice("lowpass", 180, 0.7, 0.6);
-    const howlBp = this.bedVoice("bandpass", 350, 0.7, 0.5);
-    spread(howlLo, -0.25, group);
-    spread(howlBp, 0.25, group);
+    // HOWL band (the body) — reserved 100–400 Hz. Spread ±0.5: low end localizes poorly, so a
+    // wide pan doesn't read as "two winds", just as air WITH SIZE — and the decorrelated loop
+    // offsets (see bedVoice) make the spread real instead of cosmetic.
+    const howlLo = this.bedVoice("lowpass", 180, 0.7, 0.6, 0);
+    const howlBp = this.bedVoice("bandpass", 350, 0.7, 0.5, 1.1);
+    spread(howlLo, -0.5, group);
+    spread(howlBp, 0.5, group);
 
     // WHISTLE band (the bite) — reserved 1–3 kHz, high-Q so it sings rather than hisses. Panned
     // wide (the singing wind comes off both ridgelines). Its group gain is driven by a LAGGED gust
@@ -239,8 +249,8 @@ export class AmbientEngine {
     const whistleGain = ctx.createGain();
     whistleGain.gain.value = 0;
     whistleGain.connect(group);
-    const whistleA = this.bedVoice("bandpass", 900, 8, 0.5);
-    const whistleB = this.bedVoice("bandpass", 2200, 10, 0.4);
+    const whistleA = this.bedVoice("bandpass", 900, 8, 0.5, 2.3);
+    const whistleB = this.bedVoice("bandpass", 2200, 10, 0.4, 3.1);
     spread(whistleA, -0.75, whistleGain);
     spread(whistleB, 0.75, whistleGain);
 
@@ -258,36 +268,53 @@ export class AmbientEngine {
     this.windWhistleGain = whistleGain;
   }
 
-  // ---- RIVER: bandpass ~1.2 kHz (Q0.4) + slow center LFO (breathing) + peaking NOTCH 3–4 kHz (room for birds) ----
+  // ---- RIVER: TWO band voices (low babble ~950 Hz wide-Q + bright wash ~1.9 kHz, notched 3–4 kHz
+  //      for the birds) panned either side of the river's bearing + slow center LFO (breathing).
+  //      Two different bands off the shared noise decorrelate L/R → the water is WIDE, not a
+  //      dead-center hiss (the 2026-06-07 campaign's recorded calm-width residual). ----
   private buildRiver(): void {
     const ctx = this.ctx;
-    const src = ctx.createBufferSource();
-    src.buffer = noiseBuffer(ctx);
-    src.loop = true;
-    const filter = ctx.createBiquadFilter();
-    filter.type = "bandpass";
-    filter.frequency.value = 1200;
-    filter.Q.value = 0.4; // wide — the river is broadband babble, 0.4–6 kHz
-    // a peaking NOTCH at ~3.5 kHz to CARVE OUT the bird band (acoustic-niche partitioning).
+    const group = ctx.createGain();
+    group.gain.value = 0;
+    group.connect(this.bus);
+
+    // low babble — the body of the water (wide Q ⇒ broadband boil).
+    const lo = this.bedVoice("bandpass", 950, 0.45, 0.8, 0.7);
+    const loPan = ctx.createStereoPanner();
+    lo.gain.connect(loPan).connect(group);
+
+    // bright wash — the surface sparkle, NOTCHED at ~3.5 kHz so the bird band stays carved out
+    // (acoustic-niche partitioning, as before — the notch moved into this brighter voice).
+    // Built by hand (not bedVoice) because the notch sits mid-chain: src → bp → notch → gain.
+    const hiSrc = ctx.createBufferSource();
+    hiSrc.buffer = noiseBuffer(ctx);
+    hiSrc.loop = true;
+    const hiBp = ctx.createBiquadFilter();
+    hiBp.type = "bandpass";
+    hiBp.frequency.value = 1900;
+    hiBp.Q.value = 0.6;
     const notch = ctx.createBiquadFilter();
     notch.type = "peaking";
     notch.frequency.value = 3500;
     notch.Q.value = 1.5;
     notch.gain.value = -14; // dB cut — clears the room for 2–5 kHz birds
-    const gain = ctx.createGain();
-    gain.gain.value = 0;
-    src.connect(filter).connect(notch).connect(gain).connect(this.bus);
-    src.start();
+    const hiGain = ctx.createGain();
+    hiGain.gain.value = 0.55;
+    hiSrc.connect(hiBp).connect(notch).connect(hiGain);
+    hiSrc.start(0, 2.0); // distinct loop offset — decorrelates from the low band (real width)
+    const hi: BedVoice = { src: hiSrc, filter: hiBp, gain: hiGain };
+    const hiPan = ctx.createStereoPanner();
+    hi.gain.connect(hiPan).connect(group);
 
-    // slow LFO breathing the bandpass center (the water "rolls").
+    // slow LFO breathing the LOW band's center (the water "rolls"); the bright wash stays put.
     const lfo = ctx.createOscillator();
     lfo.frequency.value = LFO.riverBreath;
     const amt = ctx.createGain();
-    amt.gain.value = 220; // ±220 Hz around 1.2 kHz
-    lfo.connect(amt).connect(filter.frequency);
+    amt.gain.value = 180; // ±180 Hz around 950
+    lfo.connect(amt).connect(lo.filter.frequency);
     lfo.start();
 
-    this.river = { src, filter, gain, notch };
+    this.river = { lo, hi, loPan, hiPan, group };
     this.riverLfo = lfo;
     this.riverLfoAmt = amt;
   }
@@ -303,7 +330,10 @@ export class AmbientEngine {
     lp.frequency.value = 250; // reserved band: <250 Hz
     lp.Q.value = 0.7;
     lp.connect(gain);
-    gain.connect(this.bus);
+    // the genset is a POINT source inside the wire — pan it to the COP's screen bearing
+    // (chased per update). Low end localizes weakly, so the pan is kept gentle (×0.6).
+    const pan = ctx.createStereoPanner();
+    gain.connect(pan).connect(this.bus);
 
     // the diesel fundamental + harmonics (additive sines — the drone's identity).
     const f0 = 58; // ~58 Hz fundamental (diesel genset idle ≈ 1750 rpm range)
@@ -334,13 +364,23 @@ export class AmbientEngine {
     drift.connect(driftAmt).connect(lopeLfo.frequency);
     drift.start();
 
-    this.generator = { gain, lopeLfo, lopeAmt };
+    this.generator = { gain, pan, lopeLfo, lopeAmt };
   }
 
-  // ---- RAIN bed: noise → intensity lowpass (broadband hiss; droplet ticks are spots) ----
+  // ---- RAIN bed: noise → intensity lowpass, HAAS-widened (the direct tap left, a 13 ms delayed
+  //      tap right — under the ~25 ms echo threshold the ear fuses them into ONE wide wash, and
+  //      the delay decorrelates L/R at lag 0; rain is the one bed that should fill the field) ----
   private buildRain(): void {
+    const ctx = this.ctx;
     const v = this.bedVoice("lowpass", 6000, 0.5, 0);
-    v.gain.connect(this.bus);
+    const left = ctx.createStereoPanner();
+    left.pan.value = -0.45;
+    const right = ctx.createStereoPanner();
+    right.pan.value = 0.45;
+    const haas = ctx.createDelay(0.05);
+    haas.delayTime.value = 0.013;
+    v.gain.connect(left).connect(this.bus);
+    v.gain.connect(haas).connect(right).connect(this.bus);
     this.rain = v;
   }
 
@@ -358,12 +398,18 @@ export class AmbientEngine {
     // open the whistle bandpass slightly higher as it brightens (the wind "sharpens" in a gust).
     this.wind.whistleB.filter.frequency.setTargetAtTime(2200 + mix.wind.brightness * 900, now, TAU.bed);
 
-    // RIVER gain → camera proximity; notch stays put (it's a fixed niche carve).
-    this.river.gain.gain.setTargetAtTime(mix.river.gain * 0.7, now, TAU.bed);
+    // RIVER group gain → camera proximity; the two band voices straddle the river's screen
+    // bearing (±0.3 around it) so the water sits WHERE it is and has width. Notch stays put.
+    this.river.group.gain.setTargetAtTime(mix.river.gain * 0.7, now, TAU.bed);
+    const rp = Math.max(-1, Math.min(1, s.riverPan * 0.7));
+    this.river.loPan.pan.setTargetAtTime(Math.max(-1, Math.min(1, rp - 0.45)), now, TAU.bed);
+    this.river.hiPan.pan.setTargetAtTime(Math.max(-1, Math.min(1, rp + 0.45)), now, TAU.bed);
 
-    // GENERATOR gain → COP proximity; lope depth only meaningful when audible.
+    // GENERATOR gain → COP proximity; panned gently to the COP's bearing; lope depth only
+    // meaningful when audible.
     const gg = mix.generator.gain;
     this.generator.gain.gain.setTargetAtTime(gg, now, TAU.bed);
+    this.generator.pan.pan.setTargetAtTime(Math.max(-1, Math.min(1, s.copPan * 0.6)), now, TAU.bed);
     this.generator.lopeAmt.gain.setTargetAtTime(gg * 0.35, now, TAU.bed); // tremolo ±35% of level
 
     // RAIN bed: gain → intensity; the lowpass opens with intensity (harder rain = brighter).
@@ -379,6 +425,7 @@ export class AmbientEngine {
     this.serviceSpot("insects", mix.insects.density, mix, now);
     this.serviceSpot("dogs", mix.dogs.density, mix, now);
     this.serviceSpot("drops", mix.drops.density, mix, now);
+    this.serviceSpot("thunder", mix.thunder.density, mix, now);
   }
 
   private serviceSpot(layer: string, density: number, mix: AmbientMix, now: number): void {
@@ -415,6 +462,9 @@ export class AmbientEngine {
         break;
       case "drops":
         this.spawnDrop(h, mix.drops.gain, at);
+        break;
+      case "thunder":
+        this.spawnThunder(h, mix.thunder.gain, at);
         break;
     }
     void ctx;
@@ -542,6 +592,60 @@ export class AmbientEngine {
     this.cleanup(out, at + 0.1);
   }
 
+  /** THUNDER: a long valley roll — a bright initial strike body that pitches DOWN into a brown
+   *  rumble with 2–3 swells, plus a quieter delayed tap panned to the OPPOSITE quarter (the roll
+   *  crossing the valley). 3–5 s. Reserved band: transient mid burst, then <300 Hz (under the
+   *  wind howl; the generator is COP-local so they rarely co-occur loud). */
+  private spawnThunder(h: number, gain: number, at: number): void {
+    const ctx = this.ctx;
+    const pan = h * 1.4 - 0.7; // each roll arrives from a different quarter of the sky
+    const dur = 2.8 + h * 1.6;
+
+    const roll = (panV: number, t0: number, g0: number) => {
+      const out = this.spotChain(panV);
+      // strike head: a mid bandpass crackle that immediately darkens (lightning's "rip").
+      const head = ctx.createBufferSource();
+      head.buffer = noiseBuffer(ctx);
+      head.loop = true;
+      const headBp = ctx.createBiquadFilter();
+      headBp.type = "bandpass";
+      headBp.Q.value = 0.8;
+      headBp.frequency.setValueAtTime(420 + h * 220, t0);
+      headBp.frequency.exponentialRampToValueAtTime(110, t0 + 0.5);
+      const headG = ctx.createGain();
+      headG.gain.setValueAtTime(0.0001, t0);
+      headG.gain.exponentialRampToValueAtTime(g0 * 0.8, t0 + 0.04);
+      headG.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.6);
+      head.connect(headBp).connect(headG).connect(out);
+      head.start(t0);
+      head.stop(t0 + 0.65);
+      // the rumble: brown noise lowpassed ~140 Hz with swells (each at a hash-varied beat).
+      const body = ctx.createBufferSource();
+      body.buffer = noiseBuffer(ctx);
+      body.loop = true;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 140;
+      lp.Q.value = 0.7;
+      const bg = ctx.createGain();
+      bg.gain.setValueAtTime(0.0001, t0);
+      const swells = 2 + Math.floor(h * 2);
+      for (let i = 0; i < swells; i++) {
+        const ts = t0 + 0.25 + (dur - 0.8) * (i / swells) + h * 0.3;
+        bg.gain.exponentialRampToValueAtTime(g0 * (1 - i * 0.28), ts + 0.3);
+        bg.gain.exponentialRampToValueAtTime(g0 * 0.25, ts + 0.9);
+      }
+      bg.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      body.connect(lp).connect(bg).connect(out);
+      body.start(t0);
+      body.stop(t0 + dur + 0.05);
+      this.cleanup(out, t0 + dur + 0.2);
+    };
+
+    roll(pan, at, gain);
+    roll(-pan * 0.8, at + 0.55 + h * 0.3, gain * 0.4); // the far-wall answer, opposite side
+  }
+
   // -------------------------------------------------------------- the adhan (scheduled)
   /** Fire exactly one melisma when entering a prayer window (latched by adhanMark). */
   private serviceAdhan(mix: AmbientMix, now: number): void {
@@ -581,6 +685,18 @@ export class AmbientEngine {
     src.frequency.setValueAtTime(base, at);
     src.frequency.setValueCurveAtTime(curve, at + 0.05, dur - 0.1);
 
+    // VIBRATO: a ~5.3 Hz pitch wobble fading in over the first second — the single biggest
+    // "synth → voice" tell (a held sung note is never pitch-flat; the melisma curve alone
+    // read as a slide whistle). Depth ~2.5% of the base pitch.
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 5.3;
+    const vibAmt = ctx.createGain();
+    vibAmt.gain.setValueAtTime(0, at);
+    vibAmt.gain.linearRampToValueAtTime(base * 0.025, at + 1.0);
+    vib.connect(vibAmt).connect(src.frequency);
+    vib.start(at);
+    vib.stop(at + dur + 0.1);
+
     // overall amplitude envelope (a slow swell + a tail).
     const amp = ctx.createGain();
     amp.gain.setValueAtTime(0.0001, at);
@@ -602,6 +718,19 @@ export class AmbientEngine {
     src.start(at);
     src.stop(at + dur + 0.1);
     this.cleanup(out, at + dur + 0.3);
+  }
+
+  // -------------------------------------------------------------- audition (dev/oracle hook)
+  /** Fire ONE spot/adhan voice directly, bypassing the Poisson/prayer scheduling — for the
+   *  offline render oracle's sample scenes and dev listening. Not used by the game loop. */
+  audition(layer: "birds" | "insects" | "dogs" | "drops" | "thunder" | "adhan", at: number, h = 0.5, pan = 0): void {
+    if (!this.built) this.build();
+    if (layer === "adhan") this.spawnAdhan(Math.floor(h * 5), pan, at);
+    else if (layer === "thunder") this.spawnThunder(h, 0.85, at);
+    else if (layer === "birds") this.spawnBird(h, pan, 0.7, at);
+    else if (layer === "insects") this.spawnInsect(h, pan, 0.5, at);
+    else if (layer === "dogs") this.spawnDog(h, pan, 0.6, at);
+    else this.spawnDrop(h, 0.3, at);
   }
 
   // -------------------------------------------------------------- teardown helpers
@@ -637,7 +766,8 @@ export class AmbientEngine {
     stop(this.wind.whistleA.src);
     stop(this.wind.whistleB.src);
     stop(this.windGustLfo);
-    stop(this.river.src);
+    stop(this.river.lo.src);
+    stop(this.river.hi.src);
     stop(this.riverLfo);
     stop(this.generator.lopeLfo);
     stop(this.rain.src);
