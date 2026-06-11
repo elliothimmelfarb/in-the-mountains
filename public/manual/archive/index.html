@@ -126,9 +126,9 @@
   logbook: the valley pushed back, and each chapter is what pushing back looked like.</p>
 
   <div class="statstrip">
-    <div class="s"><b>8</b><span>days · Jun 3–10</span></div>
-    <div class="s"><b>35</b><span>chapters</span></div>
-    <div class="s"><b>22</b><span>full reports</span></div>
+    <div class="s"><b>9</b><span>days · Jun 3–11</span></div>
+    <div class="s"><b>36</b><span>chapters</span></div>
+    <div class="s"><b>23</b><span>full reports</span></div>
     <div class="s"><b>26</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
     <div class="s"><b>1</b><span>deterministic clock</span></div>
@@ -181,6 +181,7 @@
     <a class="rep" href="reports/2026-06-10-reading-the-sun/report.html"><span class="rd">2026-06-10</span><span class="rt">Reading the sun</span><span class="rs">The land classification grew the same vegetation on a north slope and a south slope — no notion of aspect, the most visible fact of a real mountainside. An aspect term now makes forest cling to the shaded draw (59→64%) and scrub own the sunny spur (48→56%). Because vegetation IS cover and concealment, it had to be earned: a 3-strength balance sweep showed the firefight moves chaotically with the terrain, so it ships at 0.05 — the strength that clears the no-stall guard with KIA down on both seed sets, no aspect-caused strandings, and siting byte-identical. On by default; the terrain-dependent wounded count disclosed, not buried.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-10-open-issues-pass/report.html"><span class="rd">2026-06-10</span><span class="rt">Closing the open issues</span><span class="rs">One pass over the whole backlog: four realism wins shipped <em>active</em> (a squad that switchbacks up a face, a soldier who uses <em>that</em> rock, supplies that finally bite, and vegetation that reads the sun) — the fourth earned by a 3-strength balance sweep + held-out A/B that found the one strength (0.05) which improves the sim with KIA down on both seed sets. The two remaining tickets already run their live fix; what's left is a documented terrain floor and a logged do-not. Six issues, six live fixes, zero regressions shipped. The thread: the most valuable artifact in half of these was a probe, not a feature.</span><span class="go">Open the overview →</span></a>
     <a class="rep" href="reports/2026-06-10-people-immersion/report.html"><span class="rd">2026-06-10</span><span class="rt">Making the people real</span><span class="rs">One architecture, four places: the enemy cell gets the friendly squad's decide/execute split (ambush volley p90 11.2→0.6 s, a peel that converges while a rout disperses), men hesitate like men, a deterministic callout bus makes the brotherhood audible (man-down 100%, two-run identical) — and the village remembers: the elder physically walks out to the shura, a civilian death writes a named blood debt his household buries at first light, and children trail only the patrols a village trusts. Five new probes caught six real bugs before ship.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-11-sound-pass/report.html"><span class="rd">2026-06-11</span><span class="rt">The mixer and the whistle</span><span class="rs">A per-category sound mixer (combat / ambience / radio / alerts, each with on/off + level, persisted) wired between the buses and master so user trim never fights the contact-duck — plus five audible improvements with oracle numbers: the incoming-shell whistle the valley was missing (2.26 s, deterministic off the fire mission's own countdown), real stereo width for the calm bed (4%→12.4% — the fix was loop offsets, not panning), thunder that crosses the valley, an adhan that finally sounds sung (5.3 Hz vibrato), and three ricochet families. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1026,6 +1027,46 @@
       </div>
       <p class="quote">"Abdul Khan of Kandlay was killed by our fire. His household will remember." — the ledger entry the engine now writes. The residuals are led with, not buried: the pinned-revert mechanism exists but never fired at natural tempo (rvt 0), and the massed-volley spectacle shot was never captured live — three failed attempts documented so the next session doesn't rediscover them.</p>
       <a class="readmore" href="reports/2026-06-10-people-immersion/report.html">Read the full report →</a>
+    </div>
+  </article>
+
+  <article class="chapter" id="c-2026-06-11-sound-pass">
+    <div class="shot">
+      <a href="reports/2026-06-11-sound-pass/report.html"><img src="assets/2026-06-11-sound-pass.png" alt="Spectrogram of the new incoming-shell whistle: a descending sweep that swells toward impact" loading="lazy"></a>
+      <div class="cap">The new incoming-shell whistle on the spectrogram: 2.26 s of descending shriek, swelling as the round closes — it ends exactly where the splash begins. Opens the full report (with playable A/B audio).</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-11</span></div>
+      <h3>The mixer and the whistle: per-category sound control + five audible upgrades</h3>
+      <div class="tags"><span class="tag">Audio</span><span class="tag">UI</span><span class="tag">Verification</span></div>
+      <p>Two asks: let the player turn categories of sound on and off, and make the sound itself better.
+      The mixer rode the existing bus architecture — one user gain per category (combat / ambience / radio /
+      alerts) inserted <em>between</em> each bus and master, because the contact-duck system writes absolute
+      values to the bus gains and a user trim on the same node would be stomped on every duck. The valley
+      reverb return joined the combat category (muting combat must mute its echo), the danger-close klaxon
+      moved to alerts where it semantically lives, and an oracle re-render proved the re-plumbing
+      level-neutral: all 24 scenes within 0.15 dB.</p>
+      <p class="shape"><b>The shape:</b> the five audio upgrades each came from a recorded residual or a missing
+      battlefield signature, and each closed against the offline render oracle. The big one was a synthesis
+      subtlety: the calm bed measured near-mono (corr 0.997) <em>despite</em> panned voices, because every bed
+      loops one shared noise buffer and two in-phase filters of the same source stay correlated no matter how
+      they're panned — the fix was starting each voice at a different <em>offset into the loop</em>, and only
+      then did the panning (river bands straddling the river's real bearing, the generator on the COP's, Haas
+      rain) buy real width. The whistle is pure determinism: the sim already counts down a fire mission's
+      <code>etaS</code>, so the mapper voices one whistle 2.4 s before the first round, once per mission,
+      latched and warp-safe.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">calm-bed stereo width</span><span class="b">4% (corr 0.997)</span><span class="ar">→</span><span class="a">12.4% (corr 0.963)</span></span>
+        <span class="m"><span class="lbl">incoming-shell whistle</span><span class="b">did not exist</span><span class="ar">→</span><span class="a">2.26 s, ends at the splash</span></span>
+        <span class="m"><span class="lbl">calm→combat dynamic spread</span><span class="b">23.0 dB</span><span class="ar">→</span><span class="a">25.8 dB</span></span>
+        <span class="m"><span class="lbl">thunder / adhan vibrato / ricochet families</span><span class="b">none / flat / 1</span><span class="ar">→</span><span class="a">storm roll · 5.3 Hz · 3</span></span>
+        <span class="m"><span class="lbl">mixer plumbing (24 scenes)</span><span class="b">—</span><span class="ar">→</span><span class="a">level-neutral within 0.15 dB</span></span>
+      </div>
+      <p class="quote">The honest residuals lead the report: the band-split river left the calm bed ~2.9 dB
+      quieter (in band, knob named), and there is still no MEDEVAC helicopter — evacuation is instantaneous
+      in the sim, so a rotor loop has nothing to attach to, and faking one with a timer in the audio layer
+      was the change deliberately not made.</p>
+      <a class="readmore" href="reports/2026-06-11-sound-pass/report.html">Read the full report (with playable A/B audio) →</a>
     </div>
   </article>
 
