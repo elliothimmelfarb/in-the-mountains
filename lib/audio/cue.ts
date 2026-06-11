@@ -27,6 +27,7 @@ export type CueKind =
   | "flare"
   | "radio" // squelch+beep bed under a contact/radio/support/kia/casualty/objective log line
   | "shot"
+  | "incoming" // the descending shell whistle ~2.4 s before a fire mission's first round lands
   | "splash" // indirect: the tube report and the rounds landing
   | "dangerclose" // klaxon when our own men sit under the beaten zone
   | "tic_sting"; // AWE: low drone + contact sting on the TIC rising edge

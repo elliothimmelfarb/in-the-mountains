@@ -76,6 +76,9 @@ interface Scene {
   terrain?: TerrainProbe; // optional synthetic terrain for the occlusion scene
   /** optional ambient bed: render the real AmbientEngine with this env over the scene. */
   ambient?: AmbientEnv;
+  /** optional direct spot/adhan auditions (engine.audition) — for sampling rare events
+   *  (thunder, the adhan) that Poisson/prayer scheduling won't reliably hit in a short render. */
+  audition?: { layer: "birds" | "insects" | "dogs" | "drops" | "thunder" | "adhan"; at: number; h?: number; pan?: number }[];
 }
 
 /** A tactical listener pose: centered on the COP, mid zoom. ~853 m half-width audible ref. */
@@ -86,7 +89,7 @@ function cam(cx = 1280, cy = 1280, ppm = 0.75): Camera {
 const ALL_KINDS: CueKind[] = [
   "muzzle_us", "muzzle_insurgent", "mg_us", "mg_insurgent", "impact", "ricochet", "nearmiss",
   "blast_small", "blast_large", "ied", "smoke_pop", "frag_air", "flare", "radio", "shot",
-  "splash", "dangerclose", "tic_sting",
+  "incoming", "splash", "dangerclose", "tic_sting",
 ];
 
 // ----------------------------------------------------------------------------- render
@@ -149,6 +152,8 @@ async function renderScene(scene: Scene): Promise<{ L: Float32Array; R: Float32A
     for (let t = 0; t < scene.durationS; t += step) {
       amb.update(sig, step, { running: true, paused: false, warp: false });
     }
+    // direct auditions (thunder/adhan samples) at explicit scene times.
+    for (const a of scene.audition ?? []) amb.audition(a.layer, a.at, a.h ?? 0.5, a.pan ?? 0);
   }
 
   // Voice budget MIRRORS the live engine's RETIREMENT: voices free their slot when they finish, so
@@ -478,7 +483,7 @@ function paletteScenes(): Scene[] {
   // each kind solo, the source AT the camera (pan 0, near) so we measure pure timbre.
   return ALL_KINDS.map((k) => ({
     name: `palette-${k}`,
-    durationS: k === "tic_sting" ? 3.4 : k === "dangerclose" ? 1.2 : 1.2,
+    durationS: k === "tic_sting" ? 3.4 : k === "incoming" ? 3.0 : k === "dangerclose" ? 1.2 : 1.2,
     cam: cam(),
     note: `solo ${k}, centered/near`,
     cues: [{ at: 0.05, cue: cue(k, { pos: { x: 1280, y: 1280 } }) }],
@@ -509,6 +514,7 @@ function firefightScene(): Scene {
   cues.push({ at: 5.0, cue: cue("radio", {}) });
   cues.push({ at: 9.0, cue: cue("radio", { v: 0.3 }) });
   cues.push({ at: 7.5, cue: cue("shot", { pos: Rt(400) }) }); // enemy tube
+  cues.push({ at: 8.1, cue: cue("incoming", { pos: L(40) }) }); // the whistle closing on us
   cues.push({ at: 10.5, cue: cue("splash", { pos: L(40) }) }); // landing near us
   cues.push({ at: 10.5, cue: cue("dangerclose", {}) });
   cues.push({ at: 13.0, cue: cue("ied", { pos: L(20), gain: 1 }) });
@@ -545,6 +551,34 @@ function ambientNightScene(): Scene {
     cues: [],
     note: "night calm: down-valley katabatic wind, crickets, the lone dog, generator drone",
     ambient: { secondsOfDay: 1 * 3600, solar: 0.05, isNight: true, windSpeed: 4, weatherLabel: "Clear", precip: false, inContact: false },
+  };
+}
+
+function ambientStormScene(): Scene {
+  // A mountain rainstorm: the Haas-widened rain bed + a thunder roll crossing the valley
+  // (auditioned directly — Poisson λ=0.022 won't reliably fire inside a 10 s render).
+  return {
+    name: "ambient-storm",
+    durationS: 10,
+    cam: cam(),
+    cues: [],
+    note: "rainstorm: wide rain bed + a thunder roll crossing the valley (rare spot, auditioned)",
+    ambient: { secondsOfDay: 14 * 3600, solar: 0.6, isNight: false, windSpeed: 6, weatherLabel: "Rain", precip: true, inContact: false },
+    audition: [{ layer: "thunder", at: 1.2, h: 0.62 }],
+  };
+}
+
+function adhanScene(): Scene {
+  // The call to prayer from the village, late afternoon (OUTSIDE a prayer window so the
+  // scheduled path can't double-voice it — the audition is the only adhan in the scene).
+  return {
+    name: "spot-adhan",
+    durationS: 7.5,
+    cam: cam(),
+    cues: [],
+    note: "the adhan from the village to the east — vibrato melisma over the calm bed",
+    ambient: { secondsOfDay: 16.8 * 3600, solar: 0.45, isNight: false, windSpeed: 2, weatherLabel: "Clear", precip: false, inContact: false },
+    audition: [{ layer: "adhan", at: 0.4, h: 0.2, pan: 0.5 }],
   };
 }
 
@@ -590,7 +624,7 @@ function seedRandom(seed: number): void {
 async function main() {
   const outDir = process.argv[2] || "docs/progress/_audio-latest";
   mkdirSync(outDir, { recursive: true });
-  const scenes: Scene[] = [...paletteScenes(), firefightScene(), distantScene(), ...occlusionScenes(), ambientCalmScene(), ambientNightScene()];
+  const scenes: Scene[] = [...paletteScenes(), firefightScene(), distantScene(), ...occlusionScenes(), ambientCalmScene(), ambientNightScene(), ambientStormScene(), adhanScene()];
   const all: SceneMetrics[] = [];
 
   for (const sc of scenes) {
@@ -640,6 +674,13 @@ async function main() {
     const quieter = ridge.rmsDb < open.rmsDb - 3, darker = ridge.hf4kPct < open.hf4kPct * 0.8;
     checks.push(quieter && darker ? `ok — terrain occlusion: ridge is ${(open.rmsDb - ridge.rmsDb).toFixed(1)} dB quieter & HF ${ridge.hf4kPct}% vs ${open.hf4kPct}% (darker)` : `⚠ occlusion weak (Δlevel ${(open.rmsDb - ridge.rmsDb).toFixed(1)} dB, HF ${ridge.hf4kPct}% vs ${open.hf4kPct}%)`);
   }
+  // calm-bed stereo width: the panned river bands + spread wind must lift the calm scene out of
+  // dead-center mono (the 2026-06-07 campaign's recorded residual: corr 0.997 / width 4%).
+  if (calm) checks.push(calm.widthPct > 12 ? `ok — calm bed has stereo width (${calm.widthPct}%, corr ${calm.stereoCorr}; was 4%/0.997)` : `⚠ calm bed still near-mono (width ${calm.widthPct}%, corr ${calm.stereoCorr})`);
+  const storm = get("ambient-storm");
+  if (storm) checks.push(storm.rmsDb > -55 && storm.peakDb <= 0 ? `ok — storm scene alive (rain bed + thunder roll, RMS ${storm.rmsDb} dB, peak ${storm.peakDb})` : `⚠ storm scene off (RMS ${storm.rmsDb}, peak ${storm.peakDb})`);
+  const inc = get("palette-incoming");
+  if (inc) checks.push(inc.audibleMs > 1600 ? `ok — incoming whistle sustains (${inc.audibleMs} ms audible — the 2.2 s shriek before the splash)` : `⚠ incoming whistle too short (${inc.audibleMs} ms)`);
   console.log("");
   for (const c of checks) console.log("  " + c);
 

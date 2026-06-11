@@ -71,6 +71,7 @@ export const KIND_TRIM: Record<CueKind, number> = {
   flare: 0.3,
   radio: 0.5, // the in-handset chain (radioBus) does the heavy band-limiting; trim is pre-chain
   shot: 0.6,
+  incoming: 0.55,
   splash: 0.9,
   dangerclose: 0.7,
   tic_sting: 0.25, // was 0.7 @ scoreBus −9 dB; scoreBus is now 0 dB (so the klaxon can join it at
@@ -96,6 +97,7 @@ export const KIND_WET: Record<CueKind, number> = {
   flare: 0.1,
   radio: 0.0,
   shot: 0.0,
+  incoming: 0.3, // the shriek rings off the walls a little as it closes
   splash: 0.7,
   dangerclose: 0.0,
   tic_sting: 0.0,
@@ -112,6 +114,7 @@ const KIND_LOUDNESS: Record<CueKind, number> = {
   blast_small: 110,
   tic_sting: 108,
   shot: 106,
+  incoming: 104, // must survive the gunfire HDR window — the whistle is a life-or-death tell
   mg_us: 105,
   mg_insurgent: 105,
   muzzle_us: 100,
@@ -136,6 +139,7 @@ const KIND_PRIORITY: Record<CueKind, number> = {
   mg_insurgent: 3,
   splash: 3,
   shot: 3,
+  incoming: 3,
   muzzle_us: 2,
   muzzle_insurgent: 2,
   radio: 2,

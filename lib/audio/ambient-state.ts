@@ -98,6 +98,9 @@ export interface AmbientMix {
   dogs: SpotLayer;
   /** rain droplet ticks (highpassed) — only when precip; density ≈ intensity. */
   drops: SpotLayer;
+  /** thunder rolls (rare, Rain only) — a long valley rumble. NOT gated by contact: the storm
+   *  doesn't care about the firefight (geophony keeps rolling where biophony freezes). */
+  thunder: SpotLayer;
 
   // ---- scheduled (NOT Poisson) call to prayer ----
   /** true within a prayer window — the engine arms one adhan melisma at the window's start. */
@@ -245,6 +248,15 @@ export function computeAmbientMix(s: AmbientSignals): AmbientMix {
     gain: 0.3,
   };
 
+  // --- THUNDER (geophony spots — Rain only, rare) ------------------------------------------
+  // λ ≈ 0.022/s ⇒ a roll roughly every ~45 s in a rainstorm. Snow/fog get none (mountain storms
+  // thunder in rain). Deliberately NOT × wildlifeOpen — a TIC silences the birds, never the sky.
+  const thunder: SpotLayer = {
+    density: w === "Rain" && s.precip ? 0.022 : 0,
+    pan: 0, // per-event bearing comes from the event hash (each roll from a different quarter)
+    gain: 0.85,
+  };
+
   // --- ADHAN (scheduled call to prayer — NOT Poisson) -------------------------------------
   // Active within ADHAN_WINDOW_S of a prayer mark AND only when a village is within earshot.
   // adhanMark is the window identity so the engine fires exactly one melisma per call.
@@ -269,6 +281,7 @@ export function computeAmbientMix(s: AmbientSignals): AmbientMix {
     insects,
     dogs,
     drops,
+    thunder,
     adhanActive,
     adhanMark,
     adhanPan: s.villagePan,

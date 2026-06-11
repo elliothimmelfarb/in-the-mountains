@@ -138,7 +138,7 @@ const src = (w: ReturnType<typeof createWorld>) => ({
 
   // (d) we actually exercised the indirect + tic paths (the AWE cues), or the driver is too cold.
   const kinds = new Set(allCues.map((c) => c.kind));
-  const wanted = ["tic_sting", "shot", "splash"];
+  const wanted = ["tic_sting", "shot", "incoming", "splash"];
   const got = wanted.filter((k) => kinds.has(k as AudioCue["kind"]));
   if (got.length < wanted.length) {
     console.warn(`  warn — indirect/tic coverage partial: got ${[...got].join(",") || "none"} of ${wanted.join(",")} (driver may be cold this run)`);
