@@ -41,7 +41,8 @@ export type EffectKind =
   | "blood"
   | "frag_air"
   | "smoke_pop"
-  | "flare";
+  | "flare"
+  | "reload"; // a man swapping mags — audio-only (renderers ignore it); emitted once per reload
 
 export interface Effect {
   id: number;
@@ -54,6 +55,8 @@ export interface Effect {
   size?: number;
   facing?: number; // muzzle flash: shooter's heading (rad), for a directional flash cone
   ied?: boolean; // blast: a buried-charge initiation (a bigger, dirtier scar than a mortar)
+  weapon?: string; // weapons.ts id of the system that produced this (muzzle/blast/reload) —
+  //                  carries calibre identity to the audio mapper (an M2 is not an M4)
 }
 
 export type LogKind = "info" | "contact" | "casualty" | "kia" | "radio" | "support" | "objective";
@@ -1003,6 +1006,8 @@ export class CombatSim {
         u.reloading = weapon.reload;
         u.ammo = Math.min(weapon.magSize, u.reserveAmmo);
         u.reserveAmmo -= u.ammo;
+        // audible only — the mag-change clatter a teammate hears; renderers skip the kind
+        this.addEffect("reload", u.pos, 0.3, { faction: u.faction, weapon: weapon.id });
         return;
       } else if (u.sidearmId) {
         u.weaponId = u.sidearmId;
@@ -1087,6 +1092,7 @@ export class CombatSim {
     this.addEffect("muzzle", u.pos, 0.12, {
       faction: u.faction,
       size: weapon.cls === "hmg" || weapon.cls === "mmg" ? 1.6 : 1,
+      weapon: weapon.id,
       // Cone along the ACTUAL gun line (sub(aimPos, u.pos)) — the same vector the round
       // launches on — NOT u.facing, which the move-code slews toward the travel direction
       // each tick, so a man firing on the move flashed where his feet went, not his target.
@@ -1183,7 +1189,7 @@ export class CombatSim {
   private detonate(p: Projectile, at: Vec2, isIed = false) {
     const radius = p.blastRadius || 6;
     this.lastActivityS = this.timeS;
-    this.addEffect("blast", at, 0.6, { faction: p.faction, size: radius / 8, ied: isIed });
+    this.addEffect("blast", at, 0.6, { faction: p.faction, size: radius / 8, ied: isIed, weapon: p.weaponId });
     for (const u of this.units) {
       if (!u.alive || u.evac) continue;
       const d = dist(u.pos, at);

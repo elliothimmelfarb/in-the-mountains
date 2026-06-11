@@ -2338,7 +2338,7 @@ export class Terrain {
    * initial hairpin side comes from `sideSeed` (an int), so laying trails adds NO rng draw and never
    * perturbs the seed stream.
    */
-  private ascendTrail(startCx: number, startCy: number, destCx: number, destCy: number, half: number, maxGrade: number, land: Land, sideSeed: number): Vec2[] {
+  private ascendTrail(startCx: number, startCy: number, destCx: number, destCy: number, half: number, maxGrade: number, land: Land, sideSeed: number, minPts = 2): Vec2[] {
     const size = this.size;
     const sCx = clamp(startCx, 0, size - 1);
     const sCy = clamp(startCy, 0, size - 1);
@@ -2418,20 +2418,29 @@ export class Terrain {
       }
       if (!stepped) break; // genuinely cliff-bound — the trail ends here
     }
-    if (line.length < 2) return line; // never got off the trailhead
-    // Surface-lay the route as a light-tread foot-trail (conform ~0.15 eases bumps toward local ground,
-    // never a trench). half=0 → a single-cell trail corridor (the renderer strokes it as a thin line).
-    this.layPath(line, land, half, 0.15);
+    if (line.length < minPts) return line; // never got far enough — lay NOTHING (no invisible stubs)
+    // Stamp the route as PURE LANDCOVER (conform 0 — no elevation edit at all). A foot trail is a
+    // worn line, not earthworks: the benched-tread movement model (TREAD_GRADE_CAP) prices the
+    // walking, so the tread needs no geometry. This is load-bearing for passability: even the old
+    // gentle conform 0.15 nudged NEIGHBOR forward-difference slopes past the cliff threshold and
+    // severed a thin connectivity neck (survey-45 gate reach% 36.0 → 10.6 — caught by the holdout
+    // pass). Zero elevation writes + no river bridging (bridge=false) ⇒ the passable graph is
+    // bit-identical to a no-trails world.
+    this.layPath(line, land, half, 0, false);
     return line;
   }
 
   /**
    * Lay authentic switchback foot-trails UP the spurs toward high ground (ridgetop / OP shoulders)
-   * from the reachable trailheads (each village + the COP gate). These are what a soldier — and the
-   * enemy — actually use to climb the valley walls, instead of bushwhacking straight up a face: each
-   * benched switchback reconnects the pocket it climbs into AND gives the planner a cheap, contour-
-   * molded route to high ground. Deterministic (no rng): the destination is the highest walkable
-   * SHOULDER in a 250–560 m uphill annulus, the hairpin side comes from the trailhead cell.
+   * from the reachable trailheads (each village + the COP gate), then link their summits with
+   * lateral RIDGELINE trails — the topology a real mountain valley actually has (spur trails feed
+   * a high path; fighters and herders move ALONG the ridge, not just up to it). These are what a
+   * soldier — and the enemy — actually use to climb the valley walls, instead of bushwhacking
+   * straight up a face: each switchback reconnects the pocket it climbs into AND gives the planner
+   * a cheap, contour-molded route to high ground. Deterministic (no rng): per trailhead the uphill
+   * annulus is binned into THREE along-valley sectors (up-valley / abeam / down-valley) and the
+   * highest walkable shoulder in EACH sector gets a trail, so a village radiates a fan of paths
+   * like the real thing; the hairpin side comes from the trailhead cell.
    */
   private layTrailNetwork() {
     const size = this.size;
@@ -2440,14 +2449,19 @@ export class Terrain {
     const rMax = Math.round(560 / cs);
     const origins: { cx: number; cy: number }[] = this.villages.map((v) => ({ cx: v.cx, cy: v.cy }));
     if (this.cop?.gateOutside) origins.push({ cx: this.cop.gateOutside.cx, cy: this.cop.gateOutside.cy });
+    // Summits actually reached by a climbing trail — the nodes of the ridgeline network.
+    const summits: { cx: number; cy: number; side: number }[] = [];
     for (const o of origins) {
       const oE = this.elev[this.idx(clamp(o.cx, 0, size - 1), clamp(o.cy, 0, size - 1))];
       const upSide = Math.sign(o.cx - this.centerX[clamp(o.cy, 0, size - 1)]) || 1; // away from the valley floor
       // Find the highest WALKABLE shoulder (slope < 1.0 — a real OP perch, not a sheer summit) in the
-      // uphill annulus. A walkable destination keeps the trail's purpose honest (you can stand on it).
-      let bestE = -Infinity;
-      let bx = -1;
-      let by = -1;
+      // uphill annulus, PER along-valley sector. A walkable destination keeps the trail's purpose
+      // honest (you can stand on it); three sectors give the village its realistic fan of trails.
+      const best = [
+        { e: -Infinity, x: -1, y: -1 },
+        { e: -Infinity, x: -1, y: -1 },
+        { e: -Infinity, x: -1, y: -1 },
+      ];
       for (let a = 0; a < 64; a++) {
         const ang = (a / 64) * Math.PI * 2;
         for (let r = rMin; r <= rMax; r += 2) {
@@ -2459,17 +2473,119 @@ export class Terrain {
           if (this.slope[i] >= 1.0) continue; // want a perch, not a cliff face
           const e = this.elev[i];
           if (e - oE < 80) continue; // must be a meaningful climb (an OP, not flat ground)
-          if (e > bestE) {
-            bestE = e;
-            bx = x;
-            by = y;
+          const dy = y - o.cy;
+          const sec = dy < -rMin ? 0 : dy > rMin ? 2 : 1;
+          if (e > best[sec].e) {
+            best[sec].e = e;
+            best[sec].x = x;
+            best[sec].y = y;
           }
         }
       }
-      if (bx < 0) continue;
-      const pts = this.ascendTrail(o.cx, o.cy, bx, by, 0, 0.3, Land.Trail, o.cx * 31 + o.cy);
-      this.trailLines.push({ kind: "trail", pts });
+      for (let k = 0; k < best.length; k++) {
+        const b = best[k];
+        if (b.x < 0) continue;
+        const pts = this.ascendTrail(o.cx, o.cy, b.x, b.y, 0, 0.3, Land.Trail, o.cx * 31 + o.cy + k * 7);
+        if (pts.length < 2) continue;
+        this.trailLines.push({ kind: "trail", pts });
+        // A trail that genuinely climbed somewhere becomes a node of the ridgeline network.
+        if (pts.length >= 8) {
+          const end = pts[pts.length - 1];
+          summits.push({
+            cx: clamp(Math.round(end.x / cs), 0, size - 1),
+            cy: clamp(Math.round(end.y / cs), 0, size - 1),
+            side: upSide,
+          });
+        }
+      }
     }
+    // Ridgeline links: along each valley wall, walk a contour-holding lateral trail between
+    // successive trail summits — only laid when the walker actually arrives (a high path to
+    // nowhere is worse than none). Deterministic order: sorted along the valley, ties by x.
+    const linkMax = Math.round(800 / cs);
+    for (const side of [-1, 1]) {
+      const nodes = summits.filter((s) => s.side === side).sort((a, b) => a.cy - b.cy || a.cx - b.cx);
+      for (let i = 0; i + 1 < nodes.length; i++) {
+        const a = nodes[i];
+        const b = nodes[i + 1];
+        const d = Math.hypot(a.cx - b.cx, a.cy - b.cy);
+        if (d < 4 || d > linkMax) continue; // same shoulder, or too far to be one path
+        const pts = this.lateralTrail(a.cx, a.cy, b.cx, b.cy);
+        if (pts.length >= 2) this.trailLines.push({ kind: "trail", pts });
+      }
+    }
+  }
+
+  /**
+   * Walk a contour-holding HIGH TRAIL between two ridge/shoulder cells — the lateral path that
+   * links the tops of the climbing trails into a network (herders and fighters move ALONG the
+   * high ground). Greedy and deterministic: each step prefers the direct heading to the target
+   * and deflects toward the contour when the direct step is impassable or steeper along-track
+   * than a walkable trail grade. Returns [] without laying anything if it gets boxed in or runs
+   * out of steps — a partial ridge trail that dead-ends mid-face would read as a bug, not a path.
+   * Laid as pure landcover (conform 0, no river bridging), same as every foot trail — see
+   * ascendTrail on why zero elevation writes is load-bearing.
+   */
+  private lateralTrail(aCx: number, aCy: number, bCx: number, bCy: number): Vec2[] {
+    const size = this.size;
+    const cs = this.cellSize;
+    const stepCells = 1.4;
+    const maxAlong = 0.5; // max |signed grade| along the tread — a high trail rolls, it doesn't climb
+    let px = aCx + 0.5;
+    let py = aCy + 0.5;
+    const line: Vec2[] = [this.cellCenter(aCx, aCy)];
+    const maxIter = Math.ceil((Math.hypot(bCx - aCx, bCy - aCy) / stepCells) * 3) + 20;
+    const passAt = (fx: number, fy: number) => this.passableCell(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1));
+    const elevAtCell = (fx: number, fy: number) => this.elev[this.idx(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1))];
+    for (let iter = 0; iter < maxIter; iter++) {
+      const dx = bCx + 0.5 - px;
+      const dy = bCy + 0.5 - py;
+      const d = Math.hypot(dx, dy);
+      if (d < stepCells * 1.5) {
+        line.push(this.cellCenter(bCx, bCy));
+        this.layPath(line, Land.Trail, 0, 0, false); // pure landcover — see ascendTrail on why
+        return line;
+      }
+      const ux = dx / d;
+      const uy = dy / d;
+      const g = this.gradientCells(px, py);
+      const gl = Math.hypot(g.x, g.y);
+      // contour direction, oriented to make forward progress toward the target
+      let tx = 0;
+      let ty = 0;
+      if (gl > 1e-4) {
+        tx = -g.y / gl;
+        ty = g.x / gl;
+        if (tx * ux + ty * uy < 0) {
+          tx = -tx;
+          ty = -ty;
+        }
+      }
+      // candidate headings: direct, then blends toward the contour, then pure contour both ways
+      const cands: [number, number][] = gl > 1e-4
+        ? [[ux, uy], [ux * 0.55 + tx * 0.45, uy * 0.55 + ty * 0.45], [tx, ty], [-tx, -ty]]
+        : [[ux, uy]];
+      let stepped = false;
+      for (const [hx0, hy0] of cands) {
+        const hl = Math.hypot(hx0, hy0) || 1;
+        const hx = hx0 / hl;
+        const hy = hy0 / hl;
+        const nx = px + hx * stepCells;
+        const ny = py + hy * stepCells;
+        if (!passAt(nx, ny)) continue;
+        const along = (elevAtCell(nx, ny) - elevAtCell(px, py)) / (stepCells * cs);
+        if (Math.abs(along) > maxAlong) continue;
+        const last = line[line.length - 1];
+        const ncW = this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1));
+        if (ncW.x !== last.x || ncW.y !== last.y) line.push(ncW);
+        px = nx;
+        py = ny;
+        stepped = true;
+        break;
+      }
+      if (!stepped) return []; // boxed in against a cliff — no ridge path here
+    }
+    return []; // step budget spent without arriving — don't lay a path to nowhere
   }
 
   /** Stamp a straight lane of landcover between two cells, `half` cells wide. */
@@ -2686,11 +2802,20 @@ export class Terrain {
       this.trailLines.push({ kind: "track", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(th.hx, th.hy)] });
       const tie = this.nearestRoadCell(th.hx, th.hy);
       this.layTrack(this.cellCenter(th.hx, th.hy), this.cellCenter(tie.cx, tie.cy), rng);
-      // Tier-3 goat trail up the draw above the village (surface-laid, no benching).
+      // Tier-3 goat trail up the draw above the village — switchbacked over the real terrain
+      // (ascendTrail), never a straight line up a fall line: the old straight stamp was the
+      // single steepest "trail" on the map (survey-9 trail mean grade 1.18 ≈ a 50° path no
+      // human walks). The rng.int draw is kept so the seed stream is unperturbed; on gentle
+      // ground where the climb fizzles, the straight field-path fallback is authentic anyway.
       const upX = clamp(th.v.cx - th.dir * Math.round(size * 0.08), 0, size - 1);
       const upY = clamp(th.v.cy + rng.int(-8, 8), 0, size - 1);
-      this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)], Land.Trail, 0, 0);
-      this.trailLines.push({ kind: "trail", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)] });
+      const drawPts = this.ascendTrail(th.v.cx, th.v.cy, upX, upY, 0, 0.3, Land.Trail, th.v.cx * 17 + th.v.cy, 6);
+      if (drawPts.length >= 6) {
+        this.trailLines.push({ kind: "trail", pts: drawPts });
+      } else {
+        this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)], Land.Trail, 0, 0);
+        this.trailLines.push({ kind: "trail", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)] });
+      }
     }
     // 2) Village ↔ village MST (graded secondary Track) — direct inter-village links.
     for (const [a, b] of this.villageMST()) {
@@ -2749,7 +2874,7 @@ export class Terrain {
    * "trail trench"). River cells become a Footbridge; the wire, qalats, structures and the MSR
    * are never overwritten.
    */
-  private layPath(pts: Vec2[], land: Land, half: number, conform: number) {
+  private layPath(pts: Vec2[], land: Land, half: number, conform: number, bridge = true) {
     if (pts.length < 2) return;
     const cs = this.cellSize;
     let prev = pts[0];
@@ -2770,7 +2895,10 @@ export class Terrain {
             const l = this.land[i] as Land;
             if (l === Land.Hesco || l === Land.Structure || l === Land.Compound || l === Land.CompoundWall || l === Land.Road || l === Land.Gravel) continue;
             if (l === Land.River) {
-              this.land[i] = Land.Footbridge;
+              // bridge=false (the pure-landcover trail walkers): never stamp a crossing — a stray
+              // half-cell interpolation across a bank corner would mint a phantom one-cell ford
+              // and change river passability. Real crossings come from placeFords/tracks.
+              if (bridge) this.land[i] = Land.Footbridge;
               continue;
             }
             this.land[i] = land;
@@ -3235,7 +3363,16 @@ export class Terrain {
     // climbing band so the planner prefers the gentlest steep cells (and never dives straight up a fake
     // cliff — the cause of the reverted ×9.21 regression). The mover's never-freeze floor (combat.ts)
     // keeps a man on a 56° pitch creeping, not frozen.
-    return clamp(m * clamp01(1 - slope * 0.62), STEEP_COST_FLOOR, 1);
+    // On a CONSTRUCTED tread (road/track/trail) the walking grade is the path's DESIGN grade, not the
+    // slope of the face it crosses: a benched switchback across a 45° wall still walks at ≤ its laid
+    // grade (that trade — distance for grade — is what trail construction IS). Capping effective slope
+    // at the design grade is what makes a trail across steep ground genuinely faster than the rock
+    // beside it, so movers and planners ride the network the generator lays. Path cells are ~2% of the
+    // map and every one was laid on a grade-limited line, so this cannot attract a route onto raw
+    // steep ground (the reverted STEEP_COST_FLOOR regression family).
+    const cap = TREAD_GRADE_CAP[land];
+    const sEff = cap !== undefined && slope > cap ? cap : slope;
+    return clamp(m * clamp01(1 - sEff * 0.62), STEEP_COST_FLOOR, 1);
   }
 
   /**
@@ -3251,8 +3388,14 @@ export class Terrain {
    */
   dirSpeedAt(wx: number, wy: number, ux: number, uy: number): number {
     const h = this.cellSize;
-    const S = (this.elevAt(wx + ux * h, wy + uy * h) - this.elevAt(wx, wy)) / h; // ∇elev · u (signed)
-    const m = LAND_MOVE[this.landAt(wx, wy)] ?? 0.6;
+    let S = (this.elevAt(wx + ux * h, wy + uy * h) - this.elevAt(wx, wy)) / h; // ∇elev · u (signed)
+    const land = this.landAt(wx, wy);
+    // Benched-tread cap, same rule as moveCostAt: walking UP a constructed path costs its design
+    // grade, never the raw face gradient under the 5 m elevation field (downhill is left alone —
+    // it is already fast and the outer clamp caps it at road pace).
+    const cap = TREAD_GRADE_CAP[land];
+    if (cap !== undefined && S > cap) S = cap;
+    const m = LAND_MOVE[land] ?? 0.6;
     return clamp(m * clamp01(1 - S * 0.62), STEEP_COST_FLOOR, 1);
   }
 
@@ -3303,6 +3446,24 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
   [Land.Gravel]: [0.04, 0.05], // graded pad — open, no cover
   [Land.Track]: [0.05, 0.07], // graded dirt track — open, a hair of cover off the verge
   [Land.Ford]: [0.12, 0.06], // a crossing in open water — almost no cover, a killing ground
+};
+
+/**
+ * Effective walking-grade cap on a CONSTRUCTED tread (rise/run) — the design grade the
+ * generator lays the path at (ascendTrail maxGrade 0.3 + a margin for the 5 m sampling).
+ * A path cell's slope[] still reads the face it crosses (LOS, render and passability are
+ * untouched); only the movement-speed slope term is capped. See moveCostAt / dirSpeedAt.
+ * FOOT TRAILS (+ footbridges) ONLY, deliberately: roads/tracks are physically benched at
+ * generation (their cell slope already ≈ design grade), so capping them too only amplified
+ * the surface-laid steep sections — measured at 12×50 balance WIA 8.42 → 12.58 (+49%, the
+ * recorded-negative band) from valley-tempo speedup on BOTH sides. Trail cells are ~0.4% of
+ * the map, up on the walls where the climbing fan lives — the steep-traversal win without
+ * the valley combat-tempo shift (see issue 027). Read ONCE at module load: ITM_NOTREADCAP=1
+ * must be set before the process starts (A/B probe lever, like ITM_NOSWITCH); node-only.
+ */
+const TREAD_GRADE_CAP: Partial<Record<Land, number>> = process.env.ITM_NOTREADCAP ? {} : {
+  [Land.Trail]: 0.35,
+  [Land.Footbridge]: 0.08,
 };
 
 /** Base movement multiplier per landcover (before slope). */

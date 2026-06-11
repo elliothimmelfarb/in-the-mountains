@@ -60,6 +60,11 @@ export const KIND_TRIM: Record<CueKind, number> = {
   muzzle_insurgent: 0.72,
   mg_us: 0.8,
   mg_insurgent: 0.85,
+  hmg_us: 0.95, // the .50s own the soundscape when they talk
+  hmg_insurgent: 0.95,
+  rocket_launch: 0.85,
+  gl_launch: 0.55, // the bloop is quiet; the 40 mm's voice is its impact
+  reload: 0.3, // strictly a near-field detail
   impact: 0.4,
   ricochet: 0.45,
   nearmiss: 0.5,
@@ -86,6 +91,11 @@ export const KIND_WET: Record<CueKind, number> = {
   muzzle_insurgent: 0.35,
   mg_us: 0.45,
   mg_insurgent: 0.45,
+  hmg_us: 0.55, // a .50 rings the valley harder than a 7.62 gun
+  hmg_insurgent: 0.55,
+  rocket_launch: 0.5,
+  gl_launch: 0.2,
+  reload: 0.0, // bone dry — it happens at arm's length or not at all
   impact: 0.15,
   ricochet: 0.15,
   nearmiss: 0.25,
@@ -117,9 +127,14 @@ const KIND_LOUDNESS: Record<CueKind, number> = {
   incoming: 104, // must survive the gunfire HDR window — the whistle is a life-or-death tell
   mg_us: 105,
   mg_insurgent: 105,
+  hmg_us: 110, // between the MGs and small HE — a .50 dominates a rifle fight
+  hmg_insurgent: 110,
+  rocket_launch: 112, // the launch pop must cut through the fight it starts
+  gl_launch: 96,
   muzzle_us: 100,
   muzzle_insurgent: 100,
   nearmiss: 95,
+  reload: 68, // softer than an impact tick — audible only in a lull, near the camera
   radio: 95,
   frag_air: 82,
   impact: 75,
@@ -137,13 +152,18 @@ const KIND_PRIORITY: Record<CueKind, number> = {
   blast_small: 3,
   mg_us: 3,
   mg_insurgent: 3,
+  hmg_us: 3,
+  hmg_insurgent: 3,
+  rocket_launch: 3,
   splash: 3,
   shot: 3,
   incoming: 3,
   muzzle_us: 2,
   muzzle_insurgent: 2,
+  gl_launch: 2,
   radio: 2,
   impact: 1,
+  reload: 1,
   ricochet: 1,
   nearmiss: 1,
   smoke_pop: 1,
@@ -553,7 +573,7 @@ export class AudioEngine {
     this.maybeDuck(cue.kind, now);
 
     // distant direct fire gets a separate near-miss thump tail (the crack-thump signature).
-    if (sp.split && (cue.kind === "muzzle_us" || cue.kind === "muzzle_insurgent" || cue.kind === "mg_us" || cue.kind === "mg_insurgent")) {
+    if (sp.split && (cue.kind === "muzzle_us" || cue.kind === "muzzle_insurgent" || cue.kind === "mg_us" || cue.kind === "mg_insurgent" || cue.kind === "hmg_us" || cue.kind === "hmg_insurgent")) {
       this.scheduleNearmissTail(cue, sp, now);
     }
   }

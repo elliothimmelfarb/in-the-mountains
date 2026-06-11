@@ -13,9 +13,14 @@ import { RNG } from "@/lib/sim/world";
 
 export type CueKind =
   | "muzzle_us"
-  | "muzzle_insurgent" // single rifle crack, faction-tinted (no weaponId on the Effect)
+  | "muzzle_insurgent" // single rifle crack, faction-tinted; cue.wpn refines the calibre voice
   | "mg_us"
-  | "mg_insurgent" // MG burst — a single cue that schedules a run of cracks (size>=1.5 muzzle)
+  | "mg_insurgent" // medium MG (M240 / PKM) — one cue per round; cadence is the sim's roundTimer
+  | "hmg_us"
+  | "hmg_insurgent" // the .50/12.7 (M2 / DShK) — a different ANIMAL from a 7.62 gun, not a louder one
+  | "rocket_launch" // RPG-7/SPG-9/AT4 leaving the tube: launch pop + booster whoosh (impact is a blast)
+  | "gl_launch" // 40mm leaving the tube: the M320 bloop / Mk19 thunk (impact is a blast)
+  | "reload" // a nearby man swapping mags — mag-out clack, mag-in seat, bolt release
   | "impact"
   | "ricochet"
   | "nearmiss" // round terminal effects + the supersonic "thump" (the latter is a player tail)
@@ -40,6 +45,10 @@ export interface AudioCue {
   v: number;
   /** intensity 0..1 (MG burst length, blast size, suppression weight). */
   gain: number;
+  /** weapons.ts id when the source Effect carries one (muzzle/blast/reload) — selects the
+   *  per-weapon voice row in synth.ts (an M9 crack ≠ an M24 boom). Optional: older probe
+   *  fixtures and weaponless effects fall back to the kind's class voice. */
+  wpn?: string;
   /** the source effect/log/fire-mission id this cue derives from — for the probe's 1:1 assertion. */
   srcId: number;
   /** which monotonic stream the srcId belongs to (so srcId collisions across streams don't alias). */
