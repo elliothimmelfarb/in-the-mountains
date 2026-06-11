@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sound Pass — the category mixer + five audible improvements</title>
+<style>
+  :root{--bg:#11130d;--panel:#1a1d14;--line:#2e3323;--ink:#d8d4c2;--dim:#8b8a76;--amber:#d9a441;--good:#7a9c52;--rust:#b0563b}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",sans-serif;margin:0;padding:0 0 80px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+  header{border-bottom:1px solid var(--line);padding:36px 0 22px;margin-bottom:28px}
+  h1{font-size:26px;margin:0 0 6px;color:var(--amber);letter-spacing:.5px}
+  h2{font-size:19px;color:var(--amber);margin:40px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:15px;margin:22px 0 6px;color:var(--ink)}
+  .sub{color:var(--dim);font-size:13px}
+  p{margin:10px 0}
+  code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:3px;font-size:12.5px}
+  .ab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:14px 0}
+  .abhead{display:flex;justify-content:space-between;gap:14px;align-items:baseline;margin-bottom:8px;flex-wrap:wrap}
+  .abhead b{color:var(--amber)}
+  .why{color:var(--dim);font-size:13px}
+  .abrow{display:flex;gap:18px;flex-wrap:wrap}
+  .cell{flex:1;min-width:260px}
+  .cap{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  .none{color:var(--dim);font-style:italic;padding:10px 0;font-size:13px}
+  audio{width:100%;height:36px}
+  .chips{margin:8px 0 2px;display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:2px 10px;font-size:12px;color:var(--dim)}
+  .chip b{color:var(--good)}
+  img{max-width:100%;border:1px solid var(--line);border-radius:6px;margin:8px 0}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:right}
+  th:first-child,td:first-child{text-align:left}
+  th{background:var(--panel);color:var(--dim);font-weight:600}
+  .good{color:var(--good)} .bad{color:var(--rust)}
+  ul{margin:8px 0 8px 22px;padding:0}
+  li{margin:5px 0}
+  .res{background:var(--panel);border-left:3px solid var(--rust);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>Sound Pass — the category mixer + five audible improvements</h1>
+  <div class="sub">2026-06-11 · lib/audio · all sound 100% procedural (zero binary assets) · oracle: scripts/audio-render.ts (offline render of the REAL synth graph) · every number below is from the seed-pinned oracle, before = HEAD, after = this pass</div>
+</header>
+
+<h2>What this pass did</h2>
+<p>Two deliverables. <b>One:</b> a per-category <b>sound mixer</b> — combat, ambience, radio, and alerts each
+get an on/off toggle and a volume slider, persisted per device. <b>Two:</b> five improvements to the audio
+itself, each grounded in either a recorded residual of the 2026-06-07 soundscape campaign or a missing
+battlefield signature — and each verified by the offline oracle as a number, not a vibe.</p>
+
+<h2>1 · The sound mixer</h2>
+<p>The engine already had four submix buses; the mixer inserts a user gain <i>between each bus and master</i>
+(<code>bus → category → master</code>, lib/audio/player.ts). That placement is the design decision: the
+contact-duck system writes absolute values to the <i>bus</i> gains, so putting the user's trim on a separate
+downstream node means ducking and user preference multiply instead of fighting. Two consequences worth
+knowing: the shared valley-reverb return is routed into the <b>combat</b> category (only combat sounds feed
+it — muting combat must also mute its echo, not leave a disembodied tail), and the danger-close klaxon moved
+from the combat bus to the <b>alerts</b> bus where it semantically belongs (it is a command-channel warning,
+not battlefield sound) with trims re-balanced so its absolute level is unchanged.</p>
+<img src="mixer-popover.png" alt="The sound mixer popover: per-category toggle + slider" style="max-width:300px">
+<p class="sub">Live-verified end to end: UI toggle → store → engine gain (ambience 0.000, combat 0.500) →
+localStorage <code>itm-ui-v1</code> → survives reload. The oracle re-render after the re-routing showed all
+24 scenes within 0.15 dB of baseline — the mixer's plumbing is level-neutral by construction.</p>
+
+<h2>2 · The five audio improvements</h2>
+
+<h3>2.1 · The incoming-shell whistle (new battlefield signature)</h3>
+<p><b>Why:</b> indirect fire had a tube report ("shot") and an impact ("splash") but nothing in between —
+yet the 2–3 seconds of descending shriek before a mortar round lands is the single most recognizable
+indirect-fire experience in every first-hand account. The sim already counts down <code>FireMission.etaS</code>
+each tick, so the mapper now voices one whistle per mission, deterministically, 2.4 s before the first round
+(<code>INCOMING_LEAD_S</code>, lib/audio/mapper.ts) — the whistle ends exactly as the blast arrives. The synth
+is a triangle sweep (~1.3 kHz → 320 Hz) with a flutter that deepens as the round closes, plus a swept-noise
+whoosh an octave up, under a swelling envelope: the swell is the dread.</p>
+<div class="chips"><span class="chip">audible: — → <b>2260 ms</b></span><span class="chip">corr: — → <b>0.3</b></span><span class="chip">rms: — → <b>-29.5 dB</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>incoming — the shell whistle, solo</b><span class="why">2.26 s of descending whistle; in the game it always ends in a blast</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-incoming.wav"></audio></div></div>
+  </div>
+<img src="viz/incoming.png" alt="Spectrogram: the descending incoming whistle">
+<div class="ab">
+    <div class="abhead"><b>the full firefight scene</b><span class="why">listen at ~8 s: shot → whistle → splash → danger-close klaxon, inside a sustained TIC</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/firefight.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/firefight.wav"></audio></div></div>
+  </div>
+
+<h3>2.2 · Calm-bed stereo width (the recorded residual)</h3>
+<p><b>Why:</b> the 2026-06-07 campaign shipped the living valley bed but recorded its own gap: the calm
+scene measured <b>corr 0.997 / width 4%</b> — effectively mono. The fix was less about panning and more
+about a subtlety of synthesis: all bed voices loop <i>one shared noise buffer</i>, and two in-phase filters
+of the same source stay correlated <i>no matter how you pan them</i>. Each voice now starts at a different
+<b>offset into the loop</b> (noise autocorrelation dies in samples, so offset reads are genuinely
+uncorrelated), and then the panning does real work: the river splits into two band voices (950 / 1900 Hz,
+the bird-band notch preserved) straddling the river's actual screen bearing, the generator pans to the COP's
+bearing, rain is Haas-widened (13 ms), and the wind howl spreads ±0.5.</p>
+<div class="chips"><span class="chip">width: 4% → <b>12.4%</b></span><span class="chip">corr: 0.997 → <b>0.963</b></span><span class="chip">rms: -42.62 dB → <b>-45.48 dB</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>ambient-calm — a clear day at the COP</b><span class="why">wind, river, generator, birds; the width is the change — use headphones</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/ambient-calm.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/ambient-calm.wav"></audio></div></div>
+  </div>
+<div class="ab">
+    <div class="abhead"><b>ambient-night — katabatic wind, crickets, the lone dog</b><span class="why">same width mechanism on the night bed</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/ambient-night.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/ambient-night.wav"></audio></div></div>
+  </div>
+<img src="viz/ab-ambient-calm.png" alt="Spectrogram A/B: ambient-calm before and after">
+
+<h3>2.3 · Thunder (new — the storm finally sounds like one)</h3>
+<p><b>Why:</b> Rain weather had a hiss bed and droplet ticks but no thunder — a Kunar mountain storm without
+its defining sound. A new Poisson spot layer (λ = 0.022/s, Rain only) builds each roll as a mid-frequency
+strike head that darkens into a brown-noise rumble with 2–3 swells, answered ~0.6 s later by a quieter roll
+panned to the <i>opposite</i> quarter — the sound crossing the valley. Deliberately <b>not</b> gated by
+contact: a firefight silences the birds, never the sky.</p>
+<div class="chips"><span class="chip">rms: — → <b>-40.91 dB</b></span><span class="chip">width: — → <b>20.9%</b></span><span class="chip">tail: — → <b>12490 ms</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>ambient-storm — rain bed + a thunder roll</b><span class="why">the roll arrives at ~1.2 s from the left, answers from the right</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/ambient-storm.wav"></audio></div></div>
+  </div>
+<img src="viz/storm.png" alt="Spectrogram: the storm scene">
+
+<h3>2.4 · The adhan gets a voice</h3>
+<p><b>Why:</b> the call to prayer is formant-filtered sawtooth with a programmed melisma — but a held note
+with mathematically flat pitch reads as a slide whistle, not a human voice. A 5.3 Hz vibrato (depth 2.5% of
+the base pitch) fading in over the first second is the classic synthesis tell of a singing voice, and it
+does more for realism than any filter change.</p>
+<div class="chips"><span class="chip">rms: — → <b>-38.52 dB</b></span><span class="chip">centroid: — → <b>2569 Hz</b></span><span class="chip">audible: — → <b>10000 ms</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>the adhan from the village (dusk, panned east)</b><span class="why">a new oracle scene — the baseline render had no adhan sample to compare</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><div class="none">— did not exist —</div></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/spot-adhan.wav"></audio></div></div>
+  </div>
+<img src="viz/adhan.png" alt="Spectrogram: the adhan with vibrato">
+
+<h3>2.5 · Ricochet variety</h3>
+<p><b>Why:</b> every deflection played the identical zing — the most repetitive sound in a long firefight.
+Three deterministic timbre families now key off the cue's hash (<code>cue.v</code>): the classic singing
+<b>zing</b> (~45% of rounds), a short hard fast-tumbling <b>buzz</b> (~30%), and a rarer high thin
+<b>whine</b> with a long fall (~25%) — plus an impact tick grounding each one in a hit. Same mechanism,
+three parameterizations; same seed still gives the same firefight.</p>
+<div class="chips"><span class="chip">audible: 720 ms → <b>580 ms</b></span><span class="chip">centroid: 2070 Hz → <b>2508 Hz</b></span></div>
+<div class="ab">
+    <div class="abhead"><b>ricochet (the v=0.5 family — the new buzz)</b><span class="why">the palette renders one family; all three appear in the firefight scene</span></div>
+    <div class="abrow"><div class="cell"><div class="cap">before</div><audio controls preload="none" src="baseline/palette-ricochet.wav"></audio></div>
+    <div class="cell"><div class="cap">after</div><audio controls preload="none" src="after/palette-ricochet.wav"></audio></div></div>
+  </div>
+<img src="viz/ab-ricochet.png" alt="Spectrogram A/B: ricochet before and after">
+
+<h2>3 · The numbers, all in one table</h2>
+<table>
+<tr><th>scene</th><th>rms dB</th><th>corr</th><th>width %</th><th>tail ms</th><th>audible ms</th></tr>
+<tr><td>ambient-calm</td><td>-42.62 → -45.48</td><td>0.997 → 0.963</td><td>4 → 12.4</td><td>1740 → 10270</td><td>10500 → 10500</td></tr>
+<tr><td>ambient-night</td><td>-42.42 → -45.06</td><td>0.995 → 0.956</td><td>5 → 13.3</td><td>10480 → 10480</td><td>10500 → 10500</td></tr>
+<tr><td>ambient-storm</td><td>— → -40.91</td><td>— → 0.873</td><td>— → 20.9</td><td>— → 12490</td><td>— → 12500</td></tr>
+<tr><td>spot-adhan</td><td>— → -38.52</td><td>— → 0.92</td><td>— → 27.3</td><td>— → 9980</td><td>— → 10000</td></tr>
+<tr><td>palette-incoming</td><td>— → -29.5</td><td>— → 0.3</td><td>— → 42.3</td><td>— → 1070</td><td>— → 2260</td></tr>
+<tr><td>palette-ricochet</td><td>-41.22 → -42.61</td><td>0.539 → 0.571</td><td>35.4 → 34.3</td><td>800 → 670</td><td>720 → 580</td></tr>
+<tr><td>firefight</td><td>-27.02 → -26.74</td><td>0.496 → 0.48</td><td>36.7 → 37.2</td><td>7100 → 7090</td><td>18140 → 18140</td></tr>
+<tr><td>distant</td><td>-35.51 → -35.51</td><td>0.056 → 0.056</td><td>48.6 → 48.6</td><td>4460 → 4460</td><td>8200 → 8200</td></tr>
+<tr><td>occlusion-ridge</td><td>-40.34 → -40.34</td><td>0.685 → 0.685</td><td>32.3 → 32.3</td><td>1890 → 1890</td><td>4920 → 4920</td></tr>
+</table>
+<p class="sub">Oracle assertions after this pass — all green: no clipping (busiest scene −2.8 dBFS) ·
+calm→combat dynamic spread 25.8 dB (was 23.0) · ambient bed alive (−45.5 dB) · firefight corr 0.48 ·
+occlusion 6.6 dB / HF 30.8% vs 40.9% · <b>calm width 12.4% (was 4%)</b> · storm alive ·
+whistle sustains 2.26 s. Plus scripts/audio-probe.ts green (mapper purity, 1:1 cue mapping, determinism,
+layer law) — incoming now part of its coverage set.</p>
+
+<h2>4 · Honest residuals</h2>
+<div class="res">
+<ul>
+<li><b>Calm bed is ~2.9 dB quieter than before</b> (−42.6 → −45.5 dB): the band-split river sums a little
+quieter than the old single wide band. Still comfortably inside the oracle's alive band (−60..−28) and the
+dynamic-spread number <i>improved</i>, but if the valley feels too quiet in play, the river group gain
+(ambient.ts, <code>mix.river.gain × 0.7</code>) is the one knob to turn.</li>
+<li><b>No MEDEVAC helicopter.</b> Evacuation is instantaneous in the sim (<code>u.evac = true</code> —
+no aircraft entity exists, combat.ts:1659), so a rotor loop has nothing to attach to. Deliberately NOT
+faked with a timer in the audio layer; recorded as deferred work that needs a sim-side entity first.</li>
+<li><b>One whistle per fire mission, not per round.</b> A multi-round barrage announces once;
+later rounds land on the gun's interval unannounced. Per-round whistles are doable off
+<code>nextRoundS</code> but read as noise in testing scenes with 4-round missions.</li>
+<li><b>The oracle does not model the category gains</b> (they default to unity, which is what it renders).
+If category defaults ever change from 1.0, add them to the mirror in scripts/audio-render.ts.</li>
+<li><b>npm run lint reports 267 pre-existing problems repo-wide</b> (none in lines this pass authored —
+the three in touched files are in WorldView.tsx code that predates it). Not fixed here; out of scope.</li>
+</ul>
+</div>
+
+<h2>5 · How to verify this yourself</h2>
+<ul>
+<li><code>npx tsx scripts/audio-render.ts /tmp/check</code> — re-renders all 27 scenes, prints the table + assertions (expect RENDER OK).</li>
+<li><code>npx tsx scripts/audio-probe.ts</code> — mapper purity/determinism/coverage (expect AUDIO OK).</li>
+<li>In game: the 🎚 button in the command bar's audio cluster opens the mixer; prefs persist per device.</li>
+</ul>
+
+</div><script src="/manual/lightbox.js" defer></script></body></html>

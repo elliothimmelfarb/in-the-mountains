@@ -72,6 +72,12 @@ Three read-anytime documents are served statically (also linked from the title-s
   "man down!", "covering!") surfaces as diegetic callouts on the map. Civilians keep a **pattern of
   life** — a diurnal rhythm, the melt-away tell before an ambush, kids trailing a friendly patrol —
   and panic flight.
+- **A procedural soundscape** — 100% synthesized (no audio assets): faction-tinted gunfire with
+  the crack-thump split and terrain-occluded reports, a valley reverb off the ridgelines, the
+  **incoming-shell whistle** before a fire mission lands, and a living ambient bed (wind, river,
+  the COP generator, birds/crickets/dogs, the adhan, rain and thunder) that ducks hard when
+  contact starts. A per-category **sound mixer** (combat / ambience / radio / alerts) lives in
+  the command bar, persisted per device.
 - **COIN — the real game.** Village attitudes you actually *move*: show up (presence), hold shuras
   (KLE) where elders make **asks** you keep or break (broken promises hurt more than kept ones
   help), and **secure a CERP project to completion** (a clinic they asked for moves a village far

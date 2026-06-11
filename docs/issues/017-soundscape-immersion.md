@@ -27,9 +27,20 @@ gunfire** (`synth.ts`); HDR auto-mixer + control-side ducking + priority voice-s
 (no clip), occlusion **−9 dB & 42→30% HF**, weapon tell **M4 6860 > AK 6212 / SAW 6435 > PKM 5472**.
 
 ## Residuals / deliberate restraint (future work, not bugs)
-- **Ambient beds are diffuse** (wind/rain near-mono by design; only spot sounds — birds/dogs/adhan —
+- **Ambient beds are diffuse** ~~(wind/rain near-mono by design; only spot sounds — birds/dogs/adhan —
   pan to bearing). A future pass could decorrelate/pan the continuous beds (river/generator) for more
-  calm-scene width; acoustically the diffuse stance is honest.
+  calm-scene width; acoustically the diffuse stance is honest.~~
+  **→ Addressed 2026-06-11 (sound pass):** calm-bed width 4% → **12.4%** (corr 0.997 → 0.963). The
+  mechanism was per-voice OFFSETS into the shared noise loop (in-phase filters of one buffer stay
+  correlated regardless of pan) + river split into two band voices straddling its screen bearing,
+  generator panned to the COP bearing, rain Haas-widened. Same pass also added: per-category sound
+  mixer (combat/ambience/radio/alerts, bus→category→master so user trim never fights the duck), the
+  **incoming-shell whistle** (new cue, 2.4 s lead off `fm.etaS`, once per mission), **thunder** (Rain-only
+  Poisson spot, not contact-gated), adhan **vibrato** (5.3 Hz), and 3 ricochet timbre families.
+  Report + A/B samples: `docs/progress/2026-06-11-sound-pass/report.html` (published to the archive).
+  New residuals recorded there: calm bed ~2.9 dB quieter (in band; knob = river group gain ×0.7 in
+  ambient.ts), no MEDEVAC rotor (sim has no aircraft entity — needs sim-side work first, deliberately
+  not faked in the audio layer), one whistle per mission (not per round).
 - **The offline oracle measures the static signal path**; the time-evolving mix (HDR window, ducking,
   voice-stealing) is verified live + via the firefight/spread metrics, not re-implemented in the
   render. A future oracle could model the dynamic mix for fully faithful busy-scene numbers.
