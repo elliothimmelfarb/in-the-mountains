@@ -1,0 +1,4 @@
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight · avg peak enemies on map 7.7
+  Avg US KIA: 1.00 · Avg US WIA: 8.42 · Avg enemy accounted: 7.00 · Civ cas total: 0
+  ✓ No elements left stranded mid-route.

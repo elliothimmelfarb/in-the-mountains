@@ -142,16 +142,25 @@ export interface WeaponVoice {
   nwaveDur: number;
   /** N-wave highpass corner Hz — weapon-tinted shock (5.56 higher than 7.62). */
   nwaveHP: number;
+  /** layer 1 transient highpass corner Hz (default 6000) — the .50s blast LOW even at the
+   *  attack; leaving the shared 6 kHz click at full peak made every gun equally bright. */
+  transHP?: number;
+  /** layer 1 transient peak (default 1.0). */
+  transPeak?: number;
   /** MG burst inter-shot step range [lo,hi] s (rate of fire); undefined for single rifles. */
   rpmStep?: [number, number];
   /** MG burst count range [lo,hi]; undefined for single rifles. */
   burst?: [number, number];
   /** MG burst gain falloff across the burst (0.5 ⇒ last shot at 50%). */
   falloff?: number;
+  /** bolt-action: schedule the two-clack bolt cycle (open ~0.45 s, close ~0.65 s) after the shot —
+   *  the M24/Enfield signature a one-shot semi-auto never makes. */
+  boltCycle?: boolean;
 }
 
-/** The shipped values. US bright/sharp (5.56), insurgent woodier/lower (7.62). */
-export const WEAPON_TABLE: Record<"muzzle_us" | "muzzle_insurgent" | "mg_us" | "mg_insurgent", WeaponVoice> = {
+/** The shipped CLASS values. US bright/sharp (5.56), insurgent woodier/lower (7.62); the .50s
+ *  are a different animal — slow, concussive, more muzzle-blast wash than crack. */
+export const WEAPON_TABLE: Record<"muzzle_us" | "muzzle_insurgent" | "mg_us" | "mg_insurgent" | "hmg_us" | "hmg_insurgent", WeaponVoice> = {
   muzzle_us: {
     bodyCenterHz: 3500, bodyQ: 1.5, bodyDur: 0.05, formantHz: 4200,
     subF0: 180, subF1: 90, subDur: 0.06,
@@ -174,7 +183,80 @@ export const WEAPON_TABLE: Record<"muzzle_us" | "muzzle_insurgent" | "mg_us" | "
     nwaveDur: 0.0007, nwaveHP: 3300,
     rpmStep: [0.088, 0.102], burst: [4, 7], falloff: 0.4, // ~650 rpm PKM hammer
   },
+  hmg_us: {
+    // M2 Browning: ~550 rpm, a deep PUNCHING report — the COP's voice. Centre an octave below
+    // the 7.62 guns; long body; the sub IS the identity (you feel an M2 before you place it).
+    bodyCenterHz: 1500, bodyQ: 0.8, bodyDur: 0.12, formantHz: 2000,
+    subF0: 100, subF1: 38, subDur: 0.14,
+    nwaveDur: 0.001, nwaveHP: 2200,
+    transHP: 2500, transPeak: 0.85,
+  },
+  hmg_insurgent: {
+    // DShK 12.7×108: marginally slower/duller than the M2 — the dreaded ridge gun.
+    bodyCenterHz: 1400, bodyQ: 0.8, bodyDur: 0.13, formantHz: 1900,
+    subF0: 95, subF1: 36, subDur: 0.15,
+    nwaveDur: 0.0011, nwaveHP: 2100,
+    transHP: 2300, transPeak: 0.85,
+  },
 };
+
+/** Per-WEAPON voice overrides (weapons.ts ids), refining the class row above when the cue
+ *  carries `wpn`. Only weapons whose report audibly DIFFERS from their faction's class voice
+ *  get a row — an M4 vs an M16 is not an audible distinction at combat ranges; an M9 vs an
+ *  M24 absolutely is. Exported for the oracle (Law 4). */
+export const WEAPON_VOICES: Record<string, WeaponVoice> = {
+  // M9 9 mm: a small sharp BARK — short, toppy, nearly subless next to a rifle.
+  m9: {
+    bodyCenterHz: 3000, bodyQ: 2.5, bodyDur: 0.028, formantHz: 3600,
+    subF0: 150, subF1: 100, subDur: 0.03,
+    nwaveDur: 0.0004, nwaveHP: 4500,
+  },
+  // 7.62×51 precision guns (20"+ barrels): a deeper, authoritative single crack vs the M4.
+  m110: {
+    bodyCenterHz: 3100, bodyQ: 1.3, bodyDur: 0.06, formantHz: 3700,
+    subF0: 160, subF1: 75, subDur: 0.08,
+    nwaveDur: 0.00045, nwaveHP: 4200,
+  },
+  m24: {
+    bodyCenterHz: 3050, bodyQ: 1.3, bodyDur: 0.065, formantHz: 3650,
+    subF0: 160, subF1: 72, subDur: 0.085,
+    nwaveDur: 0.00045, nwaveHP: 4200,
+    boltCycle: true, // the two-clack cycle after each shot — the sniper's signature
+  },
+  // SVD 7.62×54R: between the AK and the PKM — long-barrel boom with the eastern woodiness.
+  svd: {
+    bodyCenterHz: 2500, bodyQ: 1.1, bodyDur: 0.08, formantHz: 2900,
+    subF0: 130, subF1: 60, subDur: 0.08,
+    nwaveDur: 0.00055, nwaveHP: 3600,
+  },
+  // Lee-Enfield .303: the elder's gun — broad, woody, unmistakably old, then the slow bolt.
+  enfield: {
+    bodyCenterHz: 2200, bodyQ: 0.9, bodyDur: 0.09, formantHz: 2600,
+    subF0: 125, subF1: 58, subDur: 0.09,
+    nwaveDur: 0.0006, nwaveHP: 3200,
+    boltCycle: true,
+  },
+};
+
+/** HE calibre gradation for blast_large: scales sub onset/length + rumble length so a 60 mm
+ *  crump, an 82 mm and a 120 mm valley-shaker read as different EVENTS, not volumes. Keyed by
+ *  weapons.ts id; 1 = the 81/82 mm reference. Exported for the oracle (Law 4). */
+export const BLAST_SCALE: Record<string, number> = {
+  mortar60: 0.78,
+  mortar81: 1.0,
+  mortar82: 1.0,
+  mortar120: 1.35,
+  mk19: 0.62, // 40×53 mm HE-DP — barely clears the big-blast size gate; keep it a crack, not a boom
+  spg9: 0.72,
+  at4: 0.72,
+  javelin: 0.9,
+};
+
+/** Resolve the voice row for a gunfire cue: the per-weapon override when the cue names one,
+ *  else the faction/class row for its kind. */
+export function voiceFor(kind: "muzzle_us" | "muzzle_insurgent" | "mg_us" | "mg_insurgent" | "hmg_us" | "hmg_insurgent", wpn?: string): WeaponVoice {
+  return (wpn && WEAPON_VOICES[wpn]) || WEAPON_TABLE[kind];
+}
 
 /**
  * Build ONE shot from the 5-LAYER stack into `out` at time `t`. This is the single unified
@@ -191,8 +273,9 @@ function gunShot(ctx: AudioContext, out: AudioNode, t: number, w: WeaponVoice, v
   const decJ = k(0.88, 1.12);
   const at = t + k(-0.004, 0.004);
 
-  // LAYER 1 — TRANSIENT: the <5 ms attack click ("how close"). Shared across all weapons.
-  noiseBurst(ctx, out, at, 0.004, "highpass", 6000, 0.5, 1.0 * bg * peakJ, 0.00005);
+  // LAYER 1 — TRANSIENT: the <5 ms attack click ("how close"). Corner/peak are weapon-tinted
+  // (default 6 kHz/1.0): a .50's attack is a low WHUMP, not a rifle's snap.
+  noiseBurst(ctx, out, at, 0.004, "highpass", w.transHP ?? 6000, 0.5, (w.transPeak ?? 1.0) * bg * peakJ, 0.00005);
 
   // LAYER 2 — BODY: broadband report carrying weapon identity. The bandpass centre IS the
   // calibre tell (5.56 ~3.5 kHz vs 7.62 ~2.6 kHz), so it must be loud enough to move the
@@ -227,41 +310,107 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
 
   switch (cue.kind) {
     // --- small arms -------------------------------------------------------------------
-    case "muzzle_us": {
-      // Tight, bright M4-class crack: the 5-layer stack, one shot. (US = sharp 5.56.)
-      gunShot(ctx, out, crack, WEAPON_TABLE.muzzle_us, cue.v, 1, true);
-      return { endTime: crack + WEAPON_TABLE.muzzle_us.subDur + 0.06 };
-    }
-    case "muzzle_insurgent": {
-      // Lower, woodier AK-class report — the audible enemy-vs-us split with no weaponId.
-      gunShot(ctx, out, crack, WEAPON_TABLE.muzzle_insurgent, cue.v, 1, true);
-      return { endTime: crack + WEAPON_TABLE.muzzle_insurgent.subDur + 0.07 };
-    }
-    // Belt-fed MGs (M240/M2 · PKM/DShK) carry the HEAVIER 7.62/.50 timbre but fire exactly ONE
-    // crack per cue: the sim already emits one muzzle effect PER ROUND (combat.ts fireRound) at the
-    // gun's true cyclic spacing, so the mapper sends one cue per round. The old per-cue 5-9 round
-    // burst MULTIPLIED that — an 8-round M240 burst became ~40-70 cracks, a buzzing roar instead of
-    // a recognizable hammer. Cadence is now emergent from the sim's roundTimer (Law 6), not a synth
-    // burst fighting it. (SAW/RPK are cls=lmg, size=1 → routed to muzzle_* single cracks already.)
-    case "mg_us": {
-      gunShot(ctx, out, crack, WEAPON_TABLE.mg_us, cue.v, 1, true);
-      return { endTime: crack + WEAPON_TABLE.mg_us.subDur + 0.06 };
-    }
+    // One crack per cue for ALL guns: the sim emits one muzzle effect PER ROUND (combat.ts
+    // fireRound) at the gun's true cyclic spacing, so cadence is emergent from the sim's
+    // roundTimer (Law 6) — the old per-cue 5-9 round synth burst MULTIPLIED the sim's rounds
+    // into a buzzing roar. The voice row comes from cue.wpn when the effect names the weapon
+    // (an M9 bark, an M24 boom-then-bolt) and falls back to the faction/class row.
+    case "muzzle_us":
+    case "muzzle_insurgent":
+    case "mg_us":
     case "mg_insurgent": {
-      gunShot(ctx, out, crack, WEAPON_TABLE.mg_insurgent, cue.v, 1, true);
-      return { endTime: crack + WEAPON_TABLE.mg_insurgent.subDur + 0.08 };
+      const w = voiceFor(cue.kind, cue.wpn);
+      gunShot(ctx, out, crack, w, cue.v, 1, true);
+      if (w.boltCycle) {
+        // the bolt cycle: open (extract+eject) then close (strip+chamber) — two distinct
+        // mechanical clacks well after the report, quiet, only meaningful for near shooters.
+        const tOpen = crack + j(0.42, 0.5);
+        noiseBurst(ctx, out, tOpen, 0.012, "bandpass", 2300, 5, 0.1, 0.0006);
+        noiseBurst(ctx, out, tOpen + j(0.16, 0.24), 0.014, "bandpass", 1900, 4, 0.12, 0.0006);
+        return { endTime: tOpen + 0.3 };
+      }
+      return { endTime: crack + w.subDur + 0.07 };
     }
+    case "hmg_us":
+    case "hmg_insurgent": {
+      // The .50s (M2 / DShK): the deep slow hammer. The class row carries the low centre; on
+      // top, a muzzle-blast WASH — the broadband concussion that makes a .50 read as artillery's
+      // little brother rather than a big rifle.
+      const w = voiceFor(cue.kind, cue.wpn);
+      gunShot(ctx, out, crack, w, cue.v, 1, true);
+      noiseBurst(ctx, out, crack, 0.1, "lowpass", 600, 0.7, 0.5); // concussive wash
+      return { endTime: crack + w.subDur + 0.12 };
+    }
+    // --- launches (the projectile's own blast cue arrives separately at impact) ---------
+    case "rocket_launch": {
+      // RPG-7: booster POP, then the sustainer motor lights ~10 m out — a rising whoosh as it
+      // departs. AT4/SPG-9 (recoilless): no flight motor — ONE violent muzzle/venturi bang with
+      // a heavy rearward blast wash. Both are unmistakable "RPG!" moments in the accounts.
+      const recoilless = cue.wpn === "at4" || cue.wpn === "spg9";
+      noiseBurst(ctx, out, crack, 0.003, "highpass", 2500, 0.5, 0.85, 0.00008); // ignition click
+      noiseBurst(ctx, out, crack, recoilless ? 0.07 : 0.05, "bandpass", j(750, 950), 1, 1.0); // the pop
+      sub(ctx, out, crack, recoilless ? 90 : 80, recoilless ? 45 : 42, recoilless ? 0.12 : 0.1, recoilless ? 0.7 : 0.55);
+      noiseBurst(ctx, out, crack, recoilless ? 0.16 : 0.12, "lowpass", 600, 0.7, recoilless ? 0.7 : 0.5); // backblast wash
+      if (!recoilless) {
+        // sustainer whoosh: bandpass noise sweeping UP as the rocket accelerates away, swelling
+        // then dying — the sound that makes everyone's head snap toward the launch point.
+        const src = ctx.createBufferSource();
+        src.buffer = noiseBuffer(ctx);
+        src.loop = true;
+        const bp = ctx.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.Q.value = 1.6;
+        bp.frequency.setValueAtTime(j(1100, 1400), crack + 0.03);
+        bp.frequency.exponentialRampToValueAtTime(j(2200, 2600), crack + 0.55);
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, crack + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.45, crack + 0.16);
+        g.gain.exponentialRampToValueAtTime(0.0001, crack + 0.6);
+        src.connect(bp).connect(g).connect(out);
+        src.start(crack + 0.03);
+        src.stop(crack + 0.62);
+        return { endTime: crack + 0.65 };
+      }
+      return { endTime: crack + 0.2 };
+    }
+    case "gl_launch": {
+      // 40 mm leaving the tube. M320/M203: the hollow BLOOP (tube resonance, almost comic until
+      // you know what follows). Mk 19: a deeper mechanical THUNK-and-clank from the heavy bolt.
+      if (cue.wpn === "mk19") {
+        noiseBurst(ctx, out, crack, 0.07, "bandpass", 250, 1.5, 0.8); // deep thunk
+        sub(ctx, out, crack, 120, 70, 0.08, 0.5);
+        noiseBurst(ctx, out, crack + 0.055, 0.012, "bandpass", 1600, 4, 0.3, 0.0006); // bolt clank
+        return { endTime: crack + 0.16 };
+      }
+      tone(ctx, out, crack, "sine", j(270, 300), 180, 0.09, 0.5); // the hollow tube note
+      noiseBurst(ctx, out, crack, 0.05, "bandpass", 420, 2, 0.5); // breath of the launch
+      noiseBurst(ctx, out, crack, 0.004, "highpass", 1800, 0.5, 0.3, 0.0002); // primer tick
+      return { endTime: crack + 0.14 };
+    }
+    case "reload": {
+      // A man swapping mags a few metres away: mag-out clack → mag seated → bolt released.
+      // Quiet, dry, strictly mechanical — the sound of a fight breathing between bursts.
+      const t0 = crack + j(0, 0.06);
+      noiseBurst(ctx, out, t0, 0.012, "bandpass", j(1700, 2000), 4, 0.5, 0.0006); // mag release/out
+      noiseBurst(ctx, out, t0 + 0.02, 0.04, "highpass", 3200, 0.7, 0.15); // kit rattle
+      noiseBurst(ctx, out, t0 + j(0.24, 0.36), 0.02, "bandpass", j(1100, 1300), 3, 0.7, 0.0008); // mag seated
+      noiseBurst(ctx, out, t0 + j(0.46, 0.58), 0.016, "bandpass", j(2400, 2800), 5, 0.6, 0.0006); // bolt release
+      return { endTime: t0 + 0.7 };
+    }
+
     case "nearmiss": {
-      // The N-WAVE: the ballistic shockwave (separate from the muzzle report). We model the
-      // shock PERIOD, not the full Whitham waveform — a single tight highpassed noise SNAP,
-      // weapon-tinted by the same N-wave corner the rounds carry, then a low thump at the
-      // s.o.s. delay (the "snap … crump" of an incoming round). Faction is unknown on a
-      // near-miss tail, so we use the insurgent N-wave corner (incoming is the enemy's).
+      // The N-WAVE: the ballistic shockwave (separate from the muzzle report). The leading
+      // compression SNAP, the rarefaction lobe ~1.5 ms behind it (softer, lower — the "suck"
+      // that completes the N), the turbulent-wake sizzle riding the pair, then the low thump
+      // at the s.o.s. delay (the "snap … crump" of an incoming round). Faction is unknown on
+      // a near-miss tail, so we use the insurgent N-wave corner (incoming is the enemy's).
       const w = WEAPON_TABLE.muzzle_insurgent;
       // a tight 2–4 kHz tick reads better than a pure highpass (which sounds thin), tinted by
       // the weapon's N-wave corner; ~0.5 ms keeps the snap sharp.
       noiseBurst(ctx, out, crack, 0.0005 + w.nwaveDur, "highpass", w.nwaveHP, 0.3, 1.0, 0.00005);
       noiseBurst(ctx, out, crack, 0.012, "bandpass", j(2200, 3000), 4, 0.7);
+      noiseBurst(ctx, out, crack + 0.0015, 0.01, "bandpass", j(1500, 2100), 3, 0.45); // rarefaction lobe
+      noiseBurst(ctx, out, crack, 0.03, "highpass", 7000, 0.5, 0.22); // wake sizzle
       sub(ctx, out, thump, 34, 26, 0.06, 0.6);
       return { endTime: thump + 0.1 };
     }
@@ -322,11 +471,15 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       return { endTime: crack + 0.3 };
     }
     case "blast_large": {
-      // Mortar / 120: deeper, longer rumble; a casing pre-crack.
-      noiseBurst(ctx, out, crack, 0.006, "highpass", 800, 0.5, 0.9);
-      sub(ctx, out, thump, 55, 22, 0.5, 1.0);
-      noiseBurst(ctx, out, thump, 0.6, "lowpass", 400, 0.7, 0.7);
-      return { endTime: thump + 0.65 };
+      // Mortar/rocket HE: deeper, longer rumble; a casing pre-crack. CALIBRE GRADATION from
+      // cue.wpn — a 60 mm crump and a 120 mm valley-shaker are different events, not volumes:
+      // bigger charge ⇒ lower sub onset, longer sub and rumble.
+      const k = BLAST_SCALE[cue.wpn ?? ""] ?? 1;
+      const kd = Math.pow(k, 1.4); // duration grows faster than pitch falls — a 120 ROLLS
+      noiseBurst(ctx, out, crack, 0.006, "highpass", 800 / k, 0.5, 0.9);
+      sub(ctx, out, thump, 55 / Math.sqrt(k), 22 / Math.sqrt(k), 0.5 * kd, 1.0);
+      noiseBurst(ctx, out, thump, 0.6 * kd, "lowpass", 400 / k, 0.7, 0.7);
+      return { endTime: thump + 0.65 * kd };
     }
     case "ied": {
       // The signature opener — loudest single sound: hard over-pressure transient + a deep
@@ -339,10 +492,15 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       }
       shaper.curve = curve;
       shaper.connect(out);
-      noiseBurst(ctx, shaper, crack, 0.002, "highpass", 20, 0.3, 1.0); // full-band over-pressure
+      // SOIL LAG: a buried charge HEAVES before it cracks — the ground wave and sub-bass lead,
+      // the airborne transient arrives a beat later through the lofted soil cap, and the highs
+      // are eaten by the ground (rumble corner 280, was 350). The seismic layer (26→16 Hz,
+      // sustained) rides the clipper so harmonics carry it on small speakers.
+      sub(ctx, shaper, crack, 26, 16, 1.1, 0.8); // seismic ground wave — felt, then heard
       sub(ctx, shaper, crack, 60, 20, 0.6, 1.0);
-      noiseBurst(ctx, shaper, crack, 0.7, "lowpass", 350, 0.7, 0.85);
-      return { endTime: crack + 0.75 };
+      noiseBurst(ctx, shaper, crack + 0.008, 0.002, "highpass", 20, 0.3, 1.0); // lagged over-pressure
+      noiseBurst(ctx, shaper, crack, 0.9, "lowpass", 280, 0.7, 0.85);
+      return { endTime: crack + 1.15 };
     }
 
     // --- atmospherics -----------------------------------------------------------------
@@ -382,7 +540,13 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
     // --- net + indirect ---------------------------------------------------------------
     case "radio": {
       // Squelch -> beep -> squelch-off, sitting UNDER the line (the player ducks this hard).
+      // Net texture keyed off cue.v, SPARSE by design (most squelches stay clean — texture on
+      // every keying would read as a broken radio, not a busy net):
+      //   v>0.85 — a second station steps on the net (faint crosstalk squelch under the first)
+      //   v<0.10 — multipath dropout: the carrier stutters once before the beep
       noiseBurst(ctx, out, crack, 0.03, "bandpass", j(1200, 2400), 3, 0.5); // open squelch
+      if (cue.v > 0.85) noiseBurst(ctx, out, crack + 0.045, 0.025, "bandpass", 900 + cue.v * 600, 4, 0.16); // crosstalk
+      if (cue.v < 0.1) noiseBurst(ctx, out, crack + 0.035, 0.012, "bandpass", 1600, 5, 0.3); // dropout stutter
       tone(ctx, out, crack + 0.03, "square", 1200, 1200, 0.06, 0.25); // beep
       noiseBurst(ctx, out, crack + 0.1, 0.02, "bandpass", 1800, 3, 0.35); // close squelch
       return { endTime: crack + 0.13 };
@@ -410,8 +574,36 @@ export function synthCue(ctx: AudioContext, out: GainNode, cue: AudioCue, sp: Sp
       flut.frequency.linearRampToValueAtTime(11, crack + dur);
       const flutAmt = ctx.createGain();
       flutAmt.gain.setValueAtTime(4, crack);
-      flutAmt.gain.linearRampToValueAtTime(38, crack + dur);
+      flutAmt.gain.linearRampToValueAtTime(52, crack + dur);
       flut.connect(flutAmt).connect(o.frequency);
+      // a real shell's shriek is CHAOTIC, not a clean siren: a second incommensurate fast
+      // wobble (aero instability) rides the same frequency so the two LFOs never phase-lock —
+      // the pitch wanders instead of singing. Rate keyed off cue.v so no two shells wail alike.
+      const wob = ctx.createOscillator();
+      wob.frequency.setValueAtTime(23 + cue.v * 14, crack);
+      const wobAmt = ctx.createGain();
+      wobAmt.gain.setValueAtTime(2, crack);
+      wobAmt.gain.linearRampToValueAtTime(26, crack + dur);
+      wob.connect(wobAmt).connect(o.frequency);
+      wob.start(crack);
+      wob.stop(crack + dur + 0.02);
+      // the broadband SHRILL fused to the tone (Q6 noise tracking f0) — the "tearing" component
+      // that keeps the whistle from reading as a musical instrument.
+      const shrill = ctx.createBufferSource();
+      shrill.buffer = noiseBuffer(ctx);
+      shrill.loop = true;
+      const sbp = ctx.createBiquadFilter();
+      sbp.type = "bandpass";
+      sbp.Q.value = 6;
+      sbp.frequency.setValueAtTime(f0, crack);
+      sbp.frequency.exponentialRampToValueAtTime(320, crack + dur);
+      const sg = ctx.createGain();
+      sg.gain.setValueAtTime(0.0001, crack);
+      sg.gain.exponentialRampToValueAtTime(0.4, crack + dur * 0.85);
+      sg.gain.exponentialRampToValueAtTime(0.0001, crack + dur);
+      shrill.connect(sbp).connect(sg).connect(out);
+      shrill.start(crack);
+      shrill.stop(crack + dur + 0.02);
       const og = ctx.createGain();
       og.gain.setValueAtTime(0.0001, crack);
       og.gain.exponentialRampToValueAtTime(0.55, crack + dur * 0.85); // the swell IS the dread

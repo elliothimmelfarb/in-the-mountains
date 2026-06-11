@@ -510,14 +510,27 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
     const wpx = Math.max(minPx[kind], widthM[kind] * cam.ppm);
     for (const path of lines) {
       if (path.kind !== kind || path.pts.length < 2) continue;
+      // midpoint quadratic smoothing: the generator emits ~7 m straight segments, which read as
+      // jagged CAD polylines at tactical zoom — routing each vertex as the control point of a
+      // quadratic through the segment midpoints turns hairpins into the worn, rounded curves a
+      // real foot-trail cuts, while still passing through the start/end of every path.
       const trace = () => {
         ctx.beginPath();
-        const [sx, sy] = worldToScreen(cam, path.pts[0].x, path.pts[0].y);
+        const p = path.pts;
+        const [sx, sy] = worldToScreen(cam, p[0].x, p[0].y);
         ctx.moveTo(sx, sy);
-        for (let i = 1; i < path.pts.length; i++) {
-          const [x, y] = worldToScreen(cam, path.pts[i].x, path.pts[i].y);
+        if (p.length === 2) {
+          const [x, y] = worldToScreen(cam, p[1].x, p[1].y);
           ctx.lineTo(x, y);
+          return;
         }
+        for (let i = 1; i < p.length - 1; i++) {
+          const [ax, ay] = worldToScreen(cam, p[i].x, p[i].y);
+          const [bx, by] = worldToScreen(cam, p[i + 1].x, p[i + 1].y);
+          ctx.quadraticCurveTo(ax, ay, (ax + bx) / 2, (ay + by) / 2);
+        }
+        const [ex, ey] = worldToScreen(cam, p[p.length - 1].x, p[p.length - 1].y);
+        ctx.lineTo(ex, ey);
       };
       // every path sits in a faint shallow groove — a dark casing reads as that worn edge and lifts
       // the line off the busy ground texture (a road/track gets a wider, darker one than a goat trail)

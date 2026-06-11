@@ -51,12 +51,26 @@ Generation is resolution-independent (landform frequencies are expressed per-met
      LIGHTLY to local ground (never a deep cut). This replaced the old "trail trench to the water":
      a cliff-isolated village instead gets a feathered switchbacked graded-Track descent that reads
      as a real mountain road, not a gouge;
-   - faint Tier-3 goat **Trails** up the draws (surface-laid, no benching), bridging the river where
-     they cross (**Footbridge**);
+   - Tier-3 goat **Trails**: each village's draw-trail is a switchbacked `ascendTrail` molded to the
+     terrain (never a straight stamp up the fall line), bridging the river where it crosses
+     (**Footbridge**);
+   - a **fan of switchback climbing trails** per trailhead (`layTrailNetwork`): the uphill annulus is
+     binned into three along-valley sectors and the best walkable shoulder in EACH gets a trail, so a
+     village radiates 2–3 paths up the walls like the real thing; trail summits along each valley
+     side are linked by contour-holding **ridgeline trails** (`lateralTrail`) — spur trails feeding a
+     lateral high path, the topology a real Korengal-like valley has;
    - the COP's **switchbacked access road** descends its spur to the MSR.
+   Foot trails are **pure landcover** (no elevation writes — even a gentle conform was measured
+   severing a connectivity neck; see `docs/progress/2026-06-11-trail-network/`).
    Movement ladder (`LAND_MOVE`): **Road 1.0 > Track 0.96 > Trail 0.92 > Footbridge 0.85** ≫ open
    ground — so a patrol on **Fast** (roadBias) and villagers on inter-village errands both prefer the
-   network. Tracks/trails are deterministic (seeded), so the network rebuilds identically on load.
+   network. A FOOT TRAIL also walks at its **design grade**, not the raw face slope
+   (`TREAD_GRADE_CAP` in `moveCostAt`/`dirSpeedAt` — Trail + Footbridge only; roads/tracks are
+   already physically benched at generation, and capping them too was measured as a pure valley-
+   tempo amplifier, balance WIA +49 % — issue 027): a switchback trail across a 45° wall is
+   genuinely faster than the rock beside it, which is what makes the climbing fan real traversal
+   infrastructure (`ITM_NOTREADCAP=1` disables for A/B probes; read at module load). Tracks/trails
+   are deterministic (seeded, no rng draws added), so the network rebuilds identically on load.
    - **Connectivity guard** (`ensureNetworkConnectivity`, after `ensureGatePortal`) — the network is
      only useful if it actually reaches the gate. The MSR can be fragmented by river/steep banks and a
      COP can sit on a bench a cliff band walls off from the valley, so for **each village** the guard
@@ -542,7 +556,11 @@ generated from decaying noise. It is both a **combat** mix and a **living valley
 - **`mapper.ts` / `cue.ts`** — `CueMapper.collect({effects, log, fireMissions, inContact})` walks
   the sim streams against monotonic high-water marks and emits an ordered `AudioCue[]`: every new
   `Effect` id → one cue (`blood` → none); contact-relevant log lines → a radio bed; fire-mission
-  transitions → `shot` / `splash` / danger-close klaxon; the TIC rising edge → the contact sting.
+  transitions → `shot` / `incoming` (the whistle) / `splash` / danger-close klaxon; the TIC rising
+  edge → the contact sting. The sim stamps `Effect.weapon` (weapons.ts id) on muzzle/blast/reload
+  effects, and the mapper routes by **weapon class**: `hmg_*` (M2/DShK), `rocket_launch`
+  (RPG/AT4/SPG-9), `gl_launch` (M320/Mk19), `reload` (mag swaps), pistols at reduced gain — with
+  `cue.wpn` carried through so the synth can refine the calibre voice.
 - **`ambient-state.ts`** — `computeAmbientMix(signals)` maps deterministic World getters
   (`solarLight()`, `windVector()`, `secondsOfDay`, `weather`, `inContact`) → target gains/densities
   for the ambient bed, plus a **pure Poisson schedule** (`RNG.hashString`) for birds/dogs/etc.
@@ -561,8 +579,12 @@ shelf] → pan → combatBus`, plus a parallel **wet send** (rising with distanc
   frequency-partitioned. Ducks ~85 % on the contact rising edge and exhales over ~12 s — *the
   readable silence of the calm-before as an instrument.* Plays through pause; only warp suspends it.
 - **`synth.ts`** — gunfire is a **5-layer stack** (transient · body · sub · mechanical · tail) from
-  a per-weapon table, with a true sub-millisecond supersonic crack; US (5.56) reads brighter than
-  insurgent (7.62), SAW vs PKM by cadence — the audible "who's shooting" tell.
+  the class table (`WEAPON_TABLE`) refined by per-weapon rows (`WEAPON_VOICES` via `cue.wpn`):
+  the calibre ladder is measurable (M9 bark > M4 > M24 > Enfield > the .50s an octave down, with
+  weapon-tinted attack transients), bolt guns cycle the bolt ~0.5 s after the report, mortar
+  impacts grade by calibre (`BLAST_SCALE`), the IED leads with a seismic 26→16 Hz ground wave,
+  and the incoming shell tears (two incommensurate modulators + broadband shrill) — the audible
+  "who's shooting / what's landing" tell.
 - **HDR auto-mixer + ducking** — the loudest current sound raises a window quieter sounds duck
   beneath (somber by dynamics, not volume); control-side `setTargetAtTime` ducks (radio ducks atmos;
   HE ducks everything). **Priority voice-stealing** keeps the 32-voice cap on the sounds that matter.

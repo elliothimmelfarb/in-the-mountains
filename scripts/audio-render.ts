@@ -87,7 +87,8 @@ function cam(cx = 1280, cy = 1280, ppm = 0.75): Camera {
 }
 
 const ALL_KINDS: CueKind[] = [
-  "muzzle_us", "muzzle_insurgent", "mg_us", "mg_insurgent", "impact", "ricochet", "nearmiss",
+  "muzzle_us", "muzzle_insurgent", "mg_us", "mg_insurgent", "hmg_us", "hmg_insurgent",
+  "rocket_launch", "gl_launch", "reload", "impact", "ricochet", "nearmiss",
   "blast_small", "blast_large", "ied", "smoke_pop", "frag_air", "flare", "radio", "shot",
   "incoming", "splash", "dangerclose", "tic_sting",
 ];
@@ -302,6 +303,7 @@ export interface SceneMetrics {
   audibleMs: number;
   loudWindowDb: number; // loudest 1 s window RMS (dBFS) — the "how loud does it GET" measure
   hf4kPct: number; // % of spectral energy above 4 kHz (brightness / occlusion probe)
+  lf200Pct: number; // % of spectral energy below 200 Hz (blast body — the calibre probe)
   note: string;
   /** downsampled |peak| envelope (mono max of L/R), 0..1, for the report waveform chart. */
   envelope: number[];
@@ -443,9 +445,12 @@ function metrics(name: string, durationS: number, note: string, L: Float32Array,
   }
 
   // HF ratio: fraction of spectral energy above 4 kHz (brightness; drops hard under occlusion).
-  let hfNum = 0, hfDen = 0;
-  for (let k = 1; k < FFT / 2; k++) { const f = (k * sr) / FFT; hfDen += specAccum[k]; if (f >= 4000) hfNum += specAccum[k]; }
+  // LF ratio: fraction below 200 Hz (the body of a blast — where calibre lives; centroid/HF are
+  // bin-count-dominated by broadband noise and barely move when only the sub changes).
+  let hfNum = 0, hfDen = 0, lfNum = 0;
+  for (let k = 1; k < FFT / 2; k++) { const f = (k * sr) / FFT; hfDen += specAccum[k]; if (f >= 4000) hfNum += specAccum[k]; if (f < 200) lfNum += specAccum[k]; }
   const hf4kPct = hfDen > 0 ? (hfNum / hfDen) * 100 : 0;
+  const lf200Pct = hfDen > 0 ? (lfNum / hfDen) * 100 : 0;
 
   return {
     name, durationS, note,
@@ -453,7 +458,7 @@ function metrics(name: string, durationS: number, note: string, L: Float32Array,
     crestDb: +(db(peak) - db(rms)).toFixed(2), centroidHz: Math.round(centroidHz),
     stereoCorr: +stereoCorr.toFixed(3), widthPct: +widthPct.toFixed(1),
     tailMs: Math.round(tailMs), audibleMs: Math.round(audibleMs),
-    loudWindowDb: +db(loudWindow).toFixed(2), hf4kPct: +hf4kPct.toFixed(2),
+    loudWindowDb: +db(loudWindow).toFixed(2), hf4kPct: +hf4kPct.toFixed(2), lf200Pct: +lf200Pct.toFixed(2),
     envelope, spectrum,
   };
 }
@@ -490,6 +495,27 @@ function paletteScenes(): Scene[] {
   }));
 }
 
+function weaponScenes(): Scene[] {
+  // per-WEAPON voice rows (cue.wpn refinement) + the calibre gradation of blast_large — the
+  // A/B evidence that an M9, an M24-with-bolt and a 60-vs-120 mm crump are different events.
+  const mk = (name: string, kind: CueKind, wpn: string, durationS = 1.6): Scene => ({
+    name,
+    durationS,
+    cam: cam(),
+    note: `solo ${kind} as ${wpn}, centered/near`,
+    cues: [{ at: 0.05, cue: cue(kind, { pos: { x: 1280, y: 1280 }, wpn }) }],
+  });
+  return [
+    mk("wpn-m9", "muzzle_us", "m9"),
+    mk("wpn-m24", "muzzle_us", "m24", 2.0), // the shot + the two-clack bolt cycle
+    mk("wpn-enfield", "muzzle_insurgent", "enfield", 2.0),
+    mk("wpn-at4", "rocket_launch", "at4"),
+    mk("wpn-mk19", "gl_launch", "mk19"),
+    mk("blast-m60", "blast_large", "mortar60", 2.4),
+    mk("blast-m120", "blast_large", "mortar120", 2.8),
+  ];
+}
+
 function firefightScene(): Scene {
   // a dense 30-man-ish TIC: outgoing from the COP (center), incoming from a ridge to the right,
   // an RPG, the radio net, an enemy mortar (shot→splash→dangerclose), the contact sting.
@@ -507,10 +533,13 @@ function firefightScene(): Scene {
     // a second shooter overlapping (different position/timbre) — density of a real fight
     cues.push({ at: t + 0.12, cue: cue(us ? "muzzle_insurgent" : "muzzle_us", { v: (i * 0.41 + 0.3) % 1, pos: us ? Rt(200 + (i % 3) * 30) : L(70 + (i % 3) * 25), gain: 0.7 }) });
     if (i % 5 === 2) cues.push({ at: t + 0.08, cue: cue(us ? "mg_us" : "mg_insurgent", { v: (i * 0.31) % 1, pos: us ? L(80) : Rt(220), gain: 1 }) });
+    if (i % 7 === 3) cues.push({ at: t + 0.15, cue: cue("hmg_us", { v: (i * 0.23) % 1, pos: L(40), wpn: "m2", gain: 1 }) }); // the COP's M2 answering
     if (i % 11 === 5) cues.push({ at: t + 0.2, cue: cue("ricochet", { v: (i * 0.7) % 1, pos: Rt(60) }) });
     if (i % 9 === 4) cues.push({ at: t + 0.05, cue: cue("impact", { v: (i * 0.5) % 1, pos: L(30) }) });
   }
-  cues.push({ at: 3.2, cue: cue("blast_small", { pos: Rt(120), gain: 0.9 }) }); // RPG
+  cues.push({ at: 2.6, cue: cue("rocket_launch", { pos: Rt(120), wpn: "rpg7" }) }); // "RPG!" — launch pop+whoosh…
+  cues.push({ at: 3.2, cue: cue("blast_small", { pos: Rt(120), gain: 0.9 }) }); // …then the impact
+  cues.push({ at: 17.7, cue: cue("reload", { pos: L(12), wpn: "m4" }) }); // the fight breathing out
   cues.push({ at: 5.0, cue: cue("radio", {}) });
   cues.push({ at: 9.0, cue: cue("radio", { v: 0.3 }) });
   cues.push({ at: 7.5, cue: cue("shot", { pos: Rt(400) }) }); // enemy tube
@@ -624,7 +653,7 @@ function seedRandom(seed: number): void {
 async function main() {
   const outDir = process.argv[2] || "docs/progress/_audio-latest";
   mkdirSync(outDir, { recursive: true });
-  const scenes: Scene[] = [...paletteScenes(), firefightScene(), distantScene(), ...occlusionScenes(), ambientCalmScene(), ambientNightScene(), ambientStormScene(), adhanScene()];
+  const scenes: Scene[] = [...paletteScenes(), ...weaponScenes(), firefightScene(), distantScene(), ...occlusionScenes(), ambientCalmScene(), ambientNightScene(), ambientStormScene(), adhanScene()];
   const all: SceneMetrics[] = [];
 
   for (const sc of scenes) {
@@ -681,6 +710,19 @@ async function main() {
   if (storm) checks.push(storm.rmsDb > -55 && storm.peakDb <= 0 ? `ok — storm scene alive (rain bed + thunder roll, RMS ${storm.rmsDb} dB, peak ${storm.peakDb})` : `⚠ storm scene off (RMS ${storm.rmsDb}, peak ${storm.peakDb})`);
   const inc = get("palette-incoming");
   if (inc) checks.push(inc.audibleMs > 1600 ? `ok — incoming whistle sustains (${inc.audibleMs} ms audible — the 2.2 s shriek before the splash)` : `⚠ incoming whistle too short (${inc.audibleMs} ms)`);
+  // ---- calibre-voice assertions (the weapon-identity pass) ----
+  const hmg = get("palette-hmg_insurgent"), mmg = get("palette-mg_insurgent");
+  if (hmg && mmg) checks.push(hmg.centroidHz < mmg.centroidHz - 250 ? `ok — the .50 is a different animal: DShK centroid ${hmg.centroidHz} Hz vs PKM ${mmg.centroidHz} Hz (darker by ${mmg.centroidHz - hmg.centroidHz} Hz)` : `⚠ hmg not audibly deeper than mmg (centroid ${hmg.centroidHz} vs ${mmg.centroidHz})`);
+  const rkt = get("palette-rocket_launch");
+  if (rkt) checks.push(rkt.audibleMs >= 450 ? `ok — RPG launch sustains (${rkt.audibleMs} ms: pop + departing booster whoosh)` : `⚠ rocket launch too short (${rkt.audibleMs} ms — whoosh missing?)`);
+  const rld = get("palette-reload");
+  if (rld) checks.push(rld.rmsDb < -45 && rld.audibleMs >= 250 ? `ok — reload is a near-field whisper (RMS ${rld.rmsDb} dB, ${rld.audibleMs} ms of mag clatter)` : `⚠ reload off (RMS ${rld.rmsDb} dB, ${rld.audibleMs} ms; want quiet AND present)`);
+  const m60 = get("blast-m60"), m120 = get("blast-m120");
+  // duration alone is swamped by the shared valley-reverb tail; the robust tell is SPECTRAL —
+  // the 120's energy sits in the rumble (centroid down, 4 kHz+ share down).
+  if (m60 && m120) checks.push(m120.lf200Pct > m60.lf200Pct * 1.25 ? `ok — mortar calibre gradation: 120 mm LF share ${m120.lf200Pct}% vs 60 mm ${m60.lf200Pct}% (the big tube ROLLS)` : `⚠ 60 vs 120 mm indistinct in the low band (LF ${m60.lf200Pct}% vs ${m120.lf200Pct}%)`);
+  const m24 = get("wpn-m24");
+  if (m24) checks.push(m24.audibleMs >= 600 ? `ok — bolt-action signature: M24 shot + bolt cycle spans ${m24.audibleMs} ms` : `⚠ M24 bolt cycle inaudible (${m24.audibleMs} ms)`);
   console.log("");
   for (const c of checks) console.log("  " + c);
 

@@ -8,10 +8,19 @@
  *   trailC / trackC / roadC : count of cells of each path landcover
  *   path%   : fraction of ALL cells that are any path (Road|Track|Trail|Footbridge|Ford) — "more"
  *   segs    : connected path components (≥4 cells) — a rough count of distinct paths/footpaths
- *   trGrade : mean rise/run slope ALONG trail cells (low = molds to contour; a real foot-trail
- *             holds a gentle grade by switchbacking, so this should be WELL under the FOOT_MAX 1.25)
- *   trSteep%: fraction of trail cells whose slope still exceeds 0.5 (≈27°) — a path that ignores the
- *             terrain climbs steep; one that molds stays gentle. Lower = more authentic.
+ *   trGrade : mean TERRAIN slope magnitude at trail cells. NOTE: this is the slope of the GROUND
+ *             the trail crosses, not the walking grade — a switchback traversing a steep face
+ *             scores high here even when its tread is gentle. HIGH trGrade + LOW alongGr is the
+ *             signature of a real switchback network (trails going UP steep hills, at a walkable
+ *             grade); high alongGr is the actual pathology (a path stamped up a fall line).
+ *   trSteep%: fraction of trail cells whose ground slope exceeds 0.5 (≈27°) — how much of the
+ *             network dares the steep band (rises when trails climb the walls; see trGrade note).
+ *   alongGr : length-weighted mean |rise/run| ALONG each trail centerline (terrain.trailLines) —
+ *             the grade a human walking the path experiences. A real foot-trail holds this low by
+ *             switchbacking (alpine trail standards ~0.10-0.20; goat trails steeper). THE
+ *             authenticity number.
+ *   along>45%: fraction of trail centerline LENGTH steeper along-track than 0.45 (~24°, beyond a
+ *             sustained walkable grade) — the unwalkable-trail residual. Lower = more authentic.
  *
  * Run: npx tsx scripts/footpath-probe.ts [N]   (N survey seeds, else a documented set)
  */
@@ -68,20 +77,38 @@ function analyse(seed: string) {
     if (cnt >= 4) segs++; else comp[s] = -2;
   }
 
+  // along-track grade over the captured trail centerlines — the grade a walker experiences
+  let wLen = 0, gLenSum = 0, steepLen = 0;
+  for (const tl of t.trailLines) {
+    if (tl.kind !== "trail") continue;
+    for (let i = 0; i + 1 < tl.pts.length; i++) {
+      const a = tl.pts[i], b = tl.pts[i + 1];
+      const L = Math.hypot(b.x - a.x, b.y - a.y);
+      if (L < 0.5) continue;
+      const g = Math.abs(t.elevAt(b.x, b.y) - t.elevAt(a.x, a.y)) / L;
+      gLenSum += g * L;
+      wLen += L;
+      if (g > 0.45) steepLen += L;
+    }
+  }
+
   return {
     seed, trailC, trackC, roadC,
     pathPct: (100 * pathC) / n,
     segs,
     trGrade: trailC ? trGradeSum / trailC : 0,
     trSteepPct: trailC ? (100 * trSteep) / trailC : 0,
+    alongGr: wLen ? gLenSum / wLen : 0,
+    alongSteepPct: wLen ? (100 * steepLen) / wLen : 0,
   };
 }
 
 console.log(
   "seed".padEnd(12), "trail".padStart(6), "track".padStart(6), "road".padStart(6),
   "path%".padStart(7), "segs".padStart(6), "trGrade".padStart(8), "trSteep%".padStart(9),
+  "alongGr".padStart(8), "along>45%".padStart(10),
 );
-const agg = { trailC: 0, trackC: 0, roadC: 0, pathPct: 0, segs: 0, trGrade: 0, trSteepPct: 0 };
+const agg = { trailC: 0, trackC: 0, roadC: 0, pathPct: 0, segs: 0, trGrade: 0, trSteepPct: 0, alongGr: 0, alongSteepPct: 0 };
 for (const seed of SEEDS) {
   const r = analyse(seed);
   console.log(
@@ -89,14 +116,16 @@ for (const seed of SEEDS) {
     String(r.trailC).padStart(6), String(r.trackC).padStart(6), String(r.roadC).padStart(6),
     r.pathPct.toFixed(2).padStart(7), String(r.segs).padStart(6),
     r.trGrade.toFixed(2).padStart(8), (r.trSteepPct.toFixed(0) + "%").padStart(9),
+    r.alongGr.toFixed(3).padStart(8), (r.alongSteepPct.toFixed(0) + "%").padStart(10),
   );
   for (const k of Object.keys(agg) as (keyof typeof agg)[]) agg[k] += (r as unknown as Record<string, number>)[k];
 }
 const m = SEEDS.length;
-console.log("".padEnd(12), "-".repeat(64));
+console.log("".padEnd(12), "-".repeat(84));
 console.log(
   "MEAN".padEnd(12),
   (agg.trailC / m).toFixed(0).padStart(6), (agg.trackC / m).toFixed(0).padStart(6), (agg.roadC / m).toFixed(0).padStart(6),
   (agg.pathPct / m).toFixed(2).padStart(7), (agg.segs / m).toFixed(1).padStart(6),
   (agg.trGrade / m).toFixed(2).padStart(8), ((agg.trSteepPct / m).toFixed(0) + "%").padStart(9),
+  (agg.alongGr / m).toFixed(3).padStart(8), ((agg.alongSteepPct / m).toFixed(0) + "%").padStart(10),
 );

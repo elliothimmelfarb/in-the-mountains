@@ -15,6 +15,7 @@
  * (probe assertion C).
  */
 import type { Effect, LogEntry, FireMission } from "../sim/combat";
+import { WEAPONS } from "../sim/weapons"; // pure data table — same render-side read as the types above
 import { type AudioCue, cueVar } from "./cue";
 
 /** Log kinds that earn a radio-bed cue. Plain "info" is intentionally silent so chatter
@@ -156,12 +157,26 @@ export class CueMapper {
     switch (e.kind) {
       case "muzzle": {
         const us = e.faction === "us" || e.faction === "ana";
-        const mg = (e.size ?? 1) >= 1.5; // size 1.6 == hmg/mmg (combat.ts:925); the only fidelity available
+        const cls = e.weapon ? WEAPONS[e.weapon]?.cls : undefined;
+        // Weapon-class routing (combat.ts stamps weapon since the calibre-voice pass). The
+        // class picks the CUE KIND (its mixer row: trim/loudness/priority); cue.wpn refines
+        // the timbre inside synth.ts. Weaponless effects (old fixtures) keep the size>=1.5
+        // heuristic that predates the weapon field.
+        if (cls === "rocket" || cls === "missile")
+          return { kind: "rocket_launch", pos: { ...e.pos }, v, gain: 1, wpn: e.weapon, srcId: e.id, srcStream: "fx" };
+        if (cls === "gl" || cls === "agl")
+          return { kind: "gl_launch", pos: { ...e.pos }, v, gain: cls === "agl" ? 1 : 0.8, wpn: e.weapon, srcId: e.id, srcStream: "fx" };
+        if (cls === "hmg")
+          return { kind: us ? "hmg_us" : "hmg_insurgent", pos: { ...e.pos }, v, gain: 1, wpn: e.weapon, srcId: e.id, srcStream: "fx" };
+        const mg = cls === "mmg" || (cls === undefined && (e.size ?? 1) >= 1.5);
+        // a pistol is a small, sharp bark — well under a rifle's report
+        const gain = cls === "pistol" ? 0.45 : mg ? 1 : 0.8;
         return {
           kind: mg ? (us ? "mg_us" : "mg_insurgent") : us ? "muzzle_us" : "muzzle_insurgent",
           pos: { ...e.pos },
           v,
-          gain: mg ? 1 : 0.8,
+          gain,
+          wpn: e.weapon,
           srcId: e.id,
           srcStream: "fx",
         };
@@ -174,10 +189,13 @@ export class CueMapper {
           pos: { ...e.pos },
           v,
           gain: Math.min(1, e.size ?? 1),
+          wpn: e.weapon, // calibre gradation: a 60 mm crump ≠ a 120 mm valley-shaker
           srcId: e.id,
           srcStream: "fx",
         };
       }
+      case "reload":
+        return { kind: "reload", pos: { ...e.pos }, v, gain: 1, wpn: e.weapon, srcId: e.id, srcStream: "fx" };
       case "impact":
         return { kind: "impact", pos: { ...e.pos }, v, gain: 0.6, srcId: e.id, srcStream: "fx" };
       case "ricochet":

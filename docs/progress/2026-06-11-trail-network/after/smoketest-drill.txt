@@ -1,0 +1,5 @@
+Loy Kalay    closest=   50m  ARRIVED @ 381s
+Korangal     closest=   50m  ARRIVED @ 2275s
+Kandlay      closest=   50m  ARRIVED @ 482s
+Donga        closest=   50m  ARRIVED @ 1296s
+Landigal     closest=   50m  ARRIVED @ 735s

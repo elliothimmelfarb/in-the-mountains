@@ -653,6 +653,12 @@ function switchbackBoxMargin(terrain: Terrain, sx: number, sy: number, gx: numbe
  * switchback traverse requires. Combined with the signed-grade cost (a cross-slope leg is genuinely
  * cheaper than the fall line) and the turn penalty (few clean bends, no jitter), the zig-zag emerges.
  */
+/** Is a leg endpoint on a laid path (the worn line a walker follows without navigating)?
+ *  Module-level so the thetaClimb hot loop doesn't allocate a closure per neighbor relax. */
+function onTread(l: Land): boolean {
+  return l === Land.Trail || l === Land.Track || l === Land.Road || l === Land.Footbridge;
+}
+
 function thetaClimb(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions, M: number): Vec2[] | null {
   const size = terrain.size;
   const cs = terrain.cellSize;
@@ -735,7 +741,17 @@ function thetaClimb(terrain: Terrain, start: Vec2, goal: Vec2, opts: PathOptions
       }
       const outHead = Math.atan2(nW.y - baseNode.y, nW.x - baseNode.x);
       const turn = Math.abs(angleDiff(inHead, outHead)) / Math.PI; // 0..1
-      const tentative = baseG + legCost(terrain, baseNode, nW) + turn * TURN_PENALTY_M;
+      // A bend ON a laid path is nearly free: the turn penalty prices cross-country navigation
+      // (picking a new line through broken ground), which a worn tread eliminates — you follow
+      // the path through its hairpins. Without this, a switchback trail's dozen hairpins charge
+      // ~12×~16 m-equivalent and the planner rationally ignores the very trails the generator
+      // grade-limits for it. Both leg endpoints must sit on path landcover, so the jitter
+      // pathology the penalty guards against (single-cell zig-zag on OPEN ground) cannot enter —
+      // open-ground legs still pay in full.
+      const li = terrain.land[ni] as Land;
+      const lb = terrain.land[Math.min(size - 1, Math.max(0, Math.floor(baseNode.y / cs))) * size + Math.min(size - 1, Math.max(0, Math.floor(baseNode.x / cs)))] as Land;
+      const turnScale = onTread(li) && onTread(lb) ? 0.15 : 1;
+      const tentative = baseG + legCost(terrain, baseNode, nW) + turn * TURN_PENALTY_M * turnScale;
       if (tentative < gOf(ni)) {
         gScratch[ni] = tentative;
         gGen[ni] = gen;

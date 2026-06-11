@@ -1,0 +1,11 @@
+seed          routes      time  onPath%  reach
+korengal           4      4029       4%    3/4
+korengal-2         5      3583      12%    4/5
+ridgeline          5      3881      23%    3/5
+restrepo           4      2487      15%    4/4
+kunar-3            6      4894       2%    2/6
+valley-7           5      3778      12%    3/5
+survey-2           6      3713      17%    6/6
+survey-9           5      1661      13%    1/5
+             ----------------------------------------------
+MEAN              40      3580      13%  26/40
