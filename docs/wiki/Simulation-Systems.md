@@ -353,6 +353,19 @@ head count goes out on the net ("head count!"). Then the march resumes: 30–80 
 fight cost, capped under the stall watchdog, and **preempted instantly by renewed contact**. Proof
 (`scripts/transitions-probe.ts`): 60/60 coverage on eligible lulls, resume 100%, stuck 0.
 
+**When does the lull arrive? Contact is threat-weighted** (issue 025, `CombatSim.threatening`):
+a visible enemy holds "in contact" — the squad's sticky `contactHold`, the global `inContact()`
+behind the 1× TIC speed latch / warp gate / ● TIC badge, the SOP/reroute locks, and the
+call-for-fire PID list — only while he **fired within 15 s**, stands **inside 125 m**, or is
+**not clearly breaking contact** (`exfil` counts as broken even paused at a rally; a movement
+order ending ≥20 m farther away counts as broken; stationary non-exfil men still count, so a
+lull-and-renew ambusher in LOS holds the fight). FM-style: contact ends when the *enemy* breaks
+it, not when the last runner clears your optics — a fleeing straggler in open ground no longer
+pins the campaign clock for 10+ minutes after the fight is decided. Raw visibility is untouched
+for perception/spotting/individual fire; rounds in flight hold contact only when enemy-owned.
+Proof (`scripts/tic-release-probe.ts`): release-after-decided 29/68 → 10/29 s (squad latch) and
+20/58 → 0/2 s (global) on held-out seeds, contact-flicker edges down ~2×, live release in 1 s.
+
 ## Line of Sight (`los.ts`)
 
 `lineOfSight(terrain, from, to, opts)` marches the ground profile between observer eye and target

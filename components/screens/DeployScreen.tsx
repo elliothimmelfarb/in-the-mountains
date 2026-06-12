@@ -887,7 +887,7 @@ function SquadReadout() {
   const alive = members.filter((u) => u.alive);
   const task = world.state.tasks.find((t) => sq.memberIds.some((id) => t.memberIds.includes(id)));
   const sop = task?.sop;
-  const inContact = !!task && (!!task.squadState || (task.contactHold ?? 0) > 0 || alive.some((u) => u.visibleEnemyIds.length > 0 || u.suppression > 0.3));
+  const inContact = !!task && (!!task.squadState || (task.contactHold ?? 0) > 0 || alive.some((u) => u.suppression > 0.3 || world.seesThreat(u)));
   const avgComp = alive.reduce((a, u) => a + u.composure, 0) / Math.max(1, alive.length);
   return (
     <div className="font-mono text-[10px] min-w-[230px]">
@@ -1036,10 +1036,11 @@ function SquadOrdersBody() {
   const activeSq = world.platoon.squads.find((s) => s.id === activeSquadId) ?? null;
   const activeTask = activeSq ? world.state.tasks.find((t) => activeSq.memberIds.some((id) => t.memberIds.includes(id))) : null;
   // Mirror world.setSOP's lock exactly (whole TASK roster incl. attached officers, plus the
-  // coordinator's combat state and the sticky-contact window) so the SOP card never shows
-  // editable when setSOP would reject the edit.
+  // coordinator's combat state and the sticky-contact window — threat-weighted via
+  // seesThreat, issue 025) so the SOP card never shows editable when setSOP would reject
+  // the edit, and never shows locked once the engine has released.
   const inContact = !!activeTask && (!!activeTask.squadState || (activeTask.contactHold ?? 0) > 0 ||
-    activeTask.memberIds.some((id) => { const u = world.sim.unit(id); return !!u && (u.visibleEnemyIds.length > 0 || u.suppression > 0.3); }));
+    activeTask.memberIds.some((id) => { const u = world.sim.unit(id); return !!u && (u.suppression > 0.3 || world.seesThreat(u)); }));
   const ids = patrolIds();
   const hasMedic = ids.some((id) => world.platoon.members.find((x) => x.id === id)?.role === "medic");
   const canStep = !activeTask && ids.length > 0 && planRoute.length > 0;

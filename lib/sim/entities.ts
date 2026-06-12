@@ -188,6 +188,10 @@ export interface Unit {
   evac: boolean; // removed from the field (MEDEVAC'd / fled off-map)
   spawnAtM?: number; // reinforcement schedule (game minutes)
   hasFired: boolean;
+  /** Sim clock of this unit's last trigger pull — feeds CombatSim.threatening (issue 025):
+   *  a visible enemy who fired recently holds "contact"; a runner who stopped shooting doesn't.
+   *  Rides serialize()'s whole-unit spread (undefined on old saves = never fired). */
+  lastFiredS?: number;
 
   // --- civilian ---
   villageId?: string;

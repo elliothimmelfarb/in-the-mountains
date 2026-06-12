@@ -1,6 +1,6 @@
 # 025 · A fleeing, visible straggler holds the TIC latch (and the clock) for 10+ game-minutes
 
-**Status:** OPEN (observed live 2026-06-10 during the people-immersion W3 capture session)
+**Status:** RESOLVED 2026-06-12 — threat-weighted contact (see Resolution below)
 
 ## Symptom
 
@@ -45,3 +45,50 @@ contact, not when he finishes leaving your binoculars' field of view. Keep raw v
 intel/spotting; gate the TIC latch, the CFF re-raise, and `squadState` release on the
 threat-weighted version. Verify with a probe asserting time-to-release after the last enemy shot
 across ~20 staged fights (target: release within `contactHold` decay + ~15 s, never minutes).
+
+## Resolution (2026-06-12)
+
+**Fix: one predicate — `CombatSim.threatening(e, ref)` (`lib/sim/combat.ts`) — consumed by every
+latch surface.** "Contact" now ends when the enemy breaks contact, not when he clears your optics.
+A visible enemy holds contact iff he (a) fired within `THREAT_RECENT_S` (15 s) — needs the new
+`Unit.lastFiredS` stamp at trigger-pull, rides serialize()'s whole-unit spread; (b) stands inside
+`THREAT_CLOSE_M` (125 m); or (c) is NOT clearly breaking contact — `brainState "exfil"` is a break
+(even paused at a rally with an empty path; held-out seeds showed those pauses chaining 10 s
+contactHolds into minute-long latches), as is a movement order ending >=20 m farther away.
+Stationary/pathless non-exfil men KEEP threat status, so a lull-and-renew ambusher waiting in LOS
+still holds the squad in the fight. Raw visibility is untouched for perception/spotting/individual
+fire decisions.
+
+Wired into: `world.inContact()` (the store's 1x TIC speed latch + warp gate — enemy-owned
+projectiles only now, via `p.faction`, so our own parting shots don't pin the clock), `tasks.ts`
+`rawContact` (squadState release -> the consolidate beat), `reroute`/`setSOP` locks,
+`fireAimpoint`'s PID list (no fire mission proposed on a broken-contact runner), and the
+DeployScreen contact/SOP-lock mirrors (caught by the adversarial pass — the panel would otherwise
+have kept showing "IN CONTACT"/locked through the released window). The COP-wire FPF check and
+render FX stay raw deliberately.
+
+**Probe:** `scripts/tic-release-probe.ts` (promoted from scratch) — forces the director to stage a
+real fight cell against a marching patrol, then measures release-after-decided, scored from
+max(tDecided, lastShot) on BOTH sides (a parting shot legitimately re-holds 15 s). Target <=25 s.
+The held-out set is the representative one — its stragglers flee SILENTLY, like the live-observed
+12-minute case; on the tune set HEAD's worst raw holds (104/102 s) are partially excused by
+parting shots that HEAD's own pathology provokes (the latched squad keeps pressing the runner).
+
+| metric | tune HEAD (10) | tune fixed | held-out HEAD (6) | held-out fixed |
+|---|---|---|---|---|
+| relSquad mean/max (raw max) | 16 / 25 (104) | 16 / 24 (30) | 29 / 68 | **10 / 29** |
+| relGlobal mean/max (raw max) | 10 / 25 (102) | **5 / 15** (31) | 20 / 58 | **0 / 2** |
+| over 25 s (squad / global) | 0 / 1 | **0 / 0** | 3 / 2 | 1¹ / **0** |
+| TIC rising edges mean/max | 5.2 / 8 | **2.4 / 7** | 5.3 / 13 | **3.0 / 11** |
+
+¹ the one held-out residual (29 s) is a straggler passing **30 m** from the squad — inside
+decisive range, correctly held. The edges row refutes the flicker concern: the fix REDUCES
+contact flicker on both sets. CFF re-raises after decided (carryover-corrected): 1->1 tune,
+0->0 held-out — the probe (deny-on-sight) cannot reproduce the live 5+ re-raise chain, but the
+`fireAimpoint` gate removes it structurally: a broken-contact runner can no longer be a PID
+aimpoint at all.
+
+Standing checks green: tsc - build - lint - smoke (serialize round-trip incl. `lastFiredS`) -
+balance (KIA 1.00, WIA 7.25, 0 stranded; same-day HEAD A/B in the progress report). Adversarially
+verified (UI-mirror bug found+fixed; determinism/serialization/entry/exfil/COP/perf audited
+clean). Evidence: `docs/progress/2026-06-12-tic-release/`.

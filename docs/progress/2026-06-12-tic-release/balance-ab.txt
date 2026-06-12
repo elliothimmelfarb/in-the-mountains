@@ -1,0 +1,17 @@
+FIXED tree (this change), npx tsx scripts/balance.ts 12 50:
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight - avg peak enemies on map 7.8
+  Avg US KIA: 1.00 - Avg US WIA: 7.25 - Avg enemy accounted: 7.33 - Civ cas total: 0
+  No elements left stranded mid-route.
+
+HEAD worktree (2f922ba), same command, same day:
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight - avg peak enemies on map 7.1
+  Avg US KIA: 1.75 - Avg US WIA: 9.42 - Avg enemy accounted: 7.08 - Civ cas total: 0
+  No elements left stranded mid-route.
+
+Reading: same seeds, same day, same machine. Fixed tree is LOWER on both (WIA 9.42->7.25, -23%;
+KIA 1.75->1.00) - directionally consistent with the mechanism (squads release decided fights and
+consolidate instead of pressing harmless stragglers). Both runs bracket the historical band
+(6.92-8.42 logged across 026/027); run-to-run sigma remains unquantified (standing harness debt,
+issue 026). 12/12 contacts, 0 strands, 0 civcas on both sides of the A/B.

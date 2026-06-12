@@ -853,7 +853,7 @@ export class World {
     t.goalDist = undefined;
     t.noProgressS = 0;
     const members = t.memberIds.map((id) => this.sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
-    const inContact = (t.contactHold ?? 0) > 0 || members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    const inContact = (t.contactHold ?? 0) > 0 || members.some((m) => m.suppression > 0.3 || this.seesThreat(m));
     // Heading them out toward the new chain. If the squad is in contact we leave the combat
     // brains alone — the new waypoints are walked once the fight lulls (releaseCombat re-forms);
     // stomping paths/brainState mid-firefight would break the drill the coordinator is running.
@@ -882,7 +882,7 @@ export class World {
     const members = t.memberIds.map((id) => this.sim.unit(id)).filter((u): u is Unit => !!u && u.alive && !u.evac);
     // Locked through the whole sticky-contact window, not just the instant of raw contact —
     // otherwise the SOP could be edited in the lulls between bursts of the same firefight.
-    const inContact = (t.contactHold ?? 0) > 0 || !!t.squadState || members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    const inContact = (t.contactHold ?? 0) > 0 || !!t.squadState || members.some((m) => m.suppression > 0.3 || this.seesThreat(m));
     if (inContact) return false;
     t.sop = sop;
     t.technique = sopTechnique(sop.movement);
@@ -1059,10 +1059,23 @@ export class World {
   inContact(): boolean {
     for (const u of this.sim.units) {
       if ((u.faction === "us" || u.faction === "ana") && u.alive && !u.evac) {
-        if (u.visibleEnemyIds.length > 0 || u.suppression > 0.25) return true;
+        if (u.suppression > 0.25 || this.seesThreat(u)) return true;
       }
     }
-    return this.sim.projectiles.length > 0;
+    // Rounds in the air hold contact only when they are the ENEMY's — our own parting
+    // shots chasing a fleeing runner must not pin the campaign clock (issue 025).
+    // p.faction, not a unit() lookup: the shooter may have been culled with rounds in flight.
+    return this.sim.projectiles.some((p) => p.faction === "insurgent");
+  }
+  /** Does this man currently see an enemy who still counts as a FIGHT (issue 025)?
+   *  Visibility alone is spotting; CombatSim.threatening decides whether the sighting
+   *  holds contact. Shared by the global TIC latch and every squad-level latch. */
+  seesThreat(u: Unit): boolean {
+    for (const id of u.visibleEnemyIds) {
+      const e = this.sim.unit(id);
+      if (e && e.alive && !e.evac && this.sim.threatening(e, u.pos)) return true;
+    }
+    return false;
   }
   secondsSinceContact(): number {
     return this.state.clock - this.state.lastContactClock;

@@ -1,0 +1,15 @@
+tichold-3: no fight staged in 40 director attempts — skipped
+tichold-5: no fight staged in 40 director attempts — skipped
+seed        tDecided lastShot relSquad relGlobal cff edges blockN minD  states      end
+tichold-0        418       -1       10         0   0     2      3  186  exfil       live:0()
+tichold-1        616       -1       10         0   0     1      3  244  exfil       live:2(exfil)
+tichold-2        524      534       10        12   0     1      0    -              live:1(exfil)
+tichold-4        608       -1        0         0   0     2      0    -              live:0()
+tichold-6        449       -1       10         0   0     1      3  213  exfil       live:3(exfil)
+tichold-7        584       -1       29         0   0    11      3   30  exfil       live:0()
+
+decided fights: 6/6
+relSquad  mean 10 s  max 29 s  >target(25s): 1/6
+relGlobal mean 0 s  max 2 s  >target(25s): 0/6
+CFF re-raises after decided: 0
+TIC rising edges/fight (flicker guard): mean 3.0  max 11
