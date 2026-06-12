@@ -11,6 +11,11 @@ const NO_OBJ_COVER = process.env.ITM_NOOBJCOVER === "1";
 // Battery reserve below which the US lose their NODs at night (issue 021 logistics teeth). The World
 // pushes supplies.batteries into sim.nvgPower each tick; below this the night-vision edge goes dark.
 const NVG_MIN_BATTERIES = 8;
+
+// Threat-weighted contact (issue 025 — CombatSim.threatening)
+const THREAT_RECENT_S = 15; // a man who shot inside this window is still fighting
+const THREAT_CLOSE_M = 125; // inside decisive small-arms range a visible enemy always holds contact
+const THREAT_AWAY_MARGIN_M = 20; // his path must end this much farther away to count as breaking contact
 import { steer } from "./steering";
 import { getWeapon, Weapon } from "./weapons";
 import { lineOfSight, detectionChance, LOSResult, SmokeScreen } from "./los";
@@ -374,6 +379,34 @@ export class CombatSim {
 
   livingEnemies(): Unit[] {
     return this.units.filter((u) => u.faction === "insurgent" && u.alive && !u.evac);
+  }
+
+  /**
+   * Threat-weighted contact (issue 025): "contact" ends when the enemy BREAKS contact,
+   * not when he finally clears your optics. A visible enemy holds the TIC latch
+   * (squadState, the 1× speed clamp, the call-for-fire re-raise) only if he is still
+   * part of a fight:
+   *   - he fired inside the last THREAT_RECENT_S (covering fire, parting shots), or
+   *   - he stands inside THREAT_CLOSE_M (decisive small-arms range — never ignorable), or
+   *   - he is NOT clearly moving away (holding ground, closing, or unknown intent).
+   * A runner beyond close range who has stopped shooting is intel, not contact — the
+   * wounded straggler limping off at 250 m no longer pins the campaign clock for minutes.
+   * Raw visibility stays untouched for perception/spotting/individual fire decisions.
+   */
+  threatening(e: Unit, ref: Vec2): boolean {
+    if (e.lastFiredS !== undefined && this.timeS - e.lastFiredS < THREAT_RECENT_S) return true;
+    const d = dist(e.pos, ref);
+    if (d < THREAT_CLOSE_M) return true;
+    // A man in exfil HAS broken contact (the cell brain's own decision) — he stays
+    // non-threatening even while paused at a rally/peel point with an empty path
+    // (held-out seeds showed pauses chaining 10 s contactHolds into minute-long latches).
+    if (e.brainState === "exfil") return false;
+    // Otherwise, clearly breaking contact = his movement order's endpoint is meaningfully
+    // farther from us than he already is. Stationary or pathless men keep threat status —
+    // a lull-and-renew ambusher waiting in LOS must hold the squad in the fight.
+    const goal = e.path.length ? e.path[e.path.length - 1] : null;
+    if (goal && dist(goal, ref) > d + THREAT_AWAY_MARGIN_M) return false;
+    return true;
   }
 
   weaponOf(u: Unit): Weapon {
@@ -1087,6 +1120,7 @@ export class CombatSim {
     this.projectiles.push(proj);
     u.ammo--;
     u.hasFired = true;
+    u.lastFiredS = this.timeS;
     this.ammoExpended++;
     this.lastActivityS = this.timeS;
     this.addEffect("muzzle", u.pos, 0.12, {

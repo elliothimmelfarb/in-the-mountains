@@ -42,7 +42,10 @@ export function tickTasks(w: World, dt: number) {
     // Sticky contact: a squad stays "in contact" for a few seconds after the last round
     // or sighting, so a momentary break in LOS (the enemy ducking) doesn't make the whole
     // element stand up, declare all-clear, and walk on — only to be hit again next tick.
-    const rawContact = members.some((m) => m.visibleEnemyIds.length > 0 || m.suppression > 0.3);
+    // Threat-weighted (issue 025): a visible enemy refreshes the hold only while he still
+    // counts as a fight (w.seesThreat) — a fleeing straggler in open LOS no longer chains
+    // 10 s contactHolds into a 10-minute squadState latch after the fight is decided.
+    const rawContact = members.some((m) => m.suppression > 0.3 || w.seesThreat(m));
     if (rawContact) t.contactHold = CONTACT_HOLD_S;
     else if (t.contactHold) t.contactHold = Math.max(0, t.contactHold - dt);
     const contact = rawContact || (t.contactHold ?? 0) > 0;

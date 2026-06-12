@@ -717,7 +717,9 @@ function fireAimpoint(sim: World["sim"], members: Unit[]): Vec2 | null {
     for (const id of m.visibleEnemyIds) {
       if (seen.has(id)) continue;
       const e = sim.unit(id);
-      if (e && e.alive && !e.evac) { seen.add(id); pts.push({ x: e.pos.x, y: e.pos.y }); }
+      // threatening (issue 025): no fire mission proposed on a runner who has broken
+      // contact — the "pinned, enemy fixed" re-raise on a decided fight's straggler.
+      if (e && e.alive && !e.evac && sim.threatening(e, m.pos)) { seen.add(id); pts.push({ x: e.pos.x, y: e.pos.y }); }
     }
   }
   if (pts.length === 0) return null;
