@@ -80,6 +80,7 @@ ${PRELUDE}
 in vec2 v_world;
 uniform sampler2D u_albedo;     // UNLIT albedo (bakeAlbedo), authored sRGB
 uniform sampler2D u_shadow;     // sun-visibility map (1 = lit), rebaked on key-dir motion
+uniform sampler2D u_ao;         // 512² R8 baked horizon AO (1 open, →0 occluded) — AMBIENT only
 // material spine (C3/C4): per-landcover detail recomposition, faded in by zoom (u_detailGain)
 uniform highp usampler2D u_landId;     // 512² R8UI — Land class per cell
 uniform sampler2D u_control;           // 512² RGBA8 — R=slope/2, G=conceal, B=cover
@@ -127,13 +128,25 @@ const int MAT_SLOT[26] = int[26](4,4,7,3,3,5,2,1,1,1,2,0,0,0,0,5,5,5,7,7,7,6,5,7
 const float MAT_NRM[8] = float[8](1.0, 0.5, 0.9, 0.7, 0.35, 0.4, 0.7, 0.6);
 const float MAT_ALB[8] = float[8](0.9, 0.7, 0.85, 0.7, 0.5, 0.5, 0.8, 0.75);
 
+// 5-tap PCF on the R8 sun-visibility map — distance-aware soft penumbra (wider when zoomed out).
+float shadowPCF(vec2 uv) {
+  float s = (1.0 / 1024.0) * (1.0 + 1.6 / max(u_ppm, 0.3));
+  float v = texture(u_shadow, uv).r * 0.4;
+  v += texture(u_shadow, uv + vec2(s, 0.0)).r * 0.15;
+  v += texture(u_shadow, uv + vec2(-s, 0.0)).r * 0.15;
+  v += texture(u_shadow, uv + vec2(0.0, s)).r * 0.15;
+  v += texture(u_shadow, uv + vec2(0.0, -s)).r * 0.15;
+  return v;
+}
+
 void main() {
   vec2 uv = v_world / u_worldSize;
   if (uv.x < 0.0 || uv.y < 0.0 || uv.x > 1.0 || uv.y > 1.0) { o = vec4(degamma(u_bgColor), 1.0); return; }
 
   vec3  n      = normalAt(v_world);
   vec3  albedo = degamma(texture(u_albedo, uv).rgb);      // → linear
-  float vis    = texture(u_shadow, uv).r;                 // cast-shadow visibility (1 lit)
+  float vis    = shadowPCF(uv);                            // cast-shadow visibility (1 lit), soft penumbra
+  float ao     = texture(u_ao, uv).r;                      // baked horizon AO (multiplies AMBIENT only)
   float sunUp  = smoothstep(0.0, 0.07, u_sunDir.z);        // fade direct light through ~0-4° altitude
 
   // ── material recomposition (C4): the surface becomes a photograph, not a painted bitmap ──
@@ -176,7 +189,7 @@ void main() {
   // sky hemisphere (dome zenith ↔ dust ground bounce by face orientation) — the ambient that
   // carries shadowed faces and the moonless floor. ambientFloor keeps shaded ground legible.
   float hemiMix = 0.5 + 0.5 * n.z;
-  vec3  hemi = mix(u_groundColor, u_skyColor, hemiMix) * (u_skyI + u_ambientFloor);
+  vec3  hemi = mix(u_groundColor, u_skyColor, hemiMix) * (u_skyI + u_ambientFloor) * ao;
 
   // moon as the night key — same cast-shadow vis, raking the relief so night has FORM
   float moonUp  = smoothstep(0.0, 0.04, u_moonDir.z);
