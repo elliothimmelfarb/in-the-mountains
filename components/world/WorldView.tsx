@@ -277,7 +277,7 @@ export default function WorldView() {
     const fogAt = glOn && tgl && atmoDraw.fogStrength > 0.01 && atmoDraw.fogThickness > 0.5
       ? (wx: number, wy: number) => fogVisAt(terrain.elevAt(wx, wy), tgl.localFloorAt(wx, wy), atmoDraw)
       : undefined;
-    drawDecoration(ctx, terrain, cam, fogAt); // scattered trees/rocks fade in at tactical zoom
+    drawDecoration(ctx, terrain, cam, fogAt, glOn ? sky.spriteShadow : undefined); // trees/rocks + sun-tracked grounding
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
     // weather as atmosphere — over the relief/decoration, under the tactical layer, so it

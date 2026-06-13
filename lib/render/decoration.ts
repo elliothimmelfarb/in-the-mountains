@@ -14,7 +14,7 @@
  */
 import { Terrain, Land } from "../sim/terrain";
 import { Camera, screenToWorld } from "./topo";
-import { drawWorldSprite, lodAlpha, hasSprite } from "./sprites";
+import { drawWorldSprite, drawSunShadow, lodAlpha, hasSprite } from "./sprites";
 
 const STEP = 6; // world metres between scatter candidates (fixed → deterministic)
 
@@ -70,7 +70,7 @@ function isClearanceBlocker(land: Land): boolean {
 
 interface DecoItem { x: number; y: number; id: string; scale: number; rot: number; }
 
-export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, fogAt?: (wx: number, wy: number) => number): void {
+export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, fogAt?: (wx: number, wy: number) => number, sun?: { dx: number; dy: number; lengthPerM: number; alpha: number }): void {
   const alpha = lodAlpha(cam.ppm, 0.9, 1.8);
   if (alpha <= 0.02) return;
   if (!hasSprite("tree-cedar") && !hasSprite("boulder")) return;
@@ -129,6 +129,13 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, 
     const fog = fogAt ? fogAt(it.x, it.y) : 0;
     const a = fog > 0.001 ? alpha * (1 - 0.85 * fog) : alpha;
     if (a <= 0.02) continue;
+    // sun-tracked cast shadow grounds each tree/rock on the lit terrain (trees tall → long shadow,
+    // rocks short → tight contact). Faded with fog + the deco LOD alpha so it never floats.
+    if (sun && sun.alpha > 0.02) {
+      const tall = it.id.startsWith("tree") || it.id.includes("cedar") || it.id.includes("walnut") || it.id.includes("poplar");
+      const hM = it.scale * (tall ? 5.0 : it.id.includes("scrub") || it.id.includes("bush") ? 1.4 : 1.1);
+      drawSunShadow(ctx, cam, it.x, it.y, hM, it.scale * 3.0, { ...sun, alpha: sun.alpha * (a / Math.max(alpha, 0.01)) * 0.9 });
+    }
     drawWorldSprite(ctx, cam, it.id, it.x, it.y, { alpha: a, scale: it.scale, rot: it.rot });
   }
 }
