@@ -1,0 +1,321 @@
+{
+  "verdicts": [
+    {
+      "clearsTheBar": true,
+      "overallVerdict": "Genuine transformation, not \"the old map with a filter\" — but it clears the bar unevenly, carried by the STRATEGIC band while the OPERATIONAL band actively regresses on legibility. At strategic zoom (noon-strategic.png is the hero shot) this reads like real Kunar drone/satellite footage: terraced irrigated greens quilting the valley floor, dusty ochre-and-scree slopes, a braided silty river threading the bottom, ridge shadows giving the spurs and draws real relief, sober desaturated atmosphere. Side-by-side with baseline-current/noon-strategic.png the difference is night-and-day — the baseline is a flat tinted heightmap; the after has material identity per landcover and reads as photographed ground. That alone earns \"holy shit.\" Where it stumbles is the mid zooms: at operational the same atmospheric haze + tonemap that sells the wide shot crushes contrast into a near-monochrome olive mush (dawn-operational.png is the worst — greens, road, and river all collapse into one grey, and the BEFORE dawn-operational genuinely reads cleaner), and the river turns into a bright white-blue gravel/foam ribbon that scans as snow or a salt flat rather than the dark silty Pech/Korengal water it should be. The river is the single biggest realism tell. Detail-rake tiling is faintly visible on the noon-operational slopes. The close/tactical COP bands keep the new ground material but the FOB itself is unchanged stylized 2D, which is the right call (units/structures are the separate crisp layer) and legibility holds there. Net: a real ISR-grade surface that needs the haze pulled back and the river re-authored at the two middle zooms before it's uniformly the bar across all four bands. Not a tech-demo: no Hollywood bloom or glint, snow correctly absent, photoreal-sober intent honored.",
+      "findings": [
+        {
+          "shot": "dawn-operational.png",
+          "severity": "high",
+          "category": "contrast",
+          "issue": "Aerial-perspective haze + ACES tonemap crush the whole frame into a near-monochrome low-contrast olive-grey at this zoom. The terraced greens, the road, and the river all collapse into one undifferentiated mush. Direct A/B against baseline-current/dawn-operational.png is damning: the OLD flat map actually reads cleaner here — you can separate the road ribbon, the green vegetation clumps and the river as distinct elements, which you cannot in the after. The single feature the overhaul most promised (raking dawn light flooding the floor with ridge shadow) is the weakest delivered shot.",
+          "fix": "Make single-scatter aerial perspective scale with ppm (camera-to-ground distance), not be a flat per-frame fog. At operational/tactical ppm the extinction/inscatter coefficient should be a fraction of the strategic value so near-ground albedo and shadow contrast survive. Separately, gate the haze strength on sun elevation — dawn should rake, not bloom-fog; right now low-sun warm inscatter is over-lifting the shadows it should be deepening."
+        },
+        {
+          "shot": "noon-operational.png",
+          "severity": "high",
+          "category": "water",
+          "issue": "The river renders as a bright, almost white-blue braided ribbon of gravel-and-foam that scans as snow or a dry salt flat, not water — the brightest thing in the frame and an immediate non-realism tell. Kunar/Pech valley rivers are dark, silt-grey-green, low-albedo, with the channel often narrower than the gravel bar. The flow-advected specular is reading as constant foam rather than glint, so the whole channel whitecaps.",
+          "fix": "Drop river base albedo hard (dark silt grey-green ~#3a4a44, not near-white), confine the bright flow-specular to a narrow high-flow-velocity core masked by depth/flow magnitude, and render the wide gravel bars as a separate dry-cobble material distinct from the wet channel. Specular highlight should be a thin sun-glint streak following the sun azimuth, not a full-width white fill."
+        },
+        {
+          "shot": "noon-strategic.png",
+          "severity": "low",
+          "category": "realism",
+          "issue": "This is the hero shot and it genuinely reads like satellite/drone imagery of an irrigated Hindu Kush valley floor — terraced greens quilting the bottomland, ochre scree slopes, ridge-shadowed spurs and draws, cedar-dark draws. The only nit at this scale: the river is again the too-bright element pulling the eye off the terrain, and the village/marker labels sit slightly hot against the now-muted ground.",
+          "fix": "Apply the same river de-brightening here. Knock label/flag chroma down ~10% so the 2D HUD layer reads as overlay-on-imagery rather than competing with the new sober ground."
+        },
+        {
+          "shot": "noon-operational.png",
+          "severity": "med",
+          "category": "artifact",
+          "issue": "The detail-normal raking on the dusty slopes shows a faint repeating directional texture — a diagonal corduroy/tiling tell visible across the large ochre slope faces. At operational ppm the detail-normal tile period becomes large enough on screen to read as a pattern rather than noise, which is the classic procedural-terrain tech-demo signature.",
+          "fix": "Rotate/scale the detail-normal sample by a per-cell hash (or use two octaves at incommensurate frequencies and rotations) so the rake direction decorrelates across the slope. Fade detail-normal contribution toward zero as ppm drops below tactical so the pattern never resolves into stripes at the mid zoom."
+        },
+        {
+          "shot": "dawn-strategic.png",
+          "severity": "med",
+          "category": "atmosphere",
+          "issue": "Dawn raking light is present and the warm low-sun cast shadows on the east-facing spurs are convincing — a real improvement. But the overall frame is over-warmed and slightly milky: the warm inscatter has tinted even the deep shadowed draws and the river warm, flattening the cool-shadow/warm-light separation that sells real dawn. Compared to the noon-strategic which has crisp material separation, dawn loses some of the terrace/scree read.",
+          "fix": "Split the dawn color grade: keep warm direct-sun tint on lit faces but let shadowed/occluded regions stay cool (sky-ambient blue-grey), increasing the temperature contrast. Reduce global warm inscatter ~25% at dawn so it rakes the high ground rather than washing the whole basin."
+        },
+        {
+          "shot": "dusk-tactical.png",
+          "severity": "med",
+          "category": "legibility",
+          "issue": "At dusk-tactical the COP vignette is lit warm and reads fine, but the surrounding terrain outside the FOB circle has gone very dark and low-contrast — the ridgelines, draws and the river edge that the player commands by reading (LOS, cover, approaches) are nearly invisible just beyond the wire. The sacred constraint is 'legible tactical instrument at every zoom'; here the immediate tactical surround is the least legible part of the frame.",
+          "fix": "Raise the night/dusk ambient floor on terrain specifically (not the whole scene) so ridgelines and draws stay readable as silhouettes even when unlit — a thin moonlight/skylight rim term keyed to slope-vs-sun. The player must still read the ground at dusk; a cinematic dark surround that hides cover and draws fails the tactical-instrument bar."
+        },
+        {
+          "shot": "noon-close.png",
+          "severity": "low",
+          "category": "realism",
+          "issue": "Correct architectural call: the COP structures, HESCO, helipad, and unit markers remain the crisp stylized 2D layer above the new ground material, so close-zoom legibility is fully preserved — units and structures stay sharp and readable. The new terrain material only shows at the frame edges (the green field strip and dusty ground), which is appropriate. Minor: the transition between the new photoreal ground at the edges and the stylized 2D FOB pad is abrupt, with no material continuity (the dirt inside the wire is flat-stylized while the field outside is the new material).",
+          "fix": "Optional polish only — let the new ground material bleed under the FOB interior (graded dirt/gravel pad) so the inside-wire ground shares the close-zoom material vocabulary instead of stopping at the wire. Do NOT photoreal-ize the structures/units; the layer separation is correct as-is."
+        },
+        {
+          "shot": "rain-noon-operational.png",
+          "severity": "med",
+          "category": "atmosphere",
+          "issue": "Rain at operational is hard to distinguish from the clear dawn-operational haze — the frame just reads as another desaturated grey wash. There's no clear wet-ground darkening (rain should deepen and saturate the soil/rock albedo, not just add overall fog), no streak/sheet cue, and the river (which should swell and muddy in rain) looks the same bright ribbon as clear noon.",
+          "fix": "On rain, darken+saturate ground albedo (wet rock/soil goes deeper and slightly more chromatic), add a subtle moving rain-streak/overcast-flatten of the sun term (kill cast shadows under cloud), and muddy/widen the river. Right now rain and haze are the same lever; they should look materially different."
+        },
+        {
+          "shot": "night-operational.png",
+          "severity": "low",
+          "category": "color",
+          "issue": "Night reads well overall — cool moonlit blue-grey, river catches a believable cool specular, no garish over-darkening, and the ground material survives. This is one of the more convincing ISR-feel frames. Minor: the moonlit river specular is a touch too bright/continuous (same full-width-foam issue as daytime, just cool), again pulling the eye.",
+          "fix": "Apply the same narrow-core river specular mask at night; a thin cool moon-glint streak reads more like real low-light water than a full-channel cool sheen."
+        },
+        {
+          "shot": "noon-strategic.png",
+          "severity": "low",
+          "category": "realism",
+          "issue": "Vegetation distribution is convincing as irrigated terrace agriculture on the floor with dark cedar in the draws, but the green patches have slightly uniform, blobby edges — they read as painted landcover polygons rather than field boundaries / tree-canopy texture when examined at upscaled detail. Not a video-game cliché at normal viewing, but the edge regularity is a faint procedural tell.",
+          "fix": "Add a small per-cell albedo/normal break-up at vegetation boundaries (canopy stipple for tree draws, parcel-line micro-variation for terraced fields) so edges read as organic field/forest boundaries rather than smooth landcover masks."
+        }
+      ]
+    },
+    {
+      "clearsTheBar": false,
+      "overallVerdict": "Strong photoreal terrain body, but it broke the single most legible tactical feature on the map: the river. The flow-advected specular river renders as a pale, desaturated gray-white braided streak at EVERY zoom (strategic/operational/tactical/noon/dawn), reading as a gravel wash, scree, or a paved road rather than water — at strategic it is directly confusable with the tan dirt routes running beside it. In the baseline the river is an unmistakable saturated cyan ribbon you can trace edge-to-edge in one glance; that read is gone. Because the river is the spine of the valley (a primary LOS, cover, fording and route reference), this is a sacred-constraint break, not a polish note. Two secondary legibility hazards compound it: a soft dark scatter/low-sun-shadow blob at dawn that pools beside the COP and cuts across the contours — phantom terrain a commander would misread as low ground or a draw; and a noon aerial-perspective haze that flattens mid-distance ridge/draw contrast versus the crisp baseline hillshade (the contour layer is now carrying more of the relief read than the shading). The wins are real and worth keeping: night-operational is excellent and fully commandable (cool moonlight separates the river by hue and relief reads cleanly); the COP at tactical/close is crisp with the 2D unit/label layer clearly riding above the terrain; strategic material cohesion and ridge/draw separation actually beat the baseline; rain knocks down contrast without burying the read. Fog-dawn erases the terrain surface almost entirely (only vector overlays survive) — defensible as ISR realism but right at the edge for a tactical instrument. This is NOT attempt-1's flat-map-plus-filter; the surface recompose is genuine. But fix the water read (and the dawn phantom shadow) before it can ship as a legible command instrument.",
+      "findings": [
+        {
+          "shot": "noon-operational.png",
+          "severity": "high",
+          "category": "water",
+          "issue": "The river has gone from the baseline's saturated cyan ribbon to a thin desaturated gray-white braided/foamy streak. On the operational view it reads as a dry gravel wash, not water — a commander scanning for the watercourse would not register it. This is the most-legible feature on the map and the read is lost.",
+          "fix": "Reintroduce a clear hue-based water signal: composite a saturated blue-cyan base albedo UNDER the specular/flow layer so the river always carries water chroma even where specular is low; cap specular whitening so foam never overwhelms the blue. Treat the specular as a highlight ON blue water, not a replacement for it."
+        },
+        {
+          "shot": "noon-strategic.png",
+          "severity": "high",
+          "category": "legibility",
+          "issue": "At strategic zoom the river is a pale white-gray line nearly identical in value/hue to the tan dirt routes running beside it — river and roads are confusable, which corrupts route planning and valley-structure reading at the exact zoom where that read matters most.",
+          "fix": "Widen the water hue/value separation at far zoom bands specifically (river stays blue-cyan; routes stay warm tan). Consider a minimum river width/contrast floor at strategic ppm so the channel never collapses into a road-width gray squiggle."
+        },
+        {
+          "shot": "dawn-operational.png",
+          "severity": "high",
+          "category": "artifact",
+          "issue": "A soft diffuse dark pool sits over the center-left and beside the COP, cutting diagonally across the contour lines without following any ridge, draw, or slope. It is a scatter/god-ray or low-sun cast-shadow artifact with no terrain caster, but it reads as phantom low ground / a shadowed draw a commander would misinterpret.",
+          "fix": "At low sun angles clamp the long-shadow / single-scatter darkening so it cannot produce large casterless dark masses; require cast shadows to attach to an actual occluder height field, and reduce in-fog/scatter god-ray strength at dawn so darkening tracks real relief only."
+        },
+        {
+          "shot": "dawn-operational.png",
+          "severity": "med",
+          "category": "contrast",
+          "issue": "The whole dawn frame is wrapped in a low-contrast brown-gray haze that muddies the crisp ridge/draw separation visible in the baseline; the orange contour overlay is now doing more relief work than the terrain shading itself, which inverts the intended hierarchy (terrain should be readable without leaning on the vector layer).",
+          "fix": "Lift dawn slope-shading contrast / reduce aerial-perspective haze density at near-to-mid range so directional relief survives the warm low-sun grade. Keep haze for far distance only."
+        },
+        {
+          "shot": "noon-operational.png",
+          "severity": "med",
+          "category": "atmosphere",
+          "issue": "Noon aerial-perspective haze greys out the mid-distance slopes, softening the dark slope masses (left and bottom) relative to the baseline's crisp hillshade. Relief edges that define cover and dead ground are flatter than they should be at midday with full sun.",
+          "fix": "Reduce single-scatter/haze opacity at the noon sun elevation (clear-air midday should be the LEAST hazy condition, not a flat wash); preserve the detail-normal raking contribution so slope micro-relief still reads."
+        },
+        {
+          "shot": "fog-dawn-operational.png",
+          "severity": "med",
+          "category": "legibility",
+          "issue": "Fog erases the terrain surface almost completely — no slope shading, no cover, no relief, river invisible; only the contour lines, routes, and unit/village markers remain. Realistic for fog, but it leaves nothing terrain-side to command from, and the lone dark blob lower-left is again a lighting artifact rather than terrain.",
+          "fix": "Let a faint slope-shading / relief signal bleed through fog (a low-floor relief multiply under the fog layer) so ridge and draw structure is still hinted; or lean on a slightly stronger contour/relief-shaded overlay in heavy obscurant so the player retains a minimal terrain read. Also suppress the casterless dark blob here as in the dawn fix."
+        },
+        {
+          "shot": "noon-close.png",
+          "severity": "low",
+          "category": "contrast",
+          "issue": "Building cast shadows at close zoom are heavy, dark drop-shadow blobs to the lower-left of structures. They read fine but are borderline strong; combined with the dark structure roofs they slightly crowd the COP interior read.",
+          "fix": "Lighten/soften cast-shadow opacity for structures at close zoom (shorter, less opaque) so shadows give depth without reading as separate dark objects competing with the buildings."
+        },
+        {
+          "shot": "noon-tactical.png",
+          "severity": "low",
+          "category": "artifact",
+          "issue": "Bright-green vegetation landcover patches on the right are chunky/aliased (blocky cell edges) at tactical zoom, and the pale river streak in the upper-right could be read as a snow/scree field rather than water.",
+          "fix": "Soften landcover patch boundaries with the detail-normal/material blend at tactical ppm to reduce the blocky cell look; carry the same water-hue fix (above) into the tactical band so the river never reads as scree."
+        },
+        {
+          "shot": "night-operational.png",
+          "severity": "low",
+          "category": "legibility",
+          "issue": "Positive finding to preserve: night is the most legible time-of-day — cool moonlight separates the river by hue, slope masses and routes read cleanly, COP is clear. Whatever grade/relief settings drive night are the target the other times should move toward (especially the river hue separation that works HERE but fails at noon/dawn).",
+          "fix": "No fix needed; port night's water-hue contrast and gentle-but-present relief shading up into noon/dawn rather than the current high-haze grade."
+        }
+      ]
+    },
+    {
+      "clearsTheBar": false,
+      "overallVerdict": "Close, but one subsystem sinks it: the water. The bare-earth surface is the genuine win — at noon-close and noon-tactical the dirt is a smooth, softly-mottled photoreal soil gradient with no tiling, no seams, and (measured) high-freq noise std ~2.3–5.7/255, on par with the flat baseline, so the \"material noise reads as static\" risk did NOT materialize. Gradients are clean too: I sampled vertical luminance ramps in fog-dawn-operational, night-close, dawn-close, noon-operational and found 35–109 distinct levels with low mean step — the dither is doing its job, no posterization. Slope hillshade is smooth (scree row-step max ~5/255, no contour terracing). So most of the rubric's feared artifacts are absent and this is decisively NOT \"parity-plus-a-filter\" — the surface is genuinely recomposed. BUT the river is a hard fail and it's visible in every mid/close zoom band: it renders as a continuous band of white/pale-blue 5m-cell squares with a jagged sawtooth edge and NO underlying water body (noon-operational, noon-tactical). That is the exact opposite of \"sober photoreal ISR\" — a drone feed shows a dark/turquoise ribbon with sparse riffles, not a frozen wall of foam. Second tell: cast shadows are a string of discrete soft beads (one blob per wall/HESCO segment) instead of one continuous shadow with a sun-side edge — obvious at dusk-tactical and noon-tactical. Third: night-close ground collapses to a flat unlit blue wash while the walls keep their daytime-baked tan AO, so the scene reads half-lit. Fix the river (it's the single biggest credibility leak and it's in the player's face at command zoom), de-bead the shadows, and reconcile the night ground, and this clears the bar. As-is, a skeptical observer's eye goes straight to that foaming checkerboard river and the illusion drops.",
+      "findings": [
+        {
+          "shot": "noon-operational.png",
+          "severity": "high",
+          "category": "water",
+          "issue": "The river is rendered as a continuous band of bright white / pale-blue specular FROTH quantized to the 5m cell grid — a checkerboard of square foam cells with NO base water color or dark channel underneath. At 5x zoom (river crop) it reads as broken ice / static, not flowing water. This is the single most photoreal-breaking element and directly violates the sober-ISR mandate (a real drone river is a dark turquoise ribbon with sparse riffles).",
+          "fix": "Composite a dark/turquoise base water albedo FIRST (depth-darkened toward channel center), then add flow-advected specular as a SPARSE, low-alpha highlight (cap white coverage to a few percent, only on high-flow/shallow cells), and decouple froth from the cell grid by sampling the flow field in continuous UV with a hash-jittered offset so it stops snapping to 5m squares."
+        },
+        {
+          "shot": "noon-tactical.png",
+          "severity": "high",
+          "category": "artifact",
+          "issue": "Same river froth at tactical zoom (2.5 ppm) shows blatant 5m-cell stair-stepping: both banks of the river are a hard sawtooth of white squares, and the dark-green riparian vegetation strip beside it staircases in the same cell grid. This is the cardinal blocky-cell aliasing the rubric calls out.",
+          "fix": "Anti-alias the water/land boundary by smoothstepping the water mask in continuous space (distance-to-channel) rather than per-cell binary; dither or feather the riparian landcover transition the same way the bare-earth class blends, so the bank stops snapping to cell corners."
+        },
+        {
+          "shot": "dusk-tactical.png",
+          "severity": "med",
+          "category": "realism",
+          "issue": "The HESCO wall ring casts shadows as a string of discrete soft dark BLOBS — one rounded bead per wall segment — instead of one continuous cast shadow with a single coherent sun-side edge. Reads as beaded soft-AO, not a low-sun cast shadow. Same beading visible on the access-road embankment in noon-tactical and noon-close.",
+          "fix": "Cast shadows from a continuous height/occluder field (single shadow-map / horizon ray-march over the merged wall geometry) rather than per-object soft circles, so adjacent segments merge into one shadow with a sharp leading edge; keep the soft penumbra width but make the umbra contiguous."
+        },
+        {
+          "shot": "night-close.png",
+          "severity": "med",
+          "category": "color",
+          "issue": "Night ground collapses to a flat, uniform deep-blue wash with essentially zero soil texture or moonlit relief, while the HESCO walls and structures still carry their daytime-baked tan albedo and AO. Result is a half-lit scene: lit-looking tan walls floating on an unlit blue floor. The blue is also pushed toward twilight-ocean rather than a desaturated Afghan night.",
+          "fix": "Apply the night sky/moon tint uniformly to ALL surfaces (walls included) so albedo and shadow tone stay consistent; retain a faint moonlit micro-relief on the ground (keep detail-normal raking at reduced amplitude) and desaturate the blue toward neutral gray-blue so it reads as low-light, not deep water."
+        },
+        {
+          "shot": "noon-operational.png",
+          "severity": "low",
+          "category": "legibility",
+          "issue": "The green-to-tan landcover boundary at the upper-left field edge is a soft mushy blob with a low-res transition, and its lower edge shows mild cell-grid stepping — telltale of an upsampled classification map. Minor at this zoom but visible.",
+          "fix": "Use a higher-frequency hashed dither on the class-blend weight (blue-noise) so the boundary breaks up organically instead of forming smooth blobs, and clamp the blend width to a fixed screen-space pixel count so it doesn't balloon at operational zoom."
+        },
+        {
+          "shot": "night-close.png",
+          "severity": "low",
+          "category": "legibility",
+          "issue": "Unit name labels overlap and corrupt into unreadable strings ('FloF Brewer.ckett r', 'I Mac Sutton') in the COP interior. This is the 2D HUD layer (separate from terrain) so it is out of the terrain overhaul's scope, but it does break the sacred 'legible tactical instrument' constraint at close zoom and should be tracked.",
+          "fix": "Out of terrain scope — file against the 2D label layer: add collision-based label declutter / leader lines at close zoom so names stop stacking. Not a shader fix."
+        },
+        {
+          "shot": "noon-close.png",
+          "severity": "low",
+          "category": "realism",
+          "issue": "The soft dark diagonal band (shadowed scree / access-road cut) reads as a slightly out-of-focus caterpillar of soft ovals rather than a crisp terrain feature — same beaded-shadow signature, milder here. The bare earth around it is otherwise excellent (clean gradient, no tiling).",
+          "fix": "Same continuous-occluder shadow fix as the HESCO shadows; once shadows are cast from a merged field this beading resolves into one coherent shaded slope."
+        }
+      ]
+    },
+    {
+      "clearsTheBar": false,
+      "overallVerdict": "Partial. The night and fog shots are the only ones that clear the \"holy shit, a real ISR feed\" bar — night-operational/night-strategic read like a genuine low-light satellite plate (cool desaturated water, soft horizon AO, believable land masses) and fog-dawn-operational nails the single-scatter brief: a milky volumetric wash with a legible contour overlay floating above it. THAT is the 10x. But the daytime bands — the ones a player actually commands in most of the time — under-deliver, and the matrix is internally inconsistent in a way that should block sign-off. Two problems dominate. (1) CAPTURE SPLIT: the night + fog shots were clearly taken from a newer/better build — they carry a polished HUD (real compass rose, clean named-unit labels, \"100 m\" scale bar) and visibly higher surface fidelity, while every noon/dawn/dusk daytime shot still has the old cramped low-contrast HUD and a flatter surface. You are comparing two different builds inside one \"AFTER\" matrix; the daytime bands have not received the treatment the night shots show is possible. Re-shoot the entire daytime matrix from the same build the night shots came from before claiming 10x. (2) NOON IS STILL THE FLAT MAP. noon-strategic vs baseline noon-strategic is the weakest A/B in the set — same mottled green/khaki landcover blotches, same hard-edged vegetation stamps, only a faint global warm-up and slightly stronger valley shadow. At local noon the sun is near-vertical so cast shadows and detail-normal raking contribute almost nothing, and the whole photoreal stack collapses back toward \"old flat map with a color filter\" — exactly the attempt-#1 failure mode. The single highest-leverage fix: never render the tactical/strategic sun at true zenith — clamp the apparent solar elevation to ~55-60 deg even at \"noon\" so detail-normal raking and ridge AO always do visible work, which is also more honest to how an ISR collect is actually flown (you don't task a bird for local-noon flat light). That one change rescues the most-used band without touching legibility or adding a single glint.",
+      "findings": [
+        {
+          "shot": "noon-strategic.png",
+          "severity": "high",
+          "category": "realism",
+          "issue": "Compared directly against baseline-current/noon-strategic.png this is the weakest leap in the matrix — same blotchy green/khaki landcover regions, same hard-stamped vegetation clusters, same river path; the only deltas are a faint global warm tint and slightly deeper valley shading. At near-zenith noon the cast-shadow + detail-normal stack contributes almost nothing, so the surface reverts to the attempt-#1 'flat map with a color filter' look. This is the band a strategic-planning player stares at most.",
+          "fix": "Clamp apparent solar elevation to ~55-60deg even at local noon (never render the terrain sun at true zenith). Raking light is what makes detail-normals and ridge AO legible; a permanent off-zenith sun keeps micro-relief and draws visible at every TOD and is honest to how ISR collects are flown. No glint, no bloom added — pure geometry."
+        },
+        {
+          "shot": "noon-operational.png",
+          "severity": "high",
+          "category": "contrast",
+          "issue": "vs baseline noon-operational: the COP, road, and HESCO ring are nearly identical reads; the open dirt apron is a near-uniform flat tan with no micro-relief, no wheel-rut/erosion detail, no AO pooling at the wall bases. The 'real per-landcover material + detail-normal raking' claim is invisible here because flat ground at high sun has no normals to rake. Reads as a painted plate, not a feed.",
+          "fix": "Add a subtle large-scale albedo/erosion breakup and contact-AO darkening where structures and walls meet ground, independent of sun angle. Even at flat light, ambient-occlusion at wall feet and faint drainage mottling on bare earth is what sells 'aerial photo of actual dirt' vs 'tan polygon.'"
+        },
+        {
+          "shot": "noon-close.png",
+          "severity": "high",
+          "category": "realism",
+          "issue": "The close band is the least transformed relative to baseline-current/noon-close.png — same stylized HESCO ring, same flat-shaded building blocks and stamped tents, same uniform parade-ground fill. At ppm 4.6 a player expects to read individual structures as real objects (roof material, shadow side, sandbag texture); instead they're the same low-poly 2D sprites with a slightly warmer wash. The photoreal pipeline is a terrain pipeline that the man-made objects opt out of.",
+          "fix": "Give structures real self-shadowing + a roof/wall material split and contact shadows onto the ground, driven by the same off-zenith sun. Buildings throwing legible shadows at close zoom is the single biggest 'this is a drone over a real FOB' tell and costs no legibility (units/contours stay on the 2D layer above)."
+        },
+        {
+          "shot": "night-operational.png",
+          "severity": "low",
+          "category": "atmosphere",
+          "issue": "This shot (and night-strategic) is the strongest in the set and DOES clear the bar — cool desaturated water, soft baked horizon AO on the land masses, a convincing low-light satellite read. But note it carries a different, cleaner HUD (compass rose, scale bar, crisp unit labels) than the daytime operational shots, exposing that the matrix mixes two build passes.",
+          "fix": "This is the target look. Make the whole daytime matrix match THIS build/HUD. The finding is not 'fix the night shot' — it's 'every other band should have been captured from whatever build produced this one.'"
+        },
+        {
+          "shot": "fog-dawn-operational.png",
+          "severity": "low",
+          "category": "atmosphere",
+          "issue": "Best demonstration of the brief in the entire matrix: the single-scatter aerial wash genuinely obscures distance, the contour topo-overlay floats crisply ABOVE the murk (sacred-constraint satisfied — atmosphere on terrain, legibility on the 2D layer), and the hill shoulder reads through the haze. This is 10x and sober. Only nit: the fog is near-spatially-uniform — real valley fog pools low and tongues up draws.",
+          "fix": "Tie fog density to elevation (thicker in the valley floor, thinning on the ridge shoulders) so fog itself becomes a terrain-reading cue. Pure win — adds realism AND legibility (you'd read draws by where fog collects)."
+        },
+        {
+          "shot": "dawn-operational.png",
+          "severity": "med",
+          "category": "contrast",
+          "issue": "vs baseline dawn-operational: this is a real improvement (long warm rake across the slopes, believable low-sun shadowing on the north valley wall) — the dawn/dusk bands are where the cast-shadow system pays off. But the foreground apron and road are blown slightly hot/orange and lose mid-tone separation, flattening the very ground the player commands on. Edges toward the 'Hollywood golden hour' the brief explicitly forbids.",
+          "fix": "Pull the dawn/dusk sun-color saturation back ~20-30% and protect mid-tones in the ACES curve so the lit ground keeps texture instead of clipping to a flat warm wash. Sober ISR = warm but still readable, not a sunset postcard."
+        },
+        {
+          "shot": "noon-tactical.png",
+          "severity": "med",
+          "category": "legibility",
+          "issue": "vs baseline noon-tactical: the river at right is the right idea (flow-advected specular) but at this near-noon high sun it reads as a flat pale-blue ribbon with little flow direction or depth cue, barely distinguishable from a road in value. The cliff/draw structure NE of the COP that's a key LOS/cover read is softer and lower-contrast than baseline — the photoreal smoothing has slightly DEGRADED a tactical read.",
+          "fix": "Ensure detail-normal raking and ridge AO are weighted up at tactical/close zoom specifically, so terrain micro-relief (draws, cuts, terrace edges) gains contrast as you zoom in rather than washing out. The tactical band must get SHARPER terrain-reading than strategic, not just prettier."
+        },
+        {
+          "shot": "dawn-close.png",
+          "severity": "med",
+          "category": "artifact",
+          "issue": "The long hard-edged shadows thrown across the FOB interior at low dawn sun are cast by the terrain/wall system but the buildings inside DON'T cast matching shadows and aren't lit consistently with them — structures float in their own flat lighting while the ground around them is dramatically raked. The mismatch reads as a compositing error and breaks the illusion at the zoom where it matters most.",
+          "fix": "Unify man-made objects into the same single-sun lighting + shadow pass as terrain (one light, one shadow map). Either everything casts at dawn or the terrain shadows are softened to match — but the current split is the most jarring artifact in the set."
+        },
+        {
+          "shot": "night-close.png",
+          "severity": "med",
+          "category": "legibility",
+          "issue": "This shot has the polished HUD and dense named-unit labels stacked over a dim low-light FOB — and it shows a real risk: at night the terrain goes so dark/low-contrast that the 2D label layer becomes the ONLY thing readable, and the labels pile up and overlap ('Cpl Peterson','Bravo','Fix it Or/water cloth' fragments collide). The terrain instrument has effectively gone dark while the HUD compensates.",
+          "fix": "Add a faint floor to night terrain luminance / a subtle ambient skylight so the surface stays a usable instrument at night (you still need to read draws and cover in the dark), and add label de-collision. Don't let the answer to 'it's night' be 'the terrain stops being a map.'"
+        },
+        {
+          "shot": "rain-noon-operational.png",
+          "severity": "med",
+          "category": "water",
+          "issue": "vs the dry noon-operational: rain is communicated almost entirely by a flat global desaturation + darkening; there's no wet-surface specular sheen on roads/roofs, no darkened-when-wet albedo on dirt, no standing-water pooling in low ground. It reads as 'overcast' more than 'raining,' and the river doesn't visibly react. An ISR analyst would clock wet vs dry instantly by specular roads.",
+          "fix": "Add a wet-surface pass: bump specular and darken albedo on roads/rooftops/bare earth under rain, pool faint standing water in terrain lows. This also doubles as a terrain read (water collects in draws). Currently the most under-built of the four conditions relative to its potential."
+        },
+        {
+          "shot": "dusk-operational.png",
+          "severity": "low",
+          "category": "color",
+          "issue": "dusk-operational and dawn-operational are nearly indistinguishable in treatment — same warm rake, same orientation of shadow. Real dawn (cool blue ambient lifting to warm) and dusk (warm collapsing to cool/blue-hour) have opposite ambient-color trajectories; rendering them as the same warm wash wastes a free realism + orientation cue (which way is the sun = which way is which compass bearing).",
+          "fix": "Differentiate ambient sky color between dawn (cool-shadow / warm-key) and dusk (warm-key collapsing toward blue ambient), and ensure sun azimuth is mirrored. Cheap, and it makes the day cycle feel observed rather than tinted."
+        },
+        {
+          "shot": "noon-strategic.png",
+          "severity": "med",
+          "category": "legibility",
+          "issue": "At strategic zoom the vegetation is still rendered as discrete hard-edged dark-green blobs stamped on the landcover (visible identically in baseline) rather than as a density field that reads as forest/scrub canopy from altitude. From a real satellite the tree line is a soft textured mass with a sunlit/shadowed canopy, not cookie-cutter spots — this is the most 'gamey' element surviving into the strategic band.",
+          "fix": "Render vegetation at strategic/operational zoom as a sun-shaded canopy density layer (soft edges, self-shadowed N/S faces) instead of discrete stamps. This is also a cover/concealment read for the player — canopy density IS tactical information."
+        }
+      ]
+    }
+  ],
+  "synthesis": {
+    "clearsBarVotes": "1 of 4 yes; three nos cite the river.",
+    "verdict": "Does not clear uniformly (1 of 4). River fails at every zoom (sacred break); daytime haze flattens contrast; matrix mixes two builds.",
+    "topFixes": [
+      {
+        "title": "Re-author the river",
+        "severity": "high",
+        "rationale": "3 of 4 high, biggest leak, sacred break.",
+        "suggestedChange": "Dark silt base under all; cap specular to a thin sun-azimuth streak; continuous smoothstep mask kills the 5m sawtooth."
+      },
+      {
+        "title": "Scale haze with zoom; clamp sun off-zenith",
+        "severity": "high",
+        "rationale": "Daytime contrast cluster, 3 of 4 plus critic-4.",
+        "suggestedChange": "Haze scales with camera distance; clamp solar elevation off-zenith at noon; clamp low-sun darkening to a real occluder."
+      },
+      {
+        "title": "Re-shoot daytime from one build",
+        "severity": "high",
+        "rationale": "Verified two-build HUD split.",
+        "suggestedChange": "Re-capture all daytime shots from the night/fog build at parity."
+      }
+    ],
+    "lowPriorityOrResiduals": [
+      "MED: night/dusk ambient floor, de-bead shadows, rain wet-darken, dawn warm/cool split. LOW: vegetation stamps, fog-to-elevation. Out of scope: 2D label overlap; do not photoreal-ize structures."
+    ]
+  }
+}

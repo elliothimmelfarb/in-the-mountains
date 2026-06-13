@@ -21,12 +21,12 @@
 └───────────────▲───────────────────────────┬───────────────┘
                 │                            │
 ┌───────────────┴────────────┐  ┌────────────▼───────────────┐
-│ lib/sim  (pure engine)      │  │ lib/render (Canvas 2D)      │
-│  world/ (clock+orchestration)│ │  topo (bake + camera) ·     │
-│  combat · ai · ballistics · │  │  draw (units, fx, markers)  │
-│  los · path · terrain ·     │  └─────────────────────────────┘
-│  weapons · entities · campaign ·                            │
-│  names · rng · vec          │                               │
+│ lib/sim  (pure engine)      │  │ lib/render (WebGL2 + 2D)    │
+│  world/ (clock+orchestration)│ │  gl/ TerrainGL (HDR terrain)│
+│  combat · ai · ballistics · │  │  sky · atmosphere-model ·   │
+│  los · path · terrain ·     │  │  topo (2D bake / fallback) ·│
+│  weapons · entities ·       │  │  draw (units, fx, markers)  │
+│  campaign · names · rng·vec │  └─────────────────────────────┘
 └─────────────────────────────┘
 ```
 
@@ -129,17 +129,55 @@ hit, no first-frame freeze) → `loadSprites`. Deploy cost itself is unchanged; 
 
 ## Rendering
 
-`lib/render/topo.ts` bakes a high-resolution shaded-relief image of the whole valley **once**
-(hillshade from the elevation gradient + landcover tint, with fbm-dithered class boundaries so edges
-are organic not 5 m stair-steps), cached in a `WeakMap` keyed by `Terrain`. The bake is sized at
-`~4500/size` px-per-cell (8 px/cell on the 512 grid → a 4096² sheet) so the relief stays crisp deep
-into zoom. The COP's HESCO walls, structures and gravel pads are baked right into the relief; live
-views `drawImage` that bitmap under a `Camera`, plus a world-anchored noise overlay at high zoom that
-gives the ground crisp micro-texture. **Contour lines are NOT baked** — `drawContoursLive` redraws
-them every frame as sharp marching-squares **vectors** in screen space over only the visible cell
-window, with a zoom-adaptive interval (10–200 m) and grid-downsampling to bound cost, so a contour
-line is razor-sharp at any zoom instead of blurring with the upscaled bitmap (the "blurry contours on
-zoom" fix). Night applies a low-light wash driven by `World.ambientLight()`.
+The map is **two stacked canvases**: an opaque **WebGL2 terrain underlayer** (`lib/render/gl/`)
+below a transparent **Canvas-2D layer** for contours, units, combat FX and HUD. The split is the
+legibility firewall — everything graded/lit lives in GL; everything you *read* (contours, symbols,
+reticles, callouts) is ungraded ink on the 2D layer above. `WorldView` constructs one `TerrainGL`
+against the GL canvas; if WebGL2 is unavailable `TerrainGL.ok` is `false` and the 2D layer falls
+back to the **alive 2D bake** (`topo.ts`) — the look survives, just flat-lit.
+
+```
+   visible <canvas>  (transparent Canvas-2D — contours, units, FX, callouts, HUD)   ← ungraded ink
+   ──────────────────────────────────────────────────────────────────────────────
+   visible <canvas>  (opaque WebGL2 — TerrainGL, OR the topo.ts 2D bake on .ok=false) ← lit/graded
+```
+
+### WebGL2 terrain (`lib/render/gl/`, the shipped path)
+
+The terrain is **recomposed per-pixel from the sim's own arrays** — the landcover bake is one input
+of several, not "the image." A two-pass HDR pipeline, driven entirely by the master clock through
+`SkyState`/`AtmoState` uniforms (pure w.r.t. clock/weather/seed):
+
+- **PASS A — terrain in LINEAR radiance → an RGBA16F HDR target** (RGBA8 contingency if a driver
+  can't render half-float): per-landcover material recomposition from a deterministic CPU-baked PBR
+  atlas (`material-atlas.ts`, hashed in `smoke.ts` so it is part of the seed contract) + detail-normal
+  raking, baked horizon AO on the ambient term, live-sun cast shadows (the 56-step exponential-stride
+  march into an R8 visibility map, rebaked on sun motion, with PCF penumbra), a flow-advected specular
+  **dark-silt** river, single-scatter aerial perspective (zoom-scaled — full at strategic, ~12% by
+  tactical) + in-fog god-rays, and wet-ground. A single `u_detailGain` zoom ramp (ppm 1.0→3.0)
+  collapses all added high-frequency detail to **byte-faithful relief** at strategic zoom.
+- **PASS B — threshold bloom** (half-res bright-pass + separable blur, GL canvas only).
+- **PASS C — ACES (Narkowicz) tonemap + time-of-day grade + Bayer dither → sRGB** to the visible
+  canvas.
+
+`shaders.ts` holds the GLSL: a **bit-faithful `heightAt` prelude** (= `Terrain.elevAt`, the
+contour-registration contract) and the lighting/material/shadow passes. `sky.ts` is the verified
+solar model (δ=+21° Kunar) feeding `SkyState`; `atmosphere-model.ts` is the floor-field valley fog
+(local-floor min-field + diurnal ramp + clock-driven cloud drift). The 2D fallback bake (`topo.ts`)
+sizes the relief at `~4500/size` px-per-cell (8 px/cell → a 4096² sheet) and is cached in a `WeakMap`
+keyed by `Terrain`.
+
+**Contour lines are NEVER baked** — `drawContoursLive` redraws them every frame on the 2D layer as
+sharp marching-squares **vectors** in screen space over only the visible cell window, with a
+zoom-adaptive interval (10–200 m) and grid-downsampling to bound cost, so a contour line is razor-sharp
+at any zoom (the "blurry contours on zoom" fix). On the GL path night/grade come from the tonemap pass;
+on the 2D fallback night applies a low-light wash driven by `World.ambientLight()`.
+
+> **Honest scope (shipped 2026-06-13).** The *terrain* got the full overhaul. World-dressing sprites
+> got **grounding** — COP structures and vegetation cast sun-tracked shadows that track the live clock
+> — but full per-sprite normal/AO **relight** (a deferred GBuffer pass), a continuous-extruded HESCO
+> berm, and FX particles (movement dust, volumetric smoke) are **deferred backlog**: see
+> `docs/issues/028`.
 
 ### Sprite / asset system (map visual overhaul)
 

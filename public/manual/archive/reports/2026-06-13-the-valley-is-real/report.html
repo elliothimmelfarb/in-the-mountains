@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The Valley Is Real — a WebGL terrain rebuild</title>
+<style>
+  :root{--bg:#11130d;--panel:#1a1d14;--line:#2e3323;--ink:#d8d4c2;--dim:#8b8a76;--amber:#d9a441;--good:#7a9c52;--rust:#b0563b;--cool:#6f86a8}
+  body{background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Segoe UI",sans-serif;margin:0;padding:0 0 80px}
+  .wrap{max-width:980px;margin:0 auto;padding:0 20px}
+  header{border-bottom:1px solid var(--line);padding:36px 0 22px;margin-bottom:28px}
+  h1{font-size:27px;margin:0 0 6px;color:var(--amber);letter-spacing:.5px}
+  h2{font-size:19px;color:var(--amber);margin:42px 0 10px;border-bottom:1px solid var(--line);padding-bottom:6px}
+  h3{font-size:15px;margin:22px 0 6px;color:var(--ink)}
+  .sub{color:var(--dim);font-size:13px}
+  p{margin:10px 0}
+  code{background:var(--panel);border:1px solid var(--line);padding:1px 5px;border-radius:3px;font-size:12.5px}
+  b.a{color:var(--amber)} b.g{color:var(--good)} b.c{color:var(--cool)}
+  .ab{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:12px 14px;margin:16px 0}
+  .abhead{display:flex;justify-content:space-between;gap:14px;align-items:baseline;margin-bottom:8px;flex-wrap:wrap}
+  .abhead b{color:var(--amber)}
+  .why{color:var(--dim);font-size:13px}
+  .abrow{display:flex;gap:14px;flex-wrap:wrap}
+  .cell{flex:1;min-width:300px}
+  .cap{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+  img{max-width:100%;border:1px solid var(--line);border-radius:6px;margin:4px 0;cursor:zoom-in;display:block}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin:12px 0}
+  th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+  th{background:var(--panel);color:var(--dim);font-weight:600}
+  .good{color:var(--good)} .bad{color:var(--rust)}
+  ul{margin:8px 0 8px 22px;padding:0} li{margin:5px 0}
+  .res{background:var(--panel);border-left:3px solid var(--rust);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+  .win{background:var(--panel);border-left:3px solid var(--good);padding:10px 14px;border-radius:0 6px 6px 0;margin:12px 0}
+  .lede{font-size:16px;color:var(--ink)}
+</style></head><body><div class="wrap">
+
+<header>
+  <h1>The Valley Is Real — a WebGL terrain rebuild</h1>
+  <div class="sub">2026-06-13 · lib/render/gl/ (WebGL2) + lib/render/sky.ts + atmosphere-model.ts · attempt #2 ·
+  every frame below is the live app captured headless via scripts/visual-matrix.mjs at the seed
+  <code>visual-baseline</code>, before = the pre-overhaul Canvas-2D build, after = this rebuild · 4-critic
+  adversarial verification + a fresh-eyes confirmation pass</div>
+</header>
+
+<p class="lede">A first attempt at this overhaul was <b class="a">reverted</b>. It moved the existing flat painted relief
+onto the GPU byte-for-byte — "blit parity" — then laid a colour filter, a moving sun and cast shadows over the
+top. Technically clean; artistically timid. It was the same map with the sun switched on, and the owner sent it
+back: <i>"do it again and 10× better."</i></p>
+
+<p>This is the second attempt, and it inverts the idea that sank the first. The painted albedo bitmap is
+<b class="a">demoted from "the image" to one input of five</b>: the fragment shader now <b>recomposes the
+surface per-pixel</b> from the simulation's own arrays — landcover class, slope, cover, the heightfield —
+against a procedural material library, lit in linear radiance by the live master-clock sun, grounded by baked
+ambient occlusion and ray-marched ridge shadows, with a real river, single-scatter aerial perspective, and an
+ACES film finish. The ground stops being a chart <i>of</i> the valley and becomes a photograph <i>of</i> it —
+while staying a legible tactical map at every zoom, which is the whole job.</p>
+
+<h2>Before → after</h2>
+
+<div class="ab">
+  <div class="abhead"><b>Strategic — the whole valley</b><span class="why">ppm 0.35 · noon · Clear. The satellite plate.</span></div>
+  <div class="abrow">
+    <div class="cell"><div class="cap">Before — flat tinted heightmap</div><img src="./before-noon-strategic.png" alt="before strategic"></div>
+    <div class="cell"><div class="cap">After — recomposed surface</div><img src="./after-noon-strategic.png" alt="after strategic"></div>
+  </div>
+  <p class="why">The before is a single hill-shaded bitmap with a colour wash. The after has <b>material identity
+  per landcover</b> — irrigated terraces quilting the floor, dusty ochre-and-scree slopes, cedar-dark draws — the
+  drainage network reading as the darkest connected feature (correct for water from above), and ridge shadows
+  giving the spurs and draws real relief. A skeptical eye reads it as drone/ISR imagery.</p>
+</div>
+
+<div class="ab">
+  <div class="abhead"><b>Operational — the COP on its bench</b><span class="why">ppm 0.9 · noon · Clear. The most-improved (and the hardest-won) frame.</span></div>
+  <div class="abrow">
+    <div class="cell"><div class="cap">Before</div><img src="./before-noon-operational.png" alt="before operational"></div>
+    <div class="cell"><div class="cap">After</div><img src="./after-noon-operational.png" alt="after operational"></div>
+  </div>
+  <p class="why">The river is now <b class="c">dark silt water</b> — darker than its own gravel bars, the way a
+  real Pech/Korengal channel reads — not the bright near-white ribbon a first pass produced (which a reviewer
+  called out as "snow or a salt flat"). Road, terrace, talus and water sit at distinct luminances instead of
+  collapsing into one olive band.</p>
+</div>
+
+<div class="ab">
+  <div class="abhead"><b>Dawn — raking light down the draw</b><span class="why">ppm 0.9 · 07:00 · Clear.</span></div>
+  <div class="abrow">
+    <div class="cell"><div class="cap">Before</div><img src="./before-dawn-operational.png" alt="before dawn"></div>
+    <div class="cell"><div class="cap">After</div><img src="./after-dawn-operational.png" alt="after dawn"></div>
+  </div>
+  <p class="why">The sun is the master clock made visible. At first light the east ridge throws a multi-kilometre
+  shadow across the valley floor (the most-documented Korengal morning image), and the lit west-facing slopes
+  warm while the shadowed floor stays cool — the temperature separation a fixed NW bake can never have.</p>
+</div>
+
+<div class="ab">
+  <div class="abhead"><b>Close — the ground resolves</b><span class="why">ppm 4.6 · the COP. Surface, not upscaled paint.</span></div>
+  <div class="abrow">
+    <div class="cell"><div class="cap">Before — upscaled bitmap</div><img src="./before-noon-close.png" alt="before close"></div>
+    <div class="cell"><div class="cap">After — material + detail-normal rake</div><img src="./after-noon-close.png" alt="after close"></div>
+  </div>
+  <p class="why">At close zoom the old bitmap smeared. The new ground carries per-material luminance tooth and
+  micro detail-normals that the live sun rakes — gravel, dirt, scree resolve as surface. The COP structures and
+  unit chits stay the crisp 2D overlay above it (the layer separation is deliberate and load-bearing).</p>
+</div>
+
+<div class="ab">
+  <div class="abhead"><b>Fog dawn — weather you can read</b><span class="why">ppm 0.9 · 06:30 · Fog (visibility 600 m).</span></div>
+  <div class="abrow">
+    <div class="cell"><div class="cap">Before</div><img src="./before-fog-dawn-operational.png" alt="before fog"></div>
+    <div class="cell"><div class="cap">After</div><img src="./after-fog-dawn-operational.png" alt="after fog"></div>
+  </div>
+  <p class="why">Valley fog pools from a local-floor min-field up into the draws; the aerial-perspective veil is
+  keyed to the sacred <code>visibilityM</code> so it can never hide more than the weather declares. The orange
+  contours, labels and unit chits float cleanly above it — the atmosphere does weather, it doesn't hide the map.</p>
+</div>
+
+<h2>How it works</h2>
+<p>The renderer is a <b>WebGL2 terrain underlayer</b> on its own opaque canvas, beneath a transparent Canvas-2D
+canvas that still draws contours, units, fire-control and the HUD. That split is the <b class="a">legibility
+firewall</b>: the tactical symbology is physically a separate layer and is never graded, blurred or fogged. If
+WebGL2 is unavailable the underlayer reports <code>ok = false</code> and the old 2D bake renders instead — the
+headless test ecology keeps working.</p>
+
+<p>Each frame is three passes:</p>
+<table>
+<tr><th>Pass</th><th>What happens</th></tr>
+<tr><td><b>A — terrain → HDR</b></td><td>One fullscreen triangle. The fragment reads the heightmap (a bit-faithful port of <code>Terrain.elevAt</code>, so the 2D contours stay welded to the GL relief), recomposes the surface from a per-landcover material array (albedo tooth + micro detail-normals, slope-blended, two octaves), and lights it in <b>linear radiance</b>: <code>sun·NdotL·castShadow·cloud + sky-hemisphere·AO + moon</code>. Output is unclamped half-float (RGBA16F).</td></tr>
+<tr><td><b>B — bloom</b></td><td>A half-res bright-pass (only true over-1.0 highlights) + a separable Gaussian. Sober: it catches the river glint, not the whole frame.</td></tr>
+<tr><td><b>C — composite</b></td><td>HDR + bloom → <b>ACES filmic tonemap</b> → the time-of-day grade (exposure folds the weather light exactly once; white-balance, saturation, shadow-lift) → ordered Bayer dither (kills 8-bit sky banding) → sRGB, to the visible canvas.</td></tr>
+</table>
+
+<p>The single most important control is <code>u_detailGain</code>, ramped by zoom (ppm 1.0→3.0): every added
+high-frequency effect — detail-normals, the material second octave, the rake — multiplies by it, so at strategic
+zoom the surface <b>collapses to the byte-faithful relief of the old map</b> (verified: strategic mid-grey luma
+moved 132.2 → 132.4, Δ+0.2) while close zoom resolves into ground. The band the old map got right is provably
+preserved; the band it failed is transformed. Reused untouched from the verified prior groundwork: the solar
+model (<code>sky.ts</code>, δ=+21° at Kunar's latitude — geometric sunrise 04:58 inside the gameplay light
+ramp), the exponential-stride cast-shadow march (a 780 m ridge at low sun throws a multi-km shadow — the math
+the timid attempt also got right), and the floor-field valley fog.</p>
+
+<h2>The build, one layer at a time</h2>
+<p>Nine commits, each one green (tsc / build / smoke / balance) and visibly better than the last, on the proven
+scaffold:</p>
+<table>
+<tr><th>#</th><th>Layer</th></tr>
+<tr><td>C1</td><td>Restore the WebGL skeleton; <b>verify the HDR pipeline on headless SwiftShader</b> (RGBA16F renderable, R8UI/RG8 uploads clean, <code>usampler2D</code> links) before writing a line of it</td></tr>
+<tr><td>C2</td><td>Linear-space lighting + RGBA16F HDR + ACES tonemap + dither — replaced the <code>albedo·(0.34+0.95·shade)</code> hillshade multiply</td></tr>
+<tr><td>C3–C4</td><td><b>The centerpiece</b> — material-ID spine (landcover/slope/cover as GPU textures) + procedural per-landcover material array + detail-normal raking</td></tr>
+<tr><td>C5</td><td>Baked horizon ambient occlusion (contact darkening in draws, cliff bases, footprints) + softened PCF cast-shadow penumbra</td></tr>
+<tr><td>C6</td><td>Flow-advected specular river (dark silt, sober glint, clock-driven so it freezes on pause)</td></tr>
+<tr><td>C7</td><td>Single-scatter aerial perspective keyed to <code>visibilityM</code> + in-fog god-rays from the shadow map</td></tr>
+<tr><td>C8</td><td>Wet-ground darkening after rain + threshold bloom</td></tr>
+<tr><td>C9</td><td>Sun-tracked shadows grounding every structure and tree on the lit terrain</td></tr>
+</table>
+
+<h2>Verifying it — and the bug the critics caught</h2>
+<p>The design itself was set by a fan-out of four independent proposers scored by four adversarial judges; the
+result was synthesized into a build contract (photoreal-drone surface recomposition as the spine, water and
+atmosphere grafted on). After the build, a second four-critic panel — art-director, legibility-skeptic,
+graphics-artifacts, anti-timidity — reviewed the full matrix against the baseline.</p>
+<div class="res"><b>The first verdict was 1 of 4.</b> Three critics independently flagged the same thing: the
+river read as a bright near-white ribbon — "snow / salt flat" — the single biggest realism tell. The daytime
+haze, the same veil that sold the wide shot, was crushing the operational zoom into a monochrome olive mush
+(the old flat map genuinely read cleaner there). Two real, specific, high-severity bugs an unaided eye — mine,
+after hours of staring — had rationalized away.</div>
+<div class="win"><b>Both fixed, then re-confirmed by a fresh reviewer.</b> The river was re-authored to dark
+low-albedo silt with a thin sun-azimuth glint (and three deeper bugs fixed underneath: scattered Marsh cells
+were checkerboarding the water mask, and a NEAREST-sampled flow field × the clock-advection offset was
+decorrelating the ripple into 5-metre blocks). The aerial veil now <b>scales with zoom</b> — full at strategic,
+faded to 12% by tactical — so the mid-zoom keeps its contrast. A fresh skeptical pass confirmed: river reads as
+dark water, operational contrast restored, <b class="g">clears the bar — ships</b>, no high-severity blockers.</div>
+
+<h2>Honest residuals</h2>
+<p>Numbers-first, partial stated as partial:</p>
+<ul>
+<li><b>The terrain got the full 10×. The assets got grounding, not a full relight.</b> Structures and vegetation
+now cast sun-tracked shadows, but the 164 sprites are still flat bitmaps — they don't yet catch the live sun
+with their own form. A per-sprite normal/AO relight (a deferred GBuffer pass) + FX particles (movement dust,
+wind-driven smoke) are scoped as a separate follow-on campaign, logged in the issue ledger, not shipped
+half-done.</li>
+<li>A braided gravel floodplain reads texturally busy at <i>maximum</i> close zoom — gravel genuinely looks busy
+at 0.2 m/pixel, but it shades toward digital noise; a low, non-gating cosmetic residual.</li>
+<li>Dawn could push the warm-light / cool-shadow temperature split further. Low priority.</li>
+</ul>
+
+<p class="sub">Standing checks at ship: <code>tsc</code> clean · <code>next build</code> compiled · <code>smoke</code>
+OK (no-NaN + serialize round-trip + material-library hash) · <code>balance</code> green (12/12 firefights, 0
+stranded) · sun-determinism probe identity maxErr 0.0. The render layer stays pure w.r.t. (clock, weather, seed):
+clouds, fog, shadows and the river all advect on the sim clock and freeze on pause — only screen-space precip
+runs on the wall clock.</p>
+
+<script src="/manual/lightbox.js" defer></script>
+</div></body></html>
