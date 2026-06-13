@@ -249,6 +249,11 @@ seeded clock + spatial hashes — no per-frame randomness.</p>
   per-step diff gates. Design corpus: 4 proposers + 3 judges.
 </div></footer>
 
-<script src="/manual/lightbox.js" defer></script>
+<div id="lb" onclick="this.classList.remove('on')"><img alt="enlarged"></div>
+<script>
+  const lb=document.getElementById('lb'),lbi=lb.querySelector('img');
+  document.querySelectorAll('figure img').forEach(im=>im.addEventListener('click',e=>{
+    e.stopPropagation();lbi.src=im.src;lb.classList.add('on');}));
+</script>
 </body>
 </html>
