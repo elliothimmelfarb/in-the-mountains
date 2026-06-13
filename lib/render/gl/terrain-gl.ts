@@ -118,8 +118,10 @@ export class TerrainGL {
     this.tU = uniforms(gl, tp, [
       "u_camCenter", "u_viewCss", "u_ppm", "u_shakePx", "u_worldSize", "u_bgColor",
       "u_albedo", "u_shadow", "u_height", "u_cell", "u_grid", "u_minElev", "u_elevRange",
-      "u_sunDir", "u_sunColor", "u_sunI", "u_skyColor", "u_groundColor", "u_skyI",
+      "u_sunDir", "u_sunColor", "u_sunI", "u_moonDir", "u_moonColor", "u_moonFactor",
+      "u_skyColor", "u_groundColor", "u_skyI",
       "u_keyGain", "u_formLightNW", "u_warmLow", "u_coolHigh", "u_hazeBase", "u_hazeFalloff", "u_hazeColor",
+      "u_exposure", "u_whiteBalance", "u_saturation", "u_lift",
     ]);
     this.sU = uniforms(gl, sp, ["u_keyDir", "u_worldSize", "u_height", "u_cell", "u_grid"]);
     const tri = new Float32Array([-1, -1, 3, -1, -1, 3]);
@@ -271,6 +273,9 @@ export class TerrainGL {
     gl.uniform3f(this.tU.u_sunDir, sky.sunDir[0], sky.sunDir[1], sky.sunDir[2]);
     gl.uniform3f(this.tU.u_sunColor, sky.sunColor[0], sky.sunColor[1], sky.sunColor[2]);
     gl.uniform1f(this.tU.u_sunI, sky.sunIntensity);
+    gl.uniform3f(this.tU.u_moonDir, sky.moonDir[0], sky.moonDir[1], sky.moonDir[2]);
+    gl.uniform3f(this.tU.u_moonColor, sky.moonColor[0], sky.moonColor[1], sky.moonColor[2]);
+    gl.uniform1f(this.tU.u_moonFactor, sky.moonFactor);
     gl.uniform3f(this.tU.u_skyColor, sky.skyColor[0], sky.skyColor[1], sky.skyColor[2]);
     gl.uniform3f(this.tU.u_groundColor, sky.groundColor[0], sky.groundColor[1], sky.groundColor[2]);
     gl.uniform1f(this.tU.u_skyI, sky.skyIntensity);
@@ -281,6 +286,11 @@ export class TerrainGL {
     gl.uniform1f(this.tU.u_hazeBase, 0.1);
     gl.uniform1f(this.tU.u_hazeFalloff, 0.16);
     gl.uniform3f(this.tU.u_hazeColor, 164 / 255, 170 / 255, 166 / 255);
+    const g = sky.grade;
+    gl.uniform1f(this.tU.u_exposure, g.exposure);
+    gl.uniform3f(this.tU.u_whiteBalance, g.whiteBalance[0], g.whiteBalance[1], g.whiteBalance[2]);
+    gl.uniform1f(this.tU.u_saturation, g.saturation);
+    gl.uniform3f(this.tU.u_lift, g.lift[0], g.lift[1], g.lift[2]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
