@@ -13,6 +13,7 @@ import type { SkyState } from "../sky";
 import type { AtmoState } from "../atmosphere-model";
 import { bakeAlbedo } from "../topo";
 import { TERRAIN_VERT, TERRAIN_FRAG_LIT, COMPOSITE_VERT, COMPOSITE_FRAG, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
+import { buildMaterialLib, TILE, TILE_METERS, MAT_COUNT } from "./material-atlas";
 
 export interface TerrainEnv {
   /** camera-punch offset in CSS px — same value applied to the 2D ctx transform */
@@ -139,6 +140,11 @@ export class TerrainGL {
   private shadowFbo: WebGLFramebuffer | null = null;
   private floorTex: WebGLTexture | null = null;
   private floorField: Float32Array | null = null; // CPU copy for 2D fog-coherence sampling
+  // material spine (C3/C4)
+  private landIdTex: WebGLTexture | null = null;   // 512² R8UI — Land class per cell
+  private controlTex: WebGLTexture | null = null;  // 512² RGBA8 — slope/conceal/cover
+  private matAlbedoTex: WebGLTexture | null = null; // MAT_COUNT-layer array — luma detail + roughness
+  private matNormalTex: WebGLTexture | null = null; // MAT_COUNT-layer array — micro detail-normal
   // HDR intermediate (PASS A target → PASS C source)
   private hdrTex: WebGLTexture | null = null;
   private hdrFbo: WebGLFramebuffer | null = null;
@@ -215,6 +221,7 @@ export class TerrainGL {
       "u_sunDir", "u_sunColor", "u_sunI", "u_moonDir", "u_moonColor", "u_moonFactor",
       "u_skyColor", "u_groundColor", "u_skyI", "u_formLightNW", "u_ambientFloor",
       "u_warmLow", "u_coolHigh",
+      "u_landId", "u_control", "u_matAlbedo", "u_matNormal", "u_detailGain", "u_tileMeters",
       "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
       "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
     ]);
@@ -234,7 +241,35 @@ export class TerrainGL {
     gl.bindVertexArray(null);
     this.initShadowTarget();
     this.initBloomPlaceholder();
+    this.initMaterialArrays();
     if (this.terrain) this.uploadTextures(this.terrain);
+  }
+
+  /** Upload the procedural material library (terrain-independent → built once, cached). Two
+   *  TEXTURE_2D_ARRAYs (REPEAT, mipmapped) so each material tile samples seamlessly with no
+   *  atlas-gutter bleed. */
+  private initMaterialArrays() {
+    const gl = this.gl;
+    if (!gl) return;
+    const lib = buildMaterialLib();
+    this.matAlbedoTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.matAlbedoTex);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RGBA8, TILE, TILE, MAT_COUNT, 0, gl.RGBA, gl.UNSIGNED_BYTE, lib.albedo);
+    gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
+    this.matNormalTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.matNormalTex);
+    gl.texImage3D(gl.TEXTURE_2D_ARRAY, 0, gl.RG8, TILE, TILE, MAT_COUNT, 0, gl.RG, gl.UNSIGNED_BYTE, lib.normal);
+    gl.generateMipmap(gl.TEXTURE_2D_ARRAY);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_T, gl.REPEAT);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, null);
   }
 
   private initShadowTarget() {
@@ -314,6 +349,10 @@ export class TerrainGL {
     this.hdrW = 0;
     this.hdrH = 0;
     this.bloomTex = null;
+    this.landIdTex = null;
+    this.controlTex = null;
+    this.matAlbedoTex = null;
+    this.matNormalTex = null;
     this.init();
   };
 
@@ -364,6 +403,38 @@ export class TerrainGL {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, floorFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // material-ID spine: Land class per cell (R8UI) on the SAME lattice as the heightmap (which is
+    // contour-registration-proven), so material selection lands on exactly the right cells.
+    const n = t.size * t.size;
+    const land = t.land instanceof Uint8Array ? t.land : new Uint8Array(t.land);
+    if (!this.landIdTex) this.landIdTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.landIdTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8UI, t.size, t.size, 0, gl.RED_INTEGER, gl.UNSIGNED_BYTE, land);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // control: R = slope/2, G = conceal (canopy density), B = cover — drives slope-aware talus + (later) veg
+    const ctrl = new Uint8Array(n * 4);
+    const slope = t.slope, conceal = t.conceal, cover = t.cover;
+    for (let i = 0; i < n; i++) {
+      ctrl[i * 4] = Math.min(255, Math.max(0, (slope ? slope[i] : 0) * 0.5 * 255));
+      ctrl[i * 4 + 1] = Math.min(255, Math.max(0, (conceal ? conceal[i] : 0) * 255));
+      ctrl[i * 4 + 2] = Math.min(255, Math.max(0, (cover ? cover[i] : 0) * 255));
+      ctrl[i * 4 + 3] = 255;
+    }
+    if (!this.controlTex) this.controlTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.controlTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, t.size, t.size, 0, gl.RGBA, gl.UNSIGNED_BYTE, ctrl);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
     gl.bindTexture(gl.TEXTURE_2D, null);
     this.lastKeyDir = null; // new terrain → rebake shadows
   }
@@ -428,6 +499,18 @@ export class TerrainGL {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindTexture(gl.TEXTURE_2D, this.floorTex);
     gl.uniform1i(this.tU.u_localFloor, 3);
+    gl.activeTexture(gl.TEXTURE4);
+    gl.bindTexture(gl.TEXTURE_2D, this.landIdTex);
+    gl.uniform1i(this.tU.u_landId, 4);
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindTexture(gl.TEXTURE_2D, this.controlTex);
+    gl.uniform1i(this.tU.u_control, 5);
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.matAlbedoTex);
+    gl.uniform1i(this.tU.u_matAlbedo, 6);
+    gl.activeTexture(gl.TEXTURE7);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.matNormalTex);
+    gl.uniform1i(this.tU.u_matNormal, 7);
 
     gl.uniform2f(this.tU.u_camCenter, cam.cx, cam.cy);
     gl.uniform2f(this.tU.u_viewCss, cam.vw, cam.vh);
@@ -453,6 +536,9 @@ export class TerrainGL {
     gl.uniform1f(this.tU.u_ambientFloor, AMBIENT_FLOOR);
     gl.uniform1f(this.tU.u_warmLow, 0.06);
     gl.uniform1f(this.tU.u_coolHigh, 0.1);
+    // detail fades in 0→1 across ppm 0.6→2.6 (strategic stays byte-faithful; tactical/close resolve)
+    gl.uniform1f(this.tU.u_detailGain, Math.max(0, Math.min(1, (cam.ppm - 0.6) / 2.0)));
+    gl.uniform1f(this.tU.u_tileMeters, TILE_METERS);
 
     const a = env.atmo;
     gl.uniform2f(this.tU.u_cloudOffset, a.cloudOffset[0], a.cloudOffset[1]);
@@ -495,7 +581,7 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.hdrTex, this.bloomTex]) if (t) gl.deleteTexture(t);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
     if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
     if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
     if (this.vbo) gl.deleteBuffer(this.vbo);

@@ -1,5 +1,6 @@
 import { createWorld } from "../lib/sim/world";
 import { Land, LAND_COUNT } from "../lib/sim/terrain";
+import { materialLibHash } from "../lib/render/gl/material-atlas";
 
 function pct(n: number) {
   return Math.round(n) + "%";
@@ -97,5 +98,15 @@ for (const l of state.log.slice(-12)) console.log(`  [${l.timeLabel}] ${l.kind.t
 const blob = world.serialize();
 const json = JSON.stringify(blob);
 console.log("\nSerialized save size:", (json.length / 1024).toFixed(1), "KB · units:", blob.units.length);
+
+// the procedural material library (lib/render/gl/material-atlas.ts) is deterministic +
+// seed-independent — pin its hash so a generator regression trips here, the always-run gate.
+const MAT_LIB_HASH = 1900310956;
+const mh = materialLibHash();
+if (mh !== MAT_LIB_HASH) {
+  console.error(`\nMATERIAL LIB HASH MISMATCH: ${mh} !== ${MAT_LIB_HASH} (intentional? update MAT_LIB_HASH)`);
+  process.exit(1);
+}
+console.log("Material lib hash OK:", mh);
 
 console.log("\nSMOKE OK");
