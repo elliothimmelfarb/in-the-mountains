@@ -616,8 +616,14 @@ export class TerrainGL {
     const bw = Math.round(cam.vw * dpr);
     const bh = Math.round(cam.vh * dpr);
     if (this.canvas.width !== bw || this.canvas.height !== bh) {
-      this.canvas.width = bw;
+      this.canvas.width = bw;   // drawing buffer in DEVICE px (crisp on HiDPI)
       this.canvas.height = bh;
+      // ...but pin the CSS DISPLAY size to the camera's CSS px, exactly as the 2D canvas does.
+      // Without this, on a dpr>1 (Retina) display the buffer-sized canvas renders at dpr× scale
+      // and pans at dpr× the rate of the 2D contour layer (they drift apart immediately). The 2D
+      // canvas sets its own style.width in WorldView; the GL canvas must match or the layers diverge.
+      this.canvas.style.width = cam.vw + "px";
+      this.canvas.style.height = cam.vh + "px";
     }
     this.ensureHdrTarget(bw, bh);
     this.ensureBloomTargets(bw, bh);
