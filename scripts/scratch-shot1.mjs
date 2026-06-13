@@ -33,7 +33,8 @@ const WXJS = {
 }[WX];
 
 const boot = `(async()=>{const S=()=>window.__ITM.getState();if(!S())return"no __ITM";S().newCampaign("visual-baseline",90);let w=null;for(let i=0;i<200;i++){const st=S();if(st.world&&window.__setCam){w=st.world;break;}await new Promise(r=>setTimeout(r,60));}if(!w)return"not ready";if(!S().paused)S().togglePause();const cop=w.copWorld();window.__c=cop;return JSON.stringify(cop);})()`;
-const shot = `(()=>{const S=()=>window.__ITM.getState();const w=S().world;const sim=w.sim;w.state.clock=${HOUR}*3600-6*3600+86400;if(w.refreshLight)w.refreshLight();sim.light=w.ambientLight();${WXJS};const c=${AT === "cop" ? "window.__c" : "{x:1280,y:1280}"};window.__setCam(c.x,c.y,${PPM});return JSON.stringify({ambient:+w.ambientLight().toFixed(3),label:w.state.weather.label});})()`;
+const camExpr = AT === "cop" ? "window.__c" : AT.includes(",") ? `{x:${AT.split(",")[0]},y:${AT.split(",")[1]}}` : "{x:1280,y:1280}";
+const shot = `(()=>{const S=()=>window.__ITM.getState();const w=S().world;const sim=w.sim;w.state.clock=${HOUR}*3600-6*3600+86400;if(w.refreshLight)w.refreshLight();sim.light=w.ambientLight();${WXJS};const c=${camExpr};window.__setCam(c.x,c.y,${PPM});return JSON.stringify({ambient:+w.ambientLight().toFixed(3),label:w.state.weather.label});})()`;
 
 (async () => {
   try {
