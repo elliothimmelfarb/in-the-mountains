@@ -8,10 +8,7 @@
 > valley means logistics and patience as much as firefights.
 
 Built with **Next.js (App Router) + React 19 + TypeScript + Tailwind 4**. The entire
-simulation engine is pure, deterministic TypeScript (seeded RNG); rendering is a WebGL2
-terrain underlayer (lit per-pixel by the live master-clock sun — cast ridge shadows, moon,
-time-of-day grade, cloud shadows, valley fog) under a Canvas 2D layer for contours, units,
-combat FX and HUD, with a byte-identical 2D bake fallback when WebGL is unavailable.
+simulation engine is pure, deterministic TypeScript (seeded RNG); rendering is Canvas 2D.
 
 Inspired by Sebastian Junger's *War*, the documentaries *Restrepo* and *Korengal*, Jake
 Tapper's *The Outpost*, and counterinsurgency doctrine (FM 3-24).
@@ -122,7 +119,7 @@ lib/sim/            Pure simulation engine (no React)
     projects.ts     CERP project logistics + resupply
     events.ts       Decision events
     helpers.ts      Shared free functions
-lib/render/         WebGL2 terrain (gl/, lit by sky.ts + atmosphere-model.ts) + Canvas 2D overlay: topo bake/contours + ~160-asset SVG sprite/LOD system
+lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD system
   sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
   draw.ts           Units (symbol→figure LOD), COP structures, effects
   decoration.ts     Stable-hash vegetation/rock scatter by landcover

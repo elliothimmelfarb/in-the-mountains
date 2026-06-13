@@ -4,7 +4,7 @@ import { Terrain } from "../sim/terrain";
 import { Projectile } from "../sim/ballistics";
 import { Effect } from "../sim/combat";
 import { SmokeScreen } from "../sim/los";
-import { drawScreenSprite, drawWorldSprite, drawSunShadow, hasSprite, lodAlpha } from "./sprites";
+import { drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "./sprites";
 
 const FAC_COLOR: Record<string, string> = {
   us: "#5b9bd8",
@@ -365,7 +365,6 @@ export interface CopEnv {
   windX: number;
   windY: number;
   tNow: number; // wall-clock seconds (render-only animation phase)
-  sunShadow?: { dx: number; dy: number; lengthPerM: number; alpha: number }; // SkyState.spriteShadow
 }
 const DEFAULT_ENV: CopEnv = { night: 0, windX: 0, windY: 0, tNow: 0 };
 
@@ -493,9 +492,6 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     if (sx < -w * 2 || sy < -h * 3 || sx > cam.vw + w * 2 || sy > cam.vh + h * 2) continue;
     const id = BLD_SPRITE[b.kind] ?? "bld-bhut";
     const hM = (b.hh * 2 + 1) * cs;
-    // long sun-tracked cast shadow (a building is ~3 m tall) — sweeps with the clock like the
-    // terrain's, so the COP sits IN the light instead of floating on a frozen-NW diorama.
-    if (env.sunShadow && bldA > 0.02) drawSunShadow(ctx, cam, c.x, c.y, 3, wM, env.sunShadow);
     // stretch each building to its REAL footprint (width × depth) so the COP has size
     // variety instead of every roof reading as the same elongated barracks shape.
     const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: wM * 1.12, heightM: hM * 1.32, alpha: bldA });
@@ -559,8 +555,6 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   for (const fp of cop.fightingPositions) {
     const c = terrain.cellCenter(fp.cx, fp.cy);
     const id = fp.tower ? "guard-tower" : "fighting-position";
-    // a guard tower (~3.5 m) throws a long shadow at low sun; the fighting position is low
-    if (env.sunShadow && bldA > 0.02 && fp.tower) drawSunShadow(ctx, cam, c.x, c.y, 3.5, 4.5, env.sunShadow);
     const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: fp.tower ? 4.5 : 3.4, alpha: bldA });
     if (!drew) {
       const [sx, sy] = worldToScreen(cam, c.x, c.y);

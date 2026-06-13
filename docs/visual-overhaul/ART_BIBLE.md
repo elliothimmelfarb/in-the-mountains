@@ -23,21 +23,9 @@ crisp and modern.
 
 ## 1. LIGHTING — the one rule that makes it cohere
 
-> **AMENDMENT (2026-06-13, WebGL terrain rebuild).** The TERRAIN is no longer lit by a fixed
-> NW key — it's lit per-pixel by the **live master-clock sun** on the WebGL underlayer
-> (`lib/render/sky.ts` + `lib/render/gl/`): the key direction sweeps E→S→W through the day,
-> casts real ridge shadows, goes moonlit-cool at night, and carries a time-of-day grade. The
-> sun's evening azimuth is WNW, so the dynamic key **converges on the baked NW sprite key at
-> golden hour** (the static sprite art is "perpetual golden hour"). Static sprites STILL bake
-> the NW key + SE contact shadow below (a deliberate, documented residual — the mismatch is
-> worst at morning when sprite shadows are sub-8px); tall structures additionally get a
-> renderer-drawn sun-tracked CAST shadow (`drawSunShadow`) that sweeps with the terrain. When
-> authoring NEW terrain-baked detail, author it UNLIT (the shader lights it); sprites keep the
-> rule below.
-
 **Single key light from the NW (upper-left). Soft fill from the SE. Shadows fall to the SE (lower-right).**
 
-This matched the OLD terrain hillshade exactly (`key = norm3(-0.55,-0.62,0.56)`) and still governs the static sprite library, so sprites sit *in* the relief at golden hour.
+This matches the terrain hillshade exactly (`key = norm3(-0.55,-0.62,0.56)`), so sprites sit *in* the relief.
 
 - **Lit faces / crests:** upper-left edges. Add a bright rim/highlight on the NW side.
 - **Shadowed faces:** lower-right edges, darker, cooler.
