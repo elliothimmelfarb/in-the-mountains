@@ -20,18 +20,19 @@ export interface AtmoState {
   fogColor: Vec3; // graded fog/haze colour (cool, from the sky)
   hazeStrength: number; // 0..1 aerial-perspective veil, keyed to the sacred visibilityM
   hazeColor: Vec3; // aerial-perspective in-scatter colour (cool, sky-derived)
+  wetness: number; // 0..1 wet-ground darkening + low-sun sheen (after rain; pure fn of weather)
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 // per-weather cloud coverage + the ground-fog boost (Fog label socks the whole valley in)
-const WX_ATMO: Record<string, { cloudDensity: number; cloudStrength: number; fogBoost: number; fogStrengthMax: number }> = {
-  Clear: { cloudDensity: 0.18, cloudStrength: 0.45, fogBoost: 0, fogStrengthMax: 0.55 },
-  Hazy: { cloudDensity: 0.32, cloudStrength: 0.4, fogBoost: 30, fogStrengthMax: 0.6 },
-  Overcast: { cloudDensity: 0.6, cloudStrength: 0.3, fogBoost: 50, fogStrengthMax: 0.6 },
-  Rain: { cloudDensity: 0.72, cloudStrength: 0.35, fogBoost: 70, fogStrengthMax: 0.65 },
-  Fog: { cloudDensity: 0.2, cloudStrength: 0.2, fogBoost: 260, fogStrengthMax: 0.92 },
-  Snow: { cloudDensity: 0.5, cloudStrength: 0.3, fogBoost: 90, fogStrengthMax: 0.7 },
+const WX_ATMO: Record<string, { cloudDensity: number; cloudStrength: number; fogBoost: number; fogStrengthMax: number; wetness: number }> = {
+  Clear: { cloudDensity: 0.18, cloudStrength: 0.45, fogBoost: 0, fogStrengthMax: 0.55, wetness: 0 },
+  Hazy: { cloudDensity: 0.32, cloudStrength: 0.4, fogBoost: 30, fogStrengthMax: 0.6, wetness: 0 },
+  Overcast: { cloudDensity: 0.6, cloudStrength: 0.3, fogBoost: 50, fogStrengthMax: 0.6, wetness: 0.12 },
+  Rain: { cloudDensity: 0.72, cloudStrength: 0.35, fogBoost: 70, fogStrengthMax: 0.65, wetness: 0.85 },
+  Fog: { cloudDensity: 0.2, cloudStrength: 0.2, fogBoost: 260, fogStrengthMax: 0.92, wetness: 0.18 },
+  Snow: { cloudDensity: 0.5, cloudStrength: 0.3, fogBoost: 90, fogStrengthMax: 0.7, wetness: 0.25 },
 };
 
 /** Diurnal ground-fog thickness (metres above the local valley floor): heavy before dawn,
@@ -77,6 +78,7 @@ export function atmoState(secondsOfDay: number, weather: Weather, sky: SkyState,
     fogColor,
     hazeStrength,
     hazeColor,
+    wetness: wx.wetness,
   };
 }
 

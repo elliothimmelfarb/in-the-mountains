@@ -12,7 +12,7 @@ import type { Camera } from "../topo";
 import type { SkyState } from "../sky";
 import type { AtmoState } from "../atmosphere-model";
 import { bakeAlbedo } from "../topo";
-import { TERRAIN_VERT, TERRAIN_FRAG_LIT, COMPOSITE_VERT, COMPOSITE_FRAG, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
+import { TERRAIN_VERT, TERRAIN_FRAG_LIT, COMPOSITE_VERT, COMPOSITE_FRAG, BRIGHT_FRAG, BLUR_FRAG, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
 import { buildMaterialLib, TILE, TILE_METERS, MAT_COUNT } from "./material-atlas";
 
 export interface TerrainEnv {
@@ -220,7 +220,17 @@ export class TerrainGL {
   private hdrW = 0;
   private hdrH = 0;
   private hdrFloat = true; // RGBA16F (verified); falls back to RGBA8 if a driver can't render it
-  private bloomTex: WebGLTexture | null = null; // 1×1 black placeholder until C8 wires real bloom
+  // bloom (C8): bright-pass + separable blur, half-res, ping-pong
+  private brightProg: WebGLProgram | null = null;
+  private blurProg: WebGLProgram | null = null;
+  private bU: Record<string, WebGLUniformLocation | null> = {};
+  private blU: Record<string, WebGLUniformLocation | null> = {};
+  private bloomA: WebGLTexture | null = null;
+  private bloomB: WebGLTexture | null = null;
+  private bloomFboA: WebGLFramebuffer | null = null;
+  private bloomFboB: WebGLFramebuffer | null = null;
+  private bloomW = 0;
+  private bloomH = 0;
   private terrain: Terrain | null = null;
   private worldSize = 2560;
   private cell = 5;
@@ -277,13 +287,19 @@ export class TerrainGL {
     const tp = link(gl, TERRAIN_VERT, TERRAIN_FRAG_LIT);
     const cp = link(gl, COMPOSITE_VERT, COMPOSITE_FRAG);
     const sp = link(gl, SHADOW_VERT, SHADOW_FRAG);
-    if (!tp || !cp || !sp) {
+    const bp = link(gl, COMPOSITE_VERT, BRIGHT_FRAG);
+    const lp = link(gl, COMPOSITE_VERT, BLUR_FRAG);
+    if (!tp || !cp || !sp || !bp || !lp) {
       this.gl = null;
       return;
     }
     this.terrainProg = tp;
     this.compositeProg = cp;
     this.shadowProg = sp;
+    this.brightProg = bp;
+    this.blurProg = lp;
+    this.bU = uniforms(gl, bp, ["u_hdr", "u_knee"]);
+    this.blU = uniforms(gl, lp, ["u_src", "u_dir"]);
     this.tU = uniforms(gl, tp, [
       "u_camCenter", "u_viewCss", "u_ppm", "u_shakePx", "u_worldSize", "u_bgColor",
       "u_albedo", "u_shadow", "u_ao", "u_height", "u_cell", "u_grid", "u_minElev", "u_elevRange",
@@ -293,7 +309,7 @@ export class TerrainGL {
       "u_landId", "u_control", "u_matAlbedo", "u_matNormal", "u_detailGain", "u_tileMeters",
       "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
       "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
-      "u_hazeStrength", "u_hazeColor",
+      "u_hazeStrength", "u_hazeColor", "u_wetness",
       "u_flow", "u_waterMask", "u_time",
     ]);
     this.cU = uniforms(gl, cp, [
@@ -311,7 +327,6 @@ export class TerrainGL {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     this.initShadowTarget();
-    this.initBloomPlaceholder();
     this.initMaterialArrays();
     if (this.terrain) this.uploadTextures(this.terrain);
   }
@@ -360,16 +375,31 @@ export class TerrainGL {
     this.lastKeyDir = null; // force a rebake after (re)creation
   }
 
-  private initBloomPlaceholder() {
+  /** (Re)create the two half-res bloom ping-pong targets to match the drawing buffer. */
+  private ensureBloomTargets(w: number, h: number) {
     const gl = this.gl;
     if (!gl) return;
-    this.bloomTex = gl.createTexture();
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const bw = Math.max(1, w >> 1), bh = Math.max(1, h >> 1);
+    if (this.bloomA && this.bloomW === bw && this.bloomH === bh) return;
+    this.bloomW = bw;
+    this.bloomH = bh;
+    const mk = (tex: WebGLTexture | null, fbo: WebGLFramebuffer | null): [WebGLTexture, WebGLFramebuffer] => {
+      const t = tex || gl.createTexture()!;
+      gl.bindTexture(gl.TEXTURE_2D, t);
+      if (this.hdrFloat) gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, bw, bh, 0, gl.RGBA, gl.HALF_FLOAT, null);
+      else gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, bw, bh, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      const f = fbo || gl.createFramebuffer()!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, f);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t, 0);
+      return [t, f];
+    };
+    [this.bloomA, this.bloomFboA] = mk(this.bloomA, this.bloomFboA);
+    [this.bloomB, this.bloomFboB] = mk(this.bloomB, this.bloomFboB);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
   /** (Re)create the HDR intermediate to match the drawing-buffer size. RGBA16F by default;
@@ -422,7 +452,12 @@ export class TerrainGL {
     this.hdrFbo = null;
     this.hdrW = 0;
     this.hdrH = 0;
-    this.bloomTex = null;
+    this.bloomA = null;
+    this.bloomB = null;
+    this.bloomFboA = null;
+    this.bloomFboB = null;
+    this.bloomW = 0;
+    this.bloomH = 0;
     this.landIdTex = null;
     this.controlTex = null;
     this.matAlbedoTex = null;
@@ -585,6 +620,7 @@ export class TerrainGL {
       this.canvas.height = bh;
     }
     this.ensureHdrTarget(bw, bh);
+    this.ensureBloomTargets(bw, bh);
 
     // ── PASS A: terrain → HDR target (linear radiance) ──────────────────────────────────────
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.hdrFbo);
@@ -665,10 +701,36 @@ export class TerrainGL {
     gl.uniform3f(this.tU.u_fogColor, a.fogColor[0], a.fogColor[1], a.fogColor[2]);
     gl.uniform1f(this.tU.u_hazeStrength, a.hazeStrength);
     gl.uniform3f(this.tU.u_hazeColor, a.hazeColor[0], a.hazeColor[1], a.hazeColor[2]);
+    gl.uniform1f(this.tU.u_wetness, a.wetness);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 
-    // ── PASS C: HDR → ACES tonemap + grade + dither → sRGB → visible canvas ─────────────────
+    // ── PASS B: bloom (C8) — bright-pass HDR → bloomA, then separable blur A→B→A (half-res) ──
+    const halfW = this.bloomW, halfH = this.bloomH;
+    gl.viewport(0, 0, halfW, halfH);
+    gl.useProgram(this.brightProg);
+    gl.bindVertexArray(this.vao);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFboA);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+    gl.uniform1i(this.bU.u_hdr, 0);
+    gl.uniform1f(this.bU.u_knee, 1.05); // sober: only true over-1.0 highlights bloom
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.useProgram(this.blurProg);
+    const spread = 1.4;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFboB); // horizontal A→B
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomA);
+    gl.uniform1i(this.blU.u_src, 0);
+    gl.uniform2f(this.blU.u_dir, spread / halfW, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.bloomFboA); // vertical B→A
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomB);
+    gl.uniform1i(this.blU.u_src, 0);
+    gl.uniform2f(this.blU.u_dir, 0, spread / halfH);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // ── PASS C: HDR → +bloom → ACES tonemap + grade + dither → sRGB → visible canvas ────────
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, bw, bh);
     gl.useProgram(this.compositeProg);
@@ -677,9 +739,9 @@ export class TerrainGL {
     gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
     gl.uniform1i(this.cU.u_hdr, 0);
     gl.activeTexture(gl.TEXTURE1);
-    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomA);
     gl.uniform1i(this.cU.u_bloom, 1);
-    gl.uniform1f(this.cU.u_bloomStrength, 0.0); // C8 turns bloom on
+    gl.uniform1f(this.cU.u_bloomStrength, 0.5); // sober bloom
     gl.uniform1f(this.cU.u_sceneExposure, SCENE_EXPOSURE);
     const g = sky.grade;
     gl.uniform1f(this.cU.u_exposure, g.exposure);
@@ -697,14 +759,11 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.aoTex, this.flowTex, this.waterMaskTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
-    if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
-    if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.aoTex, this.flowTex, this.waterMaskTex, this.hdrTex, this.bloomA, this.bloomB, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
+    for (const f of [this.shadowFbo, this.hdrFbo, this.bloomFboA, this.bloomFboB]) if (f) gl.deleteFramebuffer(f);
     if (this.vbo) gl.deleteBuffer(this.vbo);
     if (this.vao) gl.deleteVertexArray(this.vao);
-    if (this.terrainProg) gl.deleteProgram(this.terrainProg);
-    if (this.compositeProg) gl.deleteProgram(this.compositeProg);
-    if (this.shadowProg) gl.deleteProgram(this.shadowProg);
+    for (const p of [this.terrainProg, this.compositeProg, this.shadowProg, this.brightProg, this.blurProg]) if (p) gl.deleteProgram(p);
     this.gl = null;
     this.terrainProg = null;
     this.compositeProg = null;
