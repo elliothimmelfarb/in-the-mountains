@@ -74,6 +74,43 @@ function bakeLocalFloor(t: Terrain): Float32Array {
   return out;
 }
 
+/** Bake a 512² horizon-based ambient-occlusion field ONCE at terrain load. For each cell, march
+ *  K azimuths a few exponential steps and accumulate the sine of the max horizon angle — AO falls
+ *  in draw bottoms, cliff bases, terrace insides, building footprints (the dead ground). Multiplies
+ *  the AMBIENT term only (never direct), so it compounds correctly with cast shadows and is the one
+ *  added effect that makes the terrain MORE legible. Floored so shadowed ground never goes black. */
+function bakeHBAO(t: Terrain): Uint8Array {
+  const N = t.size, cs = t.cellSize;
+  const elev = t.elev;
+  const out = new Uint8Array(N * N);
+  const K = 16;
+  const dirs: [number, number][] = [];
+  for (let a = 0; a < K; a++) { const th = (a / K) * Math.PI * 2; dirs.push([Math.cos(th), Math.sin(th)]); }
+  const steps = [5, 9, 15, 24, 38, 60, 95, 150]; // meters → ~150 m local horizon
+  for (let cy = 0; cy < N; cy++) {
+    for (let cx = 0; cx < N; cx++) {
+      const wx = (cx + 0.5) * cs, wy = (cy + 0.5) * cs;
+      const h0 = elev[cy * N + cx] + 1.0; // small bias kills self-occlusion on the home cell
+      let occ = 0;
+      for (let k = 0; k < K; k++) {
+        const dx = dirs[k][0], dy = dirs[k][1];
+        let maxTan = 0;
+        for (let s = 0; s < steps.length; s++) {
+          const d = steps[s];
+          const sx = Math.min(N - 1, Math.max(0, Math.round((wx + dx * d) / cs)));
+          const sy = Math.min(N - 1, Math.max(0, Math.round((wy + dy * d) / cs)));
+          const tan = (elev[sy * N + sx] - h0) / d;
+          if (tan > maxTan) maxTan = tan;
+        }
+        occ += maxTan / Math.sqrt(1 + maxTan * maxTan); // sin(atan(maxTan)) = hemisphere fraction blocked up-dir
+      }
+      const aoVal = 1 - (occ / K) * 1.35; // strength
+      out[cy * N + cx] = Math.max(40, Math.min(255, Math.round(aoVal * 255))); // floor 40 → never black (legibility)
+    }
+  }
+  return out;
+}
+
 const BG: [number, number, number] = [0x0c / 255, 0x0d / 255, 0x0a / 255];
 const SHADOW_SIZE = 1024; // 2.5 m / texel across the 2.56 km map
 const REBAKE_COS = Math.cos((0.25 * Math.PI) / 180); // rebake when the key dir moves > 0.25°
@@ -140,6 +177,7 @@ export class TerrainGL {
   private shadowFbo: WebGLFramebuffer | null = null;
   private floorTex: WebGLTexture | null = null;
   private floorField: Float32Array | null = null; // CPU copy for 2D fog-coherence sampling
+  private aoTex: WebGLTexture | null = null;       // 512² R8 baked horizon AO (C5)
   // material spine (C3/C4)
   private landIdTex: WebGLTexture | null = null;   // 512² R8UI — Land class per cell
   private controlTex: WebGLTexture | null = null;  // 512² RGBA8 — slope/conceal/cover
@@ -217,7 +255,7 @@ export class TerrainGL {
     this.shadowProg = sp;
     this.tU = uniforms(gl, tp, [
       "u_camCenter", "u_viewCss", "u_ppm", "u_shakePx", "u_worldSize", "u_bgColor",
-      "u_albedo", "u_shadow", "u_height", "u_cell", "u_grid", "u_minElev", "u_elevRange",
+      "u_albedo", "u_shadow", "u_ao", "u_height", "u_cell", "u_grid", "u_minElev", "u_elevRange",
       "u_sunDir", "u_sunColor", "u_sunI", "u_moonDir", "u_moonColor", "u_moonFactor",
       "u_skyColor", "u_groundColor", "u_skyI", "u_formLightNW", "u_ambientFloor",
       "u_warmLow", "u_coolHigh",
@@ -344,6 +382,7 @@ export class TerrainGL {
     this.albedoTex = null;
     this.heightTex = null;
     this.floorTex = null;
+    this.aoTex = null;
     this.hdrTex = null;
     this.hdrFbo = null;
     this.hdrW = 0;
@@ -435,6 +474,17 @@ export class TerrainGL {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    // baked horizon AO (512² R8) — one-time bake (~tens of ms, hidden behind the deploy bar)
+    const ao = bakeHBAO(t);
+    if (!this.aoTex) this.aoTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.aoTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, t.size, t.size, 0, gl.RED, gl.UNSIGNED_BYTE, ao);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
     gl.bindTexture(gl.TEXTURE_2D, null);
     this.lastKeyDir = null; // new terrain → rebake shadows
   }
@@ -511,6 +561,9 @@ export class TerrainGL {
     gl.activeTexture(gl.TEXTURE7);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.matNormalTex);
     gl.uniform1i(this.tU.u_matNormal, 7);
+    gl.activeTexture(gl.TEXTURE8);
+    gl.bindTexture(gl.TEXTURE_2D, this.aoTex);
+    gl.uniform1i(this.tU.u_ao, 8);
 
     gl.uniform2f(this.tU.u_camCenter, cam.cx, cam.cy);
     gl.uniform2f(this.tU.u_viewCss, cam.vw, cam.vh);
@@ -581,7 +634,7 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.aoTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
     if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
     if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
     if (this.vbo) gl.deleteBuffer(this.vbo);
