@@ -231,22 +231,24 @@ void main() {
     float h  = fbm2(a1) + 0.5 * fbm2(a2);
     float hx = fbm2(a1 + vec2(e, 0.0)) + 0.5 * fbm2(a2 + vec2(e, 0.0));
     float hy = fbm2(a1 + vec2(0.0, e)) + 0.5 * fbm2(a2 + vec2(0.0, e));
-    vec3 wn = normalize(vec3((h - hx) * 0.32, (h - hy) * 0.32, 1.0));  // very gentle tilt — calm river
-    // depth-tinted body — gravel-teal shallows → deeper slate-teal mid-channel, never black, kept bright
-    vec3 body = mix(degamma(vec3(0.36, 0.48, 0.50)), degamma(vec3(0.21, 0.33, 0.40)), water * 0.7);
-    float ambW = u_skyI * 2.4 + u_ambientFloor + 0.3;
+    vec3 wn = normalize(vec3((h - hx) * 0.28, (h - hy) * 0.28, 1.0));  // very gentle tilt — calm river
+    // DARK silt water (critic fix: 3/4 flagged a near-white river reading as snow/salt-flat). Real
+    // Pech/Korengal water is low-albedo silt grey-green — darker than its gravel bars, never bright.
+    vec3 body = mix(degamma(vec3(0.20, 0.27, 0.27)), degamma(vec3(0.09, 0.14, 0.16)), water * 0.8);
+    float ambW = u_skyI * 1.1 + u_ambientFloor + 0.12;   // dim — water is one of the darker elements
     vec3 wcol = body * ambW;
-    // subtle cool sky-reflection brightening where the surface tilts (kept low → no froth speckle)
-    float fres = clamp(pow(1.0 - wn.z, 4.0), 0.0, 0.25);
-    wcol += mix(u_groundColor, u_skyColor, 0.85) * (u_skyI * 1.4) * fres;
-    // sober sun-tracked glint (HDR → faint bloom in C8); view straight down
+    // a whisper of cool sky reflection where the surface tilts (kept tiny → no froth)
+    float fres = clamp(pow(1.0 - wn.z, 4.0), 0.0, 0.18);
+    wcol += mix(u_groundColor, u_skyColor, 0.85) * (u_skyI * 0.9) * fres;
+    // thin sun-azimuth glint streak only (sober) — NOT a full-width white fill
     vec3 H = normalize(u_sunDir + vec3(0.0, 0.0, 1.0));
-    wcol += u_sunColor * pow(max(0.0, dot(wn, H)), 70.0) * u_sunI * sunUp * vis * 0.6;
-    // foam: only the rare brightest churn peak + a hair at fast water — most of the channel is clean
-    float churn = fbm2(v_world * 0.32 + flow * u_time * 0.5);
-    float foam = smoothstep(0.9, 0.99, churn) * 0.25;
-    wcol = mix(wcol, degamma(vec3(0.86, 0.88, 0.84)) * (u_skyI * 2.0 + u_sunI * 0.4 * sunUp + 0.2), foam);
-    L = mix(L, wcol, smoothstep(0.04, 0.4, water));   // soft blend in over the bank
+    float glint = pow(max(0.0, dot(wn, H)), 140.0) * smoothstep(0.0, 0.3, length(u_sunDir.xy));
+    wcol += u_sunColor * glint * u_sunI * sunUp * vis * 0.45;
+    // foam: ONLY the rarest churn peaks (a few whitecaps), tiny — never reads as a snow ribbon
+    float churn = fbm2(v_world * 0.3 + flow * u_time * 0.5);
+    float foam = smoothstep(0.93, 0.995, churn) * 0.18;
+    wcol = mix(wcol, degamma(vec3(0.78, 0.80, 0.76)) * (u_skyI * 1.4 + u_sunI * 0.3 * sunUp + 0.1), foam);
+    L = mix(L, wcol, smoothstep(0.02, 0.22, water));  // fill the channel solidly (no bright bed showing through the 5m mask), thin bank ramp
   }
 
   // mild altitude warm/cool (the floor reads warm, the crests cool)
@@ -256,7 +258,11 @@ void main() {
   // ── aerial perspective (C7): a thin atmospheric veil keyed to the SACRED visibilityM. Mostly
   // uniform (the whole-scene haze of a hazy day) with a touch more over the low valley floor
   // (longer air column). Sober: clear days stay nearly clean; Hazy/Fog days read their weather. ──
-  float haze = u_hazeStrength * (0.62 + 0.38 * (1.0 - altN));
+  // scale the veil with zoom: full at strategic (sells the satellite wide shot), fades out by
+  // tactical so the mid-zoom tactical read keeps its albedo + shadow contrast (critic fix: the
+  // flat per-frame haze was crushing operational into monochrome mush).
+  float zoomHaze = clamp(1.15 - u_ppm * 0.75, 0.12, 1.0);
+  float haze = u_hazeStrength * (0.62 + 0.38 * (1.0 - altN)) * zoomHaze;
   L = mix(L, degamma(u_hazeColor) * (u_skyI * 1.6 + 0.18), clamp(haze, 0.0, 0.5));
 
   // terrain-aware valley fog (pools from the local floor up to a diurnal ceiling). The in-scatter
