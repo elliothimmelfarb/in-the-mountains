@@ -549,7 +549,13 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
   ctx.restore();
 }
 
-export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
+/**
+ * Blit the baked relief bitmap + the high-zoom noise tooth. This is the ONLY part of the
+ * terrain draw the WebGL underlayer replaces: on the GL path the relief is rendered by the
+ * shader instead, and WorldView calls drawTerrainOverlays alone. On the 2D fallback path
+ * drawTerrain calls both, byte-identical to before the split.
+ */
+function drawTerrainBlit(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera) {
   const baked = bakeTerrain(terrain);
   const destScale = (cam.ppm * terrain.cellSize) / baked.pxPerCell;
   const [ox, oy] = worldToScreen(cam, 0, 0);
@@ -576,7 +582,15 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
       ctx.restore();
     }
   }
+}
 
+/**
+ * Everything the terrain draws ON TOP of the relief raster: crisp live vector contours, the
+ * scaled dirt-path network, and the night/low-light wash. These stay on the 2D canvas in
+ * BOTH paths (GL underlayer + 2D fallback) — they're sharp vectors that must never be baked
+ * into a bitmap, and the night wash sits over contours/paths but under the tactical layer.
+ */
+export function drawTerrainOverlays(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
   // crisp vector contours, redrawn live every frame (never blur on zoom)
   drawContoursLive(ctx, terrain, cam);
 
@@ -590,6 +604,11 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
     ctx.fillRect(0, 0, cam.vw, cam.vh);
     ctx.restore();
   }
+}
+
+export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
+  drawTerrainBlit(ctx, terrain, cam);
+  drawTerrainOverlays(ctx, terrain, cam, night);
 }
 
 // ---- WEATHER (atmospheric overlay, drawn over terrain + decoration, under units) ----

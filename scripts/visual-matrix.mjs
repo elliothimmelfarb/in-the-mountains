@@ -21,8 +21,11 @@ const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const URL = "http://localhost:3000";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// GPU policy (recon docs/progress/2026-06-12-webgl-terrain/BASELINE.md): --disable-gpu kills
+// WebGL2 entirely; NO flags gets the real GPU (M1 Max here) with WebGL2; --webgl forces the
+// portable SwiftShader path for CI/other machines. Default = real GPU so the terrain renders.
 const chrome = spawn(CHROME, [
-  "--headless=new", ...(WEBGL ? ["--use-angle=swiftshader"] : ["--disable-gpu"]),
+  "--headless=new", ...(WEBGL ? ["--use-angle=swiftshader"] : []),
   "--no-first-run", "--no-default-browser-check",
   "--hide-scrollbars", "--force-device-scale-factor=1",
   `--remote-debugging-port=${PORT}`, "--user-data-dir=/tmp/itm-vmx-profile",
