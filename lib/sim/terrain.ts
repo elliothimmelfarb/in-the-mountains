@@ -2361,6 +2361,16 @@ export class Terrain {
     // Change A already made the 1.25–1.40 band it climbs through passable, so the tread is walkable.
     const line: Vec2[] = [this.cellCenter(sCx, sCy)];
     const passAt = (fx: number, fy: number) => this.passableCell(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1));
+    // VISITED-CELL GUARD: the recovery tries below (hairpin + the small downhill `-0.12` mix) let the
+    // walker re-step onto cells it already laid when it's boxed against a cliff band, so it oscillates
+    // over the same patch and the captured centerline becomes a self-stacking SPIRAL — a tangle of
+    // lines "squiggling over each other" once stroked (probe: 95% of some trails' vertices retraced an
+    // earlier leg at 0 m). Forbidding any step back onto a visited cell turns that thrash into a clean
+    // climb-or-terminate: the trail makes genuine new ground or it ends (a real goat trail dead-ends at
+    // a cliff, it doesn't scribble). Pure-render concern — the trail is laid as conform-0 landcover, so
+    // a shorter de-stacked tread tints a strict subset of cells and the passable graph is unchanged.
+    const visited = new Set<number>();
+    visited.add(this.idx(sCx, sCy));
     let bestE = startE; // highest elevation reached — a trail climbs, it doesn't wander
     let stall = 0; // steps since we last gained new height (a contour wander along a cliff base)
     for (let iter = 0; iter < 220; iter++) {
@@ -2369,8 +2379,10 @@ export class Terrain {
       const hereE = this.elev[this.idx(cxi, cyi)];
       if (hereE - startE >= climbTarget) break; // gained enough height — at the shoulder
       if (hereE > bestE + 0.3) { bestE = hereE; stall = 0; } else stall++;
-      if (stall > 36) break; // not gaining height (boxed against a cliff band) — end the trail here
-      if (hereE < bestE - 35) break; // descending well below our high point — stop, a trail doesn't drop
+      if (stall > 12) break; // not gaining height for a dozen steps (boxed against a cliff band): a
+      // real switchback gains height every few steps, so this means the walker is SHUFFLING sideways
+      // among a cluster of passable cells at the foot of a face — end the trail rather than scribble.
+      if (hereE < bestE - 18) break; // descending below our high point — a climbing trail doesn't drop
       const g = this.gradientCells(px, py); // points UPHILL
       const gl = Math.hypot(g.x, g.y);
       if (gl < 1e-3) break; // flat / summit — nowhere left to climb
@@ -2387,8 +2399,12 @@ export class Terrain {
       const climbMix = localSlope <= maxGrade ? 0.95 : 0.36; // straight up on gentle ground; on a steep
       // face, traverse with a firm ~35% climb component so the switchback gains height like a real goat
       // trail (a dozen hairpins to a shoulder), instead of an endless near-level contour scribble.
-      // try the preferred heading, then progressively more contour-hugging, then a hairpin, until walkable
-      const tries = [climbMix, 0.1, 0.0, -0.12];
+      // try the preferred heading, then progressively more contour-hugging, then a pure contour, until
+      // walkable. The old list ended with a slightly-DOWNHILL try (-0.12); combined with the hairpin
+      // recovery that let a boxed walker bounce downhill→sideways→back among fresh cells, scribbling a
+      // tangle at the foot of a cliff. A climbing trail never steps downhill, so the worst case is now a
+      // clean contour traverse that the stall guard ends if it isn't gaining height.
+      const tries = [climbMix, 0.1, 0.0];
       let stepped = false;
       for (let attempt = 0; attempt < 2 && !stepped; attempt++) {
         for (const mix of tries) {
@@ -2400,9 +2416,13 @@ export class Terrain {
           const nx = px + hx * stepCells;
           const ny = py + hy * stepCells;
           if (!passAt(nx, ny)) continue;
+          const ncx = clamp(Math.round(nx), 0, size - 1);
+          const ncy = clamp(Math.round(ny), 0, size - 1);
+          const ni = this.idx(ncx, ncy);
+          if (visited.has(ni)) continue; // already laid here — don't fold the trail back over itself
           const last = line[line.length - 1];
-          const ncW = this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1));
-          if (ncW.x !== last.x || ncW.y !== last.y) line.push(ncW);
+          const ncW = this.cellCenter(ncx, ncy);
+          if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
           const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
           if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
           px = nx;
@@ -2418,7 +2438,11 @@ export class Terrain {
       }
       if (!stepped) break; // genuinely cliff-bound — the trail ends here
     }
-    if (line.length < minPts) return line; // never got far enough — lay NOTHING (no invisible stubs)
+    // A climbing trail must actually CLIMB: if the walker only shuffled at the foot of a face and
+    // gained little height (bestE barely above the start), it produced a knot-in-place, not a path —
+    // lay nothing rather than a tangle. (minPts already rejects too-short lines; this rejects the
+    // long-but-flat shuffle the old downhill-try used to emit.)
+    if (bestE - startE < 24 || line.length < minPts) return line.length < minPts ? line : [line[0]];
     // Stamp the route as PURE LANDCOVER (conform 0 — no elevation edit at all). A foot trail is a
     // worn line, not earthworks: the benched-tread movement model (TREAD_GRADE_CAP) prices the
     // walking, so the tread needs no geometry. This is load-bearing for passability: even the old
@@ -2534,6 +2558,10 @@ export class Terrain {
     let px = aCx + 0.5;
     let py = aCy + 0.5;
     const line: Vec2[] = [this.cellCenter(aCx, aCy)];
+    // VISITED-CELL GUARD: same de-stack as ascendTrail — a lateral ridge walk that deflects around a
+    // cliff nose can otherwise re-step onto cells it already laid and double the line back on itself.
+    const visited = new Set<number>();
+    visited.add(this.idx(aCx, aCy));
     const maxIter = Math.ceil((Math.hypot(bCx - aCx, bCy - aCy) / stepCells) * 3) + 20;
     const passAt = (fx: number, fy: number) => this.passableCell(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1));
     const elevAtCell = (fx: number, fy: number) => this.elev[this.idx(clamp(Math.round(fx), 0, size - 1), clamp(Math.round(fy), 0, size - 1))];
@@ -2575,9 +2603,13 @@ export class Terrain {
         if (!passAt(nx, ny)) continue;
         const along = (elevAtCell(nx, ny) - elevAtCell(px, py)) / (stepCells * cs);
         if (Math.abs(along) > maxAlong) continue;
+        const ncx = clamp(Math.round(nx), 0, size - 1);
+        const ncy = clamp(Math.round(ny), 0, size - 1);
+        const ni = this.idx(ncx, ncy);
+        if (visited.has(ni)) continue; // don't fold the ridge trail back over a cell already laid
         const last = line[line.length - 1];
-        const ncW = this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1));
-        if (ncW.x !== last.x || ncW.y !== last.y) line.push(ncW);
+        const ncW = this.cellCenter(ncx, ncy);
+        if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
         px = nx;
         py = ny;
         stepped = true;

@@ -508,6 +508,66 @@ function bakeNoiseTile(): HTMLCanvasElement {
   return c;
 }
 
+/**
+ * Clean a captured centerline before it is stroked. The switchback walkers in terrain.ts
+ * (`ascendTrail`/`lateralTrail`) snap every step to a 5 m cell center and, when boxed against a
+ * cliff band, oscillate — stepping contour-out, hairpinning, then stepping back along the cell it
+ * just came on. The dedup there only rejects the IMMEDIATELY-previous cell, so the polyline ends up
+ * RETRACING earlier cells at literally 0 m (probe: median nearest-non-adjacent-leg distance 0.0 m,
+ * ~55% of vertices within 2 m of another leg). Stroked twice as a casing+tread that reads as two or
+ * more lines "squiggling over each other." This collapses that degeneracy with no sim/determinism
+ * impact (the trail geometry is pure cosmetic landcover — movement prices the benched tread, not the
+ * polyline): drop any vertex that lands back on a cell already visited, then drop near-collinear
+ * vertices so the cleaned switchback reads as the crisp zig-zag a real foot-trail cuts. World-space,
+ * cached per-polyline (the centerlines are immutable after generation) so it costs nothing per frame.
+ */
+const cleanCache = new WeakMap<Vec2Arr, Vec2Arr>();
+type Vec2Arr = { x: number; y: number }[];
+function cleanPath(pts: Vec2Arr): Vec2Arr {
+  const cached = cleanCache.get(pts);
+  if (cached) return cached;
+  if (pts.length < 3) { cleanCache.set(pts, pts); return pts; }
+  // 1) DE-STACK: walk the polyline and reject any step onto a cell (~5 m grid) already on the
+  //    cleaned line UNLESS it's the natural continuation (the immediately-previous cell), so a
+  //    legitimate hairpin whose return leg sits a cell or two over survives but a 0 m retrace of an
+  //    earlier leg is dropped. Quantize to a 4 m grid (below the 5 m cell, above sub-pixel jitter).
+  const Q = 4;
+  const key = (p: { x: number; y: number }) => `${Math.round(p.x / Q)},${Math.round(p.y / Q)}`;
+  const seen = new Set<string>();
+  const out: Vec2Arr = [];
+  for (let i = 0; i < pts.length; i++) {
+    const k = key(pts[i]);
+    if (i > 0 && seen.has(k)) {
+      // already laid here on an EARLIER leg — skip so the two legs don't stack into one stroke.
+      // (The immediately-preceding vertex is never in `seen` for a fresh cell, so forward motion
+      //  is never blocked; only a genuine fold-back onto traversed ground is.)
+      continue;
+    }
+    seen.add(k);
+    out.push(pts[i]);
+  }
+  // 2) PRUNE collinear/near-zero-length vertices: the walkers emit ~7 m steps that, once de-stacked,
+  //    leave tiny kinks. Drop a middle vertex whose deviation from the chord of its neighbours is
+  //    < 1.2 m, so the smoothing quadratic in trace() draws clean limbs instead of micro-jitter.
+  const pruned: Vec2Arr = out.length > 2 ? [out[0]] : out;
+  if (out.length > 2) {
+    for (let i = 1; i < out.length - 1; i++) {
+      const a = pruned[pruned.length - 1], b = out[i], c = out[i + 1];
+      const abx = b.x - a.x, aby = b.y - a.y;
+      const acx = c.x - a.x, acy = c.y - a.y;
+      const acl = Math.hypot(acx, acy) || 1;
+      // perpendicular distance of b from the a→c chord
+      const dev = Math.abs(abx * (acy / acl) - aby * (acx / acl));
+      if (dev < 1.2 && Math.hypot(abx, aby) < 14) continue; // negligible kink — drop b
+      pruned.push(b);
+    }
+    pruned.push(out[out.length - 1]);
+  }
+  const result = pruned.length >= 2 ? pruned : pts;
+  cleanCache.set(pts, result);
+  return result;
+}
+
 /** Draw the baked terrain into a live canvas under the given camera. */
 /**
  * Stroke the path network as SCALED dirt lines that mold to the terrain — a ~4 m graded MSR, a ~2.5 m
@@ -533,19 +593,54 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
   ctx.lineCap = "round";
   // back-to-front by importance so trails sit under tracks under roads where they meet
   const order: Array<"trail" | "track" | "road"> = ["trail", "track", "road"];
+  // WORLD-CELL OCCUPANCY: a trailhead radiates a fan of climbing trails (up-/down-valley/abeam) that
+  // BRAID — they share the same lower climb before splaying to their shoulders, so 3+ trails retrace
+  // one corridor and read as squiggle-over-squiggle even after each is individually de-stacked (probe:
+  // 6 trails packed into one 180×120 m knot above a village). Track a coarse world-cell grid PER KIND,
+  // shared across every polyline of that kind: a sub-segment whose midpoint lands on a cell an earlier
+  // (equally-important) trail already drew is skipped, so a braided stem strokes ONCE — the fan still
+  // splays where the trails diverge onto fresh ground. World-anchored (not screen) so it never flickers
+  // on pan; the grid resolution scales with the stroke width so coincidence is judged at the line's
+  // own thickness. Built per draw call (cheap: a few hundred segments).
   for (const kind of order) {
     const a = clamp01((cam.ppm - fadeIn[kind]) / 0.4);
     if (a <= 0.02) continue;
     const wpx = Math.max(minPx[kind], widthM[kind] * cam.ppm);
+    // occupancy cell ≈ the line's on-ground width (min ~2.5 m) so two strokes count as coincident
+    // only when they'd visibly overlap, never merging two genuinely separate parallel paths.
+    const occCell = Math.max(2.5, widthM[kind] * 1.1);
+    const occ = new Set<number>();
+    const okey = (wx: number, wy: number) => (Math.round(wx / occCell) * 8192 + Math.round(wy / occCell)) | 0;
     for (const path of lines) {
       if (path.kind !== kind || path.pts.length < 2) continue;
+      // de-stack the captured centerline (drops the 0 m self-retrace the switchback walkers leave)
+      const cleaned = cleanPath(path.pts);
+      if (cleaned.length < 2) continue;
+      // Split the polyline into MAXIMAL runs of not-yet-occupied vertices, claiming each vertex's
+      // world-cell as we go. A braided stem (cells already claimed) drops out; the divergent legs
+      // survive as their own runs. Each run is stroked with the same midpoint-quadratic smoothing.
+      const runs: Vec2Arr[] = [];
+      let cur: Vec2Arr = [];
+      for (let i = 0; i < cleaned.length; i++) {
+        const k = okey(cleaned[i].x, cleaned[i].y);
+        const free = !occ.has(k);
+        if (free) {
+          occ.add(k);
+          cur.push(cleaned[i]);
+        } else {
+          // boundary into an occupied stretch: include this vertex so the surviving run still
+          // visually meets the stem (a clean junction), then close the run.
+          if (cur.length >= 1) { cur.push(cleaned[i]); runs.push(cur); }
+          cur = [];
+        }
+      }
+      if (cur.length >= 2) runs.push(cur);
       // midpoint quadratic smoothing: the generator emits ~7 m straight segments, which read as
       // jagged CAD polylines at tactical zoom — routing each vertex as the control point of a
       // quadratic through the segment midpoints turns hairpins into the worn, rounded curves a
-      // real foot-trail cuts, while still passing through the start/end of every path.
-      const trace = () => {
+      // real foot-trail cuts, while still passing through the start/end of every run.
+      const trace = (p: Vec2Arr) => {
         ctx.beginPath();
-        const p = path.pts;
         const [sx, sy] = worldToScreen(cam, p[0].x, p[0].y);
         ctx.moveTo(sx, sy);
         if (p.length === 2) {
@@ -563,16 +658,19 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
       };
       // every path sits in a faint shallow groove — a dark casing reads as that worn edge and lifts
       // the line off the busy ground texture (a road/track gets a wider, darker one than a goat trail)
-      ctx.globalAlpha = a * (kind === "trail" ? 0.32 : 0.5);
-      ctx.strokeStyle = "rgba(54,42,28,1)";
-      ctx.lineWidth = wpx + (kind === "trail" ? 1.0 : 1.6);
-      trace();
-      ctx.stroke();
-      ctx.globalAlpha = kind === "trail" ? a * 0.82 : a * 0.95;
-      ctx.strokeStyle = `rgba(${tread[kind]},1)`;
-      ctx.lineWidth = wpx;
-      trace();
-      ctx.stroke();
+      for (const run of runs) {
+        if (run.length < 2) continue;
+        ctx.globalAlpha = a * (kind === "trail" ? 0.32 : 0.5);
+        ctx.strokeStyle = "rgba(54,42,28,1)";
+        ctx.lineWidth = wpx + (kind === "trail" ? 1.0 : 1.6);
+        trace(run);
+        ctx.stroke();
+        ctx.globalAlpha = kind === "trail" ? a * 0.82 : a * 0.95;
+        ctx.strokeStyle = `rgba(${tread[kind]},1)`;
+        ctx.lineWidth = wpx;
+        trace(run);
+        ctx.stroke();
+      }
     }
   }
   ctx.restore();
