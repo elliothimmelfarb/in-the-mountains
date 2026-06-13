@@ -2,7 +2,8 @@
 import { useEffect, useRef } from "react";
 import { useGame, getAudio, getSimFrac } from "@/state/store";
 import { Land, villageHamlet } from "@/lib/sim/terrain";
-import { Camera, drawTerrain, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
+import { Camera, drawTerrain, drawTerrainOverlays, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
+import { TerrainGL } from "@/lib/render/gl/terrain-gl";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
@@ -90,6 +91,9 @@ function drawManeuverArrow(ctx: CanvasRenderingContext2D, x0: number, y0: number
 
 export default function WorldView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const glRef = useRef<HTMLCanvasElement>(null);
+  const terrainGLRef = useRef<TerrainGL | null>(null);
+  const lastTerrainRef = useRef<unknown>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<Camera>({ cx: 0, cy: 0, ppm: 0.4, vw: 800, vh: 600 });
   const lastRef = useRef(0);
@@ -171,6 +175,12 @@ export default function WorldView() {
       camRef.current.ppm = 0.7;
       initCam.current = true;
     }
+    // Construct the WebGL terrain underlayer once. If WebGL2 is unavailable, ok=false and
+    // every frame falls through to the byte-identical 2D bake path — no behavior change.
+    if (glRef.current && !terrainGLRef.current) {
+      terrainGLRef.current = new TerrainGL(glRef.current);
+      lastTerrainRef.current = null; // force an upload on the first GL frame
+    }
     let raf = 0;
     lastRef.current = performance.now();
     const loop = (now: number) => {
@@ -201,6 +211,18 @@ export default function WorldView() {
         ctx.setTransform(dpr, 0, 0, dpr, ox * dpr, oy * dpr);
         camRef.current.vw = cw;
         camRef.current.vh = ch;
+        // WebGL terrain underlayer: render the relief BEFORE the 2D pass (it sits on the
+        // canvas below). On terrain swap (new campaign / load) re-upload its textures. The
+        // shake offset matches the 2D transform so both layers shake together.
+        const tgl = terrainGLRef.current;
+        if (tgl?.ok) {
+          const wNow = useGame.getState().world;
+          if (wNow && lastTerrainRef.current !== wNow.terrain) {
+            tgl.setTerrain(wNow.terrain);
+            lastTerrainRef.current = wNow.terrain;
+          }
+          tgl.render(camRef.current, { shakePx: { x: ox, y: oy } });
+        }
         draw(ctx, camRef.current, now);
         // feed the audio listener pose (positional pan + distance + zoom-scaled radius).
         getAudio().setCamera(camRef.current);
@@ -208,7 +230,11 @@ export default function WorldView() {
       raf = requestAnimationFrame(loop);
     };
     raf = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      cancelAnimationFrame(raf);
+      terrainGLRef.current?.dispose();
+      terrainGLRef.current = null;
+    };
   }, []);
 
   function draw(ctx: CanvasRenderingContext2D, cam: Camera, nowMs = 0) {
@@ -219,7 +245,10 @@ export default function WorldView() {
     const terrain = w.terrain;
     const night = 1 - w.ambientLight();
     ctx.clearRect(0, 0, cam.vw, cam.vh);
-    drawTerrain(ctx, terrain, cam, night * 0.7);
+    // On the GL path the relief is rendered by the underlayer canvas below; the 2D pass draws
+    // only the overlays (contours/paths/night wash). On the 2D fallback drawTerrain does both.
+    if (terrainGLRef.current?.ok) drawTerrainOverlays(ctx, terrain, cam, night * 0.7);
+    else drawTerrain(ctx, terrain, cam, night * 0.7);
     drawDecoration(ctx, terrain, cam); // scattered trees/rocks fade in at tactical zoom
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
@@ -807,9 +836,11 @@ export default function WorldView() {
 
   return (
     <div ref={wrapRef} className="relative w-full h-full overflow-hidden bg-bg select-none">
+      {/* WebGL terrain underlayer — sits below the 2D canvas, never receives input. */}
+      <canvas ref={glRef} className="absolute inset-0 block pointer-events-none" aria-hidden="true" />
       <canvas
         ref={canvasRef}
-        className="block"
+        className="block relative"
         tabIndex={0}
         role="application"
         aria-label="Tactical map. Drag to pan, scroll to zoom, click a soldier to select his squad or a village to open it. Press C to jump to contact, H for controls."
