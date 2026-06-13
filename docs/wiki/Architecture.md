@@ -129,6 +129,19 @@ hit, no first-frame freeze) → `loadSprites`. Deploy cost itself is unchanged; 
 
 ## Rendering
 
+> **WebGL terrain underlayer (2026-06-13).** The terrain relief is now rendered by a **WebGL2
+> underlayer canvas** (`lib/render/gl/`, `components/world/WorldView.tsx`) that sits BELOW the
+> 2D canvas. It uploads the heightmap (512² R32F) + an UNLIT albedo bake and lights the valley
+> per-fragment from the **live master-clock sun** (`lib/render/sky.ts`, the one sun/moon/grade
+> source — pure, with `nightFactor` provably ≡ the gameplay light curve): cast ridge shadows
+> ray-marched into an FBO and rebaked on sun motion, a night moon, a time-of-day color grade,
+> and `lib/render/atmosphere-model.ts` cloud shadows + valley fog. The 2D canvas clears to
+> transparent and keeps contours/paths/units/FX/HUD on top; a `drawScreenGrade` source-atop
+> seam grades the world-dressing sprites coherently with the terrain. If WebGL2 is unavailable
+> the renderer falls back to the **byte-identical 2D bake path** described below (same
+> `WeakMap`, same harnesses). The 2D bake below is therefore both the fallback and the
+> source of the albedo (its lighting/grade/haze terms are compiled OUT for the GL albedo).
+
 `lib/render/topo.ts` bakes a high-resolution shaded-relief image of the whole valley **once**
 (hillshade from the elevation gradient + landcover tint, with fbm-dithered class boundaries so edges
 are organic not 5 m stair-steps), cached in a `WeakMap` keyed by `Terrain`. The bake is sized at
