@@ -146,10 +146,10 @@ function heightFor(slot: number, x: number, y: number): number {
 // per-material luminance-detail contrast and roughness (packed into albedo.a). Contrast is high:
 // from altitude, the surface reads through METER-scale luminance structure (furrows, fracture,
 // canopy lobes), so the texture must be bold to survive minification — not photoreal-subtle.
-const MAT_CONTRAST = [0.95, 0.66, 0.92, 0.82, 0.58, 0.52, 0.85, 0.72]; // ROCK..GRAVEL
+const MAT_CONTRAST = [0.78, 0.55, 0.78, 0.70, 0.46, 0.45, 0.72, 0.52]; // ROCK..GRAVEL (calmed ~20% — critic: material was reading as static/speckle, esp. dry-wash gravel at close zoom)
 const MAT_ROUGH = [0.92, 0.82, 0.86, 0.74, 0.55, 0.74, 0.82, 0.86];
 // micro-normal gradient amplification (per material) — how hard the live sun rakes the facets
-const MAT_NRM_AMP = [7.5, 4.0, 6.5, 6.0, 3.0, 3.2, 5.5, 5.0];
+const MAT_NRM_AMP = [5.8, 3.2, 5.0, 4.6, 2.4, 2.6, 4.2, 3.3];
 
 export interface MaterialLib {
   albedo: Uint8Array; // MAT_COUNT layers × TILE² × RGBA8 (rgb = luma detail ~0.5 neutral, a = roughness)

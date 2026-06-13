@@ -101,7 +101,7 @@ console.log("\nSerialized save size:", (json.length / 1024).toFixed(1), "KB · u
 
 // the procedural material library (lib/render/gl/material-atlas.ts) is deterministic +
 // seed-independent — pin its hash so a generator regression trips here, the always-run gate.
-const MAT_LIB_HASH = 1900310956;
+const MAT_LIB_HASH = 3664222144;
 const mh = materialLibHash();
 if (mh !== MAT_LIB_HASH) {
   console.error(`\nMATERIAL LIB HASH MISMATCH: ${mh} !== ${MAT_LIB_HASH} (intentional? update MAT_LIB_HASH)`);

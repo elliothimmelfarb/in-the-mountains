@@ -120,7 +120,7 @@ function bakeWaterFlow(t: Terrain): { flow: Uint8Array; mask: Uint8Array } {
   const N = t.size, cs = t.cellSize, elev = t.elev, land = t.land;
   const flow = new Uint8Array(N * N * 2);
   const mask = new Uint8Array(N * N);
-  const isWater = (i: number) => land[i] === 0 || land[i] === 1 || land[i] === 25; // River/Marsh/Ford
+  const isWater = (i: number) => land[i] === 0 || land[i] === 25; // River/Ford only — Marsh is scattered wetland (kept as terrain; it checkerboarded the water mask)
   for (let cy = 0; cy < N; cy++) {
     for (let cx = 0; cx < N; cx++) {
       const i = cy * N + cx;
@@ -150,7 +150,7 @@ const REBAKE_MIN_MS = 200; // wall-clock rate limiter only (output stays angle-d
 const SCENE_EXPOSURE = 1.18;
 // Legibility floor: a small constant added to the sky-hemisphere intensity so deep-shadowed
 // faces never crush below the ~0.45× lit-luma read the tactical map needs (verified post-ACES).
-const AMBIENT_FLOOR = 0.1;
+const AMBIENT_FLOOR = 0.14; // bumped (critic: dusk/night terrain beyond the wire read too dark to command from)
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader | null {
   const sh = gl.createShader(type);
@@ -561,8 +561,8 @@ export class TerrainGL {
     gl.bindTexture(gl.TEXTURE_2D, this.flowTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, t.size, t.size, 0, gl.RG, gl.UNSIGNED_BYTE, flow);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR → smooth flow between cells (NEAREST jumps decorrelated the advected ripple/foam → 5m checkerboard)
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     if (!this.waterMaskTex) this.waterMaskTex = gl.createTexture();
@@ -685,8 +685,9 @@ export class TerrainGL {
     gl.uniform1f(this.tU.u_ambientFloor, AMBIENT_FLOOR);
     gl.uniform1f(this.tU.u_warmLow, 0.06);
     gl.uniform1f(this.tU.u_coolHigh, 0.1);
-    // detail fades in 0→1 across ppm 0.6→2.6 (strategic stays byte-faithful; tactical/close resolve)
-    gl.uniform1f(this.tU.u_detailGain, Math.max(0, Math.min(1, (cam.ppm - 0.6) / 2.0)));
+    // detail fades in 0→1 across ppm 1.0→3.0 (strategic + operational stay clean; tactical/close
+    // resolve — pushed up from 0.6 so the detail-normal corduroy never reads at operational zoom)
+    gl.uniform1f(this.tU.u_detailGain, Math.max(0, Math.min(1, (cam.ppm - 1.0) / 2.0)));
     gl.uniform1f(this.tU.u_tileMeters, TILE_METERS);
     gl.uniform1f(this.tU.u_time, env.secondsOfDay);
 
