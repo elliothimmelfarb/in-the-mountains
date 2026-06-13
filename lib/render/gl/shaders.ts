@@ -75,10 +75,18 @@ vec3 degamma(vec3 c){ return pow(max(c, 0.0), vec3(2.2)); }   // sRGB-ish → li
 // linear light. No grade, no tonemap here — those live in PASS C so highlights survive to bloom.
 export const TERRAIN_FRAG_LIT = /* glsl */ `#version 300 es
 precision highp float;
+precision highp int;
 ${PRELUDE}
 in vec2 v_world;
 uniform sampler2D u_albedo;     // UNLIT albedo (bakeAlbedo), authored sRGB
 uniform sampler2D u_shadow;     // sun-visibility map (1 = lit), rebaked on key-dir motion
+// material spine (C3/C4): per-landcover detail recomposition, faded in by zoom (u_detailGain)
+uniform highp usampler2D u_landId;     // 512² R8UI — Land class per cell
+uniform sampler2D u_control;           // 512² RGBA8 — R=slope/2, G=conceal, B=cover
+uniform highp sampler2DArray u_matAlbedo;  // MAT_COUNT layers — luma detail (.rgb) + roughness (.a)
+uniform highp sampler2DArray u_matNormal;  // MAT_COUNT layers — micro detail-normal (.rg)
+uniform float u_detailGain;            // 0 strategic → 1 close (the legibility firewall)
+uniform float u_tileMeters;            // world meters one material tile spans (≈8)
 uniform float u_worldSize;      // 2560.0
 uniform float u_minElev;
 uniform float u_elevRange;
@@ -113,6 +121,11 @@ uniform vec3  u_fogColor;
 out vec4 o;
 
 const vec3 NW_KEY = vec3(-0.6726, -0.7583, 0.6850);  // normalize(-0.55,-0.62,0.56) — the form-light key
+// Land class (0..25) → material group (must mirror MAT_SLOT in material-atlas.ts)
+const int MAT_SLOT[26] = int[26](4,4,7,3,3,5,2,1,1,1,2,0,0,0,0,5,5,5,7,7,7,6,5,7,7,4);
+// per-group rake (detail-normal) + albedo-detail strength (ROCK..GRAVEL)
+const float MAT_NRM[8] = float[8](1.0, 0.5, 0.9, 0.7, 0.35, 0.4, 0.7, 0.6);
+const float MAT_ALB[8] = float[8](0.9, 0.7, 0.85, 0.7, 0.5, 0.5, 0.8, 0.75);
 
 void main() {
   vec2 uv = v_world / u_worldSize;
@@ -122,6 +135,30 @@ void main() {
   vec3  albedo = degamma(texture(u_albedo, uv).rgb);      // → linear
   float vis    = texture(u_shadow, uv).r;                 // cast-shadow visibility (1 lit)
   float sunUp  = smoothstep(0.0, 0.07, u_sunDir.z);        // fade direct light through ~0-4° altitude
+
+  // ── material recomposition (C4): the surface becomes a photograph, not a painted bitmap ──
+  // The detail fades in with zoom (u_detailGain→0 at strategic ⇒ byte-faithful relief; the band
+  // attempt-1 got right is provably preserved). The low sun rakes micro detail-normals so close
+  // ground resolves into scree grains / furrows / canopy lobes — luminance only, palette intact.
+  if (u_detailGain > 0.001) {
+    ivec2 cell = ivec2(clamp(v_world / u_cell, vec2(0.0), vec2(u_grid - 1.0)));
+    uint lid = texelFetch(u_landId, cell, 0).r;
+    int slot = MAT_SLOT[int(min(lid, 25u))];
+    float slope2 = texture(u_control, uv).r;             // slope/2 (0..1); >0.5 ⇒ slope>1.0 (steep)
+    if ((slot == 1 || slot == 3) && slope2 > 0.5) slot = 0;   // grass/crop on a steep face → talus rock
+    vec2 mu = v_world / u_tileMeters;                    // world-scale; REPEAT layer = seamless tile
+    vec2 mu2 = mu * 3.17 + vec2(0.37, 0.71);             // 2nd octave so the tile never visibly repeats
+    vec3 dnA = texture(u_matNormal, vec3(fract(mu),  float(slot))).xyz;
+    vec3 dnB = texture(u_matNormal, vec3(fract(mu2), float(slot))).xyz;
+    vec2 dN  = (dnA.xy + dnB.xy) - 1.0;                  // decode two averaged (·*0.5+0.5) taps
+    float la = texture(u_matAlbedo, vec3(fract(mu),  float(slot))).r;
+    float lb = texture(u_matAlbedo, vec3(fract(mu2), float(slot))).r;
+    float lum = la + lb;                                 // two ~0.5-neutral taps → ~1.0 neutral
+    // rake harder when the sun is low (long facet shadows), softer at noon so micro ≠ macro never fights
+    float rake = u_detailGain * (0.6 + 0.4 * smoothstep(0.0, 0.45, length(u_sunDir.xy)));
+    n = normalize(n + vec3(dN * MAT_NRM[slot] * rake, 0.0));
+    albedo *= clamp(mix(1.0, lum, u_detailGain * MAT_ALB[slot]), 0.45, 1.7); // bold tooth, never crush to black
+  }
 
   // diffuse key: live sun, with a fraction of the fixed NW key blended in so a high noon sun
   // (due south on a north-up map → flat, shadowless relief) still rakes the slopes (legibility).
