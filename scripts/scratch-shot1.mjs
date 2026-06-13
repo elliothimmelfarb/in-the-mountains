@@ -10,6 +10,7 @@ const PPM = Number(process.argv[4] ?? 4.6);
 const AT = process.argv[5] || "cop";
 const WX = process.argv[6] || "clear";
 const WEBGL = process.argv.includes("--webgl");
+const DSF = process.argv.includes("--dpr2") ? "2" : "1"; // --dpr2 catches HiDPI canvas-sizing bugs the dpr=1 default hides
 const PORT = 9341;
 const CHROME = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -17,7 +18,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const chrome = spawn(CHROME, [
   "--headless=new", ...(WEBGL ? ["--use-angle=swiftshader"] : []),
   "--no-first-run", "--no-default-browser-check", "--hide-scrollbars",
-  "--force-device-scale-factor=1", `--remote-debugging-port=${PORT}`,
+  `--force-device-scale-factor=${DSF}`, `--remote-debugging-port=${PORT}`,
   "--user-data-dir=/tmp/itm-shot1-profile", "--window-size=1440,900", "http://localhost:3000",
 ], { stdio: "ignore" });
 
