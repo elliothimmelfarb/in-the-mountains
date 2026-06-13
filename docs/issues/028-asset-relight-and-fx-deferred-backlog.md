@@ -1,6 +1,8 @@
 # 028 · Asset relight + FX particles — the deferred backlog (WebGL terrain 10x, attempt #2)
 
-**Status:** 🟡 OPEN / DEFERRED backlog — a deliberate scope cut from the 2026-06-13 WebGL
+**Status:** 🟡 OPEN / PARTIAL (2026-06-13) — lighting coherence (live-sun form-light) + grounding
+(contact-AO) shipped in CPU Canvas-2D; the full GBuffer relight, HESCO berm, and FX particles remain
+open. See the Resolution at the bottom. Originally a deliberate scope cut from the 2026-06-13 WebGL
 terrain overhaul. The design fan-out scoped these as a **separate asset campaign** to run
 *after* the terrain spine shipped (the contract's last phase + the cuts list). They were
 designed against HEAD, not built this session.
@@ -79,3 +81,63 @@ not catch the live sun with real form.
 - Movement dust + drifting smoke key off the master clock / wind (freeze on pause; no strobe at
   time-warp).
 - 2D-fallback parity holds (the `ok` branch); tsc/build/lint/smoke/balance green.
+
+## Resolution (2026-06-13) — PARTIAL: lighting coherence + grounding banked; full GBuffer NOT built
+
+The owner asked for the sprite layer to "match the terrain's level." We took the **low-risk,
+high-payoff** path the contract recommended and **explicitly did NOT gamble on the deferred
+GBuffer pass** — instead banking the two wins that closed most of the flat-sticker seam in CPU
+Canvas-2D, then stopping with budget intact rather than risking the puffed-pillow rebuild.
+
+**What shipped (all in the one-writer files: `sprites.ts`, `draw.ts`, `decoration.ts`,
+`WorldView.tsx`):**
+
+1. **Per-sprite live-sun FORM-LIGHT (the coherence win).** New `spriteLightFrom(SkyState)` →
+   `SpriteLight`, computed ONCE per frame from the single SkyState and threaded into every
+   world-sprite blit. `drawWorldSprite` now composites ONE `source-atop` directional gradient over
+   the sprite's own pixels: a warm highlight on the sun-facing edge → neutral mid → a cool sky-bounce
+   shade on the sun-away edge. Strength keys off `sunIntensity` × a low-sun *rake* term (hard raking
+   side-light at golden hour/dusk, near-flat at noon, **zero at night** — the pass is skipped when the
+   sun is down, so the night life-signs read unchanged). So a COP building now catches the SAME live
+   sun the GL terrain does. **~1 extra fill per sprite; no re-bake, no GL.**
+   - **Load-bearing correctness HONORED:** the gradient axis is the sun's screen-projected world
+     direction; for a rotating sprite (vehicle/helo) the blit counter-rotates the axis by `-heading`
+     so the lit side stays WORLD-anchored. Verified to machine precision by a turntable probe
+     (8 headings, max err 1e-16 — "lit side does NOT spin with heading"). Figures go through
+     `drawScreenSprite` and are deliberately left UNTINTED (legibility law — they sit below the grade
+     seam as ink/light).
+
+2. **Contact-AO grounding.** New sun-independent `drawContactAO` (a soft squashed dark pool hugging
+   the base) under every COP building, fighting position, tower, parked vehicle, helo, and qalat — and
+   a lighter inline pool under each figure/casualty in `drawUnit`. This is what keeps objects planted
+   at **high noon** when the long directional `drawSunShadow` collapses to nothing. Structure-AO is
+   gated on `env.light`/`sprLight` (undefined on the 2D fallback → skipped, so 2D parity holds).
+
+**Verified visually (real GPU, `scratch-shot1.mjs`, close-zoom COP @ 4.6 ppm):** dawn 6.5h (sun E,
+buildings lit on the east edge, cast shadows sweep W), noon 12h (flat form-light + AO grounding),
+golden 17–18h + dusk 18.6h (warm/orange raking edge-light, cool shade, grounded), night 22h
+(form-light faded, life-signs intact). Before/after at matched 18.6h shows the COP go from flat
+floating decals to grounded objects sitting in the valley's light. SwiftShader parity confirmed.
+Faction rings + name plates stay crisp at every frame (legibility contract intact).
+
+**Standing gates:** `tsc --noEmit` clean · `npm run build` clean · `scripts/smoke.ts` → SMOKE OK
+(asset manifest builds) · `eslint` adds **0 new errors** (the 2 pre-existing WorldView errors —
+`performance.now` purity @ 771, exhaustive-deps — are from commit `5b2d1d1`, untouched by this work).
+
+**Residuals / deliberately NOT done (still OPEN for a future taking-up):**
+- **Full GBuffer deferred-light pass (item 1) — not built.** The CPU form-light is a soft *overlay*,
+  not true per-pixel normal relight. It reads convincingly but it is a screen-space gradient, not
+  volume from a normal map. The GBuffer pass remains the way to get real per-pixel form.
+- **ART_BIBLE §1 baked-light double-light tail — accepted, NOT resolved.** The 164 SVG albedos still
+  bake their own NW light + SE drop-shadow; the live form-light is a second light on top. Verified
+  benign at the worst case (morning, sun in the east vs the baked SE shadow) — the soft overlay
+  dominates the read — but the contradiction is not *resolved*. Stripping the baked light is the
+  mutually-exclusive bigger commitment the 2D fallback depends on; not taken.
+- **Continuous-extruded HESCO berm (item 2) — not done.** The wall is still a dotted gabion
+  necklace; it now sits in the live light + is grounded, but it is not one continuous mitered berm.
+- **FX particles (item 3) — not done** (movement dust, volumetric drifting smoke).
+- **Hero-asset re-authoring — assessed, judged unnecessary for now.** Rendered the B-hut / barracks /
+  qalat-large SVGs: they are already isometric with pitched roofs, wall shading, doors, sandbags —
+  NOT crude stickers. The "flat sticker" complaint was overwhelmingly a *lighting-coherence* problem
+  (now fixed), not an art-detail problem, so re-authoring was de-prioritised in favour of banking the
+  coherence win cleanly. The continuous HESCO berm (item 2) is the highest-payoff single asset left.
