@@ -70,7 +70,7 @@ function isClearanceBlocker(land: Land): boolean {
 
 interface DecoItem { x: number; y: number; id: string; scale: number; rot: number; }
 
-export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera): void {
+export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, fogAt?: (wx: number, wy: number) => number): void {
   const alpha = lodAlpha(cam.ppm, 0.9, 1.8);
   if (alpha <= 0.02) return;
   if (!hasSprite("tree-cedar") && !hasSprite("boulder")) return;
@@ -124,6 +124,11 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, 
   const n = Math.min(items.length, CAP);
   for (let i = 0; i < n; i++) {
     const it = items[i];
-    drawWorldSprite(ctx, cam, it.id, it.x, it.y, { alpha, scale: it.scale, rot: it.rot });
+    // fade trees/rocks that sit in the valley fog so they recede with the terrain (parity with
+    // the GL fog) instead of poking through it. fogAt returns 0 when there's no fog (cheap).
+    const fog = fogAt ? fogAt(it.x, it.y) : 0;
+    const a = fog > 0.001 ? alpha * (1 - 0.85 * fog) : alpha;
+    if (a <= 0.02) continue;
+    drawWorldSprite(ctx, cam, it.id, it.x, it.y, { alpha: a, scale: it.scale, rot: it.rot });
   }
 }

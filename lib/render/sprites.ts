@@ -139,6 +139,47 @@ export function drawWorldSprite(
   return true;
 }
 
+/**
+ * Sun-tracked CAST shadow for a tall world object: a soft dark ellipse projecting from the
+ * object's base toward the anti-sun direction, length scaling with object height / sun
+ * lowness. This is the long cast shadow that sweeps with the clock (distinct from, and
+ * complementary to, the tight contact shadow baked into the sprite art — a real object has
+ * both). Draw it BEFORE the sprite. `sh` is SkyState.spriteShadow (dir + lengthPerM + alpha).
+ */
+export function drawSunShadow(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  wx: number,
+  wy: number,
+  heightM: number,
+  footprintM: number,
+  sh: { dx: number; dy: number; lengthPerM: number; alpha: number },
+): void {
+  if (sh.alpha < 0.02) return;
+  const lenM = heightM * sh.lengthPerM;
+  if (lenM < 0.5) return;
+  const [sx, sy] = worldToScreen(cam, wx, wy);
+  const lenPx = lenM * cam.ppm;
+  const widPx = Math.max(3, footprintM * 0.85 * cam.ppm); // shadow as wide as the object's footprint
+  const ang = Math.atan2(sh.dy, sh.dx);
+  // a near-vertical sun makes a tiny shadow; don't bother below a couple of screen px
+  if (lenPx < 3) return;
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(ang);
+  // soft cast shadow that starts full under the base and tapers out toward the tip
+  const grad = ctx.createLinearGradient(0, 0, lenPx + widPx * 0.5, 0);
+  grad.addColorStop(0, `rgba(18,14,10,${Math.min(0.5, sh.alpha * 1.6)})`);
+  grad.addColorStop(0.6, `rgba(18,14,10,${sh.alpha})`);
+  grad.addColorStop(1, "rgba(18,14,10,0)");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  // origin lobe (footprint) + an elongated lobe stretching down-sun
+  ctx.ellipse(lenPx * 0.5, 0, lenPx * 0.5 + widPx * 0.5, widPx * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 /** Blit a SCREEN sprite: fixed pixel width, anchored, optional rotation. */
 export function drawScreenSprite(
   ctx: CanvasRenderingContext2D,

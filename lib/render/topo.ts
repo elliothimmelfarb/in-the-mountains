@@ -108,6 +108,7 @@ interface Baked {
 }
 
 const cache = new WeakMap<Terrain, Baked>();
+const albedoCache = new WeakMap<Terrain, Baked>();
 
 /**
  * Set up a relief bake and return a row-band processor + a finisher. The whole 4096² sheet
@@ -117,7 +118,12 @@ const cache = new WeakMap<Terrain, Baked>();
  * draw) and the async `bakeTerrainProgressive` (banded + yielding, so the loading screen's
  * progress bar can fill smoothly through the bake instead of freezing).
  */
-function makeBake(terrain: Terrain) {
+function makeBake(terrain: Terrain, lit = true) {
+  // `lit=false` produces the UNLIT ALBEDO for the WebGL path: identical material color
+  // (landColor + dithered class edges + per-class `tex` + snow + cliff slate + saturation
+  // lift) but WITHOUT the relief shade, the altitude warm/cool grade, or the haze — those
+  // three become LIVE in the GL shader (lit by the real clock sun). Forcing the shader's
+  // old NW key over this albedo must reproduce the lit bake exactly (the C3 calibration gate).
   // Native bake density. The elevation field is bilinear-continuous, so MORE pixels
   // per cell = smoother shaded relief deep into zoom (not 5 m stairsteps). Bumped from
   // 3000/size to 4500/size (→ 8 px/cell on the 512 grid, a 4096² sheet) so the relief
@@ -290,23 +296,33 @@ function makeBake(terrain: Terrain) {
         r = r * (1 - c * 0.5) + 94 * c * 0.5;
         g = g * (1 - c * 0.5) + 100 * c * 0.5;
         b = b * (1 - c * 0.5) + 112 * c * 0.5;
-        shade *= 1 - c * 0.32; // the wall falls into its own shadow
+        if (lit) shade *= 1 - c * 0.32; // the wall falls into its own shadow (lighting → shader)
       }
 
-      // ---- compose: texture × relief (high contrast), then atmospheric grading ----
-      const sh = (0.34 + 0.95 * shade) * tex;
-      // altitude grading: low ground warm, high ground cool & clear
-      const warm = 1 - alt * 0.08;
-      const cool = 1 + alt * 0.13;
-      let R = r * sh * warm;
-      let G = g * sh;
-      let B = b * sh * cool;
-      // light valley haze: just enough atmospheric depth in the deepest ground without
-      // graying out the mid-tones.
-      const haze = clamp01(0.1 - alt * 0.16) * (land === Land.River ? 0.3 : 1);
-      R = R * (1 - haze) + 164 * haze;
-      G = G * (1 - haze) + 170 * haze;
-      B = B * (1 - haze) + 166 * haze;
+      let R: number, G: number, B: number;
+      if (lit) {
+        // ---- compose: texture × relief (high contrast), then atmospheric grading ----
+        const sh = (0.34 + 0.95 * shade) * tex;
+        // altitude grading: low ground warm, high ground cool & clear
+        const warm = 1 - alt * 0.08;
+        const cool = 1 + alt * 0.13;
+        R = r * sh * warm;
+        G = g * sh;
+        B = b * sh * cool;
+        // light valley haze: just enough atmospheric depth in the deepest ground without
+        // graying out the mid-tones.
+        const haze = clamp01(0.1 - alt * 0.16) * (land === Land.River ? 0.3 : 1);
+        R = R * (1 - haze) + 164 * haze;
+        G = G * (1 - haze) + 170 * haze;
+        B = B * (1 - haze) + 166 * haze;
+      } else {
+        // ---- UNLIT ALBEDO: material color × texture only. The GL shader applies the relief
+        //      shade (live sun), the altitude warm/cool, and the haze that the lit branch
+        //      bakes above — so they sweep with the clock instead of being frozen NW noon. ----
+        R = r * tex;
+        G = g * tex;
+        B = b * tex;
+      }
 
       const o = (py * W + px) * 4;
       data[o] = R < 0 ? 0 : R > 255 ? 255 : R;
@@ -317,22 +333,33 @@ function makeBake(terrain: Terrain) {
   }
   }; // end processRows
 
-  // Blit the shaded ImageData onto the canvas, cache it, and return the Baked sheet.
+  // Blit the shaded ImageData onto the canvas, cache it (lit → cache, albedo → albedoCache),
+  // and return the Baked sheet.
   const finish = (): Baked => {
     ctx.putImageData(img, 0, 0);
     const baked: Baked = { canvas, pxPerCell };
-    cache.set(terrain, baked);
+    (lit ? cache : albedoCache).set(terrain, baked);
     return baked;
   };
 
   return { W, processRows, finish };
 }
 
-/** One-shot synchronous relief bake — used by the lazy live draw path (drawTerrain). */
+/** One-shot synchronous relief bake — used by the lazy live draw path (drawTerrain) and the
+ *  2D fallback. `lit=false` yields the unlit albedo for the WebGL path (own cache). */
 export function bakeTerrain(terrain: Terrain): Baked {
   const cached = cache.get(terrain);
   if (cached) return cached;
-  const bake = makeBake(terrain);
+  const bake = makeBake(terrain, true);
+  bake.processRows(0, bake.W);
+  return bake.finish();
+}
+
+/** One-shot synchronous UNLIT albedo bake — used by the WebGL underlayer (TerrainGL). */
+export function bakeAlbedo(terrain: Terrain): Baked {
+  const cached = albedoCache.get(terrain);
+  if (cached) return cached;
+  const bake = makeBake(terrain, false);
   bake.processRows(0, bake.W);
   return bake.finish();
 }
@@ -341,15 +368,17 @@ export function bakeTerrain(terrain: Terrain): Baked {
  * Progressive relief bake for the deploy loading screen: shade the sheet in row-bands,
  * reporting 0→1 and yielding a frame between bands so the progress bar fills smoothly and the
  * spinner keeps turning through the multi-second bake. Populates the SAME cache the live draw
- * reads, so the first deploy frame is a pure cache hit (no first-frame freeze).
+ * reads, so the first deploy frame is a pure cache hit (no first-frame freeze). `lit` picks
+ * the lit-relief bake (2D fallback) vs the unlit albedo (WebGL path).
  */
 export async function bakeTerrainProgressive(
   terrain: Terrain,
   onProgress?: (frac: number) => void,
+  lit = true,
 ): Promise<Baked> {
-  const cached = cache.get(terrain);
+  const cached = (lit ? cache : albedoCache).get(terrain);
   if (cached) { onProgress?.(1); return cached; }
-  const bake = makeBake(terrain);
+  const bake = makeBake(terrain, lit);
   const BANDS = 40; // ~40 bar updates across the bake — smooth without excessive rAF overhead
   const step = Math.max(1, Math.ceil(bake.W / BANDS));
   for (let py = 0; py < bake.W; py += step) {
@@ -549,7 +578,13 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
   ctx.restore();
 }
 
-export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
+/**
+ * Blit the baked relief bitmap + the high-zoom noise tooth. This is the ONLY part of the
+ * terrain draw the WebGL underlayer replaces: on the GL path the relief is rendered by the
+ * shader instead, and WorldView calls drawTerrainOverlays alone. On the 2D fallback path
+ * drawTerrain calls both, byte-identical to before the split.
+ */
+function drawTerrainBlit(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera) {
   const baked = bakeTerrain(terrain);
   const destScale = (cam.ppm * terrain.cellSize) / baked.pxPerCell;
   const [ox, oy] = worldToScreen(cam, 0, 0);
@@ -576,7 +611,15 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
       ctx.restore();
     }
   }
+}
 
+/**
+ * Everything the terrain draws ON TOP of the relief raster: crisp live vector contours, the
+ * scaled dirt-path network, and the night/low-light wash. These stay on the 2D canvas in
+ * BOTH paths (GL underlayer + 2D fallback) — they're sharp vectors that must never be baked
+ * into a bitmap, and the night wash sits over contours/paths but under the tactical layer.
+ */
+export function drawTerrainOverlays(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
   // crisp vector contours, redrawn live every frame (never blur on zoom)
   drawContoursLive(ctx, terrain, cam);
 
@@ -590,6 +633,11 @@ export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam
     ctx.fillRect(0, 0, cam.vw, cam.vh);
     ctx.restore();
   }
+}
+
+export function drawTerrain(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, night = 0) {
+  drawTerrainBlit(ctx, terrain, cam);
+  drawTerrainOverlays(ctx, terrain, cam, night);
 }
 
 // ---- WEATHER (atmospheric overlay, drawn over terrain + decoration, under units) ----

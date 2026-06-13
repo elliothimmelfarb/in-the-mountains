@@ -1,0 +1,185 @@
+{
+  "spine": "SPINE = photoreal-drone (surface RECOMPOSITION), with grafts. Unanimous across all four judge verdicts (8.5/8.5/7.5/9). The governing inversion of attempt-1: the albedo bake is DEMOTED from \"the image\" to ONE input of five — the fragment recomposes the surface per-fragment from the sim's own arrays. Everything reuses the proven skeleton; nothing redoes it.\n\nREUSE VERBATIM (do not touch the math): (1) lib/render/sky.ts — the verified solar model, SkyState, grade block, weather single-fold rule, spriteShadow. Extend LIGHT_KEYS/GRADE_KEYS tables only if richer color is wanted; keep geometry + contracts. (2) PRELUDE in gl/shaders.ts — bit-faithful heightAt (= Terrain.elevAt, NEAREST 512² R32F + manual 4-tap bilinear) and normalAt (forward-difference). This is the contour-registration contract; never re-derive it. (3) SHADOW_FRAG — the 56-step exponential-stride (5m·1.13^k) sun-visibility march into a 1024² R8 FBO, rebaked only on key-dir motion (>0.25°, 200ms rate-limit). The 480m fixed march was arithmetically REFUTED; do not re-roll it. (4) TerrainGL two-canvas integration — opaque WebGL2 under transparent Canvas-2D, DPR+shake sync, worldToScreen-inverse vertex, OES_texture_float_linear probe, context-loss handlers, alive 2D fallback at the `ok` branch. (5) atmosphere-model.ts floor-field fog (128² local-valley-floor min-field, diurnalFog ramp, advanceCloud integrator, fogVisAt parity).\n\nPIPELINE ORDER (the master tick already drives this via store.frame → SkyState/AtmoState uniforms; render is PURE w.r.t. clock/weather/seed): per terrain load — CPU worker bakes [flat-linear albedo atlas-blend-ready landColor bake | u_landId R8UI | u_control RGBA8 (slope, conceal, cover, free) | flow-field RG8 + river-mask R8 | local-floor 128² | HBAO 512² R8 via the omnidirectional shadow-march]. Per sun-motion — rebake the R8 sun-visibility map (existing throttle). Per frame — PASS A: render terrain+water into an RGBA16F HDR target (probe-and-branch to RGBA8-direct; RGBA16F VERIFIED renderable on --use-angle=swiftshader, see cuts) doing in LINEAR space: surface recomposition (atlas albedo demoted to one input) → detail-normal raking → physical lighting (sun·shadow + hemisphere·HBAO + moon) → specular water → snow/wetness surface-state → single-scatter aerial perspective → in-fog god-ray in-scatter. PASS B (HDR-only, GL canvas only): half-res bright-pass (luma>1.0 knee) + 2-tap separable bloom. PASS C: composite bloom, ACES (Narkowicz) tonemap, sky.grade WB/sat/lift, Bayer dither → sRGB to the visible canvas. The 2D canvas (contours/units/reticles/HUD) sits ABOVE, ungraded, untouched — the legibility firewall is architectural.\n\nMATERIAL/LIGHTING MODEL (one spec): all lighting in LINEAR radiance (atlas albedos de-gamma'd once on bake). L = albedo·(sunColor·sunI·NdotL·shadowVis·cloudVis·sunUp + hemisphere·HBAO + moonColor·moonFactor·NdotMoon·moonVis) + specular(roughness). hemisphere = mix(groundColor, skyColor, 0.5+0.5·N.z)·skyI·HBAO (HBAO multiplies AMBIENT only, never direct). N = perturb(macroNormal, detailNormal·detailStrength) where detailStrength = perMaterial · clamp((ppm-0.5)/1.5) · (sun rake-angle factor). The formLightNW noon guard (max(keySun,keyNW) blended at 0.32, shaders.ts:138-142) is kept verbatim AND the detail-normal micro-light is slaved to the SAME key direction the guard picks at noon (resolves the noon micro/macro-disagreement trap). Then aerial perspective, then HDR bloom/ACES/grade. Single audited u_detailGain uniform (ppm-gated, →0 at strategic) multiplies EVERY added high-frequency effect (detail-normals, atlas 2nd octave, specular, bloom, procedural canopy/furrow) so strategic collapses to the byte-faithful relief+albedo of today, calibrated to attempt-1's noon-clear mid-gray luma as a NUMERIC gate.\n\nGRAFTS onto the spine: living-valley's flow-advected river (RG8 flow field from centerXAt gradient + R8 bank-distance mask, two-octave Vlachos flowmap) + whitewater foam-at-fords (the rare both-masters effect — beauty AND crossing legibility) is the WATER marquee, preferred over photoreal's own specular-water section. cinematic-film's in-fog god-rays (technique 5a ONLY — in-scatter spiking along lit columns sampled from the existing R8 shadow map) + single-scatter aerial perspective (vertical-column extinction keyed to the SACRED visibilityM) are the ATMOSPHERE grafts. asset-fidelity's instanced deferred sprite pass (world-frame normal rotation) + continuous-HESCO-berm + contact-AO grounding is a SEPARATE LATER asset campaign after the terrain spine ships (so the resolving ground does not out-resolve flat-sticker buildings).",
+  "subsystems": [
+    {
+      "name": "data-spine (material-ID + control + surface-state textures)",
+      "spec": "Three uploads beside the existing 512² R32F height, all NEAREST/texelFetch, ~0.8MB total, baked in the existing terrain worker. (a) u_landId: 512² R8UI via gl.texImage2D(R8UI, RED_INTEGER, UNSIGNED_BYTE, terrain.land). Read with `precision highp usampler2D; texelFetch(u_landId, ivec2(w/cell), 0).r`. PROBED CLEAN on --use-angle=swiftshader (R8UI 512² upload = 0 GL errors, usampler2D+texelFetch compiles/links). Dissolve the 5m stairstep at class edges with a 2x2 jittered-nearest sample (port topo.ts dither into GLSL). (b) u_control: 512² RGBA8 LINEAR packing R=slope/2 clamped, G=conceal (canopy density, terrain.conceal), B=cover (terrain.cover), A=free. (c) u_surfaceState: 256² RGBA8 LINEAR, R=snowDepth, G=wetness, B=trackDust, A=spare — CPU rebakes on weather/clock change. This is the render↔sim contract: render READS terrain arrays, never writes. UNIT TEST (mirrors heightAt parity): texelFetch(u_landId,cell)==terrain.land[i] for 64 sample cells, asserted in a scratch harness. Land→material-group LUT is a const int[26] in-shader mapping the 26-class enum to ~12 material slots.",
+      "sourceProposals": [
+        "photoreal-drone: Material-ID + control textures (the data spine)"
+      ],
+      "cost": "upload 1-2ms on terrain load only; per-frame sampling folds into the material pass. SwiftShader: negligible (NEAREST texelFetch)."
+    },
+    {
+      "name": "terrain-materials (per-landcover PBR atlas + detail-normal raking)",
+      "spec": "THE centerpiece — the single highest-payoff-per-ms technique in the whole corpus (judge-unanimous). One 1024² RGBA8 albedo atlas + one RG8 detail-normal atlas (z reconstructed) + roughness packed in albedo.a, authored as ~12 tiles for the material GROUPS (rock/scree, grass/scrub, forest/orchard canopy, cropland/terrace furrow, riverbed gravel, mud/compound, hesco, snow, gravel, dry-wash). GENERATED DETERMINISTICALLY in the CPU worker at load from FBM+worley (reuse topo.ts hash2/vnoise/fbm2 verbatim for seed-faithful noise) — NO shipped PNGs, so the seed contract holds and there is no asset pipeline. COMMIT to the CPU-worker bake path (not offscreen GLSL) and assert a hash of the generated atlas in smoke.ts (the atlas is now part of the seed contract). Sample at WORLD scale: uv = v_world/tileMeters (tileMeters≈8m, 2nd octave at 2m mixed by ppm·u_detailGain so the tile never visibly repeats). Manual per-tile atlas addressing: clamp UV inside each padded tile gutter (NO hardware wrap across tiles) to kill seam bleed — this is the named shipping-bug; pad 4px gutters + clamp in shader math. Blend two neighboring materials across the jittered land edge. ALBEDO base is seeded from the SAME landColor() palette (topo.ts:23) byte-for-byte at strategic, so the atlas only ADDS high-frequency detail that fades in with u_detailGain — the strategic read is provably unchanged. Detail-normal raking: perturb macro normalAt by the atlas RG normal in a cheap world-up TBN (tangent +x, bitangent +y), rotated by the macro slope: n = normalize(macroN + detailStrength·vec3(dN.xy,0)). detailStrength = perMaterial(scree high, cropland furrows directional-along-contour, water excluded) · u_detailGain · (1 - sunFlatness). NOON RULE: as the sun flattens, detailStrength →0 AND the residual micro-light is driven from the SAME faked-NW key the formLightNW guard uses (so micro and macro shading never disagree). Cropland furrow amplitude capped + forbidden from aligning tightly with contours (so a furrow is not misread as a defilade/wall). FALLBACK behind a compile flag (pre-implemented, not described): single-channel detail-HEIGHT tap → derivative normals (1 tap), if the close-band SwiftShader budget is blown.",
+      "sourceProposals": [
+        "photoreal-drone: Per-landcover PBR material atlas",
+        "photoreal-drone: Detail-normal raking",
+        "photoreal-drone: Deterministic procedural decoration in-shader (canopy/furrow)",
+        "living-valley: procedural canopy material (graft the conceal-driven canopy lobe into the forest/orchard material slot)"
+      ],
+      "cost": "3-6ms on SwiftShader at CLOSE band (2-3 atlas taps + 1-2 normal taps) — MUST be measured at close band before Phase 3 is called done; folds to <1ms at operational/strategic via u_detailGain. iGPU <1ms."
+    },
+    {
+      "name": "lighting (physical sun+sky+moon, linear space)",
+      "spec": "Replaces the scalar `0.34+0.95·shade` hack. Work in LINEAR radiance. L = albedo·(sunColor·sunI·NdotL·vis·cloudVis·sunUp + hemisphere + moonColor·moonFactor·NdotMoon·moonVis·moonUp) + spec. hemisphere = mix(groundColor, skyColor, 0.5+0.5·n.z)·skyI·HBAO. All driven VERBATIM by SkyState uniforms (sunDir/sunColor/sunIntensity/skyColor/groundColor/skyIntensity/moonDir/moonColor/moonFactor) already wired in terrain-gl.ts. Keep the formLightNW guard (max(keySun,keyNW)·0.32) as the noon anti-inversion guard ONLY. Clamp the hemisphere/ambient floor so shadowed faces never drop below ~0.45× lit luma (sky.ts shadowStrength already specs this) — proven at dusk/night so ACES toe never crushes the tactical read below the legibility floor. CALIBRATION GATE: a one-time numeric pass matches mid-gray luma at noon-clear to attempt-1's recovered frame (a NUMBER, not a vibe), held across every later phase; relief must NOT invert at noon at any of the 4 bands.",
+      "sourceProposals": [
+        "photoreal-drone: Physical sun+sky+moon lighting in linear space",
+        "cinematic-film: Recomputed PBR-ish relief lighting"
+      ],
+      "cost": "~1ms, pure ALU. SwiftShader fine."
+    },
+    {
+      "name": "AO (baked horizon-angle HBAO)",
+      "spec": "Bake a 512² R8 AO field ONCE in the terrain worker (hidden behind the deploy loading bar): for each cell march the heightmap in 16 azimuths a few exponential steps each, AO = 1 - average(sin(maxHorizonAngle)). REUSES the exact exponential-stride march already written for SHADOW_FRAG, just omnidirectional + sun-independent. Judge arithmetic VERIFIED: 512²×16 azimuths ≈ 1.3e8 heightAt fetches ≈ 0.6× of ONE existing 1024² shadow rebake — a real, near-free load cost. Sampled LINEAR in the main pass, multiplies the AMBIENT term ONLY (never direct), so shadows+AO compound correctly. This is the ONE added effect that makes terrain MORE legible — contact darkening in draw bottoms, cliff bases, terrace insides, building footprints, where the dead ground is. Replaces the fake `0.5+0.5·n.z` AO term.",
+      "sourceProposals": [
+        "photoreal-drone: Baked horizon-angle ambient occlusion (HBAO-lite)"
+      ],
+      "cost": "bake ~40-80ms once on load; per-frame = one texture tap. Zero risk."
+    },
+    {
+      "name": "cast-shadows (penumbra refine)",
+      "spec": "Keep SHADOW_FRAG's 56-step march + the rebake-on-sun-motion FBO VERBATIM (the multi-km dawn ridge shadow is the marquee macro element). Refine ONLY the output: widen the final smoothstep penumbra ∝ distance-to-occluder (a far ridge casts a soft edge, a near boulder a sharp one), 3-tap PCF on the R8 vis map scaled by ppm in the main pass. Determinism preserved (output is sun-angle-determined; the wall-clock rate-limiter only throttles).",
+      "sourceProposals": [
+        "photoreal-drone: Refined cast-shadow penumbra + contact hardening"
+      ],
+      "cost": "rebake unchanged (few Hz, not per-frame); 3-tap PCF in main pass ~0.3ms."
+    },
+    {
+      "name": "water (flow-advected river + ford foam)",
+      "spec": "WATER marquee. CPU-bake once (deterministic, cached on Terrain): a 512² RG8 flow field = unit downstream direction per river cell derived from d(centerXAt(y))/dy + channel gradient, plus an R8 river mask (0 dry, distance-to-bank ramp for shoreline). Gate the water branch by texelFetch(u_landId) ∈ {River=0, Marsh=1, Ford=25, Footbridge=20-adjacent} — early-out keeps cost to ~2-4% of pixels. Sample TWO scrolling octaves of a tiling curl-of-noise normal map offset by flowDir·(world.secondsOfDay·speed) at two scales/phases, blend Vlachos-style (no visible tiling/pulse). Build water normal; fresnel = pow(1-dot(N,up),5) → mix(depthTintedBody, skyColor, fresnel) where body lerps shallow gravel-teal→deep slate by bank distance; Blinn/GGX sun-tracked glint toward sky.sunDir (the dawn glint, exceeds 1.0 → feeds bloom). FOAM: intensity = max(slopeBreak along channel, fordMask dilated 1 cell, rockProximity); animate with a sawtooth birth→fade phase scrolled along the flow field (advection illusion); composite additive near-#f3ecd6 (never pure white, ART_BIBLE). Foam is the rare both-masters effect — it makes the SOP crossing MORE obvious. ALL phase keyed to world.secondsOfDay (freezes on pause, time-warp speeds the current; NO wall clock). HARD-CLAMP glint+foam so no bright highlight ever lands washing a route/ford read; ortho fixed-view-vector means the glint shimmers via the animated normal field, not parallax.",
+      "sourceProposals": [
+        "living-valley: Flow-advected animated river surface",
+        "living-valley: Whitewater foam at fords",
+        "living-valley: River sun-glint sparkle & shoreline wet-darkening",
+        "photoreal-drone: Real specular water (glint/fresnel math reference)"
+      ],
+      "cost": "~1.0-1.8ms on SwiftShader but masked early-out to river fragments; iGPU <0.3ms. Two 8-bit textures cache-resident."
+    },
+    {
+      "name": "atmosphere-fog (single-scatter aerial perspective + in-fog god-rays)",
+      "spec": "Replaces attempt-1's flat altitude-haze mix() and upgrades the floor-field fog to light transport. AERIAL PERSPECTIVE (folds into relief pass, ~0.3ms): orthographic vertical-column approximation — opticalDepth = exp(-(fragElev-minElev)/H_scale)·columnLen (H_scale≈600m); transmittance=exp(-beta·opticalDepth); inscatter = mix(skyColor, sunColor, forwardScatterLobe(sunDir.z))·(1-transmittance); col = col·transmittance + inscatter. beta keyed to the SACRED visibilityM (600-4000 → extinction) so it can NEVER exceed what weather declares. VALLEY FOG: reuse the 128² local-floor min-field; fog top = localFloor + diurnalFog(hour) + weather fogBoost (atmosphere-model.ts verbatim). Upgrade from mix() to a SHORT 4-8 step raymarch (step count LOD'd: 2 strategic → 6-8 close, hard early-out `if(fragElev>fogTop) skip`) accumulating Beer-Lambert transmittance + per-step in-scatter = density·(sunColor·sunI·sampleCastShadow(p) + skyColor·skyI). IN-FOG GOD-RAYS (technique 5a ONLY): the per-step cast-shadow sample makes in-scatter SPIKE along lit columns and stay dark under the ridge — geometrically TRUE shafts from the existing resident R8 shadow map, near-free, no extra pass. COMPOUND-VEIL FLOOR GATE (non-negotiable): aerial-perspective inscatter + fog inscatter + bloom must SUM below a numeric luma floor measured against the recovered fog-dawn-operational.png in the river draw — one combined gate, not three independent caps. Single-fold weather rule preserved (exposure carries weatherLightMult once).",
+      "sourceProposals": [
+        "cinematic-film: Single-scattering aerial perspective",
+        "cinematic-film: Raymarched valley fog volume with in-scatter",
+        "cinematic-film: Volumetric god-rays (technique 5a in-fog only — 5b CUT)",
+        "photoreal-drone: aerial perspective / haze upgrade"
+      ],
+      "cost": "aerial ~0.3ms; fog raymarch ~0.9ms WHEN fog present (early-out = 0ms clear days). The dawn-fog frame is the worst case — must be in the summed worst-frame budget."
+    },
+    {
+      "name": "post-tonemap-bloom (HDR + ACES + bloom + dither)",
+      "spec": "PROBE-AND-BRANCH at init: RGBA16F render target is VERIFIED renderable on --use-angle=swiftshader (rgba16f_renderable=true, EXT_color_buffer_float=true, OES_texture_float_linear=true, confirmed by /tmp probe this session) — so the DEFAULT path is a real half-float HDR intermediate. Keep an RGBA8 packed-exposure fallback at the same branch as the 2D fallback (only triggers if a future driver lacks it; --disable-gpu alone returns NOGL → 2D fallback). PASS B bloom: bright-pass (luma>1.0 soft knee) into a half-res RGBA16F, separable Gaussian (2 passes × ~9 taps at half then quarter res), add back BEFORE tonemap so ACES rolls the bloomed highlights naturally. Bloom is GL-canvas only (HUD/units on the 2D layer are immune by construction) and threshold-high so only true highlights (dawn glint, snow crest) bloom — verify the strategic relief read survives bloom at golden hour. PASS C: ACES-fitted Narkowicz tonemap ((x·(2.51x+0.03))/(x·(2.43x+0.59)+0.14)), then sky.grade WB·exposure·sat·lift (reuse the existing grade() GLSL verbatim, exposure single-folded), then ordered Bayer 8×8 dither to kill 8-bit banding in sky-ambient gradients, then linear→sRGB. NO chromatic aberration, NO vignette above operational (cut — they degrade the corner terrain read). Bloom is the FIRST thing gated off under a measured frame-budget trigger.",
+      "sourceProposals": [
+        "photoreal-drone: ACES filmic tonemap + threshold bloom + dither",
+        "cinematic-film: Linear-HDR pipeline + ACES tonemap",
+        "cinematic-film: Threshold bloom",
+        "living-valley: Filmic tonemap + bloom + AO post"
+      ],
+      "cost": "tonemap+dither ~0.2ms; bloom ~2-3ms on SwiftShader (1 half-res bright-pass + 2 blur passes). Bloom is the budget-cut candidate."
+    },
+    {
+      "name": "surface-state (snow accumulation/melt + wet-ground + track dust)",
+      "spec": "Physical surface state integrated from clock+weather into u_surfaceState (256² RGBA8). SNOW (R): coverage = smoothstep(snowLine, +band, elev)·(1-slope·k)·aspectBias(pole-facing n.y<0)·(1-conceal·0.6); snowDepth ACCUMULATES over game-hours under weather.Snow and MELTS on warm/low ground — slow campaign-scale, never a strobe. CRITICAL legibility cap: snow albedo on skyline/LOS-relevant ridge cells is capped below a threshold that would wash the crest silhouette the player ranges off, and the cold-ambient bounce must NEVER raise a shadowed crest face above its lit face (no relief inversion). WET (G): after Rain, albedo·=mix(1,0.7,wet), roughness·=(1-0.6·wet) (broad low-sun sheen), wetness pools toward low ground (reuse localFloor) and dries over hours; HARD-clamp the wet spec so no sheen washes a road/trail at any sun angle, gated by sunIntensity (self-limits under overcast when it is actually wet). DUST (B): Road/Track fragments lighten/desaturate in dry spells. DETERMINISM: u_surfaceState is a PURE function of (clock, weather, seed) recomputed on load — the clean determinism story (no new persisted floats needed). IF persisted for save-resume, the snow/wetness accumulators MUST land in BOTH serialize() AND loadWorld() with a smoke.ts round-trip assert (the named invariant). Default: recompute, do not persist.",
+      "sourceProposals": [
+        "photoreal-drone: Altitude×aspect snow accumulation & melt",
+        "photoreal-drone: Wet-ground darkening + tracks dust",
+        "living-valley: Wetness accumulator + snow accumulation (framing/melt logic)"
+      ],
+      "cost": "~0.6ms total (mix + atlas tap shared with material pass)."
+    },
+    {
+      "name": "cloud-shadows (drift + soft penumbra)",
+      "spec": "Reuse atmoState cloudOffset (integrated from windVector by advanceCloud, clock-driven, freezes on pause — proven in attempt-1). Upgrade the procedural fbm2 cloud term to 3-octave for ragged edges + a low-freq coverage layer; penumbra smoothstep widens with assumed cloud altitude. Dims the DIRECT sun beam ONLY (never ambient) so shadowed ground stays lit by the hemisphere floor (legible). Per-weather density/strength already tabled in WX_ATMO. WARNING (legibility): a dense cloud shadow lying across a spur can read as a reentrant in a paused still — keep cloudStrength capped and the edge soft.",
+      "sourceProposals": [
+        "cinematic-film: Drifting cloud shadows with soft penumbra",
+        "photoreal-drone: cloud-shadow reuse"
+      ],
+      "cost": "~0.15ms (folds into relief pass)."
+    },
+    {
+      "name": "asset-relight (LATER, SEPARATE phase — deferred-lit sprites + HESCO berm)",
+      "spec": "DEFERRED to a separate asset campaign AFTER the terrain spine ships — but scoped now so the close band is not a resolving ground under flat-sticker buildings. Instanced WebGL2 deferred sprite pass lighting ALL world-dressing sprites in ONE draw (strictly cheaper than today's 164 CPU drawImage blits) from the SAME SkyState + the SAME formLightNW guard the terrain uses. LOAD-BEARING CORRECTNESS: rotate the tangent-space normal into WORLD frame in the fragment AFTER the sprite's heading rotation (rotate n.xy by rot) — else rotating soldiers/vehicles get lighting that spins with heading (the bug the art-director judge flagged at draw.ts:404/445). VERIFY with a 360° turntable probe of one soldier. HESCO: re-author the dotted-segment ring as ONE continuous extruded berm (instanced strip driven from cop layout geometry) with mitered corners + sandbag parapet + gate cut — highest single-asset payoff for ~0.2ms. CONTACT-AO: dark soft halo where any raised object meets the ground (seats objects IN the dirt). RESOLVE the ART_BIBLE §1 baked-NW-light contradiction explicitly: either strip baked directional light from the 164 SVG albedo sources, or accept the long tail double-lights — these are mutually exclusive. DE-RISK the SDF-extrude bake on 3-4 long-tail assets BEFORE committing the GBuffer pipeline (the 'puffed-pillow' failure mode); if mushy, hand-author only the high-pixel heroes (HESCO, B-hut, tower, MRAP, qalat, soldier, cedar) + lean on cast-shadow+contact-AO for the tail. 2D-fallback parity: the albedo channel IS the old flat sprite, single `ok` branch mirrors TerrainGL.ok.",
+      "sourceProposals": [
+        "asset-fidelity: Instanced deferred sprite-lighting pass",
+        "asset-fidelity: Per-sprite GBuffer atlas",
+        "asset-fidelity: HESCO continuous extruded berm",
+        "asset-fidelity: Sprite cast shadows + contact-AO grounding",
+        "cinematic-film: Screen-space sprite relight (CUT — replaced by the correct world-frame deferred pass)"
+      ],
+      "cost": "deferred pass ~0.6-1.2ms (cheaper than 164 blits); HESCO berm ~0.2ms; GBuffer atlas ~8MB upload (largest memory line — state it concretely against 8192 max-tex)."
+    }
+  ],
+  "phaseLadder": [
+    {
+      "what": "Re-establish the recovered skeleton green as the LIVING baseline. Restore sky.ts (present), gl/shaders.ts + gl/terrain-gl.ts (recover from git c55bf19 into lib/render/gl/), atmosphere-model.ts, and the two-canvas WorldView wiring — attempt-1's lit shader, parity look. Land the RGBA16F-vs-RGBA8 probe-and-branch + R8UI/RG8 upload smoke (all PROBED working this session). Capture the 4-band × 4-time × 6-weather matrix as the 'before' reference.",
+      "commit": "chore(render): restore recovered WebGL terrain skeleton + GL capability probe",
+      "gate": "tsc/build/lint/smoke/balance green; matrix identical to attempt-1; probe logs rgba16f_renderable=true on the headless --use-angle=swiftshader harness; R8UI/RG8 512² upload = 0 GL errors. Game playable + identical."
+    },
+    {
+      "what": "Linear lighting rebuild — terrain fragment lights in LINEAR space (sun·shadow + hemisphere + moon) from SkyState, ACES tonemap in a final pass into the RGBA16F target. NO new textures yet (albedo still the bake). Calibrate noon-clear mid-gray luma to attempt-1 NUMERICALLY (the one parity gate kept). Keep formLightNW verbatim.",
+      "commit": "feat(render): linear-space terrain lighting + ACES tonemap",
+      "gate": "matrix re-shot; noon does NOT invert at any of 4 bands (numeric luma gate vs baseline); shadowed-face luma ≥0.45× lit at dusk/night; tsc/build/lint/smoke/balance green. Already beats attempt-1."
+    },
+    {
+      "what": "The data spine. Upload u_landId (R8UI), u_control (slope/conceal/cover), u_surfaceState. Add the const Land→material LUT + jittered class-edge blend. No visible change beyond dissolved 5m stairsteps.",
+      "commit": "feat(render): material-ID + control + surface-state data spine",
+      "gate": "texelFetch(u_landId)==terrain.land[i] parity unit test passes for 64 cells; matrix shows dissolved stairsteps, no other regression; green."
+    },
+    {
+      "what": "THE material atlas + detail-normal raking (centerpiece). Deterministic CPU-worker bake of the albedo+normal+roughness atlas (FBM+worley, padded tiles, manual clamp addressing); world-scale sampling; u_detailGain ppm-gating; per-material detail-normal raking slaved to the formLightNW key at noon; cropland-furrow caps. Pre-implement the single-tap detail-height fallback behind a compile flag.",
+      "commit": "feat(render): per-landcover PBR material atlas + detail-normal raking",
+      "gate": "MEASURED SwiftShader per-frame number at CLOSE band published (hard atlas-tap budget); atlas hash asserted in smoke.ts (seed contract); strategic provably unchanged (u_detailGain→0 numeric); noon-close + noon-tactical matrix frames are the make-or-break gate; no atlas seam bleed; green. The surface RESOLVES."
+    },
+    {
+      "what": "Grounding — HBAO bake + cast-shadow penumbra refine. Bake the 512² HBAO field in the worker (omnidirectional shadow march), wire into the AMBIENT term only; soften shadow penumbra ∝ distance with 3-tap PCF.",
+      "commit": "feat(render): baked horizon AO + softened cast-shadow penumbra",
+      "gate": "contact darkening lands in draw bottoms/cliff bases/terrace insides (matrix); HBAO bake time hidden behind deploy loading bar; AO never darkens direct term; green."
+    },
+    {
+      "what": "Water — flow-advected river + ford foam. CPU-bake RG8 flow field (centerXAt gradient) + R8 bank mask; masked water pass with two-octave Vlachos normals, fresnel, sun-tracked glint, born-at-break advecting foam. Clock-keyed (freezes on pause). Hard-clamp glint/foam off route reads.",
+      "commit": "feat(render): flow-advected specular river + whitewater ford foam",
+      "gate": "dawn-ford frame reads as live moving water; pause freezes the glint mid-shimmer; fords read MORE legibly at operational+tactical; no strobe at time-warp; ADD a 3-frame strip capture to the matrix (motion is the claim a still cannot prove); green."
+    },
+    {
+      "what": "Atmosphere — single-scatter aerial perspective + valley-fog raymarch with in-fog god-rays (5a only). beta keyed to visibilityM; fog from the local-floor field; step-count LOD'd + early-out; per-step shadow sample spikes in-scatter along lit columns.",
+      "commit": "feat(render): single-scatter aerial perspective + in-fog god-rays",
+      "gate": "COMPOUND-VEIL FLOOR: aerial+fog+bloom SUM stays above the numeric luma floor vs fog-dawn-operational.png in the river draw; SUMMED worst-frame SwiftShader budget published for the dawn+fog+low-sun+close frame (all effects firing) — the universal must-fix; fog burns off by 10:00; green."
+    },
+    {
+      "what": "Surface-state physics + post polish. Altitude×aspect snow (LOS-ridge caps) + wet-ground + track dust into u_surfaceState (pure function of clock/weather/seed; persist only if save-resume needs it, then serialize+loadWorld+smoke round-trip). Threshold bloom (budget-gated, first cut), Bayer dither, in-shader canopy/furrow micro-detail. Final full 4-band×times×weathers matrix; publish HTML report with before/after at every band.",
+      "commit": "feat(render): physical snow/wetness/dust + bloom + dither + procedural micro-detail",
+      "gate": "snow reveals form (does NOT wash LOS crests — numeric crest-silhouette gate); no persisted-float determinism break (smoke round-trip); bloom doesn't veil strategic relief at golden hour; full matrix + report published to public/manual/archive; green."
+    },
+    {
+      "what": "SEPARATE asset campaign (after the terrain spine ships): instanced deferred lit-sprite pass + continuous-HESCO berm + contact-AO grounding, slaved to the same SkyState + formLightNW. De-risk SDF-extrude on 3-4 long-tail assets FIRST; resolve the baked-light contradiction; world-frame normal rotation verified by 360° turntable probe.",
+      "commit": "feat(render): deferred lit-sprite pass + continuous HESCO berm + contact-AO",
+      "gate": "SDF-extrude spike reviewed before committing the GBuffer pipeline; turntable probe shows soldier lighting does NOT spin with heading; COP reads as a fortified outpost from above (02-cop-tactical gate); building classes remain distinguishable at operational; 2D fallback parity holds; green."
+    }
+  ],
+  "cuts": [
+    "cinematic-film's SCREEN-SPACE god-ray pass (technique 5b): faked off-screen sun-anchor + 24-32-tap radial blur for a sun geometrically below the horizon. CUT — it is a lens-flare tell that fights the sober-ISR bar, fans bright streaks across the tactical center, and is an extra fullscreen pass on the fill-rate-bound SwiftShader rasterizer. KEEP only 5a (in-fog shafts from the existing R8 shadow map): geometrically true, near-free, no extra pass. (Refuted by all 4 judges; the proposer itself offered it as cuttable.)",
+    "cinematic-film's wholesale STRIP of all baked lighting/haze/altitude from topo.ts in the foundation phase. CUT — high blast radius that risks the byte-faithful strategic read attempt-1 already got right. Instead: demote the albedo bake to one input incrementally (the photoreal-drone approach); keep the strategic band byte-faithful and migrate lighting per-phase behind u_detailGain.",
+    "cinematic-film's SCREEN-SPACE sprite-relight pass (a directional gradient keyed to spriteShadow). CUT — a screen-space gradient CANNOT rotate normals into world frame, so rotating soldiers/vehicles get heading-spun lighting (the exact bug). REPLACED by asset-fidelity's correct per-instance world-frame deferred sprite pass, in the later asset phase.",
+    "Chromatic aberration and vignette (cinematic-film film-finish). CUT — they degrade the corner terrain read where operational/strategic ground lives; grain over a relief map adds high-frequency noise mistakable for micro-relief. Keep only ACES + Bayer dither + grade in PASS C.",
+    "The RGBA8 packed-exposure HDR fallback as the DEFAULT path (feared by cinematic/living-valley/asset-fidelity). NOT the default — RGBA16F renderability was PROBED TRUE on the actual --use-angle=swiftshader harness this session (rgba16f_renderable=true, EXT_color_buffer_float=true, floatLinear=true). The half-float HDR target IS the default; the RGBA8 path stays only as the probe-and-branch contingency (and --disable-gpu-alone → NOGL → the existing alive 2D fallback). The judges' #1 stated feasibility fear is a non-issue on the target; the REAL constraint is CPU-rasterizer FILL-RATE.",
+    "Re-rolling the cast-shadow march math. CUT/FORBIDDEN — the 480m fixed march was arithmetically REFUTED (a 780m ridge at 20° throws ~2.1km; only the 56-step 5·1.13^k exponential stride reaches it). Reuse SHADOW_FRAG verbatim; this is a recorded negative.",
+    "asset-fidelity as the TERRAIN BACKBONE. CUT as the spine — it spends its best ideas on assets while its terrain section is a thinner bolted-on material LUT; making it the backbone would re-commit attempt-1's timidity on the ground (the exact axis the owner called out). It is the correct ASSET graft as a SEPARATE later campaign, not the terrain answer.",
+    "Canopy/grass WIND SWAY as a default-on tactical-zoom effect (living-valley). CUT to near-zero / gated OFF at operational+strategic — a subtly crawling map competes with units/fire for the eye and fights the sober-chart half of the bar. Motion is reserved for WATER (which legibly should move). Canopy is a lit static volume, not animated.",
+    "Per-item ms cost estimates that never sum. CUT as an acceptance practice — every heavy phase MUST publish a SUMMED worst-frame SwiftShader budget (dawn+fog+low-sun+close, all effects firing) before merge. This is the universal weakness across all four decks and the real (fill-rate) risk."
+  ],
+  "marqueeEvidence": [
+    "DAWN DOWN THE RIVER DRAW, operational→close, Clear, sun ~6° over the east ridge: the 56-step march throws a km-long cool-blue ridge-shadow apron across the floor (REUSED), while lit west-facing scree ERUPTS into thousands of pebble-shadows (detail-normal raking, attempt-1 had ZERO), cedar reads as 3D canopy lobes, cropland shows furrow rows along the contour, pole-facing crests catch first warm light while north faces stay blue (aspect snow), and down the center the river is ACTUAL MOVING WATER — a sun-tracked glint shimmers along the channel as the flow normals scroll, foam born at the ford and advecting downstream — all ACES-tonemapped with a faint bloom on the glint. Four stacked techniques firing: cast-shadow march + detail-normal raking + flow-advected water + aspect snow. The before frame (c5-final/dawn-operational.png) is a flat painted hillshade with an orange fillRect.",
+    "NOON-CLOSE on the river ford (attempt-1's verified WORST frame, c5-final/noon-close.png: ochre-smear ground, dead-stripe river): AFTER, the ground RESOLVES into gravel/wet-darkening/individual scree grains via the world-scale material atlas (NOT an upscaled bitmap), the river is depth-tinted flowing water, and even at the noon-flat sun the surface reads as material via roughness+HBAO micro-contrast (the detail-normal degrade is a first-class look, not a failure). This is the make-or-break legibility gate.",
+    "PAUSE ON THE DAWN GLINT: the water freezes mid-shimmer, the fog hangs, the in-fog god-ray column holds — proving every world-anchored phenomenon integrates from the ONE master clock (world.secondsOfDay), not wall-clock. The determinism contract made visible. A 3-frame motion strip is added to the matrix because a still cannot prove the water moves.",
+    "STRATEGIC BAND unchanged: with u_detailGain→0 the entire transformation collapses to the byte-faithful landColor+relief+contours of today, calibrated to attempt-1's noon-clear mid-gray luma as a NUMBER — the one band attempt-1 got right is provably preserved while close zoom is transformed.",
+    "FEASIBILITY PROOF (this session): on the exact --use-angle=swiftshader headless harness, RGBA16F render target = renderable, EXT_color_buffer_float/half_float = true, OES_texture_float_linear = true, 8192 max-tex, 64 units; R8UI 512² + RG8 512² uploads = 0 GL errors; usampler2D+texelFetch compiles/links. The HDR pipeline + material-ID spine + flow field are all proven viable before a line of pipeline GLSL is written."
+  ],
+  "openDecisionsForOwner": [
+    "Snow aggressiveness vs LOS legibility: should pole-facing crests carry visible snow at all in the fighting-season (mid-July, δ=+21°) palette, or is snow a campaign-winter-only feature? Snow that reveals form is gorgeous but any white on a skyline ridge risks washing the silhouette the player ranges LOS off. Default chosen: slow campaign-scale snow with a hard LOS-ridge albedo cap. Owner may prefer snow OFF in summer entirely.",
+    "Water glint intensity / the dawn marquee: a bright sun-tracked glint on the river is the single most 'drone-feed' element, but it lands on the exact ford the player plans crossings over. Default: hard-clamped so it never washes a route read. Owner forks — lean into the cinematic glint (marquee) vs keep it whisper-quiet (sober ISR).",
+    "In-fog god-rays: kept as the geometrically-true 5a (in-scatter along lit columns) only. Owner could authorize a tightly-capped, center-protected version of the screen-space 5b for the single dawn hero shot if they want more drama — but the synthesis cut it as a lens-flare tell. Default: 5a only.",
+    "Surface-state persistence: snow/wetness are a PURE function of (clock, weather, seed), recomputed on load (cleanest determinism). If the owner wants weather MEMORY to survive a mid-storm save/resume bit-for-bit, the accumulators become persisted floats in serialize()+loadWorld() — a save-version migration. Default: recompute, do not persist.",
+    "Asset campaign timing: the deferred lit-sprite + HESCO-berm work is scoped as a SEPARATE phase AFTER the terrain spine, so the resolving ground does not expose flat-sticker buildings as a worse seam. Owner may want to interleave HESCO-berm earlier (it is cheap and the COP is the emotional center) at the cost of the close-band ground/object coherence ordering."
+  ]
+}
