@@ -102,6 +102,17 @@ uniform float u_coolHigh;       // 0.13
 uniform float u_hazeBase;       // 0.10
 uniform float u_hazeFalloff;    // 0.16
 uniform vec3  u_hazeColor;      // (164,170,166)/255
+// atmosphere (lib/render/atmosphere-model.ts): drifting cloud shadows + terrain-aware valley fog.
+// Clouds are procedural fbm of the wind-drifted world position (the prelude's fbm2) — no texture.
+uniform vec2  u_cloudOffset;    // integrated wind drift (world m)
+uniform float u_cloudScale;     // 1/m
+uniform float u_cloudDensity;   // 0..1 coverage
+uniform float u_cloudStrength;  // 0..1 beam dimming
+uniform sampler2D u_localFloor; // 128² R32F: local valley-floor elevation (fog pools from here)
+uniform float u_fogThickness;   // m above the local floor
+uniform float u_fogFade;        // m
+uniform float u_fogStrength;    // 0..1
+uniform vec3  u_fogColor;
 out vec4 o;
 
 const vec3 NW_KEY = vec3(-0.6726, -0.7583, 0.6850);  // normalize(-0.55,-0.62,0.56) — the old bake key
@@ -139,10 +150,16 @@ void main() {
   float keyMoon    = max(0.0, dot(n, u_moonDir));
   float moonDirect = keyMoon * vis * moonUp * u_moonFactor;
 
-  float shade = key * vis * sunUp * u_keyGain * 1.05      // direct sun (shadowed) — sweeps + casts
+  // drifting cloud shadows: dim the SUN beam where a cloud passes over (reads like aerial
+  // footage). Procedural fbm of the wind-drifted world position; coverage/contrast per weather.
+  float cl = fbm2((v_world + u_cloudOffset) * u_cloudScale);
+  float cloudShadow = smoothstep(0.58 - u_cloudDensity * 0.45, 0.82, cl) * u_cloudStrength;
+  float cloudVis = 1.0 - cloudShadow;
+
+  float shade = key * vis * cloudVis * sunUp * u_keyGain * 1.05  // direct sun (shadowed + clouded)
               + moonDirect * 4.0                          // direct moon (night relief)
               + fill * sunUp
-              + sky * mix(0.45, 0.24, sunUp) * u_skyI / 0.33;  // ambient lifts shadows; brighter at night
+              + sky * mix(0.45, 0.24, sunUp) * u_skyI / 0.33 * (1.0 - cloudShadow * 0.25);  // ambient mottle
   shade = clamp(shade * 0.94 + 0.02, 0.0, 1.0);
 
   vec3 col = albedo * (0.34 + 0.95 * shade);
@@ -166,6 +183,15 @@ void main() {
   if (detailA > 0.01) {
     float grain = fbm2(v_world * 2.5) * 0.6 + vnoise(v_world * 0.9) * 0.4;
     col *= 1.0 + (grain - 0.5) * 0.6 * detailA;
+  }
+
+  // terrain-aware valley fog: pools from the LOCAL valley floor (min-field) up to a diurnal
+  // ceiling — thick in the river draw at dawn, burning off by mid-morning, the whole valley
+  // socked in under Fog weather. Mixed before the grade so it carries the time-of-day colour.
+  if (u_fogStrength > 0.01 && u_fogThickness > 0.5) {
+    float lf = texture(u_localFloor, uv).r;
+    float fog = clamp((lf + u_fogThickness - heightAt(v_world)) / u_fogFade, 0.0, 1.0) * u_fogStrength;
+    col = mix(col, u_fogColor, fog);
   }
 
   o = vec4(grade(col), 1.0);
