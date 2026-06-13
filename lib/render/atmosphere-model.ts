@@ -60,8 +60,11 @@ export function atmoState(secondsOfDay: number, weather: Weather, sky: SkyState,
   ];
   // aerial perspective: extinction keyed to the SACRED visibilityM (600 m → strong, 4000 m → faint),
   // so the veil can never exceed what the weather declares. Sober: clear days stay nearly clean.
+  // OWNER: the fog was too strong — removed. The dramatic GL valley-fog is OFF (fogStrength 0
+  // below); only a whisper of aerial perspective remains so distant ridges keep a hair of air at
+  // strategic zoom. Weather obscuration still comes from the separate 2D drawWeather veil.
   const visN = clamp01((weather.visibilityM - 600) / 3400);
-  const hazeStrength = lerp(0.34, 0.05, visN);
+  const hazeStrength = lerp(0.14, 0.02, visN);
   const hazeColor: Vec3 = [
     sky.skyColor[0] * 0.5 + 0.42,
     sky.skyColor[1] * 0.5 + 0.43,
@@ -74,7 +77,7 @@ export function atmoState(secondsOfDay: number, weather: Weather, sky: SkyState,
     cloudStrength: wx.cloudStrength,
     fogThickness,
     fogFade: 55,
-    fogStrength: wx.fogStrengthMax,
+    fogStrength: 0, // OWNER: valley fog removed (was too strong). Re-enable via wx.fogStrengthMax.
     fogColor,
     hazeStrength,
     hazeColor,
