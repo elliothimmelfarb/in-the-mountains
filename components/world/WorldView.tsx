@@ -10,7 +10,7 @@ import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawL
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
 import { CalloutPresenter } from "@/lib/render/callouts";
-import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, hasSprite, lodAlpha } from "@/lib/render/sprites";
+import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, drawSunShadow, hasSprite, lodAlpha } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
 
@@ -348,6 +348,7 @@ export default function WorldView() {
           const wc = terrain.cellCenter(v.cx + cmp.dx, v.cy + cmp.dy);
           const qid = cmp.r >= 4 ? "qalat-large" : cmp.r >= 3 ? "qalat-medium" : "qalat-small";
           const qFog = fogAt ? fogAt(wc.x, wc.y) : 0; // recede into valley fog with the terrain
+          if (glOn && qFog < 0.6) drawSunShadow(ctx, cam, wc.x, wc.y, 3, cmp.r * 2 * terrain.cellSize, sky.spriteShadow); // qalat cast shadow
           if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: cmp.r * 2 * terrain.cellSize, alpha: qA * (1 - 0.85 * qFog) });
         }
       }
@@ -412,7 +413,7 @@ export default function WorldView() {
     // COP structure (walls/buildings are baked into the relief; this is the overlay).
     // Pass the render-only environment so the wall, life-signs and atmosphere can read the
     // diurnal darkness, the prevailing wind, and a wall-clock phase (never feeds back to sim).
-    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain, { night, windX: windV.x, windY: windV.y, tNow: nowMs / 1000 });
+    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain, { night, windX: windV.x, windY: windV.y, tNow: nowMs / 1000, sunShadow: glOn ? sky.spriteShadow : undefined });
 
     // record fresh combat events (blasts → scorch craters; hidden-shooter muzzles →
     // suspected pinpoints), then draw the surviving craters on the ground under units
