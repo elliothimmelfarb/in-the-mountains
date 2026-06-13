@@ -18,6 +18,8 @@ export interface AtmoState {
   fogFade: number; // metres over which fog density falls to 0 at its top
   fogStrength: number; // 0..1 max opacity
   fogColor: Vec3; // graded fog/haze colour (cool, from the sky)
+  hazeStrength: number; // 0..1 aerial-perspective veil, keyed to the sacred visibilityM
+  hazeColor: Vec3; // aerial-perspective in-scatter colour (cool, sky-derived)
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -55,6 +57,15 @@ export function atmoState(secondsOfDay: number, weather: Weather, sky: SkyState,
     sky.skyColor[1] * 0.55 + 0.36,
     sky.skyColor[2] * 0.55 + 0.34,
   ];
+  // aerial perspective: extinction keyed to the SACRED visibilityM (600 m → strong, 4000 m → faint),
+  // so the veil can never exceed what the weather declares. Sober: clear days stay nearly clean.
+  const visN = clamp01((weather.visibilityM - 600) / 3400);
+  const hazeStrength = lerp(0.34, 0.05, visN);
+  const hazeColor: Vec3 = [
+    sky.skyColor[0] * 0.5 + 0.42,
+    sky.skyColor[1] * 0.5 + 0.43,
+    sky.skyColor[2] * 0.5 + 0.44,
+  ];
   return {
     cloudOffset,
     cloudScale: 1 / 760, // cloud cells ~760 m across the ground — reads at strategic AND tactical
@@ -64,6 +75,8 @@ export function atmoState(secondsOfDay: number, weather: Weather, sky: SkyState,
     fogFade: 55,
     fogStrength: wx.fogStrengthMax,
     fogColor,
+    hazeStrength,
+    hazeColor,
   };
 }
 

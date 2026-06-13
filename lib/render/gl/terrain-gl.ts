@@ -293,6 +293,7 @@ export class TerrainGL {
       "u_landId", "u_control", "u_matAlbedo", "u_matNormal", "u_detailGain", "u_tileMeters",
       "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
       "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
+      "u_hazeStrength", "u_hazeColor",
       "u_flow", "u_waterMask", "u_time",
     ]);
     this.cU = uniforms(gl, cp, [
@@ -662,6 +663,8 @@ export class TerrainGL {
     gl.uniform1f(this.tU.u_fogFade, a.fogFade);
     gl.uniform1f(this.tU.u_fogStrength, a.fogStrength);
     gl.uniform3f(this.tU.u_fogColor, a.fogColor[0], a.fogColor[1], a.fogColor[2]);
+    gl.uniform1f(this.tU.u_hazeStrength, a.hazeStrength);
+    gl.uniform3f(this.tU.u_hazeColor, a.hazeColor[0], a.hazeColor[1], a.hazeColor[2]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
 

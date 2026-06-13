@@ -119,6 +119,8 @@ uniform float u_fogThickness;
 uniform float u_fogFade;
 uniform float u_fogStrength;
 uniform vec3  u_fogColor;
+uniform float u_hazeStrength;   // aerial perspective (C7), keyed to visibilityM
+uniform vec3  u_hazeColor;
 // water (C6): flow-advected specular river + ford/bank foam
 uniform sampler2D u_flow;       // RG8 downstream flow dir at water cells
 uniform sampler2D u_waterMask;  // R8 water mask (LINEAR → shoreline ramp)
@@ -235,15 +237,24 @@ void main() {
     L = mix(L, wcol, smoothstep(0.04, 0.4, water));   // soft blend in over the bank
   }
 
-  // mild altitude warm/cool (the floor reads warm, the crests cool); superseded by C7 aerial perspective
+  // mild altitude warm/cool (the floor reads warm, the crests cool)
   float altN = clamp((heightAt(v_world) - u_minElev) / u_elevRange, 0.0, 1.0);
   L *= vec3(1.0 - altN * u_warmLow, 1.0, 1.0 + altN * u_coolHigh);
 
-  // terrain-aware valley fog (pools from the local floor up to a diurnal ceiling); linear in-scatter
+  // ── aerial perspective (C7): a thin atmospheric veil keyed to the SACRED visibilityM. Mostly
+  // uniform (the whole-scene haze of a hazy day) with a touch more over the low valley floor
+  // (longer air column). Sober: clear days stay nearly clean; Hazy/Fog days read their weather. ──
+  float haze = u_hazeStrength * (0.62 + 0.38 * (1.0 - altN));
+  L = mix(L, degamma(u_hazeColor) * (u_skyI * 1.6 + 0.18), clamp(haze, 0.0, 0.5));
+
+  // terrain-aware valley fog (pools from the local floor up to a diurnal ceiling). The in-scatter
+  // is MODULATED by the cast-shadow visibility, so fog GLOWS in lit columns and stays dark under
+  // the ridge — geometrically-true god-ray shafts from the same R8 shadow map, near-free (C7 5a).
   if (u_fogStrength > 0.01 && u_fogThickness > 0.5) {
     float lf = texture(u_localFloor, uv).r;
     float fog = clamp((lf + u_fogThickness - heightAt(v_world)) / u_fogFade, 0.0, 1.0) * u_fogStrength;
-    vec3 fogLit = degamma(u_fogColor) * (u_skyI * 1.2 + u_sunI * 0.25 * sunUp);
+    float godray = 0.55 + 0.45 * vis * sunUp;           // lit fog brighter; ridge-shadowed fog darker
+    vec3 fogLit = degamma(u_fogColor) * (u_skyI * 1.2 + u_sunI * 0.35 * sunUp) * godray;
     L = mix(L, fogLit, fog);
   }
 
