@@ -171,6 +171,12 @@ void main() {
     vec3 dnA = texture(u_matNormal, vec3(fract(mu),  float(slot))).xyz;
     vec3 dnB = texture(u_matNormal, vec3(fract(mu2), float(slot))).xyz;
     vec2 dN  = (dnA.xy + dnB.xy) - 1.0;                  // decode two averaged (·*0.5+0.5) taps
+    // DECORRELATE the rake direction with a slowly-wandering per-region rotation (~22 m). Without
+    // this the world-axis-aligned micro-normals read as parallel "corduroy" lines on sun-lit slopes
+    // (and vanish on shadowed faces → "rounded") — the artifact the owner saw on the sun side.
+    float rang = 6.2831853 * vnoise(v_world * 0.045);
+    float rc = cos(rang), rs = sin(rang);
+    dN = mat2(rc, -rs, rs, rc) * dN;
     float la = texture(u_matAlbedo, vec3(fract(mu),  float(slot))).r;
     float lb = texture(u_matAlbedo, vec3(fract(mu2), float(slot))).r;
     float lum = la + lb;                                 // two ~0.5-neutral taps → ~1.0 neutral
@@ -382,15 +388,20 @@ void main() {
   float h0     = heightAt(v_world) + 1.5;               // 1.5 m lift kills self-shadow acne on 5 m cells
   vec2  toKey  = normalize(u_keyDir.xy);
   float tanAlt = u_keyDir.z / max(1e-4, length(u_keyDir.xy));
+  // PER-TEXEL DITHER on the first step. An exponential stride sampled at FIXED offsets makes the
+  // occlusion jump in concentric distance shells → the owner's "horizontal lines on the sun side,
+  // rounded on the other side". Jittering each texel's march phase turns that banding into noise,
+  // which the bilinear shadow-map fetch + the 5-tap PCF (main pass) average into a smooth penumbra.
+  float jitter = 0.4 + 1.1 * hash2(ivec2(floor(v_world)));
   float occl   = 0.0;
-  float d      = u_cell;                                // start one cell out
-  for (int i = 0; i < 56; i++) {                        // 5 m·1.13^56 ≈ spans the whole map
+  float d      = u_cell * jitter;                       // dithered start
+  for (int i = 0; i < 60; i++) {                        // a touch more headroom for the jittered phase
     vec2 p = v_world + toKey * d;
     if (p.x < 0.0 || p.y < 0.0 || p.x > u_worldSize || p.y > u_worldSize) break;
     float pen = heightAt(p) - (h0 + tanAlt * d);        // metres the terrain pokes above the ray
     occl = max(occl, pen / d);                          // overshoot tangent → distance-aware softness
-    d *= 1.13;                                          // exponential stride: fine near, coarse far
+    d *= 1.11;                                          // slightly finer exponential stride (was 1.13)
   }
-  float lit = 1.0 - smoothstep(0.0, 0.04, occl);        // ~2.3° penumbra — soft, mountain-scale shadows
+  float lit = 1.0 - smoothstep(0.0, 0.09, occl);        // wider, softer penumbra hides residual stepping
   o = vec4(lit, lit, lit, 1.0);
 }`;
