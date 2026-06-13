@@ -22,6 +22,8 @@ export interface TerrainEnv {
   sky: SkyState;
   /** cloud-shadow + valley-fog state from lib/render/atmosphere-model.ts */
   atmo: AtmoState;
+  /** world.secondsOfDay — water/ripple phase (sim clock: freezes on pause, races at time-warp) */
+  secondsOfDay: number;
 }
 
 const FLOOR_SIZE = 128;
@@ -111,6 +113,33 @@ function bakeHBAO(t: Terrain): Uint8Array {
   return out;
 }
 
+/** Bake the river FLOW field (RG8: downstream direction = −∇elev at water cells) and a water
+ *  MASK (R8: 255 at water cells, 0 dry — sampled LINEAR it ramps at the bank, giving a free
+ *  shoreline gradient for foam). Water = River/Marsh/Ford classes. Deterministic, cached. */
+function bakeWaterFlow(t: Terrain): { flow: Uint8Array; mask: Uint8Array } {
+  const N = t.size, cs = t.cellSize, elev = t.elev, land = t.land;
+  const flow = new Uint8Array(N * N * 2);
+  const mask = new Uint8Array(N * N);
+  const isWater = (i: number) => land[i] === 0 || land[i] === 1 || land[i] === 25; // River/Marsh/Ford
+  for (let cy = 0; cy < N; cy++) {
+    for (let cx = 0; cx < N; cx++) {
+      const i = cy * N + cx;
+      if (!isWater(i)) { flow[i * 2] = 128; flow[i * 2 + 1] = 128; mask[i] = 0; continue; }
+      mask[i] = 255;
+      const xm = Math.max(0, cx - 1), xp = Math.min(N - 1, cx + 1);
+      const ym = Math.max(0, cy - 1), yp = Math.min(N - 1, cy + 1);
+      const gx = (elev[cy * N + xp] - elev[cy * N + xm]) / (2 * cs);
+      const gy = (elev[yp * N + cx] - elev[ym * N + cx]) / (2 * cs);
+      let fx = -gx, fy = -gy;
+      const l = Math.hypot(fx, fy) || 1;
+      fx /= l; fy /= l;
+      flow[i * 2] = Math.round((fx * 0.5 + 0.5) * 255);
+      flow[i * 2 + 1] = Math.round((fy * 0.5 + 0.5) * 255);
+    }
+  }
+  return { flow, mask };
+}
+
 const BG: [number, number, number] = [0x0c / 255, 0x0d / 255, 0x0a / 255];
 const SHADOW_SIZE = 1024; // 2.5 m / texel across the 2.56 km map
 const REBAKE_COS = Math.cos((0.25 * Math.PI) / 180); // rebake when the key dir moves > 0.25°
@@ -178,6 +207,8 @@ export class TerrainGL {
   private floorTex: WebGLTexture | null = null;
   private floorField: Float32Array | null = null; // CPU copy for 2D fog-coherence sampling
   private aoTex: WebGLTexture | null = null;       // 512² R8 baked horizon AO (C5)
+  private flowTex: WebGLTexture | null = null;     // 512² RG8 river flow dir (C6)
+  private waterMaskTex: WebGLTexture | null = null; // 512² R8 water mask (C6)
   // material spine (C3/C4)
   private landIdTex: WebGLTexture | null = null;   // 512² R8UI — Land class per cell
   private controlTex: WebGLTexture | null = null;  // 512² RGBA8 — slope/conceal/cover
@@ -262,6 +293,7 @@ export class TerrainGL {
       "u_landId", "u_control", "u_matAlbedo", "u_matNormal", "u_detailGain", "u_tileMeters",
       "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
       "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
+      "u_flow", "u_waterMask", "u_time",
     ]);
     this.cU = uniforms(gl, cp, [
       "u_hdr", "u_bloom", "u_bloomStrength", "u_sceneExposure",
@@ -383,6 +415,8 @@ export class TerrainGL {
     this.heightTex = null;
     this.floorTex = null;
     this.aoTex = null;
+    this.flowTex = null;
+    this.waterMaskTex = null;
     this.hdrTex = null;
     this.hdrFbo = null;
     this.hdrW = 0;
@@ -485,6 +519,25 @@ export class TerrainGL {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
+    // river flow field (RG8) + water mask (R8, LINEAR → bank ramp) for the C6 water surface
+    const { flow, mask } = bakeWaterFlow(t);
+    if (!this.flowTex) this.flowTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.flowTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG8, t.size, t.size, 0, gl.RG, gl.UNSIGNED_BYTE, flow);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (!this.waterMaskTex) this.waterMaskTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.waterMaskTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, t.size, t.size, 0, gl.RED, gl.UNSIGNED_BYTE, mask);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
     gl.bindTexture(gl.TEXTURE_2D, null);
     this.lastKeyDir = null; // new terrain → rebake shadows
   }
@@ -564,6 +617,12 @@ export class TerrainGL {
     gl.activeTexture(gl.TEXTURE8);
     gl.bindTexture(gl.TEXTURE_2D, this.aoTex);
     gl.uniform1i(this.tU.u_ao, 8);
+    gl.activeTexture(gl.TEXTURE9);
+    gl.bindTexture(gl.TEXTURE_2D, this.flowTex);
+    gl.uniform1i(this.tU.u_flow, 9);
+    gl.activeTexture(gl.TEXTURE10);
+    gl.bindTexture(gl.TEXTURE_2D, this.waterMaskTex);
+    gl.uniform1i(this.tU.u_waterMask, 10);
 
     gl.uniform2f(this.tU.u_camCenter, cam.cx, cam.cy);
     gl.uniform2f(this.tU.u_viewCss, cam.vw, cam.vh);
@@ -592,6 +651,7 @@ export class TerrainGL {
     // detail fades in 0→1 across ppm 0.6→2.6 (strategic stays byte-faithful; tactical/close resolve)
     gl.uniform1f(this.tU.u_detailGain, Math.max(0, Math.min(1, (cam.ppm - 0.6) / 2.0)));
     gl.uniform1f(this.tU.u_tileMeters, TILE_METERS);
+    gl.uniform1f(this.tU.u_time, env.secondsOfDay);
 
     const a = env.atmo;
     gl.uniform2f(this.tU.u_cloudOffset, a.cloudOffset[0], a.cloudOffset[1]);
@@ -634,7 +694,7 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.aoTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.aoTex, this.flowTex, this.waterMaskTex, this.hdrTex, this.bloomTex, this.landIdTex, this.controlTex, this.matAlbedoTex, this.matNormalTex]) if (t) gl.deleteTexture(t);
     if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
     if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
     if (this.vbo) gl.deleteBuffer(this.vbo);

@@ -236,7 +236,7 @@ export default function WorldView() {
           const wv = wNow.windVector();
           cloudOffRef.current = advanceCloud(cloudOffRef.current, wv.x, wv.y, dClock);
           const atmo = atmoState(wNow.secondsOfDay, wNow.state.weather, sky, cloudOffRef.current);
-          tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky, atmo });
+          tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky, atmo, secondsOfDay: wNow.secondsOfDay });
         }
         draw(ctx, camRef.current, now);
         // feed the audio listener pose (positional pan + distance + zoom-scaled radius).

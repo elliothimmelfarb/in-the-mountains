@@ -119,6 +119,10 @@ uniform float u_fogThickness;
 uniform float u_fogFade;
 uniform float u_fogStrength;
 uniform vec3  u_fogColor;
+// water (C6): flow-advected specular river + ford/bank foam
+uniform sampler2D u_flow;       // RG8 downstream flow dir at water cells
+uniform sampler2D u_waterMask;  // R8 water mask (LINEAR → shoreline ramp)
+uniform float u_time;           // secondsOfDay — water phase (freezes on pause, races at time-warp)
 out vec4 o;
 
 const vec3 NW_KEY = vec3(-0.6726, -0.7583, 0.6850);  // normalize(-0.55,-0.62,0.56) — the form-light key
@@ -197,6 +201,39 @@ void main() {
   vec3  moon = u_moonColor * u_moonFactor * ndlMoon * vis * moonUp;
 
   vec3 L = albedo * (direct + hemi + moon);
+
+  // ── water surface (C6): the river becomes actual moving water ──
+  // Masked to river/marsh/ford cells (early-out keeps cost to a few % of pixels). Two noise
+  // octaves advected along the downstream flow build a ripple normal; fresnel sky reflection +
+  // depth tint + a SOBER sun-tracked glint + ford/bank foam. All phase keyed to the sim clock
+  // (u_time = secondsOfDay) so it freezes on pause and races at time-warp — no wall clock.
+  float water = texture(u_waterMask, uv).r;
+  if (water > 0.04) {
+    vec2 flow = texture(u_flow, uv).rg * 2.0 - 1.0;
+    // low-frequency flow bands (≈8-20 m) advected downstream — smooth undulation, not per-pixel speckle
+    vec2 a1 = v_world * 0.11 + flow * u_time * 0.4;
+    vec2 a2 = v_world * 0.27 - flow * u_time * 0.7 + 21.0;
+    float e = 1.5;
+    float h  = fbm2(a1) + 0.5 * fbm2(a2);
+    float hx = fbm2(a1 + vec2(e, 0.0)) + 0.5 * fbm2(a2 + vec2(e, 0.0));
+    float hy = fbm2(a1 + vec2(0.0, e)) + 0.5 * fbm2(a2 + vec2(0.0, e));
+    vec3 wn = normalize(vec3((h - hx) * 0.32, (h - hy) * 0.32, 1.0));  // very gentle tilt — calm river
+    // depth-tinted body — gravel-teal shallows → deeper slate-teal mid-channel, never black, kept bright
+    vec3 body = mix(degamma(vec3(0.36, 0.48, 0.50)), degamma(vec3(0.21, 0.33, 0.40)), water * 0.7);
+    float ambW = u_skyI * 2.4 + u_ambientFloor + 0.3;
+    vec3 wcol = body * ambW;
+    // subtle cool sky-reflection brightening where the surface tilts (kept low → no froth speckle)
+    float fres = clamp(pow(1.0 - wn.z, 4.0), 0.0, 0.25);
+    wcol += mix(u_groundColor, u_skyColor, 0.85) * (u_skyI * 1.4) * fres;
+    // sober sun-tracked glint (HDR → faint bloom in C8); view straight down
+    vec3 H = normalize(u_sunDir + vec3(0.0, 0.0, 1.0));
+    wcol += u_sunColor * pow(max(0.0, dot(wn, H)), 70.0) * u_sunI * sunUp * vis * 0.6;
+    // foam: only the rare brightest churn peak + a hair at fast water — most of the channel is clean
+    float churn = fbm2(v_world * 0.32 + flow * u_time * 0.5);
+    float foam = smoothstep(0.9, 0.99, churn) * 0.25;
+    wcol = mix(wcol, degamma(vec3(0.86, 0.88, 0.84)) * (u_skyI * 2.0 + u_sunI * 0.4 * sunUp + 0.2), foam);
+    L = mix(L, wcol, smoothstep(0.04, 0.4, water));   // soft blend in over the bank
+  }
 
   // mild altitude warm/cool (the floor reads warm, the crests cool); superseded by C7 aerial perspective
   float altN = clamp((heightAt(v_world) - u_minElev) / u_elevRange, 0.0, 1.0);
