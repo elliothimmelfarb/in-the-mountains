@@ -11,6 +11,7 @@
 import type { Terrain } from "../../sim/terrain";
 import type { Camera } from "../topo";
 import type { SkyState } from "../sky";
+import type { AtmoState } from "../atmosphere-model";
 import { bakeAlbedo } from "../topo";
 import { TERRAIN_VERT, TERRAIN_FRAG_LIT, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
 
@@ -19,6 +20,59 @@ export interface TerrainEnv {
   shakePx: { x: number; y: number };
   /** the single sun/moon/light state from lib/render/sky.ts */
   sky: SkyState;
+  /** cloud-shadow + valley-fog state from lib/render/atmosphere-model.ts */
+  atmo: AtmoState;
+}
+
+const FLOOR_SIZE = 128;
+
+/** Local valley-floor elevation field (128²): the floor fog pools UP from. A fixed MSL ceiling
+ *  fails because the floor climbs 1550→2000 m S→N; this min-pools the heightmap so fog fills
+ *  draws and the river channel regardless of absolute altitude. Conservative 4×4-block min
+ *  downsample, then a separable box-min (~240 m radius). */
+function bakeLocalFloor(t: Terrain): Float32Array {
+  const N = FLOOR_SIZE;
+  const block = Math.max(1, Math.floor(t.size / N));
+  const coarse = new Float32Array(N * N);
+  for (let cy = 0; cy < N; cy++) {
+    for (let cx = 0; cx < N; cx++) {
+      let m = Infinity;
+      for (let by = 0; by < block; by++) {
+        const sy = cy * block + by;
+        if (sy >= t.size) break;
+        for (let bx = 0; bx < block; bx++) {
+          const sx = cx * block + bx;
+          if (sx >= t.size) break;
+          const e = t.elev[sy * t.size + sx];
+          if (e < m) m = e;
+        }
+      }
+      coarse[cy * N + cx] = m === Infinity ? t.minElev : m;
+    }
+  }
+  // separable box-min, radius R coarse cells (~ R*20 m)
+  const R = 12;
+  const tmp = new Float32Array(N * N);
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      let m = Infinity;
+      for (let k = -R; k <= R; k++) {
+        const xx = Math.min(N - 1, Math.max(0, x + k));
+        m = Math.min(m, coarse[y * N + xx]);
+      }
+      tmp[y * N + x] = m;
+    }
+  const out = new Float32Array(N * N);
+  for (let y = 0; y < N; y++)
+    for (let x = 0; x < N; x++) {
+      let m = Infinity;
+      for (let k = -R; k <= R; k++) {
+        const yy = Math.min(N - 1, Math.max(0, y + k));
+        m = Math.min(m, tmp[yy * N + x]);
+      }
+      out[y * N + x] = m;
+    }
+  return out;
 }
 
 const BG: [number, number, number] = [0x0c / 255, 0x0d / 255, 0x0a / 255];
@@ -76,6 +130,8 @@ export class TerrainGL {
   private heightTex: WebGLTexture | null = null;
   private shadowTex: WebGLTexture | null = null;
   private shadowFbo: WebGLFramebuffer | null = null;
+  private floorTex: WebGLTexture | null = null;
+  private floorField: Float32Array | null = null; // CPU copy for 2D fog-coherence sampling
   private terrain: Terrain | null = null;
   private worldSize = 2560;
   private cell = 5;
@@ -84,6 +140,7 @@ export class TerrainGL {
   private elevRange = 1;
   private lastKeyDir: [number, number, number] | null = null;
   private lastBakeMs = -1e9;
+  private floatLinear = false;
   private readonly canvas: HTMLCanvasElement;
 
   constructor(canvas: HTMLCanvasElement) {
@@ -97,6 +154,21 @@ export class TerrainGL {
     return !!this.gl && !!this.terrainProg;
   }
 
+  /** Bilinear sample of the local valley-floor field (m) at a world point — the SAME field the
+   *  GL fog pools from, so the 2D layer can fade sprites in step with the terrain fog (parity). */
+  localFloorAt(wx: number, wy: number): number {
+    const f = this.floorField;
+    if (!f) return this.minElev;
+    const g = FLOOR_SIZE / this.worldSize;
+    const gx = Math.min(FLOOR_SIZE - 1.001, Math.max(0, wx * g));
+    const gy = Math.min(FLOOR_SIZE - 1.001, Math.max(0, wy * g));
+    const x0 = Math.floor(gx), y0 = Math.floor(gy);
+    const fx = gx - x0, fy = gy - y0;
+    const i = (x: number, y: number) => f[y * FLOOR_SIZE + x];
+    const a = i(x0, y0), b = i(x0 + 1, y0), c = i(x0, y0 + 1), d = i(x0 + 1, y0 + 1);
+    return (a * (1 - fx) + b * fx) * (1 - fy) + (c * (1 - fx) + d * fx) * fy;
+  }
+
   private init() {
     const gl = this.canvas.getContext("webgl2", {
       alpha: false,
@@ -107,6 +179,9 @@ export class TerrainGL {
     });
     if (!gl) return;
     this.gl = gl;
+    // R32F textures (height, local-floor) are only LINEAR-filterable with this extension; without
+    // it a LINEAR float texture is INCOMPLETE and samples as 0 (which silently kills the fog).
+    this.floatLinear = !!gl.getExtension("OES_texture_float_linear");
     const tp = link(gl, TERRAIN_VERT, TERRAIN_FRAG_LIT);
     const sp = link(gl, SHADOW_VERT, SHADOW_FRAG);
     if (!tp || !sp) {
@@ -122,6 +197,8 @@ export class TerrainGL {
       "u_skyColor", "u_groundColor", "u_skyI",
       "u_keyGain", "u_formLightNW", "u_warmLow", "u_coolHigh", "u_hazeBase", "u_hazeFalloff", "u_hazeColor",
       "u_exposure", "u_whiteBalance", "u_saturation", "u_lift",
+      "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
+      "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
     ]);
     this.sU = uniforms(gl, sp, ["u_keyDir", "u_worldSize", "u_height", "u_cell", "u_grid"]);
     const tri = new Float32Array([-1, -1, 3, -1, -1, 3]);
@@ -163,6 +240,7 @@ export class TerrainGL {
   private onRestored = () => {
     this.albedoTex = null;
     this.heightTex = null;
+    this.floorTex = null;
     this.init();
   };
 
@@ -199,6 +277,19 @@ export class TerrainGL {
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, t.size, t.size, 0, gl.RED, gl.FLOAT, elev);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    // local valley-floor min-field (128² R32F) — what the valley fog pools up from. Keep a CPU
+    // copy so the 2D layer can sample the SAME field (sprite fog-fade parity with the GL fog).
+    this.floorField = bakeLocalFloor(t);
+    if (!this.floorTex) this.floorTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.floorTex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, FLOOR_SIZE, FLOOR_SIZE, 0, gl.RED, gl.FLOAT, this.floorField);
+    const floorFilter = this.floatLinear ? gl.LINEAR : gl.NEAREST; // float LINEAR needs the extension
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, floorFilter);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, floorFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.bindTexture(gl.TEXTURE_2D, null);
@@ -258,6 +349,9 @@ export class TerrainGL {
     gl.activeTexture(gl.TEXTURE2);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTex);
     gl.uniform1i(this.tU.u_shadow, 2);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindTexture(gl.TEXTURE_2D, this.floorTex);
+    gl.uniform1i(this.tU.u_localFloor, 3);
 
     gl.uniform2f(this.tU.u_camCenter, cam.cx, cam.cy);
     gl.uniform2f(this.tU.u_viewCss, cam.vw, cam.vh);
@@ -292,6 +386,16 @@ export class TerrainGL {
     gl.uniform1f(this.tU.u_saturation, g.saturation);
     gl.uniform3f(this.tU.u_lift, g.lift[0], g.lift[1], g.lift[2]);
 
+    const a = env.atmo;
+    gl.uniform2f(this.tU.u_cloudOffset, a.cloudOffset[0], a.cloudOffset[1]);
+    gl.uniform1f(this.tU.u_cloudScale, a.cloudScale);
+    gl.uniform1f(this.tU.u_cloudDensity, a.cloudDensity);
+    gl.uniform1f(this.tU.u_cloudStrength, a.cloudStrength);
+    gl.uniform1f(this.tU.u_fogThickness, a.fogThickness);
+    gl.uniform1f(this.tU.u_fogFade, a.fogFade);
+    gl.uniform1f(this.tU.u_fogStrength, a.fogStrength);
+    gl.uniform3f(this.tU.u_fogColor, a.fogColor[0], a.fogColor[1], a.fogColor[2]);
+
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
   }
@@ -301,7 +405,7 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex]) if (t) gl.deleteTexture(t);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex]) if (t) gl.deleteTexture(t);
     if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
     if (this.vbo) gl.deleteBuffer(this.vbo);
     if (this.vao) gl.deleteVertexArray(this.vao);

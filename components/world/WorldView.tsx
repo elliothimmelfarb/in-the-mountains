@@ -5,6 +5,7 @@ import { Land, villageHamlet } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawTerrainOverlays, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { TerrainGL } from "@/lib/render/gl/terrain-gl";
 import { skyState, drawScreenGrade } from "@/lib/render/sky";
+import { atmoState, advanceCloud, fogVisAt } from "@/lib/render/atmosphere-model";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
@@ -95,6 +96,10 @@ export default function WorldView() {
   const glRef = useRef<HTMLCanvasElement>(null);
   const terrainGLRef = useRef<TerrainGL | null>(null);
   const lastTerrainRef = useRef<unknown>(null);
+  // integrated cloud-shadow drift (world m), keyed to the live World; advanced by Δ(sim clock)
+  // so clouds scroll with the wind, freeze on pause, and survive a weather re-roll cleanly.
+  const cloudOffRef = useRef<[number, number]>([0, 0]);
+  const lastClockRef = useRef(0);
   const wrapRef = useRef<HTMLDivElement>(null);
   const camRef = useRef<Camera>({ cx: 0, cy: 0, ppm: 0.4, vw: 800, vh: 600 });
   const lastRef = useRef(0);
@@ -221,9 +226,17 @@ export default function WorldView() {
           if (lastTerrainRef.current !== wNow.terrain) {
             tgl.setTerrain(wNow.terrain);
             lastTerrainRef.current = wNow.terrain;
+            cloudOffRef.current = [0, 0]; // re-seed the cloud field for the new world
+            lastClockRef.current = wNow.state.clock;
           }
           const sky = skyState(wNow.secondsOfDay, wNow.state.weather, wNow.solarLight());
-          tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky });
+          // advect clouds by Δ(sim clock) — 0 when paused (frozen), clamped against jumps
+          const dClock = wNow.state.clock - lastClockRef.current;
+          lastClockRef.current = wNow.state.clock;
+          const wv = wNow.windVector();
+          cloudOffRef.current = advanceCloud(cloudOffRef.current, wv.x, wv.y, dClock);
+          const atmo = atmoState(wNow.secondsOfDay, wNow.state.weather, sky, cloudOffRef.current);
+          tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky, atmo });
         }
         draw(ctx, camRef.current, now);
         // feed the audio listener pose (positional pan + distance + zoom-scaled radius).
@@ -256,7 +269,15 @@ export default function WorldView() {
     // pass draws only contours/paths. On the 2D fallback drawTerrain blits + washes as before.
     if (glOn) drawTerrainOverlays(ctx, terrain, cam, 0);
     else drawTerrain(ctx, terrain, cam, night * 0.7);
-    drawDecoration(ctx, terrain, cam); // scattered trees/rocks fade in at tactical zoom
+    // valley-fog sprite coherence: a sampler that returns 0..1 fog at a world point, sampling
+    // the SAME local-floor field the GL fog pools from — so trees/qalats in a fogged draw recede
+    // with the terrain instead of floating over it. undefined (no fade) when there's no fog.
+    const tgl = terrainGLRef.current;
+    const atmoDraw = atmoState(w.secondsOfDay, w.state.weather, sky, [0, 0]); // fog fields only here
+    const fogAt = glOn && tgl && atmoDraw.fogStrength > 0.01 && atmoDraw.fogThickness > 0.5
+      ? (wx: number, wy: number) => fogVisAt(terrain.elevAt(wx, wy), tgl.localFloorAt(wx, wy), atmoDraw)
+      : undefined;
+    drawDecoration(ctx, terrain, cam, fogAt); // scattered trees/rocks fade in at tactical zoom
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
     // weather as atmosphere — over the relief/decoration, under the tactical layer, so it
@@ -326,7 +347,8 @@ export default function WorldView() {
         for (const cmp of villageHamlet({ id: v.id, size: tv.size, population: v.population })) {
           const wc = terrain.cellCenter(v.cx + cmp.dx, v.cy + cmp.dy);
           const qid = cmp.r >= 4 ? "qalat-large" : cmp.r >= 3 ? "qalat-medium" : "qalat-small";
-          if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: cmp.r * 2 * terrain.cellSize, alpha: qA });
+          const qFog = fogAt ? fogAt(wc.x, wc.y) : 0; // recede into valley fog with the terrain
+          if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: cmp.r * 2 * terrain.cellSize, alpha: qA * (1 - 0.85 * qFog) });
         }
       }
       const pinA = 1 - qA * 0.82;
