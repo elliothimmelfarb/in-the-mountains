@@ -82,11 +82,20 @@ uniform float u_ppm;
 uniform vec3  u_sunDir;         // unit, world frame (+x E, +y S, +z up)
 uniform vec3  u_sunColor;
 uniform float u_sunI;
+uniform vec3  u_moonDir;        // unit, world frame
+uniform vec3  u_moonColor;
+uniform float u_moonFactor;     // night key intensity (0 by day / overcast)
 uniform vec3  u_skyColor;
 uniform vec3  u_groundColor;
 uniform float u_skyI;
 uniform float u_keyGain;        // calibration to the old bake's key*1.05
 uniform float u_formLightNW;    // 0..1 relief-inversion guard: blend a fixed NW key into the diffuse
+// time-of-day grade (lib/render/sky.ts SkyState.grade). Exposure stays near 1 — the day→night
+// darkness is carried by the LIGHTING above, not by exposure (no double-darkening).
+uniform float u_exposure;
+uniform vec3  u_whiteBalance;
+uniform float u_saturation;
+uniform vec3  u_lift;
 // atmosphere defaults (reproduce topo.ts:304-314; the atmosphere axis drives these live in C5)
 uniform float u_warmLow;        // 0.08
 uniform float u_coolHigh;       // 0.13
@@ -96,6 +105,15 @@ uniform vec3  u_hazeColor;      // (164,170,166)/255
 out vec4 o;
 
 const vec3 NW_KEY = vec3(-0.6726, -0.7583, 0.6850);  // normalize(-0.55,-0.62,0.56) — the old bake key
+
+// time-of-day grade: exposure + white-balance gain, then saturation, then a shadow-only lift.
+vec3 grade(vec3 c) {
+  c *= u_exposure * u_whiteBalance;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  c = mix(vec3(l), c, u_saturation);
+  c += u_lift * (1.0 - clamp(l, 0.0, 1.0));   // lift/tint shadows only; highlights untouched
+  return c;
+}
 
 void main() {
   vec2 uv = v_world / u_worldSize;
@@ -116,7 +134,13 @@ void main() {
   float fill    = max(0.0, dot(n, fillDir)) * 0.34;
   float sky     = 0.5 + 0.5 * n.z;                        // hemisphere visibility ~ cheap AO (topo.ts:171)
 
-  float shade = key * vis * sunUp * u_keyGain * 1.05      // direct (shadowed) — sweeps + casts
+  // moon as a second key at night — same cast-shadow vis, raking the relief so night has FORM
+  float moonUp     = smoothstep(0.0, 0.04, u_moonDir.z);
+  float keyMoon    = max(0.0, dot(n, u_moonDir));
+  float moonDirect = keyMoon * vis * moonUp * u_moonFactor;
+
+  float shade = key * vis * sunUp * u_keyGain * 1.05      // direct sun (shadowed) — sweeps + casts
+              + moonDirect * 4.0                          // direct moon (night relief)
               + fill * sunUp
               + sky * mix(0.45, 0.24, sunUp) * u_skyI / 0.33;  // ambient lifts shadows; brighter at night
   shade = clamp(shade * 0.94 + 0.02, 0.0, 1.0);
@@ -124,6 +148,8 @@ void main() {
   vec3 col = albedo * (0.34 + 0.95 * shade);
   // tint the sunlit contribution toward the sun color (warm dawn/dusk; neutral noon)
   col *= mix(vec3(1.0), u_sunColor, 0.55 * sunUp * key * vis);
+  // tint the moonlit contribution cool
+  col *= mix(vec3(1.0), u_moonColor, 0.6 * moonDirect * 4.0);
   // and tint the ambient-dominated (shadowed/night) regions toward the cool sky
   col *= mix(vec3(1.0), mix(u_groundColor, u_skyColor, sky) * 2.2, (1.0 - sunUp) * 0.4);
 
@@ -142,7 +168,7 @@ void main() {
     col *= 1.0 + (grain - 0.5) * 0.6 * detailA;
   }
 
-  o = vec4(col, 1.0);
+  o = vec4(grade(col), 1.0);
 }`;
 
 // Shadow-bake vertex: map the fullscreen triangle straight onto world coords [0, worldSize].

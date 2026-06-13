@@ -89,9 +89,9 @@ const LIGHT_KEYS: LightKey[] = [
   { alt: 10, sunColor: [1.0, 0.84, 0.62], sunI: 0.9, skyColor: [0.47, 0.52, 0.62], groundColor: [0.42, 0.34, 0.24], skyI: 0.33 },
   { alt: 4, sunColor: [1.0, 0.72, 0.42], sunI: 0.75, skyColor: [0.5, 0.5, 0.58], groundColor: [0.4, 0.3, 0.2], skyI: 0.3 },
   { alt: 0, sunColor: [1.0, 0.58, 0.32], sunI: 0.5, skyColor: [0.46, 0.48, 0.6], groundColor: [0.34, 0.26, 0.18], skyI: 0.24 },
-  { alt: -2, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.42, 0.48, 0.66], groundColor: [0.26, 0.24, 0.22], skyI: 0.16 },
-  { alt: -6, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.34, 0.42, 0.62], groundColor: [0.2, 0.2, 0.22], skyI: 0.09 },
-  { alt: -12, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.3, 0.38, 0.55], groundColor: [0.16, 0.17, 0.2], skyI: 0.045 },
+  { alt: -2, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.42, 0.48, 0.66], groundColor: [0.26, 0.24, 0.22], skyI: 0.22 },
+  { alt: -6, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.34, 0.42, 0.62], groundColor: [0.2, 0.2, 0.22], skyI: 0.17 },
+  { alt: -12, sunColor: [1.0, 0.58, 0.32], sunI: 0, skyColor: [0.3, 0.38, 0.55], groundColor: [0.16, 0.17, 0.22], skyI: 0.14 },
 ];
 
 export interface SpriteTint {
@@ -110,12 +110,16 @@ interface GradeKey {
   spriteTint: SpriteTint;
 }
 
+// exposure stays near 1: the day→night darkness is carried by the LIGHTING (sun gone, only
+// moon + sky-ambient at night), NOT by exposure — collapsing both is the double-darkening trap.
+// The grade's real job is colour: warm WB at golden hour, cool scotopic WB + desaturation at
+// night, shadow lift. (nightFactor — the SACRED 2D value — is separate and untouched.)
 const GRADE_KEYS: GradeKey[] = [
   { alt: 30, exposure: 1.0, whiteBalance: [1, 1, 1], saturation: 1.0, lift: [0, 0, 0], spriteTint: { r: 0, g: 0, b: 0, a: 0 } },
-  { alt: 10, exposure: 0.97, whiteBalance: [1.04, 0.99, 0.93], saturation: 1.03, lift: [0, 0, 0], spriteTint: { r: 255, g: 196, b: 140, a: 0.05 } },
-  { alt: 4, exposure: 0.9, whiteBalance: [1.1, 0.92, 0.78], saturation: 1.08, lift: [0.02, 0.01, 0.0], spriteTint: { r: 255, g: 176, b: 112, a: 0.12 } },
-  { alt: -4, exposure: 0.55, whiteBalance: [0.88, 0.92, 1.1], saturation: 0.8, lift: [0.01, 0.02, 0.05], spriteTint: { r: 70, g: 86, b: 130, a: 0.2 } },
-  { alt: -10, exposure: 0.32, whiteBalance: [0.78, 0.85, 1.12], saturation: 0.45, lift: [0.01, 0.02, 0.06], spriteTint: { r: 14, g: 20, b: 38, a: 0.42 } },
+  { alt: 10, exposure: 0.99, whiteBalance: [1.04, 0.99, 0.93], saturation: 1.03, lift: [0, 0, 0], spriteTint: { r: 255, g: 196, b: 140, a: 0.05 } },
+  { alt: 4, exposure: 0.96, whiteBalance: [1.1, 0.92, 0.78], saturation: 1.08, lift: [0.02, 0.01, 0.0], spriteTint: { r: 255, g: 176, b: 112, a: 0.14 } },
+  { alt: -4, exposure: 0.9, whiteBalance: [0.86, 0.92, 1.12], saturation: 0.72, lift: [0.01, 0.02, 0.05], spriteTint: { r: 60, g: 78, b: 124, a: 0.3 } },
+  { alt: -10, exposure: 0.86, whiteBalance: [0.74, 0.84, 1.16], saturation: 0.4, lift: [0.012, 0.022, 0.06], spriteTint: { r: 18, g: 26, b: 52, a: 0.46 } },
 ];
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
@@ -197,7 +201,7 @@ export function skyState(secondsOfDay: number, weather: Weather, solar: number):
 
   const moonDir = moonDirWorld(secondsOfDay);
   const moonAltDeg = (Math.asin(moonDir[2]) / Math.PI) * 180;
-  const moonFactor = 0.1 * MOON_ILLUM * clamp01(moonAltDeg / 12) * wx.direct;
+  const moonFactor = 0.22 * MOON_ILLUM * clamp01(moonAltDeg / 12) * wx.direct;
 
   const keyIsSun = sunIntensity >= moonFactor;
   const keyDir = keyIsSun ? sunDir : moonDir;

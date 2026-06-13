@@ -4,7 +4,7 @@ import { useGame, getAudio, getSimFrac } from "@/state/store";
 import { Land, villageHamlet } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawTerrainOverlays, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { TerrainGL } from "@/lib/render/gl/terrain-gl";
-import { skyState } from "@/lib/render/sky";
+import { skyState, drawScreenGrade } from "@/lib/render/sky";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
@@ -245,11 +245,16 @@ export default function WorldView() {
     if (!w) return;
     const sim = w.sim;
     const terrain = w.terrain;
-    const night = 1 - w.ambientLight();
+    // ONE sky state per frame (the single sun/moon/grade source). nightFactor is bit-identical
+    // to the old `1 - ambientLight()` every night consumer below already reads.
+    const sky = skyState(w.secondsOfDay, w.state.weather, w.solarLight());
+    const glOn = !!terrainGLRef.current?.ok;
+    const night = sky.nightFactor;
     ctx.clearRect(0, 0, cam.vw, cam.vh);
-    // On the GL path the relief is rendered by the underlayer canvas below; the 2D pass draws
-    // only the overlays (contours/paths/night wash). On the 2D fallback drawTerrain does both.
-    if (terrainGLRef.current?.ok) drawTerrainOverlays(ctx, terrain, cam, night * 0.7);
+    // On the GL path the relief is rendered by the underlayer below and self-grades in-shader
+    // (no 2D night wash — the terrain carries the darkness with FORM, not a flat veil). The 2D
+    // pass draws only contours/paths. On the 2D fallback drawTerrain blits + washes as before.
+    if (glOn) drawTerrainOverlays(ctx, terrain, cam, 0);
     else drawTerrain(ctx, terrain, cam, night * 0.7);
     drawDecoration(ctx, terrain, cam); // scattered trees/rocks fade in at tactical zoom
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
@@ -432,6 +437,14 @@ export default function WorldView() {
       ctx.fillRect(cx, cy - 16, 8, 5);
       ctx.restore();
     }
+
+    // ---- TIME-OF-DAY GRADE SEAM ----
+    // Everything ABOVE is world dressing (contours/paths/decoration/weather/villages/COP) and
+    // gets graded toward the sky tint via source-atop, so it sits IN the light instead of
+    // glowing over a dark map (the GL terrain below graded itself in-shader from the same
+    // table). Everything BELOW — units, orders, ROE rings, combat FX, callouts, night-light
+    // muzzle bloom, HUD — is ink/light drawn OVER the grade, untouched (legibility law).
+    drawScreenGrade(ctx, cam, sky.grade.spriteTint);
 
     // active-squad highlight + LOS (you command the squad, so the whole squad lights up)
     const selSet = new Set<string>();
