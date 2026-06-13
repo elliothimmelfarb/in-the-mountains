@@ -1,19 +1,18 @@
-// The WebGL2 terrain underlayer. Sits on its own opaque canvas BELOW the existing 2D canvas
-// and renders the relief in one fullscreen-triangle draw, lit by the live clock sun with cast
-// ridge shadows. If WebGL2 is unavailable or the context is lost unrecoverably, `ok` goes
-// false and WorldView falls back to the byte-identical 2D bake path.
-//
-// Per-frame: one terrain draw (1 draw call). The cast-shadow visibility map is ray-marched
-// into a 1024² R8 FBO ONLY when the sun direction moves past a threshold (≤ a few Hz), so at
-// 1× it rebakes about once a game-minute and at time-warp the shadow line visibly sweeps the
-// valley — the master clock made literal.
+// The WebGL2 terrain underlayer — the 10x rebuild (attempt #2). Sits on its own opaque canvas
+// BELOW the transparent 2D canvas (contours/units/HUD). Two passes per frame:
+//   PASS A  terrain lit in LINEAR radiance → RGBA16F HDR target (RGBA8 fallback if a driver
+//           can't render half-float — verified renderable on the headless SwiftShader path).
+//   PASS C  HDR → ACES tonemap → time-of-day grade → dither → sRGB, to the visible canvas.
+// The cast-shadow visibility map is ray-marched into a 1024² R8 FBO ONLY when the key dir moves
+// (≤ a few Hz) — at time-warp the shadow line visibly sweeps the valley (the master clock made
+// literal). If WebGL2/context is unavailable, `ok` is false and WorldView uses the 2D bake.
 
 import type { Terrain } from "../../sim/terrain";
 import type { Camera } from "../topo";
 import type { SkyState } from "../sky";
 import type { AtmoState } from "../atmosphere-model";
 import { bakeAlbedo } from "../topo";
-import { TERRAIN_VERT, TERRAIN_FRAG_LIT, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
+import { TERRAIN_VERT, TERRAIN_FRAG_LIT, COMPOSITE_VERT, COMPOSITE_FRAG, SHADOW_VERT, SHADOW_FRAG } from "./shaders";
 
 export interface TerrainEnv {
   /** camera-punch offset in CSS px — same value applied to the 2D ctx transform */
@@ -50,7 +49,6 @@ function bakeLocalFloor(t: Terrain): Float32Array {
       coarse[cy * N + cx] = m === Infinity ? t.minElev : m;
     }
   }
-  // separable box-min, radius R coarse cells (~ R*20 m)
   const R = 12;
   const tmp = new Float32Array(N * N);
   for (let y = 0; y < N; y++)
@@ -78,7 +76,14 @@ function bakeLocalFloor(t: Terrain): Float32Array {
 const BG: [number, number, number] = [0x0c / 255, 0x0d / 255, 0x0a / 255];
 const SHADOW_SIZE = 1024; // 2.5 m / texel across the 2.56 km map
 const REBAKE_COS = Math.cos((0.25 * Math.PI) / 180); // rebake when the key dir moves > 0.25°
-const REBAKE_MIN_MS = 200; // wall-clock rate limiter only (output stays angle-determined → deterministic at a pinned clock)
+const REBAKE_MIN_MS = 200; // wall-clock rate limiter only (output stays angle-determined → deterministic)
+
+// Base scene exposure mapping linear radiance into the ACES toe/shoulder. Calibrated so a
+// noon-clear mid-gray sits where attempt-1's bake did, without crushing shadows or clipping snow.
+const SCENE_EXPOSURE = 1.18;
+// Legibility floor: a small constant added to the sky-hemisphere intensity so deep-shadowed
+// faces never crush below the ~0.45× lit-luma read the tactical map needs (verified post-ACES).
+const AMBIENT_FLOOR = 0.1;
 
 function compile(gl: WebGL2RenderingContext, type: number, src: string): WebGLShader | null {
   const sh = gl.createShader(type);
@@ -121,8 +126,10 @@ function uniforms(gl: WebGL2RenderingContext, p: WebGLProgram, names: string[]):
 export class TerrainGL {
   private gl: WebGL2RenderingContext | null = null;
   private terrainProg: WebGLProgram | null = null;
+  private compositeProg: WebGLProgram | null = null;
   private shadowProg: WebGLProgram | null = null;
   private tU: Record<string, WebGLUniformLocation | null> = {};
+  private cU: Record<string, WebGLUniformLocation | null> = {};
   private sU: Record<string, WebGLUniformLocation | null> = {};
   private vao: WebGLVertexArrayObject | null = null;
   private vbo: WebGLBuffer | null = null;
@@ -132,6 +139,13 @@ export class TerrainGL {
   private shadowFbo: WebGLFramebuffer | null = null;
   private floorTex: WebGLTexture | null = null;
   private floorField: Float32Array | null = null; // CPU copy for 2D fog-coherence sampling
+  // HDR intermediate (PASS A target → PASS C source)
+  private hdrTex: WebGLTexture | null = null;
+  private hdrFbo: WebGLFramebuffer | null = null;
+  private hdrW = 0;
+  private hdrH = 0;
+  private hdrFloat = true; // RGBA16F (verified); falls back to RGBA8 if a driver can't render it
+  private bloomTex: WebGLTexture | null = null; // 1×1 black placeholder until C8 wires real bloom
   private terrain: Terrain | null = null;
   private worldSize = 2560;
   private cell = 5;
@@ -151,7 +165,7 @@ export class TerrainGL {
   }
 
   get ok(): boolean {
-    return !!this.gl && !!this.terrainProg;
+    return !!this.gl && !!this.terrainProg && !!this.compositeProg;
   }
 
   /** Bilinear sample of the local valley-floor field (m) at a world point — the SAME field the
@@ -179,26 +193,34 @@ export class TerrainGL {
     });
     if (!gl) return;
     this.gl = gl;
-    // R32F textures (height, local-floor) are only LINEAR-filterable with this extension; without
-    // it a LINEAR float texture is INCOMPLETE and samples as 0 (which silently kills the fog).
+    // RGBA16F as a renderable color attachment needs EXT_color_buffer_float (or _half_float).
+    // Probed TRUE on --use-angle=swiftshader; if absent we fall back to an RGBA8 intermediate.
+    const cbf = !!gl.getExtension("EXT_color_buffer_float") || !!gl.getExtension("EXT_color_buffer_half_float");
+    this.hdrFloat = cbf;
+    // R32F (height, local-floor) LINEAR filtering needs this; without it those stay NEAREST.
     this.floatLinear = !!gl.getExtension("OES_texture_float_linear");
     const tp = link(gl, TERRAIN_VERT, TERRAIN_FRAG_LIT);
+    const cp = link(gl, COMPOSITE_VERT, COMPOSITE_FRAG);
     const sp = link(gl, SHADOW_VERT, SHADOW_FRAG);
-    if (!tp || !sp) {
+    if (!tp || !cp || !sp) {
       this.gl = null;
       return;
     }
     this.terrainProg = tp;
+    this.compositeProg = cp;
     this.shadowProg = sp;
     this.tU = uniforms(gl, tp, [
       "u_camCenter", "u_viewCss", "u_ppm", "u_shakePx", "u_worldSize", "u_bgColor",
       "u_albedo", "u_shadow", "u_height", "u_cell", "u_grid", "u_minElev", "u_elevRange",
       "u_sunDir", "u_sunColor", "u_sunI", "u_moonDir", "u_moonColor", "u_moonFactor",
-      "u_skyColor", "u_groundColor", "u_skyI",
-      "u_keyGain", "u_formLightNW", "u_warmLow", "u_coolHigh", "u_hazeBase", "u_hazeFalloff", "u_hazeColor",
-      "u_exposure", "u_whiteBalance", "u_saturation", "u_lift",
+      "u_skyColor", "u_groundColor", "u_skyI", "u_formLightNW", "u_ambientFloor",
+      "u_warmLow", "u_coolHigh",
       "u_cloudOffset", "u_cloudScale", "u_cloudDensity", "u_cloudStrength",
       "u_localFloor", "u_fogThickness", "u_fogFade", "u_fogStrength", "u_fogColor",
+    ]);
+    this.cU = uniforms(gl, cp, [
+      "u_hdr", "u_bloom", "u_bloomStrength", "u_sceneExposure",
+      "u_exposure", "u_whiteBalance", "u_saturation", "u_lift", "u_res",
     ]);
     this.sU = uniforms(gl, sp, ["u_keyDir", "u_worldSize", "u_height", "u_cell", "u_grid"]);
     const tri = new Float32Array([-1, -1, 3, -1, -1, 3]);
@@ -211,6 +233,7 @@ export class TerrainGL {
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.bindVertexArray(null);
     this.initShadowTarget();
+    this.initBloomPlaceholder();
     if (this.terrain) this.uploadTextures(this.terrain);
   }
 
@@ -231,16 +254,66 @@ export class TerrainGL {
     this.lastKeyDir = null; // force a rebake after (re)creation
   }
 
+  private initBloomPlaceholder() {
+    const gl = this.gl;
+    if (!gl) return;
+    this.bloomTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 0, 255]));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+  }
+
+  /** (Re)create the HDR intermediate to match the drawing-buffer size. RGBA16F by default;
+   *  RGBA8 if the driver can't render half-float (the look survives, bloom headroom shrinks). */
+  private ensureHdrTarget(w: number, h: number) {
+    const gl = this.gl;
+    if (!gl) return;
+    if (this.hdrTex && this.hdrW === w && this.hdrH === h) return;
+    this.hdrW = w;
+    this.hdrH = h;
+    if (!this.hdrTex) this.hdrTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+    if (this.hdrFloat) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA16F, w, h, 0, gl.RGBA, gl.HALF_FLOAT, null);
+    } else {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+    }
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (!this.hdrFbo) this.hdrFbo = gl.createFramebuffer();
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.hdrFbo);
+    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.hdrTex, 0);
+    if (this.hdrFloat && gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) {
+      // driver lied about renderability — drop to RGBA8 and rebuild
+      this.hdrFloat = false;
+      gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.hdrTex, 0);
+    }
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  }
+
   private onLost = (e: Event) => {
     e.preventDefault();
     this.gl = null;
     this.terrainProg = null;
+    this.compositeProg = null;
   };
 
   private onRestored = () => {
     this.albedoTex = null;
     this.heightTex = null;
     this.floorTex = null;
+    this.hdrTex = null;
+    this.hdrFbo = null;
+    this.hdrW = 0;
+    this.hdrH = 0;
+    this.bloomTex = null;
     this.init();
   };
 
@@ -280,14 +353,13 @@ export class TerrainGL {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
-    // local valley-floor min-field (128² R32F) — what the valley fog pools up from. Keep a CPU
-    // copy so the 2D layer can sample the SAME field (sprite fog-fade parity with the GL fog).
+    // local valley-floor min-field (128² R32F) — what the valley fog pools up from
     this.floorField = bakeLocalFloor(t);
     if (!this.floorTex) this.floorTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.floorTex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 0);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, FLOOR_SIZE, FLOOR_SIZE, 0, gl.RED, gl.FLOAT, this.floorField);
-    const floorFilter = this.floatLinear ? gl.LINEAR : gl.NEAREST; // float LINEAR needs the extension
+    const floorFilter = this.floatLinear ? gl.LINEAR : gl.NEAREST;
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, floorFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, floorFilter);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -325,7 +397,7 @@ export class TerrainGL {
 
   render(cam: Camera, env: TerrainEnv) {
     const gl = this.gl;
-    if (!this.ok || !gl || !this.terrainProg || !this.albedoTex || !this.heightTex) return;
+    if (!this.ok || !gl || !this.terrainProg || !this.compositeProg || !this.albedoTex || !this.heightTex) return;
     const sky = env.sky;
     const nowMs = typeof performance !== "undefined" ? performance.now() : 0;
     this.maybeBakeShadow(sky, nowMs);
@@ -337,6 +409,10 @@ export class TerrainGL {
       this.canvas.width = bw;
       this.canvas.height = bh;
     }
+    this.ensureHdrTarget(bw, bh);
+
+    // ── PASS A: terrain → HDR target (linear radiance) ──────────────────────────────────────
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.hdrFbo);
     gl.viewport(0, 0, bw, bh);
     gl.useProgram(this.terrainProg);
     gl.bindVertexArray(this.vao);
@@ -373,18 +449,10 @@ export class TerrainGL {
     gl.uniform3f(this.tU.u_skyColor, sky.skyColor[0], sky.skyColor[1], sky.skyColor[2]);
     gl.uniform3f(this.tU.u_groundColor, sky.groundColor[0], sky.groundColor[1], sky.groundColor[2]);
     gl.uniform1f(this.tU.u_skyI, sky.skyIntensity);
-    gl.uniform1f(this.tU.u_keyGain, 1.0);
-    gl.uniform1f(this.tU.u_formLightNW, 0.32); // relief-inversion guard (P4); tuned by the noon squint gate
-    gl.uniform1f(this.tU.u_warmLow, 0.08);
-    gl.uniform1f(this.tU.u_coolHigh, 0.13);
-    gl.uniform1f(this.tU.u_hazeBase, 0.1);
-    gl.uniform1f(this.tU.u_hazeFalloff, 0.16);
-    gl.uniform3f(this.tU.u_hazeColor, 164 / 255, 170 / 255, 166 / 255);
-    const g = sky.grade;
-    gl.uniform1f(this.tU.u_exposure, g.exposure);
-    gl.uniform3f(this.tU.u_whiteBalance, g.whiteBalance[0], g.whiteBalance[1], g.whiteBalance[2]);
-    gl.uniform1f(this.tU.u_saturation, g.saturation);
-    gl.uniform3f(this.tU.u_lift, g.lift[0], g.lift[1], g.lift[2]);
+    gl.uniform1f(this.tU.u_formLightNW, 0.32); // relief-inversion guard; tuned by the noon squint gate
+    gl.uniform1f(this.tU.u_ambientFloor, AMBIENT_FLOOR);
+    gl.uniform1f(this.tU.u_warmLow, 0.06);
+    gl.uniform1f(this.tU.u_coolHigh, 0.1);
 
     const a = env.atmo;
     gl.uniform2f(this.tU.u_cloudOffset, a.cloudOffset[0], a.cloudOffset[1]);
@@ -397,6 +465,28 @@ export class TerrainGL {
     gl.uniform3f(this.tU.u_fogColor, a.fogColor[0], a.fogColor[1], a.fogColor[2]);
 
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    // ── PASS C: HDR → ACES tonemap + grade + dither → sRGB → visible canvas ─────────────────
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, bw, bh);
+    gl.useProgram(this.compositeProg);
+    gl.bindVertexArray(this.vao);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.hdrTex);
+    gl.uniform1i(this.cU.u_hdr, 0);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.bloomTex);
+    gl.uniform1i(this.cU.u_bloom, 1);
+    gl.uniform1f(this.cU.u_bloomStrength, 0.0); // C8 turns bloom on
+    gl.uniform1f(this.cU.u_sceneExposure, SCENE_EXPOSURE);
+    const g = sky.grade;
+    gl.uniform1f(this.cU.u_exposure, g.exposure);
+    gl.uniform3f(this.cU.u_whiteBalance, g.whiteBalance[0], g.whiteBalance[1], g.whiteBalance[2]);
+    gl.uniform1f(this.cU.u_saturation, g.saturation);
+    gl.uniform3f(this.cU.u_lift, g.lift[0], g.lift[1], g.lift[2]);
+    gl.uniform2f(this.cU.u_res, bw, bh);
+
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
   }
 
@@ -405,13 +495,16 @@ export class TerrainGL {
     this.canvas.removeEventListener("webglcontextrestored", this.onRestored as EventListener);
     const gl = this.gl;
     if (!gl) return;
-    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex]) if (t) gl.deleteTexture(t);
+    for (const t of [this.albedoTex, this.heightTex, this.shadowTex, this.floorTex, this.hdrTex, this.bloomTex]) if (t) gl.deleteTexture(t);
     if (this.shadowFbo) gl.deleteFramebuffer(this.shadowFbo);
+    if (this.hdrFbo) gl.deleteFramebuffer(this.hdrFbo);
     if (this.vbo) gl.deleteBuffer(this.vbo);
     if (this.vao) gl.deleteVertexArray(this.vao);
     if (this.terrainProg) gl.deleteProgram(this.terrainProg);
+    if (this.compositeProg) gl.deleteProgram(this.compositeProg);
     if (this.shadowProg) gl.deleteProgram(this.shadowProg);
     this.gl = null;
     this.terrainProg = null;
+    this.compositeProg = null;
   }
 }
