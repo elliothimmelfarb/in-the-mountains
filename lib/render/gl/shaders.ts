@@ -121,6 +121,7 @@ uniform float u_fogStrength;
 uniform vec3  u_fogColor;
 uniform float u_hazeStrength;   // aerial perspective (C7), keyed to visibilityM
 uniform vec3  u_hazeColor;
+uniform float u_wetness;        // 0..1 wet-ground darkening + sheen after rain (C8)
 // water (C6): flow-advected specular river + ford/bank foam
 uniform sampler2D u_flow;       // RG8 downstream flow dir at water cells
 uniform sampler2D u_waterMask;  // R8 water mask (LINEAR → shoreline ramp)
@@ -179,6 +180,9 @@ void main() {
     albedo *= clamp(mix(1.0, lum, u_detailGain * MAT_ALB[slot]), 0.45, 1.7); // bold tooth, never crush to black
   }
 
+  // wet ground after rain: darker (water-soaked dirt) — the sheen is added in the lighting below
+  albedo *= mix(1.0, 0.72, u_wetness);
+
   // diffuse key: live sun, with a fraction of the fixed NW key blended in so a high noon sun
   // (due south on a north-up map → flat, shadowless relief) still rakes the slopes (legibility).
   float keySun = max(0.0, dot(n, u_sunDir));
@@ -203,6 +207,14 @@ void main() {
   vec3  moon = u_moonColor * u_moonFactor * ndlMoon * vis * moonUp;
 
   vec3 L = albedo * (direct + hemi + moon);
+
+  // wet-ground sheen (C8): a broad low-gloss specular only when wet + sunlit (self-limits under
+  // overcast where sunI is low even though it's wet). Hard-capped so it never washes a route read.
+  if (u_wetness > 0.01) {
+    vec3 Hwet = normalize(u_sunDir + vec3(0.0, 0.0, 1.0));
+    float sheen = u_wetness * pow(max(0.0, dot(n, Hwet)), 16.0) * u_sunI * vis * sunUp;
+    L += u_sunColor * min(sheen * 0.5, 0.4);
+  }
 
   // ── water surface (C6): the river becomes actual moving water ──
   // Masked to river/marsh/ford cells (early-out keeps cost to a few % of pixels). Two noise
@@ -306,6 +318,36 @@ void main(){
   vec3 srgb = toSRGB(clamp(tm, 0.0, 1.0));
   srgb += bayer(gl_FragCoord.xy) / 255.0;                  // ordered dither
   o = vec4(srgb, 1.0);
+}`;
+
+// ── PASS B: bloom (C8) — bright-pass + separable Gaussian, half-res. Sober: high knee, low gain. ──
+export const BRIGHT_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_hdr;
+uniform float u_knee;       // luma threshold — only true highlights (sun glint, future muzzle/fire) bloom
+out vec4 o;
+void main(){
+  vec3 c = texture(u_hdr, v_uv).rgb;
+  float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float over = max(0.0, l - u_knee);
+  o = vec4(c * (over / max(l, 1e-4)), 1.0);   // keep hue, isolate the over-knee energy
+}`;
+
+export const BLUR_FRAG = /* glsl */ `#version 300 es
+precision highp float;
+in vec2 v_uv;
+uniform sampler2D u_src;
+uniform vec2 u_dir;         // (texelW,0) or (0,texelH), scaled by spread
+out vec4 o;
+void main(){
+  // 9-tap Gaussian via 5 linear samples
+  vec3 c = texture(u_src, v_uv).rgb * 0.227027;
+  c += texture(u_src, v_uv + u_dir * 1.3846).rgb * 0.316216;
+  c += texture(u_src, v_uv - u_dir * 1.3846).rgb * 0.316216;
+  c += texture(u_src, v_uv + u_dir * 3.2308).rgb * 0.070270;
+  c += texture(u_src, v_uv - u_dir * 3.2308).rgb * 0.070270;
+  o = vec4(c, 1.0);
 }`;
 
 // ── Shadow pass (REUSED VERBATIM — refuted alternatives must not be re-rolled) ──────────────
