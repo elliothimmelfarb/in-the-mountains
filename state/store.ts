@@ -370,11 +370,27 @@ async function runDeploy(
 // The render-cache pre-warm phases shared by every deploy path: bake the relief into the
 // WeakMap drawTerrain reads, then rasterize the sprite atlas. After these, the first deploy
 // frame is a pure cache hit — no first-frame freeze.
+// One-shot probe: can we get a WebGL2 context? Decides whether the deploy warm-bake produces
+// the unlit albedo (GL underlayer) or the lit relief (2D fallback) — must agree with TerrainGL.
+let _webgl2: boolean | null = null;
+function webgl2Available(): boolean {
+  if (_webgl2 !== null) return _webgl2;
+  try {
+    _webgl2 = typeof document !== "undefined" && !!document.createElement("canvas").getContext("webgl2");
+  } catch {
+    _webgl2 = false;
+  }
+  return _webgl2;
+}
+
 function renderWarmPhases(getWorld: () => World): DeployPhase[] {
   return [
     // The relief bake is the long pole (~seconds, 16 M shaded pixels) — bake it progressively
     // so the bar fills smoothly through it, and cache it so the first deploy frame is instant.
-    { id: "relief", label: "Surveying the relief — baking the topographic map", run: async (report) => { await bakeTerrainProgressive(getWorld().terrain, report); } },
+    // On the WebGL path the underlayer samples the UNLIT albedo, so bake that (else the first
+    // GL frame would synchronously bake it — a multi-second hitch). On the 2D fallback bake the
+    // lit relief as before. One probe decides which (matches TerrainGL's webgl2 availability).
+    { id: "relief", label: "Surveying the relief — baking the topographic map", run: async (report) => { await bakeTerrainProgressive(getWorld().terrain, report, !webgl2Available()); } },
     { id: "assets", label: "Issuing kit — rasterizing the asset library", run: () => loadSprites(ASSETS) },
   ];
 }

@@ -4,6 +4,7 @@ import { useGame, getAudio, getSimFrac } from "@/state/store";
 import { Land, villageHamlet } from "@/lib/sim/terrain";
 import { Camera, drawTerrain, drawTerrainOverlays, drawGrid, drawWeather, worldToScreen, screenToWorld } from "@/lib/render/topo";
 import { TerrainGL } from "@/lib/render/gl/terrain-gl";
+import { skyState } from "@/lib/render/sky";
 import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawLOSLines, drawPath, drawCop, FIG_FADE0 } from "@/lib/render/draw";
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
@@ -215,13 +216,14 @@ export default function WorldView() {
         // canvas below). On terrain swap (new campaign / load) re-upload its textures. The
         // shake offset matches the 2D transform so both layers shake together.
         const tgl = terrainGLRef.current;
-        if (tgl?.ok) {
-          const wNow = useGame.getState().world;
-          if (wNow && lastTerrainRef.current !== wNow.terrain) {
+        const wNow = useGame.getState().world;
+        if (tgl?.ok && wNow) {
+          if (lastTerrainRef.current !== wNow.terrain) {
             tgl.setTerrain(wNow.terrain);
             lastTerrainRef.current = wNow.terrain;
           }
-          tgl.render(camRef.current, { shakePx: { x: ox, y: oy } });
+          const sky = skyState(wNow.secondsOfDay, wNow.state.weather, wNow.solarLight());
+          tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky });
         }
         draw(ctx, camRef.current, now);
         // feed the audio listener pose (positional pan + distance + zoom-scaled radius).
