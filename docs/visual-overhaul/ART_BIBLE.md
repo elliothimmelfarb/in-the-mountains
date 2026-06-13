@@ -49,6 +49,56 @@ Concretely, use these SVG building blocks:
 
 ---
 
+## 1b. THE TERRAIN IS NOW LIVE-LIT (WebGL2) — what that means for this bible
+
+> Shipped 2026-06-13 (WebGL terrain 10x, attempt #2). The valley floor is no longer a flat
+> painted hillshade — it is **recomposed per-pixel in a WebGL2 HDR underlayer** and lit by the live
+> master-clock sun. This section is the addendum to §1: the lighting contract still holds, but the
+> *ground* now obeys it physically instead of by bake. Sprites (§1) still ride on top, baked.
+
+- **The dust palette is preserved, not replaced.** The per-landcover material atlas is seeded from the
+  **same `landColor()` palette** (§3) byte-for-byte. The material pass only ever **adds luminance
+  tooth** — scree grain, furrow corduroy, gravel-bar break, roughness micro-contrast — and **never a
+  new hue**. The §3 palette is still the only palette. If a material reads as a *colour* you didn't
+  author, that's a bug, not a feature.
+- **`u_detailGain` is the legibility firewall.** All added high-frequency detail (detail-normals,
+  atlas 2nd octave, specular, bloom) is gated by one zoom ramp (ppm **1.0 → 3.0**) that drives to
+  **0 at operational/strategic**. At strategic the entire transformation collapses to the
+  byte-faithful relief + palette of the old 2D bake (calibrated to a noon-clear mid-gray luma number),
+  so the map-sheet read of the LOD table (§5) is provably unchanged. Detail resolves only as you zoom
+  to tactical/close.
+- **Sober-ISR grade, not a glamour shot.** ACES tonemap + a restrained time-of-day grade + Bayer
+  dither. NO chromatic aberration, NO vignette above operational, NO film grain (grain over a relief
+  map reads as fake micro-relief). The bar is a photoreal **drone/ISR feed**, not a cinematic.
+- **NO summer snow.** The fighting season is mid-July (δ=+21°); the owner steer is sober photoreal
+  with snow OFF in summer. Snow stays a campaign-winter feature only, and any white on an LOS-relevant
+  skyline crest is hard-capped so it can never wash the silhouette a player ranges off.
+- **The river is DARK.** Real Pech/Korengal water reads as low-albedo dark silt grey-green — **dimmer
+  than its own gravel bars**, with a thin sun-azimuth glint streak only (never a full-width white fill)
+  and rare whitecap foam at fords. A near-white "snow/salt-flat ribbon" river is a sacred realism
+  break (fixed in Phase E); foam composites near `#f3ecd6`, never pure white.
+- **Daytime haze scales with zoom.** Aerial perspective is full at strategic (to sell the satellite
+  wide shot) and fades to ~12% by tactical, so the mid-zoom read keeps albedo + shadow contrast
+  instead of flattening to monochrome.
+
+**The golden-hour convergence (why the §1 baked-NW sprite key still coheres).** §1 bakes sprites with
+a fixed **NW key light** (`key = norm3(-0.55,-0.62,0.56)`). The live terrain sun sweeps the whole sky
+across the day, so at noon the lit terrain and the baked-NW sprites disagree on light direction. This
+is reconciled two ways: (1) the terrain shader keeps a **`formLightNW` noon guard** that blends toward
+the same NW key as the sun flattens (so the ground never inverts against the sprites at noon), and
+(2) the convergence is *cleanest at the evening golden hour*, when the real sun's azimuth swings
+toward the NW and the live-lit ground and the baked-NW sprites light from the same direction — the
+moment the scene looks most "one studio built this." The residual daytime disagreement is the open
+seam the deferred per-sprite relight (`docs/issues/028`) closes by lighting sprites from the *same*
+`SkyState` the terrain uses.
+
+**HONEST SCOPE.** Terrain got the full 10x. Sprites got **grounding** (COP structures + vegetation
+now cast sun-tracked shadows that track the live clock and fade with the valley fog — nothing floats).
+Full per-sprite normal/AO **relight**, the continuous-extruded HESCO berm, and FX particles are
+**deferred backlog** — `docs/issues/028`.
+
+---
+
 ## 2. PROJECTION, ANCHORS & SCALE
 
 - **viewBox:** author every asset in its own `viewBox="0 0 W H"` in **abstract units that map to the documented footprint**. Keep numbers clean (e.g. a 64×64 box).

@@ -183,6 +183,7 @@
     <a class="rep" href="reports/2026-06-10-people-immersion/report.html"><span class="rd">2026-06-10</span><span class="rt">Making the people real</span><span class="rs">One architecture, four places: the enemy cell gets the friendly squad's decide/execute split (ambush volley p90 11.2→0.6 s, a peel that converges while a rout disperses), men hesitate like men, a deterministic callout bus makes the brotherhood audible (man-down 100%, two-run identical) — and the village remembers: the elder physically walks out to the shura, a civilian death writes a named blood debt his household buries at first light, and children trail only the patrols a village trusts. Five new probes caught six real bugs before ship.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-11-sound-pass/report.html"><span class="rd">2026-06-11</span><span class="rt">The mixer and the whistle</span><span class="rs">A per-category sound mixer (combat / ambience / radio / alerts, each with on/off + level, persisted) wired between the buses and master so user trim never fights the contact-duck — plus five audible improvements with oracle numbers: the incoming-shell whistle the valley was missing (2.26 s, deterministic off the fire mission's own countdown), real stereo width for the calm bed (4%→12.4% — the fix was loop offsets, not panning), thunder that crosses the valley, an adhan that finally sounds sung (5.3 Hz vibrato), and three ricochet families. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-11-sound-realism/report.html"><span class="rd">2026-06-11</span><span class="rt">Calibre voices</span><span class="rs">One sentence of sim code — stamping which weapon produced each effect — unlocked the sound pass the synth itself had been asking for ("we have no per-weapon id on the Effect"). The .50s now hammer an octave below the 7.62 guns (DShK darker than the PKM by 772 Hz, measured), the RPG announces its launch before the blast, the M320 bloops, bolt guns cycle their bolts, pistols bark, and 60 vs 120 mm mortars grade by calibre (LF share 14.1→19.9%). Plus the sounds that were missing: reload clatter at −51.6 dB, and upgrades that make the IED heave (centroid 5233→3951 Hz), the incoming shell tear instead of sing, and the near miss complete its N-wave. 13/13 oracle assertions; new cues proven on 3 held-out seeds of organic combat. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-13-the-valley-is-real/report.html"><span class="rd">2026-06-13</span><span class="rt">The valley is real — a WebGL terrain rebuild</span><span class="rs">A first attempt was reverted for being "the old flat map with the sun switched on" (blit parity + a colour filter). This rebuild inverts it: the painted albedo is demoted to one input of five, and a WebGL2 fragment <em>recomposes the surface per-pixel</em> from the sim's own arrays — per-landcover materials + detail-normal raking, baked horizon AO, live-sun ridge shadows, a dark-silt flow-advected river, single-scatter aerial perspective, ACES + bloom — under a transparent 2D HUD (the legibility firewall), with a <code>u_detailGain</code> zoom-ramp that collapses to byte-faithful relief at strategic (Δ+0.2 luma). 9 green commits; a 4-critic adversarial pass caught a snow-white river + contrast-crushing haze (1/4 → fixed → fresh-eyes confirmed clears the bar). Terrain = full 10×; assets = grounded (full relight + FX deferred, issue 028).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1109,6 +1110,55 @@
       and there are still no synthesized screams, deliberately — the recorded negative on synthesized radio
       voice ("reads cheesy faster than squelch reads sparse") extends to wounded men, with higher stakes.</p>
       <a class="readmore" href="reports/2026-06-11-sound-realism/report.html">Read the full report (with playable A/B audio) →</a>
+    </div>
+  </article>
+
+  <!-- ============================== ACT · June 13 ============================== -->
+  <section class="act">
+    <div class="actkick">Act · June 13</div>
+    <h2>Making the valley photoreal</h2>
+    <p class="actsub">The sim was already a defense-grade COIN model and the map was legible — but it still
+    looked like a map. A first WebGL attempt only switched the sun on over the same flat bitmap and was
+    reverted. This is the rebuild that makes the ground a photograph without ever stopping being a chart.</p>
+  </section>
+
+  <article class="chapter" id="c-2026-06-13-the-valley-is-real">
+    <div class="shot">
+      <a href="reports/2026-06-13-the-valley-is-real/report.html"><img src="assets/2026-06-13-the-valley-is-real.png" alt="The valley at strategic zoom: terraced cropland quilting the floor, dusty scree slopes, a dark river braiding the bottom, ridge-shadowed spurs — reading as satellite imagery" loading="lazy"></a>
+      <div class="cap">Strategic zoom, noon — material identity per landcover, ridge shadows, a dark drainage network. The before was a single tinted heightmap. Opens the full report (before/after at every zoom band).</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-13</span></div>
+      <h3>The valley is real — a WebGL terrain rebuild (attempt #2)</h3>
+      <div class="tags"><span class="tag">Rendering</span><span class="tag">WebGL2</span><span class="tag">Verification</span></div>
+      <p>The first attempt at this overhaul was <em>reverted</em>: it moved the existing flat painted relief
+      onto the GPU byte-for-byte and laid a colour filter and a moving sun over it — the same map with the sun
+      switched on. This rebuild inverts the idea. The painted albedo is <b>demoted from "the image" to one input
+      of five</b>, and a WebGL2 fragment shader <b>recomposes the surface per-pixel</b> from the simulation's own
+      arrays — landcover, slope, cover, the heightfield — against a procedural material library, lit in linear
+      radiance by the live master-clock sun.</p>
+      <p class="shape"><b>The shape:</b> a WebGL2 underlayer beneath a transparent Canvas-2D HUD (the units and
+      contours are a separate, never-graded layer — the legibility firewall). Three passes a frame: terrain →
+      RGBA16F HDR (per-landcover materials + detail-normal raking the live sun, baked horizon AO, multi-km ridge
+      shadows, a dark-silt flow-advected river, aerial perspective + in-fog god-rays), then threshold bloom, then
+      ACES tonemap + time-of-day grade + dither. A <code>u_detailGain</code> zoom-ramp collapses the whole
+      transformation to byte-faithful relief at strategic zoom, so the band the old map got right is provably
+      preserved while close zoom resolves into real ground. Nine commits, each green; reuses the verified Kunar
+      solar model, the bit-faithful heightmap port, and the exponential cast-shadow march.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">terrain surface</span><span class="b">flat painted hillshade</span><span class="ar">→</span><span class="a">per-pixel material recomposition</span></span>
+        <span class="m"><span class="lbl">strategic mid-grey luma (firewall)</span><span class="b">132.2</span><span class="ar">→</span><span class="a">132.4 (byte-faithful kept)</span></span>
+        <span class="m"><span class="lbl">the river</span><span class="b">near-white "salt flat"</span><span class="ar">→</span><span class="a">dark silt water</span></span>
+        <span class="m"><span class="lbl">adversarial verdict</span><span class="b">1/4 clears the bar</span><span class="ar">→</span><span class="a">fixed, fresh-eyes confirmed</span></span>
+        <span class="m"><span class="lbl">standing checks</span><span class="b">—</span><span class="ar">→</span><span class="a">tsc/build/smoke/balance green</span></span>
+      </div>
+      <p class="quote">Residuals named, partial stated as partial: the terrain got the full 10×, but the assets
+      got <em>grounding</em> (sun-tracked shadows), not a full relight — the 164 sprites are still flat bitmaps.
+      A per-sprite normal/AO relight and FX particles are a scoped follow-on (issue 028), logged rather than
+      shipped half-done. The win the verification earned: a four-critic panel caught a snow-white river and a
+      contrast-crushing haze the build's own author had rationalized away — fixed, then re-confirmed by a fresh
+      reviewer.</p>
+      <a class="readmore" href="reports/2026-06-13-the-valley-is-real/report.html">Read the full report (before/after at every zoom) →</a>
     </div>
   </article>
 

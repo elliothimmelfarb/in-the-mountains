@@ -8,7 +8,13 @@
 > valley means logistics and patience as much as firefights.
 
 Built with **Next.js (App Router) + React 19 + TypeScript + Tailwind 4**. The entire
-simulation engine is pure, deterministic TypeScript (seeded RNG); rendering is Canvas 2D.
+simulation engine is pure, deterministic TypeScript (seeded RNG); the terrain renders in a
+**WebGL2 HDR underlayer** — the valley floor is recomposed per-pixel from the sim's own
+landcover arrays and lit by the live master-clock sun (linear-space sun/sky/moon lighting,
+baked horizon AO, multi-kilometre cast ridge shadows, a flow-advected dark-silt river,
+single-scatter aerial perspective, in-fog god-rays, ACES tonemap + time-of-day grade) under a
+transparent Canvas-2D layer for contours, units, combat FX and HUD, with an alive 2D-bake
+fallback when WebGL2 is unavailable.
 
 Inspired by Sebastian Junger's *War*, the documentaries *Restrepo* and *Korengal*, Jake
 Tapper's *The Outpost*, and counterinsurgency doctrine (FM 3-24).
@@ -119,10 +125,17 @@ lib/sim/            Pure simulation engine (no React)
     projects.ts     CERP project logistics + resupply
     events.ts       Decision events
     helpers.ts      Shared free functions
-lib/render/         Canvas rendering: topo bake + ~160-asset SVG sprite/LOD system
+lib/render/         WebGL2 terrain underlayer + Canvas-2D HUD: ~160-asset SVG sprite/LOD system
+  gl/               WebGL2 terrain pipeline (two-canvas: opaque GL under transparent 2D)
+    terrain-gl.ts   TerrainGL — two-pass HDR renderer; `.ok` gates the alive 2D-bake fallback
+    shaders.ts      GLSL: bit-faithful heightAt prelude, cast-shadow march, material/lighting passes
+    material-atlas.ts  Deterministic CPU-baked per-landcover PBR atlas (seed contract; hashed in smoke)
+  sky.ts            Verified solar model (δ=+21° Kunar) + SkyState/grade + sprite shadow geometry
+  atmosphere-model.ts  Floor-field valley fog (local-floor min-field, diurnal ramp, cloud drift)
   sprites.ts        Rasterize SVGs once → blit scaled/rotated (bake-once/blit-many)
   draw.ts           Units (symbol→figure LOD), COP structures, effects
-  decoration.ts     Stable-hash vegetation/rock scatter by landcover
+  decoration.ts     Stable-hash vegetation/rock scatter by landcover, sun-tracked shadows
+  topo.ts           2D shaded-relief bake (the GL-off fallback look + strategic relief)
   callouts.ts       Diegetic callout plates (the sim's say() bus → the map)
 lib/audio/          Procedural soundscape — combat + living valley (render-side; no assets, no deps)
   mapper.ts/cue.ts  PURE: sim events (effects/log/fire-missions/TIC) → AudioCue[] (headless)
