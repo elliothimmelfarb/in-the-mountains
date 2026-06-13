@@ -10,7 +10,7 @@ import { drawUnit, drawSquadIcon, drawProjectiles, drawEffects, drawSmoke, drawL
 import { drawFireMissions, drawSuppressionCues, drawCasualtyCues, drawScorchDecals, drawContactMarker, drawFogReveals, drawCombatHaze, noteCombatEffects, drawNightLights, noteShakeEvents, drawEdgeFlash, drawOffscreenContactPointer, getContactCentroid } from "@/lib/render/combat-fx";
 import { drawDecoration } from "@/lib/render/decoration";
 import { CalloutPresenter } from "@/lib/render/callouts";
-import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, drawSunShadow, hasSprite, lodAlpha } from "@/lib/render/sprites";
+import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, drawSunShadow, drawContactAO, spriteLightFrom, hasSprite, lodAlpha, type SpriteLight } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
 
@@ -263,6 +263,10 @@ export default function WorldView() {
     const sky = skyState(w.secondsOfDay, w.state.weather, w.solarLight());
     const glOn = !!terrainGLRef.current?.ok;
     const night = sky.nightFactor;
+    // Per-frame directional FORM-LIGHT for the sprite layer — only on the GL path (the 2D
+    // fallback already night-washes the whole map, so a second directional pass would
+    // double-light it). Lets every world sprite catch the SAME live sun the terrain does.
+    const sprLight: SpriteLight | undefined = glOn ? spriteLightFrom(sky) : undefined;
     ctx.clearRect(0, 0, cam.vw, cam.vh);
     // On the GL path the relief is rendered by the underlayer below and self-grades in-shader
     // (no 2D night wash — the terrain carries the darkness with FORM, not a flat veil). The 2D
@@ -277,7 +281,7 @@ export default function WorldView() {
     const fogAt = glOn && tgl && atmoDraw.fogStrength > 0.01 && atmoDraw.fogThickness > 0.5
       ? (wx: number, wy: number) => fogVisAt(terrain.elevAt(wx, wy), tgl.localFloorAt(wx, wy), atmoDraw)
       : undefined;
-    drawDecoration(ctx, terrain, cam, fogAt, glOn ? sky.spriteShadow : undefined); // trees/rocks + sun-tracked grounding
+    drawDecoration(ctx, terrain, cam, fogAt, glOn ? sky.spriteShadow : undefined, sprLight); // trees/rocks + sun-tracked grounding + form-light
     if (cam.ppm > 0.22) drawGrid(ctx, terrain, cam, cam.ppm > 0.9 ? 100 : 200);
 
     // weather as atmosphere — over the relief/decoration, under the tactical layer, so it
@@ -348,8 +352,12 @@ export default function WorldView() {
           const wc = terrain.cellCenter(v.cx + cmp.dx, v.cy + cmp.dy);
           const qid = cmp.r >= 4 ? "qalat-large" : cmp.r >= 3 ? "qalat-medium" : "qalat-small";
           const qFog = fogAt ? fogAt(wc.x, wc.y) : 0; // recede into valley fog with the terrain
-          if (glOn && qFog < 0.6) drawSunShadow(ctx, cam, wc.x, wc.y, 3, cmp.r * 2 * terrain.cellSize, sky.spriteShadow); // qalat cast shadow
-          if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: cmp.r * 2 * terrain.cellSize, alpha: qA * (1 - 0.85 * qFog) });
+          const qFootM = cmp.r * 2 * terrain.cellSize;
+          if (glOn && qFog < 0.6) {
+            drawContactAO(ctx, cam, wc.x, wc.y, qFootM, 1, qA * (1 - 0.85 * qFog)); // grounding halo
+            drawSunShadow(ctx, cam, wc.x, wc.y, 3, qFootM, sky.spriteShadow); // qalat cast shadow
+          }
+          if (hasSprite(qid)) drawWorldSprite(ctx, cam, qid, wc.x, wc.y, { widthM: qFootM, alpha: qA * (1 - 0.85 * qFog), light: sprLight });
         }
       }
       const pinA = 1 - qA * 0.82;
@@ -413,7 +421,7 @@ export default function WorldView() {
     // COP structure (walls/buildings are baked into the relief; this is the overlay).
     // Pass the render-only environment so the wall, life-signs and atmosphere can read the
     // diurnal darkness, the prevailing wind, and a wall-clock phase (never feeds back to sim).
-    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain, { night, windX: windV.x, windY: windV.y, tNow: nowMs / 1000, sunShadow: glOn ? sky.spriteShadow : undefined });
+    if (cam.ppm > 0.3) drawCop(ctx, cam, terrain, { night, windX: windV.x, windY: windV.y, tNow: nowMs / 1000, sunShadow: glOn ? sky.spriteShadow : undefined, light: sprLight });
 
     // record fresh combat events (blasts → scorch craters; hidden-shooter muzzles →
     // suspected pinpoints), then draw the surviving craters on the ground under units
@@ -429,7 +437,9 @@ export default function WorldView() {
       if (air) {
         const lz = terrain.cellCenter(terrain.cop.lz.cx, terrain.cop.lz.cy);
         const head = Math.atan2(-terrain.cop.gateDir.y, -terrain.cop.gateDir.x); // nose toward the wire
-        drawWorldSprite(ctx, cam, "helo-uh60", lz.x, lz.y, { widthM: 16, rot: head, alpha: lodAlpha(cam.ppm, 0.45, 0.95) });
+        const heloA = lodAlpha(cam.ppm, 0.45, 0.95);
+        if (sprLight) drawContactAO(ctx, cam, lz.x, lz.y, 14, 0.85, heloA);
+        drawWorldSprite(ctx, cam, "helo-uh60", lz.x, lz.y, { widthM: 16, rot: head, alpha: heloA, light: sprLight });
       }
     }
 

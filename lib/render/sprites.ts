@@ -13,6 +13,59 @@
  * sprites (soldiers/vehicles) carry a symmetric contact shadow so any heading looks right.
  */
 import { Camera, worldToScreen } from "./topo";
+import type { SkyState } from "./sky";
+
+/**
+ * Per-frame directional FORM-LIGHT for the sprite layer — the cheap CPU answer to the GBuffer
+ * relight (issue 028 item 1) that banks the visible win without the puffed-pillow risk. Computed
+ * ONCE per frame from the single SkyState (so sprites sit in the SAME light as the GL terrain:
+ * warm raking edge at golden hour, cool dim at dusk, flat at noon, gone at night), then threaded
+ * into every world-sprite blit. The blit composites ONE `source-atop` gradient over the sprite's
+ * own pixels: a warm highlight on the sun-facing edge → neutral → a cool shadow on the sun-away
+ * edge. Reads as the lit roof/near-wall catching the sun and the far side falling into shade —
+ * real volume on a flat top-down decal, for ~one extra fill per sprite.
+ *
+ * WORLD-FRAME correctness (the load-bearing constraint): the gradient axis is the sun's
+ * screen-projected direction (world +y = screen-down, no flip — same convention as spriteShadow).
+ * For a ROTATING sprite the blit counter-rotates this axis by the sprite heading, so a soldier's
+ * lit side stays world-anchored and does NOT spin with his facing.
+ */
+export interface SpriteLight {
+  sx: number; // unit screen vector TOWARD the sun (x), world frame
+  sy: number; // ...(y); world +y is screen-down
+  litR: number; litG: number; litB: number; litA: number; // sun-facing highlight
+  shR: number; shG: number; shB: number; shA: number; // sun-away shade
+  strength: number; // 0..1 master gate (0 ⇒ skip the pass entirely — night/overcast)
+}
+
+/** Build the per-frame SpriteLight from the single SkyState. Pure; cache it once per frame. */
+export function spriteLightFrom(sky: SkyState): SpriteLight {
+  // direct beam drives the directional form; below the horizon / killed by weather → no form.
+  const beam = sky.sunIntensity;
+  const kxy = Math.hypot(sky.sunDir[0], sky.sunDir[1]) || 1;
+  // a low sun rakes hardest (long screen vector, strong side-light); a high sun flattens form.
+  const altClamp = Math.max(0, Math.min(1, sky.sunAltDeg / 60)); // 0 at horizon, 1 by 60°
+  const rake = 1 - 0.72 * altClamp; // strong side-light low, gentle near zenith
+  const strength = Math.min(1, beam * 0.9) * (0.45 + 0.55 * rake);
+  // highlight tint = the sun's own colour (warm at golden hour); shade tint = the cool sky bounce.
+  const [sr, sg, sb] = sky.sunColor;
+  const [kr, kg, kb] = sky.skyColor;
+  return {
+    sx: sky.sunDir[0] / kxy,
+    sy: sky.sunDir[1] / kxy,
+    litR: Math.round(255 * Math.min(1, sr * 1.0 + 0.0)),
+    litG: Math.round(255 * Math.min(1, sg)),
+    litB: Math.round(255 * Math.min(1, sb)),
+    // highlight alpha: gentle — we are ADDING warmth/brightness, not blowing out the albedo.
+    litA: 0.26 * strength,
+    // shade is the cool ambient bounce, darkened — pushes the sun-away side down & blue.
+    shR: Math.round(255 * kr * 0.42),
+    shG: Math.round(255 * kg * 0.45),
+    shB: Math.round(255 * kb * 0.5),
+    shA: 0.4 * strength,
+    strength,
+  };
+}
 
 export interface AssetDef {
   id: string;
@@ -115,7 +168,7 @@ export function drawWorldSprite(
   id: string,
   wx: number,
   wy: number,
-  opts: { rot?: number; alpha?: number; scale?: number; minPx?: number; maxPx?: number; widthM?: number; heightM?: number } = {}
+  opts: { rot?: number; alpha?: number; scale?: number; minPx?: number; maxPx?: number; widthM?: number; heightM?: number; light?: SpriteLight } = {}
 ): boolean {
   const b = registry.get(id);
   if (!b || (b.def.footprint == null && opts.widthM == null)) return false;
@@ -135,8 +188,48 @@ export function drawWorldSprite(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(b.canvas, -ax, -ay, pxW, pxH);
+  // FORM-LIGHT: one source-atop directional gradient over the sprite's own pixels — the lit
+  // edge catches the sun's colour, the far edge falls into cool shade. The sprite is drawn in a
+  // frame already rotated by `rot`; counter-rotate the sun axis by `-rot` so the lit side stays
+  // WORLD-anchored (a rotating soldier's highlight does NOT spin with his heading — issue 028).
+  if (opts.light && opts.light.strength > 0.02 && pxW * pxH > 30) {
+    applyFormLight(ctx, opts.light, -(opts.rot ?? 0), -ax, -ay, pxW, pxH);
+  }
   ctx.restore();
   return true;
+}
+
+/** Composite the directional highlight→shade gradient over the just-blitted sprite. Caller has
+ *  already translated to the sprite anchor + rotated by the heading; `axisRot` un-rotates the
+ *  world-frame sun vector back into this local frame so the light is world-stable under heading. */
+function applyFormLight(
+  ctx: CanvasRenderingContext2D,
+  L: SpriteLight,
+  axisRot: number,
+  x: number, y: number, w: number, h: number
+): void {
+  // sun vector rotated into the sprite-local frame
+  const ca = Math.cos(axisRot), sa = Math.sin(axisRot);
+  const ux = L.sx * ca - L.sy * sa;
+  const uy = L.sx * sa + L.sy * ca;
+  // gradient endpoints span the sprite along the (local) sun axis, centred. Use the projected
+  // half-extent of the box onto the sun axis (not the full diagonal) so the lit/shade ends land
+  // ON the sprite face — a building lit side-on shows a real bright-edge → dark-edge falloff
+  // across its whole width instead of the gradient stops sitting off the corners.
+  const half = (Math.abs(ux) * w + Math.abs(uy) * h) * 0.5;
+  const cx = x + w * 0.5, cy = y + h * 0.5;
+  // lit end is TOWARD the sun; shade end AWAY from it. A wide neutral midband keeps mid-faces
+  // honest while the edges clearly catch / lose the sun.
+  const grad = ctx.createLinearGradient(cx + ux * half, cy + uy * half, cx - ux * half, cy - uy * half);
+  grad.addColorStop(0, `rgba(${L.litR},${L.litG},${L.litB},${L.litA})`);
+  grad.addColorStop(0.5, `rgba(${L.litR},${L.litG},${L.litB},0)`);
+  grad.addColorStop(0.55, `rgba(${L.shR},${L.shG},${L.shB},0)`);
+  grad.addColorStop(1, `rgba(${L.shR},${L.shG},${L.shB},${L.shA})`);
+  ctx.save();
+  ctx.globalCompositeOperation = "source-atop";
+  ctx.fillStyle = grad;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
 }
 
 /**
@@ -176,6 +269,44 @@ export function drawSunShadow(
   ctx.beginPath();
   // origin lobe (footprint) + an elongated lobe stretching down-sun
   ctx.ellipse(lenPx * 0.5, 0, lenPx * 0.5 + widPx * 0.5, widPx * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Sun-INDEPENDENT contact-AO halo: a tight, soft dark ellipse hugging an object's base, the
+ * ambient-occlusion darkening a real object casts into the ground it touches REGARDLESS of sun
+ * angle (the long directional `drawSunShadow` collapses to nothing at noon — this is what keeps
+ * the object from floating then). Drawn BEFORE the sprite. `footprintM` = the object's ground
+ * width; `strength` 0..1 scales the darkness (units lighter than buildings).
+ */
+export function drawContactAO(
+  ctx: CanvasRenderingContext2D,
+  cam: Camera,
+  wx: number,
+  wy: number,
+  footprintM: number,
+  strength = 1,
+  alphaMul = 1,
+): void {
+  const rPx = footprintM * 0.55 * cam.ppm;
+  if (rPx < 2.2) return;
+  const [sx, sy] = worldToScreen(cam, wx, wy);
+  const a = Math.min(0.4, 0.34 * strength) * alphaMul;
+  if (a < 0.02) return;
+  // a squashed radial pool — dense at the contact point, feathering out. Bottom-weighted a hair
+  // so it reads as the object SITTING on the ground rather than a symmetric dot under it.
+  const grad = ctx.createRadialGradient(sx, sy + rPx * 0.12, 0, sx, sy + rPx * 0.12, rPx);
+  grad.addColorStop(0, `rgba(14,11,8,${a})`);
+  grad.addColorStop(0.55, `rgba(14,11,8,${a * 0.7})`);
+  grad.addColorStop(1, "rgba(14,11,8,0)");
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.scale(1, 0.62); // top-down foreshortening
+  ctx.translate(-sx, -sy);
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(sx, sy + rPx * 0.12, rPx, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
