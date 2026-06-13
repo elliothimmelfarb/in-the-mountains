@@ -4,7 +4,7 @@ import { Terrain } from "../sim/terrain";
 import { Projectile } from "../sim/ballistics";
 import { Effect } from "../sim/combat";
 import { SmokeScreen } from "../sim/los";
-import { drawScreenSprite, drawWorldSprite, drawSunShadow, hasSprite, lodAlpha } from "./sprites";
+import { drawScreenSprite, drawWorldSprite, drawSunShadow, drawContactAO, hasSprite, lodAlpha, type SpriteLight } from "./sprites";
 
 const FAC_COLOR: Record<string, string> = {
   us: "#5b9bd8",
@@ -185,9 +185,28 @@ export function drawUnit(
 
   // --- detailed figure sprite (fades IN as we zoom in), rotated to facing ---
   if (sprA > 0.02 && spriteId) {
+    const fpx = figurePx(cam.ppm);
+    // contact-AO grounding: a soft squashed pool under the boots so a man/casualty SITS on the
+    // resolving terrain instead of floating as a decal. Sun-independent (the long cast shadow
+    // collapses at noon). Lighter than a building's, and we keep the figure itself UNTINTED so
+    // faction colour + silhouette stay crisp below the grade seam (legibility law).
+    if (cam.ppm > 2.6) {
+      ctx.save();
+      ctx.globalAlpha *= sprA * 0.5;
+      const ar = fpx * 0.52;
+      const ag = ctx.createRadialGradient(0, fpx * 0.18, 0, 0, fpx * 0.18, ar);
+      ag.addColorStop(0, "rgba(12,10,7,0.42)");
+      ag.addColorStop(0.6, "rgba(12,10,7,0.26)");
+      ag.addColorStop(1, "rgba(12,10,7,0)");
+      ctx.fillStyle = ag;
+      ctx.beginPath();
+      ctx.ellipse(0, fpx * 0.18, ar, ar * 0.5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
     // faction base ring under the figure: keeps US/ANA/ACM/civ legible at any size,
     // since the painted shoulder patch drops below a pixel once the sprite is small.
-    const fr = figurePx(cam.ppm) * 0.46;
+    const fr = fpx * 0.46;
     ctx.save();
     ctx.globalAlpha *= sprA * 0.5;
     ctx.strokeStyle = color;
@@ -196,7 +215,7 @@ export function drawUnit(
     ctx.ellipse(0, 0, fr, fr * 0.92, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.restore();
-    drawScreenSprite(ctx, spriteId, 0, 0, figurePx(cam.ppm), { rot: u.facing, alpha: sprA });
+    drawScreenSprite(ctx, spriteId, 0, 0, fpx, { rot: u.facing, alpha: sprA });
   }
 
   // suppression / down indicator
@@ -366,6 +385,7 @@ export interface CopEnv {
   windY: number;
   tNow: number; // wall-clock seconds (render-only animation phase)
   sunShadow?: { dx: number; dy: number; lengthPerM: number; alpha: number }; // SkyState.spriteShadow
+  light?: SpriteLight; // per-frame directional form-light (issue 028) — undefined on the 2D fallback
 }
 const DEFAULT_ENV: CopEnv = { night: 0, windX: 0, windY: 0, tNow: 0 };
 
@@ -402,7 +422,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       const wx = center.x + Math.cos(a) * ringR;
       const wy = center.y + Math.sin(a) * ringR;
       const drew = hasSprite("hesco-straight") &&
-        drawWorldSprite(ctx, cam, "hesco-straight", wx, wy, { widthM: segLen + 1.5, alpha: bldA, rot: a + Math.PI / 2 });
+        drawWorldSprite(ctx, cam, "hesco-straight", wx, wy, { widthM: segLen + 1.5, alpha: bldA, rot: a + Math.PI / 2, light: env.light });
       if (!drew) {
         const [sx, sy] = worldToScreen(cam, wx, wy);
         const half = (segLen / 2) * cs * cam.ppm * 0.18;
@@ -467,7 +487,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
         const bx = c.x + ux * along + px * side;
         const by = c.y + uy * along + py * side;
         const drew = hasSprite("jersey-barrier") &&
-          drawWorldSprite(ctx, cam, "jersey-barrier", bx, by, { widthM: 5, alpha: bldA, rot: ang + Math.PI / 2 });
+          drawWorldSprite(ctx, cam, "jersey-barrier", bx, by, { widthM: 5, alpha: bldA, rot: ang + Math.PI / 2, light: env.light });
         if (!drew) {
           const [sx, sy] = worldToScreen(cam, bx, by);
           ctx.save();
@@ -493,12 +513,14 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     if (sx < -w * 2 || sy < -h * 3 || sx > cam.vw + w * 2 || sy > cam.vh + h * 2) continue;
     const id = BLD_SPRITE[b.kind] ?? "bld-bhut";
     const hM = (b.hh * 2 + 1) * cs;
-    // long sun-tracked cast shadow (a building is ~3 m tall) — sweeps with the clock like the
-    // terrain's, so the COP sits IN the light instead of floating on a frozen-NW diorama.
+    // contact-AO grounding halo (sun-independent — keeps the building planted at high noon when
+    // the long cast shadow vanishes), then the long sun-tracked cast shadow (~3 m tall) that
+    // sweeps with the clock so the COP sits IN the light instead of floating on a frozen diorama.
+    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, Math.max(wM, hM) * 1.05, 1, bldA);
     if (env.sunShadow && bldA > 0.02) drawSunShadow(ctx, cam, c.x, c.y, 3, wM, env.sunShadow);
     // stretch each building to its REAL footprint (width × depth) so the COP has size
     // variety instead of every roof reading as the same elongated barracks shape.
-    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: wM * 1.12, heightM: hM * 1.32, alpha: bldA });
+    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: wM * 1.12, heightM: hM * 1.32, alpha: bldA, light: env.light });
     if (!drew) {
       ctx.strokeStyle = "rgba(18,20,16,0.6)";
       ctx.lineWidth = 1;
@@ -523,8 +545,10 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     for (let i = 0; i < nv; i++) {
       const fx = nv > 1 ? (i / (nv - 1) - 0.5) * (wM - 6) : 0;
       const [id, sz] = types[i];
+      const vx = mc.x + fx, vy = yard + (i % 2 ? 1.5 : -0.5);
       // parked nose-toward-the-wall (north), slight heading scatter so it isn't a decal row
-      drawWorldSprite(ctx, cam, id, mc.x + fx, yard + (i % 2 ? 1.5 : -0.5), { widthM: sz, alpha: bldA, rot: -1.57 + (i % 2 ? 0.08 : -0.06) });
+      if (env.light) drawContactAO(ctx, cam, vx, vy, sz * 0.9, 0.85, bldA);
+      drawWorldSprite(ctx, cam, id, vx, vy, { widthM: sz, alpha: bldA, rot: -1.57 + (i % 2 ? 0.08 : -0.06), light: env.light });
     }
   }
 
@@ -560,8 +584,9 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     const c = terrain.cellCenter(fp.cx, fp.cy);
     const id = fp.tower ? "guard-tower" : "fighting-position";
     // a guard tower (~3.5 m) throws a long shadow at low sun; the fighting position is low
+    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, fp.tower ? 4.0 : 3.0, 1, bldA);
     if (env.sunShadow && bldA > 0.02 && fp.tower) drawSunShadow(ctx, cam, c.x, c.y, 3.5, 4.5, env.sunShadow);
-    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: fp.tower ? 4.5 : 3.4, alpha: bldA });
+    const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: fp.tower ? 4.5 : 3.4, alpha: bldA, light: env.light });
     if (!drew) {
       const [sx, sy] = worldToScreen(cam, c.x, c.y);
       const s = Math.max(3, 1.1 * cs * cam.ppm * 0.6);
@@ -591,7 +616,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   // sandbag-ring wireframe fallback.
   {
     const mp = terrain.cellCenter(cop.mortarPit.cx, cop.mortarPit.cy);
-    const drew = bldA > 0.04 && hasSprite("ico-mortar") && drawWorldSprite(ctx, cam, "ico-mortar", mp.x, mp.y, { widthM: 6, alpha: bldA });
+    const drew = bldA > 0.04 && hasSprite("ico-mortar") && drawWorldSprite(ctx, cam, "ico-mortar", mp.x, mp.y, { widthM: 6, alpha: bldA, light: env.light });
     if (!drew && bldA > 0.04) {
       const [sx, sy] = worldToScreen(cam, mp.x, mp.y);
       const r = Math.max(4, 1.6 * cs * cam.ppm * 0.6);
@@ -613,7 +638,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     if (toc && bldA > 0.04) {
       const tc = terrain.cellCenter(toc.cx, toc.cy);
       const mx = tc.x + (toc.hw + 1.2) * cs;
-      const drew = hasSprite("antenna-array") && drawWorldSprite(ctx, cam, "antenna-array", mx, tc.y, { widthM: 5, alpha: bldA });
+      const drew = hasSprite("antenna-array") && drawWorldSprite(ctx, cam, "antenna-array", mx, tc.y, { widthM: 5, alpha: bldA, light: env.light });
       if (!drew) {
         const [sx, sy] = worldToScreen(cam, mx, tc.y);
         const h = Math.max(8, 3 * cs * cam.ppm);

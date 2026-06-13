@@ -14,7 +14,7 @@
  */
 import { Terrain, Land } from "../sim/terrain";
 import { Camera, screenToWorld } from "./topo";
-import { drawWorldSprite, drawSunShadow, lodAlpha, hasSprite } from "./sprites";
+import { drawWorldSprite, drawSunShadow, lodAlpha, hasSprite, type SpriteLight } from "./sprites";
 
 const STEP = 6; // world metres between scatter candidates (fixed → deterministic)
 
@@ -70,7 +70,7 @@ function isClearanceBlocker(land: Land): boolean {
 
 interface DecoItem { x: number; y: number; id: string; scale: number; rot: number; }
 
-export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, fogAt?: (wx: number, wy: number) => number, sun?: { dx: number; dy: number; lengthPerM: number; alpha: number }): void {
+export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, cam: Camera, fogAt?: (wx: number, wy: number) => number, sun?: { dx: number; dy: number; lengthPerM: number; alpha: number }, light?: SpriteLight): void {
   const alpha = lodAlpha(cam.ppm, 0.9, 1.8);
   if (alpha <= 0.02) return;
   if (!hasSprite("tree-cedar") && !hasSprite("boulder")) return;
@@ -136,6 +136,6 @@ export function drawDecoration(ctx: CanvasRenderingContext2D, terrain: Terrain, 
       const hM = it.scale * (tall ? 5.0 : it.id.includes("scrub") || it.id.includes("bush") ? 1.4 : 1.1);
       drawSunShadow(ctx, cam, it.x, it.y, hM, it.scale * 3.0, { ...sun, alpha: sun.alpha * (a / Math.max(alpha, 0.01)) * 0.9 });
     }
-    drawWorldSprite(ctx, cam, it.id, it.x, it.y, { alpha: a, scale: it.scale, rot: it.rot });
+    drawWorldSprite(ctx, cam, it.id, it.x, it.y, { alpha: a, scale: it.scale, rot: it.rot, light });
   }
 }
