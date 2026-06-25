@@ -26,7 +26,7 @@
     </filter>
   </defs>
   <!-- LONG SE cast shadow -->
-  <path d="M24 40 l12 0 l14 11 l-30 0 z" fill="#1c160e" opacity="0.30" filter="url(#guardTower-soft)"/>
+  <path d="M24 40 l12 0 l14 11 l-30 0 z" fill="#1c160e" opacity="0.18" filter="url(#guardTower-soft)"/>
   <ellipse cx="30" cy="46" rx="13" ry="4.5" fill="#1c160e" opacity="0.24" filter="url(#guardTower-soft)"/>
   <!-- four timber legs splaying out to the ground -->
   <g stroke-linecap="round">

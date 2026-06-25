@@ -24,7 +24,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW on the ground (offset down-right) -->
-  <path d="M16 47 h33 l8 9 h-33z" fill="#1c160e" opacity="0.37" filter="url(#bldToc-soft)"/>
+  <path d="M16 47 h33 l8 9 h-33z" fill="#1c160e" opacity="0.222" filter="url(#bldToc-soft)"/>
 
   <!-- sandbag berm around the SE/lit base -->
   <g stroke="#7a6a44" stroke-width="0.4">

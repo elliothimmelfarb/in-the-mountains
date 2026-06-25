@@ -22,7 +22,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW under the whole row, offset down-right -->
-  <path d="M7 30 h32 l5 6 h-32z" fill="#1c160e" opacity="0.34" filter="url(#bldLatrine-soft)"/>
+  <path d="M7 30 h32 l5 6 h-32z" fill="#1c160e" opacity="0.204" filter="url(#bldLatrine-soft)"/>
 
   <!-- shared SE end cap (rightmost stall's shaded end, clearly visible) -->
   <polygon points="38,10.5 38,30 42,28 42,8.5" fill="url(#bldLatrine-se)" stroke="#1c160e" stroke-width="0.7" stroke-opacity="0.55"/>

@@ -29,7 +29,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW on the ground, offset down-right -->
-  <ellipse cx="32" cy="45" rx="23" ry="7" fill="#1c160e" opacity="0.35" filter="url(#bldArmory-soft)"/>
+  <ellipse cx="32" cy="45" rx="23" ry="7" fill="#1c160e" opacity="0.21" filter="url(#bldArmory-soft)"/>
 
   <!-- back/right sandbag revetment (behind conex, SE side) in shade -->
   <g stroke="#564c32" stroke-width="0.4">

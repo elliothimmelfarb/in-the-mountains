@@ -28,7 +28,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW (offset down-right, grounds the tent) -->
-  <ellipse cx="35" cy="42" rx="24" ry="6.5" fill="#1c160e" opacity="0.34" filter="url(#bldTent-soft)"/>
+  <ellipse cx="35" cy="42" rx="24" ry="6.5" fill="#1c160e" opacity="0.204" filter="url(#bldTent-soft)"/>
 
   <!-- guy-lines and stakes (drawn under the canvas, splaying out) -->
   <g stroke="#6e5d3c" stroke-width="0.5" stroke-opacity="0.7">

@@ -289,10 +289,14 @@ export function drawContactAO(
   strength = 1,
   alphaMul = 1,
 ): void {
-  const rPx = footprintM * 0.55 * cam.ppm;
+  const rPx = footprintM * 0.5 * cam.ppm;
   if (rPx < 2.2) return;
   const [sx, sy] = worldToScreen(cam, wx, wy);
-  const a = Math.min(0.4, 0.34 * strength) * alphaMul;
+  // Subtle, capped grounding — a soft ground-contact darkening, NOT a crater. The old 0.34/0.4
+  // cap, stamped per-object with source-over, COMPOUNDED across the dense COP cluster into a dark
+  // mess (N overlapping pools darken as 1−(1−a)ⁿ). A lower per-pool cap keeps a 4-deep overlap
+  // under ~0.6 instead of crushing to black.
+  const a = Math.min(0.26, 0.22 * strength) * alphaMul;
   if (a < 0.02) return;
   // a squashed radial pool — dense at the contact point, feathering out. Bottom-weighted a hair
   // so it reads as the object SITTING on the ground rather than a symmetric dot under it.

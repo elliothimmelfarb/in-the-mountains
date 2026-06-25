@@ -193,10 +193,10 @@ export function drawUnit(
     if (cam.ppm > 2.6) {
       ctx.save();
       ctx.globalAlpha *= sprA * 0.5;
-      const ar = fpx * 0.52;
+      const ar = fpx * 0.48;
       const ag = ctx.createRadialGradient(0, fpx * 0.18, 0, 0, fpx * 0.18, ar);
-      ag.addColorStop(0, "rgba(12,10,7,0.42)");
-      ag.addColorStop(0.6, "rgba(12,10,7,0.26)");
+      ag.addColorStop(0, "rgba(12,10,7,0.30)");
+      ag.addColorStop(0.6, "rgba(12,10,7,0.18)");
       ag.addColorStop(1, "rgba(12,10,7,0)");
       ctx.fillStyle = ag;
       ctx.beginPath();
@@ -402,6 +402,11 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   if (!cop) return;
   const cs = terrain.cellSize;
   const bldA = lodAlpha(cam.ppm, 0.32, 0.7);
+  // Contact-AO fade: the AO exists to ground objects at NOON when the long cast shadow collapses.
+  // When the sun is LOW (lengthPerM large → long directional shadow) that cast shadow already does
+  // the grounding, so fading the AO out prevents the two stacking into a double-dark pool under
+  // every structure. 1.0 at high sun → 0.4 at the lowest. (lengthPerM is 1/tan(alt), clamped 0.3–4.)
+  const aoFade = env.sunShadow ? Math.max(0.4, Math.min(1, 1.15 - 0.22 * env.sunShadow.lengthPerM)) : 1;
   const center = terrain.cellCenter(cop.center.cx, cop.center.cy);
   const ga = Math.atan2(cop.gateDir.y, cop.gateDir.x);
   ctx.save();
@@ -516,7 +521,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     // contact-AO grounding halo (sun-independent — keeps the building planted at high noon when
     // the long cast shadow vanishes), then the long sun-tracked cast shadow (~3 m tall) that
     // sweeps with the clock so the COP sits IN the light instead of floating on a frozen diorama.
-    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, Math.max(wM, hM) * 1.05, 1, bldA);
+    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, Math.max(wM, hM) * 0.82, aoFade, bldA);
     if (env.sunShadow && bldA > 0.02) drawSunShadow(ctx, cam, c.x, c.y, 3, wM, env.sunShadow);
     // stretch each building to its REAL footprint (width × depth) so the COP has size
     // variety instead of every roof reading as the same elongated barracks shape.
@@ -547,7 +552,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       const [id, sz] = types[i];
       const vx = mc.x + fx, vy = yard + (i % 2 ? 1.5 : -0.5);
       // parked nose-toward-the-wall (north), slight heading scatter so it isn't a decal row
-      if (env.light) drawContactAO(ctx, cam, vx, vy, sz * 0.9, 0.85, bldA);
+      if (env.light) drawContactAO(ctx, cam, vx, vy, sz * 0.85, 0.85 * aoFade, bldA);
       drawWorldSprite(ctx, cam, id, vx, vy, { widthM: sz, alpha: bldA, rot: -1.57 + (i % 2 ? 0.08 : -0.06), light: env.light });
     }
   }
@@ -584,7 +589,7 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     const c = terrain.cellCenter(fp.cx, fp.cy);
     const id = fp.tower ? "guard-tower" : "fighting-position";
     // a guard tower (~3.5 m) throws a long shadow at low sun; the fighting position is low
-    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, fp.tower ? 4.0 : 3.0, 1, bldA);
+    if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, fp.tower ? 3.4 : 2.6, aoFade, bldA);
     if (env.sunShadow && bldA > 0.02 && fp.tower) drawSunShadow(ctx, cam, c.x, c.y, 3.5, 4.5, env.sunShadow);
     const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: fp.tower ? 4.5 : 3.4, alpha: bldA, light: env.light });
     if (!drew) {
