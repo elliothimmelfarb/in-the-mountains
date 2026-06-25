@@ -24,7 +24,7 @@
   </defs>
 
   <!-- SE cast shadow under the whole compound -->
-  <path d="M12 50 h38 l5 6 -4 4 h-40 z" fill="#1c160e" opacity="0.30" filter="url(#qalatSm-soft)"/>
+  <path d="M12 50 h38 l5 6 -4 4 h-40 z" fill="#1c160e" opacity="0.18" filter="url(#qalatSm-soft)"/>
 
   <!-- courtyard floor first (so walls overlap inward) -->
   <rect x="9" y="10" width="46" height="46" rx="1.5" fill="url(#qalatSm-court)"/>

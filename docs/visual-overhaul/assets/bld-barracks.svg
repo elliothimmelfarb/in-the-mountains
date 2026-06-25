@@ -27,7 +27,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW on the ground -->
-  <path d="M11 33 h51 l7 8 h-51z" fill="#1c160e" opacity="0.35" filter="url(#bldBarracks-soft)"/>
+  <path d="M11 33 h51 l7 8 h-51z" fill="#1c160e" opacity="0.21" filter="url(#bldBarracks-soft)"/>
 
   <!-- ===== EXTRUDED WALLS ===== -->
   <!-- SE long wall (front, deep shade), tall and clearly visible -->

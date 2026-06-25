@@ -141,3 +141,16 @@ Faction rings + name plates stay crisp at every frame (legibility contract intac
   NOT crude stickers. The "flat sticker" complaint was overwhelmingly a *lighting-coherence* problem
   (now fixed), not an art-detail problem, so re-authoring was de-prioritised in favour of banking the
   coherence win cleanly. The continuous HESCO berm (item 2) is the highest-payoff single asset left.
+
+## Update (2026-06-26) — baked GROUND cast-shadow double MUTED (not the form-light tail)
+
+A follow-up owner report ("graphical artifacts with the lighting that are happening with the
+shadows") traced to the **baked SE ground cast-shadow** half of the baked-light tail — distinct from
+the form-light (NW directional) half this issue's item 1 is about. Every structure stacked THREE
+grounders (baked-SE in-art + sun-tracked `drawSunShadow` + sun-independent `drawContactAO`), which
+(a) crater-stacked at the dense COP and (b) read as "two suns" in the morning (baked SE vs the real
+westward shadow). Fixed in `2026-06-26-shadow-grounding`: contact-AO de-stacked (lower cap +
+sun-height fade so it stops doubling the cast shadow), and the baked ground cast-shadow opacity cut
+×0.6 on 14 structure SVGs so the sun-tracked `drawSunShadow` carries the direction. This **mutes**
+the ground-shadow double; the **form-light (NW) baked-light contradiction (item 1) remains OPEN** —
+the real per-pixel GBuffer relight is still the way to retire it fully.

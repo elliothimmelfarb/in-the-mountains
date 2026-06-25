@@ -35,7 +35,7 @@
   </g>
 
   <!-- SOFT SE CAST SHADOW of the tent (offset down-right, grounding) -->
-  <path d="M14 31 q21 -4 42 0 l6 8 q-24 4 -52 0z" fill="#1c160e" opacity="0.36" filter="url(#bldDfac-soft)"/>
+  <path d="M14 31 q21 -4 42 0 l6 8 q-24 4 -52 0z" fill="#1c160e" opacity="0.216" filter="url(#bldDfac-soft)"/>
 
   <!-- guy-lines from eaves to ground stakes -->
   <g stroke="#332d20" stroke-width="0.45" stroke-opacity="0.7">

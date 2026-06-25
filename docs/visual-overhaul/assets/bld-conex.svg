@@ -21,7 +21,7 @@
   </defs>
 
   <!-- SOFT SE CAST SHADOW on the ground -->
-  <ellipse cx="31" cy="40" rx="22" ry="6.5" fill="#1c160e" opacity="0.35" filter="url(#bldConex-soft)"/>
+  <ellipse cx="31" cy="40" rx="22" ry="6.5" fill="#1c160e" opacity="0.21" filter="url(#bldConex-soft)"/>
 
   <!-- ===== EXTRUDED BOX ===== -->
   <!-- SE end (door end, in shade) -->

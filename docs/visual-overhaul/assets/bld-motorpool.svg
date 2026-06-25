@@ -30,7 +30,7 @@
   </defs>
 
   <!-- pad cast shadow (faint, grounds the whole hardstand) -->
-  <polygon points="12,60 84,56 92,64 16,68" fill="#1c160e" opacity="0.24" filter="url(#bldMp-softpad)"/>
+  <polygon points="12,60 84,56 92,64 16,68" fill="#1c160e" opacity="0.144" filter="url(#bldMp-softpad)"/>
 
   <!-- gravel hardstand pad -->
   <polygon points="8,28 86,24 90,58 12,62" fill="url(#bldMp-pad)" stroke="#1c160e" stroke-width="0.9" stroke-opacity="0.5"/>

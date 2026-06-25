@@ -32,7 +32,7 @@
   </defs>
 
   <!-- SE cast shadow under the whole cluster -->
-  <path d="M14 66 h64 l8 8 -6 6 h-66 z" fill="#1c160e" opacity="0.30" filter="url(#qalatMd-soft)"/>
+  <path d="M14 66 h64 l8 8 -6 6 h-66 z" fill="#1c160e" opacity="0.18" filter="url(#qalatMd-soft)"/>
 
   <!-- courtyards (floors) -->
   <rect x="10" y="14" width="42" height="64" rx="1.5" fill="url(#qalatMd-court)"/>

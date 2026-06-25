@@ -41,7 +41,7 @@
   </defs>
 
   <!-- SE cast shadow under the whole hamlet -->
-  <path d="M16 90 h84 l12 10 -8 8 h-88 z" fill="#1c160e" opacity="0.30" filter="url(#qalatLg-soft)"/>
+  <path d="M16 90 h84 l12 10 -8 8 h-88 z" fill="#1c160e" opacity="0.18" filter="url(#qalatLg-soft)"/>
 
   <!-- courtyard floors -->
   <rect x="12" y="14" width="46" height="50" rx="1.5" fill="url(#qalatLg-court)"/>
