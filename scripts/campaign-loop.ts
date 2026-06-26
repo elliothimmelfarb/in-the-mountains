@@ -568,8 +568,16 @@ const B = summarize("POLICY B — body count    (aggressive, weapons-free, no pr
 const spread = A.score - B.score;
 console.log(`\n=== VERDICT ===`);
 
-const line = (ok: boolean, name: string, detail: string) =>
+// STANDING GATE (2026-06-26): this is the design's WIN-CONDITION check — "you can win every
+// firefight and still lose the valley" — so it is a GATE, not a probe. Every assertion below is a
+// DESIGN ORACLE (the loop discriminates / attitude moves / directives live / CERP two-way / enemy
+// dynamic / projects complete), never a fitted sim-output constant. See docs/wiki/Harnesses.md.
+// `line` tallies failures; the script exits non-zero if the win-condition layer is inert.
+let fails = 0;
+const line = (ok: boolean, name: string, detail: string) => {
+  if (!ok) fails++;
   console.log(`  [${ok ? "PASS" : "FAIL"}] ${name.padEnd(26)} ${detail}`);
+};
 
 // 1. Loop alive (reaches end, no NaN, serialize clean)
 line(
@@ -658,3 +666,11 @@ console.log(
       : "the strategy layer is LARGELY INERT — playing COIN well vs badly barely changes the outcome. See FAILs above."
   }\n`
 );
+
+// ---- the gate: the win-condition must stay alive + discriminating (docs/wiki/Harnesses.md) ----
+if (fails === 0) {
+  console.log("COIN GATE OK — win-condition layer alive + discriminating.");
+} else {
+  console.error(`COIN GATE FAILED — ${fails} win-condition check(s) failed (see FAILs above).`);
+  process.exit(1);
+}

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When the tests start defending the bug — In the Mountains</title>
+<style>
+  :root{
+    --bg:#14130e; --bg2:#1b1a13; --panel:#201e16; --panel2:#262318;
+    --ink:#e8e2cf; --dim:#a59c80; --faint:#6f684f; --line:#3a3526;
+    --rust:#b5532a; --amber:#e0a72b; --olive:#7a7e4c; --blood:#9c2c20; --teal:#6fae9f;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#14130e,#100f0a 60%);color:var(--ink);
+    font-family:var(--sans);line-height:1.6;font-size:16px}
+  a{color:var(--amber);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:980px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 46px;border-bottom:1px solid var(--line);
+    background:radial-gradient(900px 360px at 18% -8%,rgba(156,44,32,.18),transparent 60%);}
+  .kicker{font-family:var(--mono);letter-spacing:.32em;text-transform:uppercase;
+    color:var(--rust);font-size:12px;margin-bottom:16px}
+  h1{font-size:42px;line-height:1.08;margin:0 0 14px;letter-spacing:-.01em}
+  h1 .sub{color:var(--dim);font-weight:400}
+  .lede{font-size:19px;color:var(--dim);max-width:780px}
+  .meta{margin-top:26px;font-family:var(--mono);font-size:12.5px;color:var(--faint);
+    display:flex;gap:22px;flex-wrap:wrap}
+  h2{font-size:27px;margin:46px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--rust);font-size:15px;margin-right:10px}
+  h3{font-size:18px;margin:26px 0 6px;color:var(--ink)}
+  p{margin:12px 0}
+  code{font-family:var(--mono);font-size:.86em;background:#000;padding:1px 5px;border-radius:4px;color:#d8cfa8}
+  .callout{display:block;background:rgba(224,167,43,.07);border:1px solid var(--line);
+    border-left:3px solid var(--amber);border-radius:8px;padding:14px 18px;margin:18px 0;color:#e8e2cf}
+  .callout b{color:var(--amber)}
+  .bad{border-left-color:var(--blood)} .bad b{color:var(--blood)}
+  .good{border-left-color:var(--teal)} .good b{color:var(--teal)}
+  .stat{display:flex;gap:18px;flex-wrap:wrap;margin:20px 0}
+  .stat .s{background:#000;border:1px solid var(--line);border-radius:10px;padding:14px 18px;min-width:130px}
+  .stat .v{font-size:26px;font-weight:800;color:var(--amber);font-family:var(--mono)}
+  .stat .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em;margin-top:4px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--olive)}
+  ol.essence{counter-reset:e;list-style:none;padding:0;margin:14px 0}
+  ol.essence li{counter-increment:e;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px 14px 52px;margin:10px 0;position:relative}
+  ol.essence li::before{content:counter(e,decimal-leading-zero);position:absolute;left:14px;top:13px;
+    font-family:var(--mono);color:var(--rust);font-weight:700;font-size:15px}
+  ol.essence b{color:var(--ink)}
+  .toc{position:sticky;top:0;background:rgba(16,15,10,.92);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:20;font-family:var(--mono);font-size:12px}
+  .toc .wrap{display:flex;gap:18px;padding:11px 22px;overflow-x:auto}
+  .toc a{color:var(--dim);white-space:nowrap} .toc a:hover{color:var(--amber)}
+  footer{padding:40px 0 70px;color:var(--faint);font-size:13px;font-family:var(--mono);border-top:1px solid var(--line)}
+  .quote{font-size:21px;line-height:1.4;color:var(--ink);border-left:3px solid var(--rust);
+    padding:4px 0 4px 20px;margin:22px 0;font-style:italic}
+</style>
+</head>
+<body>
+<nav class="toc"><div class="wrap">
+  <a href="#trap">① The trap</a>
+  <a href="#evidence">② The evidence</a>
+  <a href="#noise">③ Policing noise</a>
+  <a href="#charter">④ The charter</a>
+  <a href="#fix">⑤ What changed</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">Field note · build record · 2026-06-26</div>
+  <h1>When the tests start defending the bug<br><span class="sub">— a harness that froze the firefight</span></h1>
+  <p class="lede">This game is built test-first: every claim about behaviour is metricized before code
+  is touched. That discipline is a moat — until one of the tests quietly stops measuring whether the
+  game is <i>good</i> and starts measuring whether the game is <i>the same</i>. We went looking for that
+  failure, found exactly one, and rewrote the rules so it can't recur.</p>
+  <div class="meta">
+    <span><b>Audited</b> 84 harness files</span>
+    <span><b>Found</b> 1 real blocker (a practice, not a file)</span>
+    <span><b>Output</b> a harness charter + a win-condition gate</span>
+  </div>
+</div></header>
+
+<main class="wrap">
+
+<h2 id="trap"><span class="n">01</span>The trap: a baseline wearing a lab coat</h2>
+<p>The suite has two honest kinds of instrument. A <b>probe</b> measures and prints a number for a
+human to judge. A <b>gate</b> blocks a change — it fails the build. A gate is only legitimate if its
+threshold is an <b>invariant</b> (determinism, no crashes, a passable gate) or a <b>doctrine/design
+oracle</b> (a secured project completes; civilians go home at night) — something true independent of
+what the sim happens to output today.</p>
+
+<p>The trap is subtle: take a probe, remember its output, and start treating that output as the target.
+Now any genuine improvement that moves the number looks like a regression. The test is no longer
+defending correctness — it's defending the <i>status quo</i>, bug and all.</p>
+
+<p>That is exactly what happened to one number in this project: the <b>“~8.58 WIA band”</b> — the
+average wounded-in-action per deployment that <code>balance.ts</code> reports.</p>
+
+<div class="callout bad"><b>Where 8.58 came from.</b> It is not a casualty rate from a real Korengal
+deployment. It is the WIA that <i>one</i> <code>balance.ts</code> run printed the day aspect-vegetation
+shipped at strength 0.05 (<code>terrain.ts:665</code>: “WIA 6.17→<b>8.58</b>”). A sim output, captured
+and crowned. From then on it was “the historical band.”</p>
+
+<h2 id="evidence"><span class="n">02</span>The evidence: it reverted real wins</h2>
+<p>A curve-fit threshold is harmless until it costs you something. This one has a paper trail — three
+documented cases where the band, not doctrine, set the outcome:</p>
+
+<ol class="essence">
+  <li><b>It treated <i>safer</i> as <i>broken</i>.</b> Issue 026 recorded HEAD's WIA of 6.92 as
+  “<i>below band</i> … watch it.” Read that twice: <b>fewer wounded soldiers was logged as a defect to
+  correct upward.</b> The harness practice was pushing the game to be <i>more</i> lethal to its own
+  side to match a number with no real-world meaning.</li>
+  <li><b>It set the stopping point for a realism win.</b> Issue 027 made the trail network denser so
+  patrols ride the footpaths — “<i>patrols riding the network IS the realism.</i>” WIA rose to 12.58.
+  The work was then narrowed not until it was <i>right</i>, but until “WIA 8.42, inside the ~8.58
+  historical band.”</li>
+  <li><b>It reverted features outright.</b> Open-ground cover behind rocks was cut for moving WIA +89%
+  (issue 020); COP high-value-target dispersion and threat-weighting were reverted for +1.00 / +0.50
+  KIA (issue 022).</li>
+</ol>
+
+<p>None of this was carelessness — every one of those calls was made carefully, with A/B runs and
+restraint notes. The flaw was upstream of the diligence: a missing principle about <i>what a casualty
+number is allowed to be</i>.</p>
+
+<div class="callout"><b>The deeper irony.</b> The design's whole soul is
+<i>“you can win every firefight and still lose the valley.”</i> Yet the firefight (tactical casualties)
+was the thing under standing protection, while the actual win condition — the COIN strategy layer
+(village attitudes, projects, the elders' trust) — had a probe but <b>no gate at all</b>. The routine
+verification gradient pointed exactly away from the soul of the game.</p>
+
+<h2 id="noise"><span class="n">03</span>It was policing finer than its own noise</h2>
+<p>There is a second, quieter problem. <code>balance.ts</code> is deterministic per seed-prefix, so
+re-running <code>bal</code> gives a byte-identical number — which <i>looks</i> like precision. But each
+prefix is just <b>one draw of 12 deployments</b>. Run a different prefix and you get a different sample
+of the same distribution. The real question is: how much does the 12-deployment mean wobble between
+independent draws?</p>
+
+<p>We measured it — five independent prefixes, 12 deployments × 50 game-minutes each:</p>
+
+<div class="stat">
+  <div class="s"><div class="v">≈2.5</div><div class="l">σ of mean WIA between draws</div></div>
+  <div class="s"><div class="v">2.67–9.42</div><div class="l">WIA range across 4 prefixes</div></div>
+  <div class="s"><div class="v">±1.0–1.5</div><div class="l">deltas read as “signal” before</div></div>
+</div>
+
+<p>Four draws of the <i>identical</i> gate config — same code, same settings, different seeds —
+returned 7.08, 2.67, 5.00 and 9.42 WIA. The band was being defended at a resolution <b>finer than the
+harness's own sampling noise</b>: a WIA move of 1.0–1.5 — the size that triggered “below band,” that
+narrowed issue 027 — sits <b>well inside a single standard deviation (≈2.5)</b>, and the full range
+spans more than <b>4×</b> that delta. Issue 026 had even flagged “balance.ts run-to-run σ floor” as
+open debt. It had simply never been measured. Now it is, and it prints on every run.</p>
+
+<h2 id="charter"><span class="n">04</span>The fix is a rule, not a patch</h2>
+<p>You cannot fix a missing principle with a code change alone — the next session would re-derive the
+same trap. So the deliverable is a <b>charter</b> (<code>docs/wiki/Harnesses.md</code>), enforced by
+<code>CLAUDE.md</code>, with one governing law:</p>
+
+<div class="quote">A gate's threshold may never be the sim's own past output.</div>
+
+<p>And one re-ordering of priorities, drawn straight from the design's soul:</p>
+
+<div class="callout good"><b>The win condition gets the gate; the firefight gets a probe.</b> The
+standing check that blocks a change is now the <b>COIN discriminator</b> — does playing
+counter-insurgency <i>well</i> beat playing it <i>badly</i>? Casualties are a diagnostic you read and
+explain, never a target you engineer back.</p>
+
+<h2 id="fix"><span class="n">05</span>What actually changed</h2>
+<table>
+  <tr><th>Change</th><th>What it does</th></tr>
+  <tr><td><code>docs/wiki/Harnesses.md</code> (new)</td><td>The charter: gate-vs-probe law, the
+    anti-overfit rule, the win-condition-first principle, the coverage-gap list, an add-a-harness
+    checklist.</td></tr>
+  <tr><td><code>campaign-loop.ts</code> → <b>standing gate</b></td><td>The COIN win-condition
+    instrument now <code>exit(1)</code>s if the strategy layer goes inert (score stops discriminating,
+    attitude stops moving, projects stop completing). Every assertion is a design oracle, not a fitted
+    number. Added to the standing checks.</td></tr>
+  <tr><td><code>balance.ts</code> → <b>re-anchored</b></td><td>Header + output now state plainly:
+    casualties are a DIAGNOSTIC, there is no WIA band to defend. It prints the measured noise floor so
+    no future delta is ever read finer than the noise.</td></tr>
+  <tr><td><code>CLAUDE.md</code></td><td>Standing checks updated; the harness law installed where every
+    session reads it first.</td></tr>
+</table>
+
+<p>The 84-file suite itself came out of the audit <b>healthy</b> — most files are clean probes that
+print numbers and assert nothing, and the genuine invariants (determinism, no-NaN, no-stall, the
+material-hash pin) are exactly the kind of thing a gate <i>should</i> guard. The blocker was never a
+file. It was a habit. The habit now has a rule against it, and the game has, for the first time, a
+standing test that protects the thing it is actually about.</p>
+
+<footer><div>In the Mountains · harness charter · 2026-06-26 · raw record in
+<code>docs/progress/2026-06-26-harness-charter/</code> · charter in <code>docs/wiki/Harnesses.md</code></div></footer>
+</main>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

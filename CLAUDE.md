@@ -49,7 +49,8 @@ Scale the process to the problem. Most tasks are: understand → change → veri
 
 ## Done means
 
-- **Standing checks green** (run as background tasks so work continues): `npx tsc --noEmit` · `npm run build` · `npm run lint` (flat-config eslint, NOT `next lint`) · `npx tsx scripts/smoke.ts` (asserts no-NaN + serialize round-trip → `SMOKE OK`) · `npx tsx scripts/balance.ts` (casualties + STALL CHECK; defaults 12 deployments × 50 min). No jest/vitest/`npm test` — verify via `npx tsx scripts/<name>.ts`. Prefer exhaustive `Record<Enum,…>` tables so the compiler enforces completeness.
+- **Standing checks green** (run as background tasks so work continues): `npx tsc --noEmit` · `npm run build` · `npm run lint` (flat-config eslint, NOT `next lint`) · `npx tsx scripts/smoke.ts` (no-NaN + serialize round-trip + material-hash → `SMOKE OK`) · `npx tsx scripts/balance.ts` (STALL CHECK gate; **casualties are a DIAGNOSTIC, not a target — there is NO WIA band to defend**). For any **sim / AI / COIN / balance** change, also run the **win-condition GATE**: `npx tsx scripts/campaign-loop.ts` (does playing COIN well beat playing it badly? → `COIN GATE OK` or exit 1; ~minutes per seed × 3 seeds, so it's a pre-merge check for sim changes, not every commit — 1 seed is too noisy to gate on). No jest/vitest/`npm test` — verify via `npx tsx scripts/<name>.ts`. Prefer exhaustive `Record<Enum,…>` tables so the compiler enforces completeness.
+  - **Harness law (read `docs/wiki/Harnesses.md`):** a GATE may only assert an invariant or a doctrine/design oracle — **never the sim's own past output.** The design's soul is *"win every firefight, still lose the valley,"* so the **win condition (COIN) is gated and the firefight is a probe**, not the reverse. Never narrow/revert a realism improvement to make a casualty number return to a historical value (that froze real wins — issues 020/022/027); report the new number and justify it from doctrine.
 - **Docs current where you touched.** The relevant `docs/wiki/` page, the README status table, and the `docs/issues/` entry (append a Resolution with before→after numbers; **never delete**). Bugs you aren't fixing now → a numbered `docs/issues/` entry with a repro recipe.
 - **Evidence recorded:** dated `docs/progress/YYYY-MM-DD-<topic>/` with the report, verbatim baseline + after numbers, before/after screenshots. No loose findings `.md`s.
 - **HTML reports ship to the archive** — a report that lives only under `docs/` is invisible to players. The **`publish-report` skill** has the exact flow.
@@ -65,6 +66,7 @@ Work on `main` (trunk-based; other agents commit in parallel — their commits l
 - What's been tried and ruled out → `docs/issues/` (+ README status table) · Past work, with numbers → `docs/progress/`
 - Art → `docs/visual-overhaul/{ART_BIBLE.md,asset-bible.html}` · The probe suite → `ls scripts/` and read each file's doc-comment header (don't memorize the list)
 - Skills (procedure on demand): **`metricize`** (verification playbook) · **`orchestrate`** (multi-agent campaigns) · **`publish-report`** (archive publishing + artifact self-critique)
+- The harness suite — what's a gate vs a probe, the anti-overfit law, the coverage gaps → **`docs/wiki/Harnesses.md`** (the charter)
 
 ## Gotchas (hard-won — trust the code over the docs)
 
