@@ -1,0 +1,41 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 1 seeds × 8 game-days × 2 policies ===
+seeds: survey-0   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+  [careful] survey-0: 85.6s  endDay 9  score 52  proj 2/3  enemyMean 34
+  [bodycount] survey-0: 88.8s  endDay 9  score 49  proj 0/0  enemyMean 50
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   1/1   NaN-free:yes   serialize-clean:yes   mean end-day:9
+  TOUR SCORE:    52.0   (per-seed: 52)
+  final metrics: stab 61  att 52  enemy 38  cbtPwr 85  higher 37
+  enemyStrAbs:   min 27  mean 34  max 43   %time-at-cap(80): 0%
+  village attitude start→end:  -3.8 → 2.8   (Δ 6.6)
+  directives:    issued 3.0  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 21500 → end 25220   ever-rose: yes
+  projects:      funded 3.0  complete 2.0   patrols issued 8  KLEs issued 8
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   1/1   NaN-free:yes   serialize-clean:yes   mean end-day:9
+  TOUR SCORE:    49.0   (per-seed: 49)
+  final metrics: stab 56  att 50  enemy 58  cbtPwr 100  higher 60
+  enemyStrAbs:   min 43  mean 50  max 58   %time-at-cap(80): 0%
+  village attitude start→end:  -3.8 → 0.8   (Δ 4.6)
+  directives:    issued 3.0  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 38600   ever-rose: yes
+  projects:      funded 0.0  complete 0.0   patrols issued 24  KLEs issued 0
+
+=== VERDICT ===
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  [FAIL] score DISCRIMINATES (>25)  careful 52.0 − bodycount 49.0 = SPREAD 3.0  → strategy choice barely matters
+  [FAIL] COIN moves attitude        careful Δatt 6.6 vs bodycount Δatt 4.6  (careful projects complete 2.0)
+  [FAIL] directives fully live      complete 0.0/3.0; failure/penalty path n/a at this horizon (needs ≥13d; verified live under neglect) (deadlines elapsed on neglect: 0.0/tour)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 27  
+  [PASS] projects COMPLETE (secured) careful completes 2.0 projects/tour (was 0 — all sabotaged)
+  [PASS] directive cadence live     3.0 directives issued/tour (was 2 fixed)
+
+INTERPRETATION: the strategy layer is LARGELY INERT — playing COIN well vs badly barely changes the outcome. See FAILs above.
+
+COIN GATE FAILED — 3 win-condition check(s) failed (see FAILs above).
+FAST_EXIT=1
+FAST_DONE 01:12:25

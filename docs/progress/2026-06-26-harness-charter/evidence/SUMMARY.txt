@@ -1,0 +1,7 @@
+WIA between-prefix variance (4 independent 12x50 draws at HEAD, 2026-06-26):
+  bal=7.08  balC=2.67  balD=5.00  balE=9.42
+  mean=6.04  range=2.67-9.42 (spread 6.75)  sigma_pop=2.50  sigma_sample=2.88
+  -> the '~8.58 band' policed deltas of ~1.0-1.5 WIA, HALF the 1-sigma noise floor.
+
+COIN gate fast (1-seed survey-0 x 8d): FAILED 3/8 (spread 3.0, attitude, directives) -> 1 seed too noisy to gate.
+COIN gate default (3-seed x 8d): see coin-gate-3seed-default.log (verdict recorded post-run).
