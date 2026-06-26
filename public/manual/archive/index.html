@@ -126,9 +126,9 @@
   logbook: the valley pushed back, and each chapter is what pushing back looked like.</p>
 
   <div class="statstrip">
-    <div class="s"><b>9</b><span>days · Jun 3–11</span></div>
-    <div class="s"><b>36</b><span>chapters</span></div>
-    <div class="s"><b>23</b><span>full reports</span></div>
+    <div class="s"><b>9</b><span>days · Jun 3–26</span></div>
+    <div class="s"><b>37</b><span>chapters</span></div>
+    <div class="s"><b>24</b><span>full reports</span></div>
     <div class="s"><b>26</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
     <div class="s"><b>1</b><span>deterministic clock</span></div>
@@ -184,6 +184,7 @@
     <a class="rep" href="reports/2026-06-11-sound-pass/report.html"><span class="rd">2026-06-11</span><span class="rt">The mixer and the whistle</span><span class="rs">A per-category sound mixer (combat / ambience / radio / alerts, each with on/off + level, persisted) wired between the buses and master so user trim never fights the contact-duck — plus five audible improvements with oracle numbers: the incoming-shell whistle the valley was missing (2.26 s, deterministic off the fire mission's own countdown), real stereo width for the calm bed (4%→12.4% — the fix was loop offsets, not panning), thunder that crosses the valley, an adhan that finally sounds sung (5.3 Hz vibrato), and three ricochet families. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-11-sound-realism/report.html"><span class="rd">2026-06-11</span><span class="rt">Calibre voices</span><span class="rs">One sentence of sim code — stamping which weapon produced each effect — unlocked the sound pass the synth itself had been asking for ("we have no per-weapon id on the Effect"). The .50s now hammer an octave below the 7.62 guns (DShK darker than the PKM by 772 Hz, measured), the RPG announces its launch before the blast, the M320 bloops, bolt guns cycle their bolts, pistols bark, and 60 vs 120 mm mortars grade by calibre (LF share 14.1→19.9%). Plus the sounds that were missing: reload clatter at −51.6 dB, and upgrades that make the IED heave (centroid 5233→3951 Hz), the incoming shell tear instead of sing, and the near miss complete its N-wave. 13/13 oracle assertions; new cues proven on 3 held-out seeds of organic combat. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-13-the-valley-is-real/report.html"><span class="rd">2026-06-13</span><span class="rt">The valley is real — a WebGL terrain rebuild</span><span class="rs">A first attempt was reverted for being "the old flat map with the sun switched on" (blit parity + a colour filter). This rebuild inverts it: the painted albedo is demoted to one input of five, and a WebGL2 fragment <em>recomposes the surface per-pixel</em> from the sim's own arrays — per-landcover materials + detail-normal raking, baked horizon AO, live-sun ridge shadows, a dark-silt flow-advected river, single-scatter aerial perspective, ACES + bloom — under a transparent 2D HUD (the legibility firewall), with a <code>u_detailGain</code> zoom-ramp that collapses to byte-faithful relief at strategic (Δ+0.2 luma). 9 green commits; a 4-critic adversarial pass caught a snow-white river + contrast-crushing haze (1/4 → fixed → fresh-eyes confirmed clears the bar). Terrain = full 10×; assets = grounded (full relight + FX deferred, issue 028).</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-06-26-harness-charter/report.html"><span class="rd">2026-06-26</span><span class="rt">When the tests start defending the bug</span><span class="rs">This game is built test-first — but a test can quietly stop measuring whether the game is <em>good</em> and start measuring whether it is <em>the same</em>. An audit of all 84 harnesses found exactly one such blocker: a remembered "~8.58 WIA band" — a casualty number that was just the sim's own past output (the day aspect-vegetation shipped), not any real-world rate. It had flagged <em>fewer</em> wounded soldiers as a defect, narrowed a realism win, and reverted features. And it was policed finer than the harness's own noise: four identical-config draws ranged 2.67–9.42 WIA (σ≈2.5). The fix is a charter, not a patch — a gate may never assert the sim's own output, and the COIN <em>win condition</em> now gets the standing gate the firefight wrongly held.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1159,6 +1160,47 @@
       contrast-crushing haze the build's own author had rationalized away — fixed, then re-confirmed by a fresh
       reviewer.</p>
       <a class="readmore" href="reports/2026-06-13-the-valley-is-real/report.html">Read the full report (before/after at every zoom) →</a>
+    </div>
+  </article>
+
+  <!-- ============================== HARNESS CHARTER ============================== -->
+  <section class="act">
+    <div class="actkick">Act · June 26</div>
+    <h2>Auditing the instruments</h2>
+    <p class="actsub">A game built test-first lives or dies by its tests. So we turned the lens on the
+    harnesses themselves and asked the uncomfortable question: have any of them stopped measuring
+    <em>good</em> and started measuring <em>same</em>?</p>
+  </section>
+
+  <article class="chapter alt" id="c-2026-06-26-harness-charter">
+    <div class="shot">
+      <a href="reports/2026-06-26-harness-charter/report.html"><img src="assets/2026-06-26-harness-charter.png" alt="The harness charter report — 'When the tests start defending the bug'" loading="lazy"></a>
+      <div class="cap">The charter that came out of the audit: a gate may never assert the sim's own past output. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-06-26</span></div>
+      <h3>When the tests start defending the bug</h3>
+      <div class="tags"><span class="tag">Methodology</span><span class="tag">Verification</span><span class="tag">COIN</span></div>
+      <p>An audit of all <b>84 harness files</b> went looking for tests that had become blockers — and
+      found exactly one, though it was a <em>practice</em>, not a file. A remembered "<b>~8.58 WIA
+      band</b>" had become a target. Its origin: it was simply the wounded-per-deployment that one
+      <code>balance.ts</code> run printed the day aspect-vegetation shipped (<code>terrain.ts:665</code>) —
+      a sim output, crowned as "historical." From then it <b>flagged safer outcomes as defects</b> (issue
+      026 logged a WIA of 6.92 as "below band, watch it"), <b>set the stopping point for a realism win</b>
+      (issue 027), and <b>reverted features</b> (020, 022).</p>
+      <p class="shape"><b>The shape:</b> measure first. Four independent 12×50 draws of the <em>identical</em>
+      gate config returned 7.08 / 2.67 / 5.00 / 9.42 WIA — the band was being policed at a resolution
+      <b>finer than the harness's own ±2.5 sampling noise</b>. The fix is a rule, not a patch: a charter
+      (<code>docs/wiki/Harnesses.md</code>) with one law — <em>a gate may never assert the sim's own past
+      output</em> — and a re-ordering drawn from the design's soul, "win every firefight, still lose the
+      valley": the COIN <b>win condition</b> now holds the standing gate the firefight wrongly held.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">WIA across 4 identical-config draws</span><span class="b">"~8.58 band"</span><span class="ar">→</span><span class="a">2.67–9.42 (σ≈2.5)</span></span>
+        <span class="m"><span class="lbl">win condition (COIN)</span><span class="b">probe, never gated</span><span class="ar">→</span><span class="a">standing GATE (exit 1 if inert)</span></span>
+        <span class="m"><span class="lbl">tactical casualties</span><span class="b">a defended target</span><span class="ar">→</span><span class="a">a diagnostic (σ floor printed)</span></span>
+        <span class="m"><span class="lbl">the suite itself</span><span class="b">suspected blocker</span><span class="ar">→</span><span class="a">healthy — 1 bad habit, now ruled out</span></span>
+      </div>
+      <a class="readmore" href="reports/2026-06-26-harness-charter/report.html">Read the full report (the evidence + the charter) →</a>
     </div>
   </article>
 

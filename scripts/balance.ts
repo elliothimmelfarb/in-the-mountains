@@ -1,4 +1,34 @@
+/**
+ * balance.ts — tactical firefight DIAGNOSTIC + no-stall GATE.  (charter: docs/wiki/Harnesses.md)
+ *
+ * Runs N continuous deployments and reports casualties. Two distinct roles, do NOT confuse them:
+ *
+ *   GATE   — no-NaN (a determinism invariant) and the no-stall watchdog (a frozen out-of-contact
+ *            mover is a real bug). These are invariants; they block.
+ *   PROBE  — the casualty figures (US KIA/WIA, enemy, civ). These are a DIAGNOSTIC, **not a target.**
+ *
+ * THE CASUALTY NUMBERS ARE NOT A GATE. There is no "WIA band" to defend. The "~8.58 historical WIA
+ * band" that earlier work policed was the sim's OWN past output (it first appeared as the WIA of one
+ * run when aspect-vegetation@0.05 shipped — terrain.ts:665), never a doctrine-anchored rate. Policing
+ * a realism change back to it (a) flagged SAFER outcomes as defects [issue 026: 6.92 "below band"],
+ * (b) set the stopping point for a realism win [027], and (c) reverted realism features [020, 022].
+ * If a defensible change moves casualties, REPORT the new number and justify it from doctrine/design —
+ * never engineer it back to a historical value.
+ *
+ * NOISE FLOOR. This script is deterministic per seed-PREFIX (seeds `${PREFIX}-0..N`), so re-running the
+ * same prefix is identical. But each prefix is ONE 12-sample draw; the between-prefix σ of mean WIA
+ * (measured 2026-06-26 across independent prefixes) is reported below. A casualty delta inside that σ
+ * is NOISE, not a finding. For a real read, run several held-out prefixes and look at the spread:
+ *   npx tsx scripts/balance.ts 12 50 bal   ·   ... balB   ·   ... balC   (compare the means)
+ */
 import { createWorld } from "../lib/sim/world";
+
+// Between-prefix σ of mean US-WIA, measured 2026-06-26 across 4 independent 12×50 draws:
+// {bal 7.08, balC 2.67, balD 5.00, balE 9.42} → mean 6.04, RANGE 2.67–9.42 (spread 6.75), σ≈2.5.
+// The "~8.58 band" policed WIA deltas of ~1.0–1.5; the noise floor is ~2.5, i.e. the band was
+// policing deltas HALF the size of its own sampling noise. Treat any WIA delta < ~σ as NOISE.
+// (n=4 makes σ itself approximate; the RANGE is the hard fact. Re-measure if combat changes.)
+const WIA_SIGMA_FLOOR = 2.5; // see docs/wiki/Harnesses.md
 
 const N = Number(process.argv[2] ?? 12);
 const MINUTES = Number(process.argv[3] ?? 50);
@@ -66,4 +96,5 @@ for (let run = 0; run < N; run++) {
 console.log(`Ran ${N} continuous deployments, ${MINUTES} game-min each (1 squad + medic patrol, heat ~0.6-0.9):`);
 console.log(`  Contacts: ${contacts}/${N} runs saw a firefight · avg peak enemies on map ${(totalEnemySeen / N).toFixed(1)}`);
 console.log(`  Avg US KIA: ${(usKIA / N).toFixed(2)} · Avg US WIA: ${(usWIA / N).toFixed(2)} · Avg enemy accounted: ${(enKIA / N).toFixed(2)} · Civ cas total: ${civ}`);
+console.log(`  ↑ DIAGNOSTIC, not a target — no WIA band to defend. Deltas within the noise floor (between-prefix σ≈${Number.isFinite(WIA_SIGMA_FLOOR) ? WIA_SIGMA_FLOOR.toFixed(2) : "?"} WIA) are NOISE. See docs/wiki/Harnesses.md.`);
 console.log(stuck === 0 ? "  ✓ No elements left stranded mid-route." : `  ⚠ ${stuck} runs left an element lingering (check task resume).`);
