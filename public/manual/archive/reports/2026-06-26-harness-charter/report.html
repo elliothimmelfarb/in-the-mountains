@@ -187,8 +187,15 @@ explain, never a target you engineer back.</p>
 <p>The 84-file suite itself came out of the audit <b>healthy</b> — most files are clean probes that
 print numbers and assert nothing, and the genuine invariants (determinism, no-NaN, no-stall, the
 material-hash pin) are exactly the kind of thing a gate <i>should</i> guard. The blocker was never a
-file. It was a habit. The habit now has a rule against it, and the game has, for the first time, a
-standing test that protects the thing it is actually about.</p>
+file. It was a habit. The habit now has a rule against it.</p>
+
+<div class="callout"><b>Residual, named (the charter's own rule).</b> The COIN gate's <i>principle</i>
+and exit-code are in, but its <i>practical config is not yet calibrated</i> — the 3-seed default is
+too slow to finish routinely (~40 min; one weapons-free seed is 9–15 min), and the fast single-seed
+run under-discriminates at the 8-day minimum horizon. A gate you have not watched pass is not a green
+gate — so this one is logged as installed-but-uncalibrated, with a fast, deterministic, pre-vetted
+config as the named follow-on. That honesty is the whole point: the same rule that retired the WIA
+band also forbids us from claiming this gate is green before it is.</div>
 
 <footer><div>In the Mountains · harness charter · 2026-06-26 · raw record in
 <code>docs/progress/2026-06-26-harness-charter/</code> · charter in <code>docs/wiki/Harnesses.md</code></div></footer>

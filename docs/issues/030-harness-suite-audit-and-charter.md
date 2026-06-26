@@ -35,15 +35,16 @@ measured.) Structural irony: the firefight was gated while the design's actual *
 1. **The charter — `docs/wiki/Harnesses.md`.** Gate-vs-probe definitions; the governing law (*a gate's
    threshold may never be the sim's own past output*); the win-condition-first principle; the coverage
    gaps; an add-a-harness checklist. CLAUDE.md's "Done means" + Pointers wire it in.
-2. **COIN promoted to the win-condition GATE — `campaign-loop.ts`.** The verdict now tallies failures
-   and `exit(1)`s if the strategy layer goes inert (score stops discriminating / attitude stops moving
-   / projects stop completing). Every assertion is a design oracle, not a fitted number. Scoped in
-   CLAUDE.md as a **pre-merge check for sim/AI/COIN/balance changes** (3-seed default, ~minutes/seed —
-   not every commit; 1 seed is too noisy: survey-0 alone gives a 3-pt spread and fails to discriminate).
-   **Default verdict status: see the run record / 030 follow-up** — promoted the gate first; the
-   day-one default result is reported in `docs/progress/2026-06-26-harness-charter/`. If it is RED, the
-   gate is correctly flagging that COIN discrimination has softened since issue 015 (a real finding the
-   audit predicts), not a reason to weaken the gate.
+2. **COIN promoted to the win-condition GATE — `campaign-loop.ts` (infrastructure in; practical config
+   NOT yet calibrated).** The verdict now tallies failures and `exit(1)`s if the strategy layer goes
+   inert; every assertion is a design oracle, not a fitted number. **Day-one reality
+   (`evidence/coin-gate-day-one.md`):** the gate is **not yet a clean green standing check** — the
+   3-seed default is impractically slow (did NOT finish in ~40 min wall; one heavy seed under
+   weapons-free body-count is 9–15 min), and the fast 1-seed/8-day config **under-discriminates**
+   (survey-0 spread 3.0, FAIL). The durable wins are the **exit-code** + the **charter principle** (the
+   win condition deserves a gate). The required follow-on is a **fast, deterministic, pre-vetted COIN
+   gate config** at a horizon long enough to discriminate — real calibration work (the fast-vs-reliable
+   tension is genuine), logged not guessed. Whether COIN has *regressed* since 015 is unconfirmed.
 3. **`balance.ts` re-anchored.** Header + output state plainly: casualties are a DIAGNOSTIC, not a
    target — there is no WIA band to defend. It prints the measured σ floor (`WIA_SIGMA_FLOOR = 2.5`)
    so no future delta is ever read finer than the noise. The no-NaN + no-stall gates are unchanged.
