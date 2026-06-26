@@ -95,3 +95,59 @@ npx tsx scripts/copstuck.ts valley-2533 600   # per-squad / per-building grind b
 npx tsx scripts/cop-render.ts valley-2533 out.png   # top-down: sealed pockets in red
 npx tsx scripts/copaudit.ts 30        # standing audit (now incl. the connectivity invariant)
 ```
+
+---
+
+## Follow-up (2026-06-27) — the SECOND half: garrison CROWDING, not reachability
+
+**Player report:** *"soldiers getting stuck on COP buildings, perhaps too close together — maybe shrink
+the collider boxes."* Re-raised after this issue was closed. The connectivity fix above (reachability)
+**still holds** — but it was only half the story, and the proposed cause (collider footprints) was the
+wrong lever.
+
+**What was NOT wrong (measured, not guessed).** `scripts/scratch-cop-footprint.ts`: across seeds, **0
+solid-on-solid footprint overlaps** (the negative `minGap` `copinterior` prints is the *passable* Motor
+Pool clipping the Chow Hall — cosmetic), every building's walkable **apron is 80–100% open**, and
+`copinterior` reports **0/40 unreachable seats/pockets**. No building boxes anyone in; no man is
+trapped (`copstuck` worst-offender `maxRun ≤ 1 s`, men move 25–60 m net). Shrinking colliders would
+have fixed nothing.
+
+**What WAS wrong — placement, not terrain.** After the COP shrank R≈17→**R=12** (issue 014), garrison
+life was still modelled as *jit-onto-a-point* for whole groups (`garrison.ts`): the entire off-duty/
+sleeping pool was assigned to **one of two barracks** (`jit 5–9`), 20 men piled at the **chow hall**
+at meals, and the work **detail's wire bearing was `hashId(id) % 360`** — and because consecutive
+member ids hash to consecutive values, all 11 detail men landed in a **16° arc** of the wire. Result:
+~13 men stacked on the barracks footprints + a wire clump = the "stuck on buildings, too close
+together" the player saw. New metric `scratch-cop-men.ts` (settled-garrison render + `BUNCH(<3 m)`
+count): **BUNCH 21–24 / 41** — over half the platoon shoulder-to-shoulder.
+
+**The fix (`lib/sim/world/garrison.ts`, placement only — terrain gen byte-identical).** Spread every
+gathering group by an **even ordinal**, the same idea three times:
+- **off-duty / rest** → `yardSpot()`: a golden-angle (phyllotaxis) lattice keyed to platoon index, so
+  men fan evenly across the whole yard (night biased to the rear billets). Any subset stays spread.
+- **work detail** → wire bearing by **ordinal** `(ord+0.5)/n·2π`, walking the detail around the full
+  perimeter instead of one corner.
+- **chow** → `fanAround()`: a loose fanned line at the dfac, not a 5 m pile on the building.
+
+Deterministic (platoon index + pure id hash, **zero RNG, no new persisted state**) → replays
+bit-identical; the existing `reachablePoint` snap keeps every spot walkable.
+
+| metric | before | after |
+|---|---:|---:|
+| `BUNCH(<3 m)` settled garrison (valley-2533, hour 6) | 21 | **5** |
+| `BUNCH(<3 m)` steady (hour 8) / chow (hour 7) | 21 / 24 | **8 / 13** |
+| detail wire spread (bearing arc) | 16° (all in one corner) | even, full 360° |
+| `copinterior` unreachable seats/pockets (40 seeds) | 0 | **0** (held) |
+| `copstuck` grind valley-2533 / survey-44 (600 s) | 67 / 150 | 65 / 119 (flat — benign transit-brush, never the issue) |
+
+**Honest residual.** `copstuck` grind is ~flat: it counts a man *brushing* a wall in transit
+(`maxRun ≤ 1 s`), not the cluster, and the central buildings stay in everyone's path — so it was never
+the right measure of "too close together." The crowding (`BUNCH`) is the real symptom and it's resolved
+(renders: a pile on two barracks → men dispersed across the COP; the work detail ringing the whole
+wire). Standing checks green: `tsc` · `build` · `smoke` (determinism + serialize) · `garrison.ts`
+lint-clean · `balance`. Evidence: `docs/progress/2026-06-27-cop-crowding/`.
+
+```
+npx tsx scripts/scratch-cop-men.ts valley-2533 out.png 1400   # settled garrison render + BUNCH(<3m)
+npx tsx scripts/scratch-cop-footprint.ts                       # footprint overlaps + apron (refutes the collider theory)
+```
