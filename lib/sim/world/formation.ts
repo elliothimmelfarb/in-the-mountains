@@ -643,6 +643,12 @@ function setSecurity(u: Unit, t: Task, face: number) {
 }
 
 const WAKE_STEP = 3; // metres between the wake waypoints handed to a follower
+// Straggler hustle (cohesion from the trail side — see driveFollower): how far behind his slot a man
+// must fall before he picks up the pace, how hard he closes per metre of lag, and the cap (matches
+// combat.ts PACE_MAX, the integrator's upper bound on paceScale).
+const HUSTLE_LAG = 5; // m behind his slot before he double-times to close
+const HUSTLE_GAIN = 0.03; // extra pace per metre of lag beyond HUSTLE_LAG
+const HUSTLE_CAP = 1.6; // max catch-up multiplier (a spent man hustles, never sprints)
 
 /**
  * Drive one follower along the navigator's WAKE, and return how far it trails its slot
@@ -715,6 +721,14 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
   const proj = projectBack(nav.pos, tr, u.pos); // {back, dist} of the man's projection on the wake
   const lag = proj.back - back; // >0 = behind the slot (must advance); <=0 = at/ahead of it
   const offWake = proj.dist > 12 || !tr || tr.length < 2;
+
+  // HUSTLE: a man who has fallen behind his slot picks up the pace to close the interval HIMSELF
+  // (FM 3-21.8 — "close it up"), so the element stays together without the point man slowing. Slowing
+  // the lead instead misses the objective on a hard far-village climb (the slow-failure, issue 031),
+  // so the cohesion is paid from the TRAIL side: the nav holds his floor, the straggler double-times.
+  // Capped (combat.ts PACE_MAX) so a spent man hustles, never sprints; clears the instant he's back in
+  // his slot (lag ≤ HUSTLE_LAG → 1×). Pure geometry → deterministic.
+  u.paceScale = lag > HUSTLE_LAG ? Math.min(HUSTLE_CAP, 1 + (lag - HUSTLE_LAG) * HUSTLE_GAIN) : 1;
 
   // Rejoin with real pathfinding when he's off the wake — typically still inside the wire
   // while the squad has filed out (every wake point is across the HESCO), or shoved aside

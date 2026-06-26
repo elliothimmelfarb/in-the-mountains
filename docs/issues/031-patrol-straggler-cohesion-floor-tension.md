@@ -1,9 +1,10 @@
-# 031 — Patrol straggler cohesion: the floor-vs-governor tension (floor reorder REFUTED)
+# 031 — Patrol straggler cohesion: hustle from the trail (floor reorder REFUTED, hustle SHIPPED)
 
 **Severity: Low (cohesion texture on the hardest objectives).** Investigated 2026-06-27 under the
-goal "soldiers … always stick together as a squad." **Outcome: no code change — the current behavior
-is correct, and the obvious fix is a refuted slow-failure. This entry exists so the fix is not
-re-attempted.**
+goal "soldiers … always stick together as a squad." **Outcome: the obvious fix (slow the lead to
+wait) is a refuted slow-failure and is NOT to be re-attempted; the cohesion is instead paid from the
+TRAIL side — a lagging follower HUSTLES to close the interval — which tightens the gap without
+touching the lead's arrival. Shipped. See the Resolution at the bottom.**
 
 ## The observation
 
@@ -56,20 +57,39 @@ the **slow-failure of [009](009-far-village-tactical-window-and-network-ceiling.
 the floor was added to prevent. You cannot make the point man wait without slowing the point man.
 Reverted; combat.ts is byte-identical to HEAD.
 
-## Conclusion / standing guidance
+## Standing guidance
 
-- The **never-freeze floor is load-bearing.** Do not reorder it vs the pace governor to chase the
-  mid-climb straggler gap — it reintroduces the slow-failure on hard far villages.
-- Cohesion **at the objective is already 100%** (`squad-arrival`). The 70–108 m `follower-strand`
-  number is a first-tick instant sample of a realistic climb-stretch, not a stranding.
-- If ever revisited: the *only* lever that closes the gap without delaying the lead is a **modest
-  straggler hustle-boost** (the trailing man double-times, the lead keeps pace) — but since the squad
-  already consolidates at the objective, that is most likely solving a non-problem. Metricize against
-  `squad-arrival` (not `follower-strand`'s instant sample) before touching it.
+- The **never-freeze floor is load-bearing.** Do NOT reorder it vs the pace governor to chase the
+  mid-climb straggler gap — it reintroduces the slow-failure on hard far villages (the table above).
+  Pay cohesion from the **trail**, never by slowing the lead.
+
+## Resolution (2026-06-27) — straggler HUSTLE
+
+The lever the floor-reorder section ruled out — *the trailing man double-times, the lead keeps pace* —
+turned out NOT to be a non-problem. Implemented as a follower **hustle** (`lib/sim/world/formation.ts`
+`driveFollower` + `combat.ts` `PACE_MAX`): a follower whose projected lag along the wake exceeds
+`HUSTLE_LAG` (5 m) sets `paceScale = 1 + (lag−5)·0.03`, capped at **1.6×** — he picks up the pace to
+regain his interval (FM 3-21.8 "close it up"), a spent man double-timing, never sprinting. The
+navigator is **untouched** (his `paceScale ≤ 1`, floored at 0.5 exactly as before), so the lead's
+arrival — and the tactical window — cannot regress. Pure geometry, zero RNG, no new persisted state.
+
+| metric | baseline | floor-reorder (reverted) | **HUSTLE (shipped)** |
+|---|---:|---:|---:|
+| `follower-strand` worstGap: india-9 / mike-13 / foxtrot-6 / oscar-15 | 108 / 78 / 70 / 71 m | NO-ARRIVE / 78 / 23 / 53 | **64 / 25 / 31 / 37 m** |
+| seeds with worstGap > 50 m (23-seed sweep) | 5+ | — | **2** (india-9 64, kilo-11 81 — the 369/552 m far villages) |
+| `squad-arrival` within tactical window | 24/27 (89 %) | **broke india-9** | **25/27 (93 %)** ↑ |
+| `squad-arrival` worst straggler @ objective | 33 m | — | **29 m** ↓ |
+| `squad-arrival` squadCoh / homeOK | 100 % / 89 % | 100 % / 85 % | **100 % / 89 %** |
+
+Closing stragglers from the trail consolidates the element *sooner*, so the window **improves** (89→93 %)
+— the opposite of the lead-slowing approach. The two residual >50 m gaps are the farthest worst-opposite
+villages (a long climb a hustling SAW gunner still can't fully erase); both still consolidate to 100 %
+at the halt. Verified: `tsc` · `smoke` (determinism + serialize) · `balance` (combat-neutral — the
+hustle only runs during the patrol move; combat resets `paceScale`).
 
 ## Reproduce
 
 ```
-npx tsx scripts/squad-arrival.ts          # authoritative: squadCoh 100%, maxStrag 33m
-npx tsx scripts/follower-strand.ts        # the instant-sample gaps (india-9 108m etc.) — NOT a defect
+npx tsx scripts/squad-arrival.ts          # authoritative: within-window 25/27, squadCoh 100%, maxStrag 29m
+npx tsx scripts/follower-strand.ts        # worstGap distribution: only india-9/kilo-11 > 50m
 ```
