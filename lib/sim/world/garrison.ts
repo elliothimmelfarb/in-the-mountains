@@ -64,7 +64,6 @@ export function tickGarrison(w: World, dt: number) {
   };
   const toc = at("toc");
   const aid = at("aid");
-  const barracks = cop.buildings.filter((b) => b.kind === "barracks").map((b) => w.terrain.buildingSeat(b));
   const dfac = at("dfac");
 
   // Rotating guard roster from the riflemen/NCOs (gun crews are posted separately).
@@ -84,14 +83,14 @@ export function tickGarrison(w: World, dt: number) {
   // Work details — "a COP is never finished." A rotating slice of the off-duty riflemen are on
   // detail improving the wire (filling/repairing HESCO + sandbags); while men work, the COP's
   // fortification (fob.hesco) climbs — finally giving that dead stat a writer. Suspended at stand-to.
-  const detail = new Set<string>();
+  const detail = new Map<string, number>(); // id -> ordinal, so the detail spreads EVENLY around the wire
   if (!standTo) {
     const idle = pool.filter((m) => !onGuard.has(m.id));
     const dneed = Math.floor(idle.length * 0.45);
     const dshift = Math.floor(w.absSeconds / (SHIFT / 2)); // details rotate twice as often as guard
     for (let i = 0; i < dneed; i++) {
       const m = idle[(i + dshift) % idle.length];
-      if (m) detail.add(m.id);
+      if (m && !detail.has(m.id)) detail.set(m.id, detail.size);
     }
   }
 
@@ -119,14 +118,19 @@ export function tickGarrison(w: World, dt: number) {
       face = sweepFace(fp, m, w.absSeconds); // sentry sweeps his sector, doesn't stare one way
       m.brainState = "guard";
     } else if (detail.has(m.id)) {
-      // on a work detail at the wire — posted along the inside of the HESCO line, facing out
-      const b = (hashId(m.id) % 360) * (Math.PI / 180);
+      // on a work detail at the wire — posted along the inside of the HESCO line, facing out.
+      // Bearing is EVEN-by-ordinal (not hashId%360): consecutive member ids hash to consecutive
+      // bearings, which piled the whole detail into a 16° corner of the wire; spreading by ordinal
+      // walks the detail around the full perimeter (a COP improves the wire everywhere, not one spot).
+      const ord = detail.get(m.id)!;
+      const b = ((ord + 0.5) / Math.max(1, detail.size)) * Math.PI * 2;
       const wr = (cop.radius - 2) * w.terrain.cellSize;
       post = jit({ x: center.x + Math.cos(b) * wr, y: center.y + Math.sin(b) * wr }, m, 3);
       face = b;
       m.brainState = "detail";
     } else if (mealTime) {
-      post = jit(dfac, m, 5);
+      // chow line — a loose queue fanned at the chow hall, not a 5 m pile stacked on the building
+      post = fanAround(w, m, dfac, 9);
       m.brainState = "chow";
     } else if (m.role === "medic") {
       post = jit(aid, m, 4);
@@ -134,13 +138,13 @@ export function tickGarrison(w: World, dt: number) {
     } else if (m.role === "platoon_leader" || m.role === "platoon_sergeant" || m.role === "rto" || m.role === "jtac") {
       post = jit(toc, m, 5);
       m.brainState = "toc";
-    } else if (sleepTime && barracks.length) {
-      post = jit(barracks[hashId(m.id) % barracks.length], m, 5);
+    } else if (sleepTime) {
+      // racked out for the night — spread along the rear billets, not piled on two doorways
+      post = yardSpot(w, m, center, wire, cop.gateDir, true);
       m.brainState = "rest";
     } else {
-      // off-duty: knock about the yard near the barracks
-      const base = barracks.length ? barracks[hashId(m.id) % barracks.length] : center;
-      post = jit(base, m, 9);
+      // off-duty: fan out across the yard (the lived-in COP), instead of stacking on the barracks
+      post = yardSpot(w, m, center, wire, cop.gateDir, false);
       m.brainState = "garrison";
     }
 
@@ -214,6 +218,55 @@ function mgPost(w: World, m: RosterMember, center: Vec2): { pos: Vec2; face: num
 function jit(p: Vec2, m: RosterMember, r: number): Vec2 {
   const h = hashId(m.id);
   return { x: p.x + (((h % 100) / 100) * 2 - 1) * r, y: p.y + ((((h / 100) | 0) % 100) / 100 * 2 - 1) * r };
+}
+
+// Golden angle (rad) — phyllotaxis: successive indices land ~137.5° apart, so ANY subset of
+// the platoon (the off-duty pool changes as guard rotates) still fans out evenly, never clumps.
+const GOLDEN = Math.PI * (3 - Math.sqrt(5));
+
+/**
+ * A man's STABLE personal spot in garrison life, fanned across the open interior yard by a
+ * golden-angle lattice keyed to his platoon index — so off-duty men SPREAD across the COP
+ * (weapons-cleaning on the Hescos, racks down the billet rows, loafing, walking the wire)
+ * instead of piling onto two barracks doorways. That pile-up — ~13 men jammed onto the two
+ * rear barracks footprints — was the "stuck on buildings, too close together" the player saw:
+ * not a footprint/collider problem (every building's apron is 80–100% open) but a PLACEMENT
+ * one, the whole off-duty pool funnelled to two seats. Spreading them reads as a lived-in
+ * outpost and dissolves the cluster.
+ *
+ * Deterministic — platoon index + a pure id hash, zero RNG — so replays stay bit-identical and
+ * nothing new is persisted. The caller's reachablePoint snap steps any spot that lands on a
+ * building/wall onto its apron, so the man always has somewhere walkable to stand.
+ *   rear : pull the lattice toward the rear billets at a tighter radius (night rest — men settle
+ *          by their racks, not out in the open ECP yard); false = the full daytime yard.
+ */
+function yardSpot(w: World, m: RosterMember, center: Vec2, wire: number, gateDir: Vec2, rear: boolean): Vec2 {
+  const members = w.platoon.members;
+  let idx = 0;
+  for (let i = 0; i < members.length; i++) if (members[i].id === m.id) { idx = i; break; }
+  const n = Math.max(1, members.length);
+  const frac = (idx + 0.5) / n;
+  // sqrt(frac) → uniform AREA density (men don't pile in the centre); bounds keep every spot
+  // inside the R-3 buildable yard (rHi 0.74·R ≈ R-3 at R=12), so reachablePoint rarely re-snaps.
+  const rLo = rear ? 0.26 : 0.20;
+  const rHi = rear ? 0.56 : 0.74;
+  const rad = wire * (rLo + (rHi - rLo) * Math.sqrt(frac));
+  const ang = idx * GOLDEN + (hashId(m.id) % 360) * (Math.PI / 180) * 0.12; // tiny per-man phase
+  const p = { x: center.x + Math.cos(ang) * rad, y: center.y + Math.sin(ang) * rad };
+  // Night: bias toward the rear (away from the gate) so sleepers settle by the billets.
+  return rear ? { x: p.x - gateDir.x * wire * 0.16, y: p.y - gateDir.y * wire * 0.16 } : p;
+}
+
+/** Fan a man around a gathering point by his platoon index (golden angle), so a crowd at one
+ *  spot — the chow line at the dfac — reads as a loose queue rather than a tight pile stacked on
+ *  the building. Deterministic; the caller's reachablePoint snap keeps it off the footprint. */
+function fanAround(w: World, m: RosterMember, anchor: Vec2, spread: number): Vec2 {
+  const members = w.platoon.members;
+  let idx = 0;
+  for (let i = 0; i < members.length; i++) if (members[i].id === m.id) { idx = i; break; }
+  const r = spread * (0.35 + 0.65 * (((idx * 7) % 11) / 10));
+  const a = idx * GOLDEN;
+  return { x: anchor.x + Math.cos(a) * r, y: anchor.y + Math.sin(a) * r };
 }
 
 function hashId(id: string): number {
