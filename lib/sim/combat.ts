@@ -241,6 +241,10 @@ const NB_BUCKET = 4; // meters per spatial-hash bucket (neighbor queries / separ
 
 // --- natural-movement polish (deterministic; no per-tick RNG) ---
 const ARRIVE_EASE = 4; // m — decelerate into the final waypoint within this distance
+const PACE_MAX = 1.6; // upper bound on paceScale. <1 = the navigator easing (squad governor); >1 = a
+// follower who has fallen behind his slot HUSTLING to close the interval (FM 3-21.8 "close it up").
+// Capped so a spent man double-times to regain his place, never sprints — the cohesion lever that
+// works WITHOUT slowing the point man (slowing the lead misses the objective on a hard climb — 031).
 const SCAN_AMP = 0.3; // rad (~17°) — how far a halted man sweeps his sector while scanning
 const MIN_BODY = 1.1; // m — closer than this two non-hostile bodies interpenetrate (de-overlap)
 const MOVE_SLEW = 3.0; // rad/s (~172°/s) — facing turn-rate while marching
@@ -827,9 +831,11 @@ export class CombatSim {
     speed *= clamp(1 - overload * (0.006 * (1.3 - u.fitnessMax)), 0.5, 1);
     // leg wounds slow you
     if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
-    // squad pace governor: the point man eases the throttle (never a dead stop) so
-    // the element stays together — read as a smooth slowdown, not a freeze.
-    if (u.paceScale != null) speed *= Math.max(0, Math.min(1, u.paceScale));
+    // squad pace governor: the point man eases the throttle (never a dead stop) so the element stays
+    // together (paceScale<1), AND a follower who has fallen behind his slot HUSTLES to close the
+    // interval (paceScale>1, set in formation.ts driveFollower). The hustle is the cohesion lever that
+    // does NOT slow the lead — slowing the lead misses the objective on a hard far-village climb (031).
+    if (u.paceScale != null) speed *= Math.max(0, Math.min(PACE_MAX, u.paceScale));
     // Never-freeze floor: a PATROL must always read as MOVING (easing only — never a dead
     // stop on poor ground or fatigue, which is what pinned the squad at ~1/3 doctrinal pace).
     // Kept low for the stealth crawls so a man on his belly still creeps, not scoots — and lower
