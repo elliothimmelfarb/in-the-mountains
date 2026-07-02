@@ -593,6 +593,16 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
   ctx.lineCap = "round";
   // back-to-front by importance so trails sit under tracks under roads where they meet
   const order: Array<"trail" | "track" | "road"> = ["trail", "track", "road"];
+  // COP clip: the valley MSR centerline is captured BEFORE the outpost exists on some seeds
+  // (terrain.ts carveRoadsAndTrails stamps it after buildCop but the polyline follows the
+  // river regardless), so its stroke can cross the wire and paint a tan band edge-to-edge
+  // across the yard (seen on valley-2533: 17 vertices inside the ring, 5 m off the COP
+  // centre). Clip every path stroke against the perimeter + a 1-cell margin — runs end AT
+  // the wire; the graded access road (laid from R+8 outward) is untouched.
+  const cop = terrain.cop;
+  const copC = cop ? terrain.cellCenter(cop.center.cx, cop.center.cy) : null;
+  const copR = cop ? (cop.radius + 1) * terrain.cellSize : 0;
+  const inCop = (x: number, y: number) => copC != null && Math.hypot(x - copC.x, y - copC.y) < copR;
   // WORLD-CELL OCCUPANCY: a trailhead radiates a fan of climbing trails (up-/down-valley/abeam) that
   // BRAID — they share the same lower climb before splaying to their shoulders, so 3+ trails retrace
   // one corridor and read as squiggle-over-squiggle even after each is individually de-stacked (probe:
@@ -623,7 +633,7 @@ export function drawPathsLive(ctx: CanvasRenderingContext2D, terrain: Terrain, c
       let cur: Vec2Arr = [];
       for (let i = 0; i < cleaned.length; i++) {
         const k = okey(cleaned[i].x, cleaned[i].y);
-        const free = !occ.has(k);
+        const free = !occ.has(k) && !inCop(cleaned[i].x, cleaned[i].y);
         if (free) {
           occ.add(k);
           cur.push(cleaned[i]);

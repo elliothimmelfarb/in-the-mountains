@@ -1,6 +1,7 @@
 import { Camera, worldToScreen } from "./topo";
 import { Unit, Faction, Role } from "../sim/entities";
 import { Terrain } from "../sim/terrain";
+import { gymSpot } from "../sim/world";
 import { Projectile } from "../sim/ballistics";
 import { Effect } from "../sim/combat";
 import { SmokeScreen } from "../sim/los";
@@ -349,6 +350,58 @@ function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: numbe
   ctx.closePath();
 }
 
+/** Tiny deterministic hash → [0,1) for prop/wire jitter, seeded by COP geometry — replays
+ *  and pans are bit-stable (NO Math.random anywhere in the render). */
+function propHash(a: number, b: number, salt: number): number {
+  let h = (a * 374761393 + b * 668265263 + salt * 1274126177) | 0;
+  h = (h ^ (h >> 13)) * 1103515245;
+  return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+}
+
+/**
+ * Procedural camouflage net: an irregular translucent OD polygon with faint seam lines —
+ * per ART_BIBLE §3 (OD tarp #6b6f4a), no asset needed. Drawn over the mortar pit and a
+ * couple of yard positions so the COP reads dressed-in, not parade-ground.
+ */
+function drawCamoNet(ctx: CanvasRenderingContext2D, cam: Camera, wx: number, wy: number, rM: number, seed: number, alpha: number) {
+  if (alpha <= 0.02) return;
+  const [sx, sy] = worldToScreen(cam, wx, wy);
+  const rp = rM * cam.ppm;
+  if (rp < 3 || sx < -rp || sy < -rp || sx > cam.vw + rp || sy > cam.vh + rp) return;
+  ctx.save();
+  ctx.beginPath();
+  const K = 7;
+  for (let i = 0; i < K; i++) {
+    const a = (i / K) * Math.PI * 2 + propHash(seed, i, 3) * 0.55;
+    const rr = rp * (0.74 + propHash(seed, i, 7) * 0.4);
+    const px = sx + Math.cos(a) * rr;
+    const py = sy + Math.sin(a) * rr;
+    if (i) ctx.lineTo(px, py);
+    else ctx.moveTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fillStyle = `rgba(107,111,74,${0.55 * alpha})`;
+  ctx.fill();
+  if (cam.ppm > 1.4) {
+    // net seams, clipped to the canopy — a few strokes suggest mesh without noise
+    ctx.save();
+    ctx.clip();
+    ctx.strokeStyle = `rgba(40,44,30,${0.3 * alpha})`;
+    ctx.lineWidth = 0.7;
+    for (let i = -2; i <= 2; i++) {
+      ctx.beginPath();
+      ctx.moveTo(sx - rp, sy + i * rp * 0.34 - rp * 0.1);
+      ctx.lineTo(sx + rp, sy + i * rp * 0.34 + rp * 0.16);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  ctx.strokeStyle = `rgba(44,48,30,${0.55 * alpha})`;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
 const COP_LABEL: Record<string, string> = {
   barracks: "BKS",
   toc: "TOC",
@@ -413,6 +466,54 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
+  // ---- worn foot-lanes: the desire paths a garrison actually treads into the yard —
+  // gate↔muster and muster↔the daily buildings (chow, TOC, latrines, LZ). Soft dark
+  // double-stroke with a slight deterministic bow, under everything, so the moon-dust
+  // ground reads walked-on instead of freshly raked. Render-only.
+  if (bldA > 0.06) {
+    const must = terrain.cellCenter(cop.muster.cx, cop.muster.cy);
+    const ends: Array<[{ x: number; y: number }, { x: number; y: number }, number]> = [];
+    const gi = terrain.cellCenter(cop.gateInside.cx, cop.gateInside.cy);
+    ends.push([must, gi, 2.6]); // the main drag
+    const lz = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
+    ends.push([must, lz, 1.5]);
+    for (const kind of ["dfac", "toc", "latrine", "barracks"]) {
+      const b = cop.buildings.find((x) => x.kind === kind);
+      if (!b) continue;
+      const bc = terrain.cellCenter(b.cx, b.cy);
+      // stop the lane at the building's apron, not under its roof
+      const d = Math.hypot(bc.x - must.x, bc.y - must.y) || 1;
+      const stop = Math.max(0.3, 1 - ((Math.max(b.hw, b.hh) + 1.2) * cs) / d);
+      ends.push([must, { x: must.x + (bc.x - must.x) * stop, y: must.y + (bc.y - must.y) * stop }, 1.6]);
+    }
+    ctx.save();
+    ctx.lineCap = "round";
+    for (let li = 0; li < ends.length; li++) {
+      const [a, b, wM] = ends[li];
+      // start each lane a few metres OUT from the muster hub so six lanes don't stack
+      // into one dark star-knot at the shared origin (A/B-measured: the stacked version
+      // read as a smudge, the de-stacked treads read as walked lanes)
+      const dxy = { x: b.x - a.x, y: b.y - a.y };
+      const dl = Math.hypot(dxy.x, dxy.y) || 1;
+      const a2 = { x: a.x + (dxy.x / dl) * Math.min(4, dl * 0.25), y: a.y + (dxy.y / dl) * Math.min(4, dl * 0.25) };
+      const [ax, ay] = worldToScreen(cam, a2.x, a2.y);
+      const [bx, by] = worldToScreen(cam, b.x, b.y);
+      // a slight bow (nobody walks a survey line) — deterministic per lane
+      const mx = (ax + bx) / 2 - (by - ay) * (propHash(cop.center.cx, li, 21) - 0.5) * 0.16;
+      const my = (ay + by) / 2 + (bx - ax) * (propHash(cop.center.cy, li, 23) - 0.5) * 0.16;
+      // a soft wide wash under a firmer narrow tread — a walked lane, not a smudge
+      for (const [w2, al] of [[wM, 0.13], [wM * 0.38, 0.2]] as Array<[number, number]>) {
+        ctx.strokeStyle = `rgba(48,40,29,${al * bldA})`;
+        ctx.lineWidth = Math.max(1, w2 * cam.ppm);
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.quadraticCurveTo(mx, my, bx, by);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
   // ---- HESCO bastion wall: real gabion segments around the perimeter ring (under everything).
   // The wire was only a tan terrain tint (topo.ts) — drawing hesco-straight tangent to the same
   // ring buildCop bakes gives the COP its defining fortified silhouette. Skips the gate gap.
@@ -444,6 +545,36 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     }
   }
 
+  // ---- concertina wire OUTSIDE the HESCO line — C-wire is everywhere on a real KOP, and
+  // its absence was the loudest "parade ground" tell. Two staggered coil runs (the
+  // triple-strand pyramid read from above) with per-segment radial kinks and rotation
+  // jitter, deterministic from the COP geometry, so the ring never reads compass-perfect.
+  // The ECP arc stays clear — its own short runs funnel traffic into the serpentine below.
+  if (bldA > 0.04 && hasSprite("concertina")) {
+    const ringR = cop.radius * cs;
+    const segLen = 6.5;
+    for (let strand = 0; strand < 2; strand++) {
+      if (strand === 1 && cam.ppm < 1.2) break; // the outer strand resolves at tactical zoom
+      const wireR = ringR + 4.2 + strand * 2.1;
+      const segCount = Math.max(20, Math.round((2 * Math.PI * wireR) / segLen));
+      const phase = strand === 1 ? Math.PI / segCount : 0;
+      for (let i = 0; i < segCount; i++) {
+        const a = (i / segCount) * Math.PI * 2 + phase;
+        const d = Math.abs(((a - ga + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        if (d < 0.5) continue;
+        const jr = (propHash(cop.center.cx + strand, i, 11) - 0.5) * 2.2;
+        const ja = (propHash(cop.center.cy + strand, i, 13) - 0.5) * 0.2;
+        const wx = center.x + Math.cos(a) * (wireR + jr);
+        const wy = center.y + Math.sin(a) * (wireR + jr);
+        // muted: real C-wire from above is a thin dark tangle, not lace — full alpha read
+        // as a bright trim ring that upstaged the HESCO wall itself
+        drawWorldSprite(ctx, cam, "concertina", wx, wy, {
+          widthM: segLen + 1.0, alpha: bldA * (strand ? 0.42 : 0.5), rot: a + Math.PI / 2 + ja, light: env.light,
+        });
+      }
+    }
+  }
+
   // helicopter LZ pad (under everything else)
   {
     const c = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
@@ -461,6 +592,14 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
         ctx.font = `bold ${Math.round(r)}px var(--font-mono, monospace)`;
         ctx.fillText("H", sx, sy + 0.5);
       }
+    }
+    // windsock on the pad's shoulder — aviation reads at a glance
+    if (bldA > 0.04 && hasSprite("windsock")) {
+      const toC = Math.atan2(center.y - c.y, center.x - c.x);
+      const wx = c.x + Math.cos(toC + Math.PI / 2) * 12;
+      const wy = c.y + Math.sin(toC + Math.PI / 2) * 12;
+      if (env.light && bldA > 0.04) drawContactAO(ctx, cam, wx, wy, 1.6, aoFade, bldA);
+      drawWorldSprite(ctx, cam, "windsock", wx, wy, { widthM: 3, alpha: bldA, light: env.light });
     }
   }
 
@@ -505,10 +644,29 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
           ctx.restore();
         }
       }
+      // short C-wire runs flanking the serpentine — the chicane is a funnel, not a slalom
+      // in the open: wire on both shoulders forces traffic through the staggered T-walls.
+      if (hasSprite("concertina")) {
+        for (const side of [-1, 1]) {
+          for (let k = 0; k < 3; k++) {
+            const along = 2.5 + k * 6.4;
+            const off = 6.2 + k * 1.1 + (propHash(cop.gate.cx, k * 2 + (side > 0 ? 1 : 0), 17) - 0.5) * 1.2;
+            const bx = c.x + ux * along + px * side * off;
+            const by = c.y + uy * along + py * side * off;
+            drawWorldSprite(ctx, cam, "concertina", bx, by, {
+              widthM: 6.6, alpha: bldA * 0.5, rot: ang + side * 0.2, light: env.light,
+            });
+          }
+        }
+      }
     }
   }
 
-  // buildings
+  // buildings — with render-side SKIN variety (footprints and the sim untouched): the
+  // armory reads as a CONEX cluster (ammo lives in steel boxes, not plywood) and the last
+  // billet as a GP tent — a real KOP mixed b-huts, tents and containers, and the uniform
+  // b-hut fan was a strong "videogame base" tell.
+  const tentBillet = cop.buildings.filter((b) => b.kind === "barracks").slice(-1)[0];
   for (const b of cop.buildings) {
     const c = terrain.cellCenter(b.cx, b.cy);
     const [sx, sy] = worldToScreen(cam, c.x, c.y);
@@ -516,13 +674,36 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     const w = wM * cam.ppm;
     const h = (b.hh * 2 + 1) * cs * cam.ppm;
     if (sx < -w * 2 || sy < -h * 3 || sx > cam.vw + w * 2 || sy > cam.vh + h * 2) continue;
-    const id = BLD_SPRITE[b.kind] ?? "bld-bhut";
+    let id = BLD_SPRITE[b.kind] ?? "bld-bhut";
+    if (b === tentBillet && hasSprite("bld-tent")) id = "bld-tent";
     const hM = (b.hh * 2 + 1) * cs;
     // contact-AO grounding halo (sun-independent — keeps the building planted at high noon when
     // the long cast shadow vanishes), then the long sun-tracked cast shadow (~3 m tall) that
     // sweeps with the clock so the COP sits IN the light instead of floating on a frozen diorama.
     if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, Math.max(wM, hM) * 0.82, aoFade, bldA);
     if (env.sunShadow && bldA > 0.02) drawSunShadow(ctx, cam, c.x, c.y, 3, wM, env.sunShadow);
+    // the armory: two containers side by side inside the same footprint
+    if (b.kind === "armory" && bldA > 0.02 && hasSprite("bld-conex")) {
+      const alongX = wM >= hM; // split the LONG axis
+      const n = 2;
+      for (let i = 0; i < n; i++) {
+        const f = (i / (n - 1) - 0.5) * (alongX ? wM : hM) * 0.5;
+        const bx = c.x + (alongX ? f : 0);
+        const by = c.y + (alongX ? 0 : f);
+        drawWorldSprite(ctx, cam, "bld-conex", bx, by, {
+          widthM: (alongX ? wM * 0.52 : wM) * 1.05,
+          heightM: (alongX ? hM : hM * 0.52) * 1.15,
+          alpha: bldA,
+          light: env.light,
+        });
+      }
+      if (cam.ppm > 0.95 && cam.ppm < 3.2 && COP_LABEL[b.kind]) {
+        ctx.fillStyle = "rgba(232,229,212,0.5)";
+        ctx.font = "8px var(--font-mono, monospace)";
+        ctx.fillText(COP_LABEL[b.kind], sx, sy + h / 2 + 6);
+      }
+      continue;
+    }
     // stretch each building to its REAL footprint (width × depth) so the COP has size
     // variety instead of every roof reading as the same elongated barracks shape.
     const drew = bldA > 0.02 && hasSprite(id) && drawWorldSprite(ctx, cam, id, c.x, c.y, { widthM: wM * 1.12, heightM: hM * 1.32, alpha: bldA, light: env.light });
@@ -588,6 +769,19 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
   for (const fp of cop.fightingPositions) {
     const c = terrain.cellCenter(fp.cx, fp.cy);
     const id = fp.tower ? "guard-tower" : "fighting-position";
+    // sandbagged parapet arcing across the position's front — three short courses laid
+    // tangent on the threat side deepen the emplacement read (the bare horseshoe sprite
+    // alone looked placed, not BUILT). Towers skip it (their cab is already sandbagged).
+    if (!fp.tower && bldA > 0.05 && hasSprite("sandbag-wall")) {
+      for (let s = -1; s <= 1; s++) {
+        const a2 = fp.facing + s * 0.78;
+        const bx = c.x + Math.cos(a2) * 2.8;
+        const by = c.y + Math.sin(a2) * 2.8;
+        drawWorldSprite(ctx, cam, "sandbag-wall", bx, by, {
+          widthM: 3.1, alpha: bldA, rot: a2 + Math.PI / 2, light: env.light,
+        });
+      }
+    }
     // a guard tower (~3.5 m) throws a long shadow at low sun; the fighting position is low
     if (env.light && bldA > 0.04) drawContactAO(ctx, cam, c.x, c.y, fp.tower ? 3.4 : 2.6, aoFade, bldA);
     if (env.sunShadow && bldA > 0.02 && fp.tower) drawSunShadow(ctx, cam, c.x, c.y, 3.5, 4.5, env.sunShadow);
@@ -617,10 +811,24 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
     }
   }
 
-  // mortar pit — the indirect-fire installation (rear defilade). ico-mortar with a
-  // sandbag-ring wireframe fallback.
+  // mortar pit — the indirect-fire installation (rear defilade). Sandbag parapet ring
+  // around the tube (a pit is DUG and BAGGED, not painted on), camo net stretched over
+  // one shoulder, ico-mortar with a sandbag-ring wireframe fallback.
   {
     const mp = terrain.cellCenter(cop.mortarPit.cx, cop.mortarPit.cy);
+    if (bldA > 0.05 && hasSprite("sandbag-wall")) {
+      const toYard = Math.atan2(center.y - mp.y, center.x - mp.x);
+      for (let i = 0; i < 6; i++) {
+        const a2 = (i / 6) * Math.PI * 2 + 0.35;
+        // leave the yard-side segment open — the crew's entrance
+        if (Math.abs(((a2 - toYard + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < 0.55) continue;
+        const bx = mp.x + Math.cos(a2) * 3.9;
+        const by = mp.y + Math.sin(a2) * 3.9;
+        drawWorldSprite(ctx, cam, "sandbag-wall", bx, by, {
+          widthM: 3.6, alpha: bldA, rot: a2 + Math.PI / 2, light: env.light,
+        });
+      }
+    }
     const drew = bldA > 0.04 && hasSprite("ico-mortar") && drawWorldSprite(ctx, cam, "ico-mortar", mp.x, mp.y, { widthM: 6, alpha: bldA, light: env.light });
     if (!drew && bldA > 0.04) {
       const [sx, sy] = worldToScreen(cam, mp.x, mp.y);
@@ -634,6 +842,151 @@ export function drawCop(ctx: CanvasRenderingContext2D, cam: Camera, terrain: Ter
       ctx.stroke();
       ctx.setLineDash([]);
       ctx.restore();
+    }
+    // net over the pit's shoulder (offset so the tube stays readable)
+    drawCamoNet(ctx, cam, mp.x + 3.2, mp.y - 2.6, 4.4, cop.mortarPit.cx * 31 + cop.mortarPit.cy, bldA * (1 - env.night * 0.35));
+  }
+
+  // ---- lived-in clutter: the junk IS the realism (water pallets, fuel drums, ammo cans,
+  // burn barrels, a plate-and-bench gym). Procedural shapes on the ART_BIBLE built-material
+  // palette, anchored to the geometry that explains them (LZ, armory, latrines, dfac) with
+  // per-prop deterministic jitter. Resolves at tactical zoom; night dims it with the camp.
+  {
+    const propA = lodAlpha(cam.ppm, 0.95, 1.7) * (1 - env.night * 0.4);
+    if (propA > 0.03) {
+      const seedX = cop.center.cx;
+      const rect = (wx: number, wy: number, wMx: number, hMy: number, rot: number, fill: string, stroke?: string) => {
+        const [sx, sy] = worldToScreen(cam, wx, wy);
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(rot);
+        ctx.fillStyle = fill;
+        ctx.fillRect((-wMx / 2) * cam.ppm, (-hMy / 2) * cam.ppm, wMx * cam.ppm, hMy * cam.ppm);
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1;
+          ctx.strokeRect((-wMx / 2) * cam.ppm, (-hMy / 2) * cam.ppm, wMx * cam.ppm, hMy * cam.ppm);
+        }
+        ctx.restore();
+      };
+      const disc = (wx: number, wy: number, rMd: number, fill: string, stroke?: string) => {
+        const [sx, sy] = worldToScreen(cam, wx, wy);
+        ctx.beginPath();
+        ctx.arc(sx, sy, Math.max(1.2, rMd * cam.ppm), 0, Math.PI * 2);
+        ctx.fillStyle = fill;
+        ctx.fill();
+        if (stroke) {
+          ctx.strokeStyle = stroke;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      };
+      ctx.save();
+      ctx.globalAlpha *= propA;
+      const ink = "rgba(28,22,14,0.6)";
+      // -- supply point off the LZ: water/MRE pallet stacks + a fuel drum row
+      {
+        const lzc = terrain.cellCenter(cop.lz.cx, cop.lz.cy);
+        const toC = Math.atan2(center.y - lzc.y, center.x - lzc.x);
+        const bx = lzc.x + Math.cos(toC) * 15;
+        const by = lzc.y + Math.sin(toC) * 15;
+        for (let i = 0; i < 3; i++) {
+          const j1 = propHash(seedX, i, 31) - 0.5;
+          const j2 = propHash(seedX, i, 33) - 0.5;
+          rect(bx + (i % 2) * 2.1 + j1 * 0.7, by + Math.floor(i / 2) * 2.2 + j2 * 0.7, 1.5, 1.5, j1 * 0.5, "#a4966f", ink);
+          // strapping lines read as palletized cargo
+          rect(bx + (i % 2) * 2.1 + j1 * 0.7, by + Math.floor(i / 2) * 2.2 + j2 * 0.7, 1.5, 0.22, j1 * 0.5, "rgba(60,54,40,0.55)");
+        }
+        for (let i = 0; i < 4; i++) {
+          const j = propHash(seedX, i, 37) - 0.5;
+          disc(bx + 4.4 + j * 0.4, by - 1.2 + i * 0.85, 0.31, "#55603f", ink);
+        }
+      }
+      // -- ammo cans stacked by the armory
+      {
+        const arm = cop.buildings.find((b) => b.kind === "armory");
+        if (arm) {
+          const ac = terrain.cellCenter(arm.cx, arm.cy);
+          const toC = Math.atan2(center.y - ac.y, center.x - ac.x);
+          const ext = (Math.max(arm.hw, arm.hh) + 1) * cs;
+          const bx = ac.x + Math.cos(toC) * ext;
+          const by = ac.y + Math.sin(toC) * ext;
+          for (let i = 0; i < 5; i++) {
+            const j = propHash(seedX, i, 41) - 0.5;
+            rect(bx + (i % 3) * 1.05 + j * 0.3, by + Math.floor(i / 3) * 0.75, 0.85, 0.5, toC + j * 0.3, "#4f5942", ink);
+          }
+        }
+      }
+      // -- burn barrels by the latrines (the smoke plume above already rises here)
+      {
+        const lat = cop.buildings.find((b) => b.kind === "latrine");
+        if (lat) {
+          const lc = terrain.cellCenter(lat.cx, lat.cy);
+          const toC = Math.atan2(center.y - lc.y, center.x - lc.x);
+          const ext = (Math.max(lat.hw, lat.hh) + 1.4) * cs;
+          for (let i = 0; i < 2; i++) {
+            const bx = lc.x + Math.cos(toC + 0.5) * ext + i * 1.4;
+            const by = lc.y + Math.sin(toC + 0.5) * ext + (propHash(seedX, i, 43) - 0.5);
+            disc(bx, by, 0.34, "#3a352c", "rgba(138,90,54,0.8)");
+            disc(bx, by, 0.18, "#191511");
+          }
+        }
+      }
+      // -- chow-hall resupply: MRE cases stacked at the dfac door
+      {
+        const df = cop.buildings.find((b) => b.kind === "dfac");
+        if (df) {
+          const dc = terrain.cellCenter(df.cx, df.cy);
+          const toC = Math.atan2(center.y - dc.y, center.x - dc.x);
+          const ext = (Math.max(df.hw, df.hh) + 1.1) * cs;
+          const bx = dc.x + Math.cos(toC) * ext + 2.2;
+          const by = dc.y + Math.sin(toC) * ext;
+          rect(bx, by, 1.2, 0.8, toC, "#ac9c78", ink);
+          rect(bx + 1.0, by + 0.75, 1.2, 0.8, toC + 0.25, "#a4966f", ink);
+        }
+      }
+      // -- the improvised gym: plywood bench, plate stacks, a squat rack of scrap pipe.
+      // SAME anchor the garrison sends its two lifters to (gymSpot via the world barrel).
+      {
+        const g = gymSpot(cop, cs);
+        const toC = Math.atan2(center.y - g.y, center.x - g.x);
+        rect(g.x, g.y, 1.9, 0.55, toC + 0.6, "#7a5a38", ink);
+        disc(g.x + Math.cos(toC + 0.6) * 1.1, g.y + Math.sin(toC + 0.6) * 1.1, 0.26, "#2e2b24", ink);
+        disc(g.x - Math.cos(toC + 0.6) * 1.1, g.y - Math.sin(toC + 0.6) * 1.1, 0.26, "#2e2b24", ink);
+        // squat rack: two posts + bar
+        const rx = g.x + Math.cos(toC + 2.2) * 2.6;
+        const ry = g.y + Math.sin(toC + 2.2) * 2.6;
+        disc(rx - 0.7, ry, 0.14, "#6c6347");
+        disc(rx + 0.7, ry, 0.14, "#6c6347");
+        const [p1x, p1y] = worldToScreen(cam, rx - 0.7, ry);
+        const [p2x, p2y] = worldToScreen(cam, rx + 0.7, ry);
+        ctx.strokeStyle = "#8a8272";
+        ctx.lineWidth = Math.max(1, 0.09 * cam.ppm);
+        ctx.beginPath();
+        ctx.moveTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.stroke();
+        // spare plates leaning on the bench
+        disc(g.x + Math.cos(toC - 1.2) * 1.6, g.y + Math.sin(toC - 1.2) * 1.6, 0.3, "#33302a", ink);
+      }
+      ctx.restore();
+    }
+    // camo nets over two yard positions — one tucked inside the wall between positions,
+    // one off the TOC (nets go up where men live and optics look down).
+    const netA = bldA * (1 - env.night * 0.35);
+    {
+      const a2 = ga + Math.PI * 0.72;
+      const nx = center.x + Math.cos(a2) * (cop.radius * cs - 7.5);
+      const ny = center.y + Math.sin(a2) * (cop.radius * cs - 7.5);
+      drawCamoNet(ctx, cam, nx, ny, 4.3, cop.center.cx * 17 + 5, netA);
+    }
+    {
+      const toc = cop.buildings.find((b) => b.kind === "toc");
+      if (toc) {
+        const tc = terrain.cellCenter(toc.cx, toc.cy);
+        const side = propHash(cop.center.cx, 9, 51) > 0.5 ? 1 : -1;
+        drawCamoNet(ctx, cam, tc.x - (toc.hw + 1.6) * cs * side, tc.y + (toc.hh + 0.6) * cs, 3.9, cop.center.cy * 13 + 7, netA);
+      }
     }
   }
 
