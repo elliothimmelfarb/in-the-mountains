@@ -5,6 +5,9 @@ export { createWorld, createTerrain, loadWorld } from "./create";
 // wall-clock-free per-cue variation — mirroring the per-civ trait hash in ai/civilian.ts.
 export { RNG } from "../rng";
 export { applyWorldEventChoice, makeWorldEvent } from "./events";
+// Pure COP-layout geometry shared with the renderer (the gym props draw at the same
+// anchor the garrison sends its two lifters to) — through the barrel, per the layer rule.
+export { gymSpot } from "./garrison";
 export type {
   WorldState,
   Task,

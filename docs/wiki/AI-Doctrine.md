@@ -152,6 +152,16 @@ formation, security sectors, pace governor) and the garrison routine runs at the
 (`world/garrison.ts`); the instant rounds crack those release, the squad coordinator wakes, and this
 brain takes over each man individually, re-forming on the lull.
 
+**Garrison life** (`world/garrison.ts`): guard rotation on the wall (sentries sweep their sector),
+work details improving the wire (writes `fob.hesco`), chow/rack cycles, stand-to at BMNT/EENT — and
+a daytime **social layer** (2026-07-02): two men at the improvised gym, ~40 % of the off-duty pool
+in 2–3-man conversation knots (walk to a buddy, face each other at ~3.5 m), the rest drifting
+between loafing spots on a staggered ~9-minute epoch with varied facing. All deterministic
+(absSeconds + id hashes, zero RNG); anti-pile invariant BUNCH(<3 m) ≤ 5 held
+(`scripts/scratch-cop-men.ts` — valley-2533 5→4, bal-2 5→3, korengal 2). The garrison also carries
+an **invariant self-heal**: any off-task man standing inside a solid cell (an upstream writer bug —
+issue 032) snaps once to reachable ground instead of wipe-looping forever.
+
 - **Posture** down in contact (prone/crouch by cover), stand only when moving without contact.
 - **Pinned & leaderless** → hunker and crawl to the nearest cover; leaders within ~35 m steady them.
 - **moving** → the instant rounds are effective or an enemy is seen, bound off the X to cover, go
