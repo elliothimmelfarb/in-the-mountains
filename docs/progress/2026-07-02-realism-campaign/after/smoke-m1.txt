@@ -1,0 +1,41 @@
+=== WORLD ===
+Terrain: 512 cells @ 5 m = 2560 m, 1532 - 2828 m
+COP cell: { cx: 205, cy: 327 } Villages: Loy Kalay, Korangal, Kandlay, Donga, Landigal
+Platoon: 41 in 5 squads · civilians: 35
+Named features: Hill 2610(2820m), Sawtalo Sar(2737m), Abas Ghar(2625m), Gatigal Spur(2541m), Divpalu Ridge(2533m), Hill 2310(2488m), Sautalo(2403m)
+Landcover classes present: 25 / 26
+  Scree:25.4%  Forest:22.7%  DryWash:13.1%  Cliff:11.9%  Scrub:9.7%  Meadow:4.9%  Terrace:3.8%  Rock:2.3%  Cropland:1.7%  Track:1.1%  TerraceWall:0.8%  Trail:0.5%  River:0.5%  Road:0.4%  Marsh:0.4%  Orchard:0.2%  Grass:0.2%  CompoundWall:0.1%  Hesco:0.1%  Gravel:0.1%  Structure:0.0%  Ford:0.0%  Compound:0.0%  Footbridge:0.0%  Cemetery:0.0%
+
+=== COP LAYOUT ===
+Center: { cx: 205, cy: 327 } · radius 12 cells (60 m) · gate passable: true · wall sealed: true
+Buildings: TOC, Chow Hall, Aid Station, Armory, Latrines, Barracks A, Barracks B, Motor Pool
+Fighting positions: 8 (towers: 3) · LZ: { cx: 212, cy: 327 }
+
+=== PATROL ===
+Task: Presence Patrol · pax 10 · phase assembling · route legs 2
+
+=== AFTER 30 GAME-MINUTES ( Day 1 · 06:29 ) ===
+Contact occurred: true · peak enemies on map: 5 · peak projectiles: 25
+Patrol pushed 338 m from the COP center (gate egress through the wire OK )
+US KIA: 0 · US WIA: 0 · enemy accounted: 6
+Metrics: {
+  stability: '40%',
+  attitude: '40%',
+  enemy: '42%',
+  power: '100%',
+  higher: '60%'
+}
+Intel reports: 1 | latest: ICOM: fighters moving toward Kandlay tonight.
+Tasks active: 1 | ammo 5.56: 22000
+
+Log tail:
+  [Day 1 · 06:00] INFO: Arrived at COP Vimoto. 41 souls on the ground. The valley is quiet — for now.
+  [Day 1 · 06:00] RADIO: Presence Patrol ordered — 10 pax kitting up.
+  [Day 1 · 06:02] RADIO: Presence Patrol: 10 pax filing out the gate (tactical).
+  [Day 1 · 06:08] CONTACT: Presence Patrol: CONTACT — enemy to the lower.
+  [Day 1 · 06:09] RADIO: Presence Patrol: contact broken — resuming movement.
+
+Serialized save size: 133.7 KB · units: 76
+Material lib hash OK: 3664222144
+
+SMOKE OK

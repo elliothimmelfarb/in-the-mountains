@@ -1,0 +1,24 @@
+balB-0: ok (moved 44.4m, inContact=false)
+balB-1: no stall candidate (task=none, inContact=false)
+balB-2: no stall candidate (task=none, inContact=false)
+balB-3: no stall candidate (task=none, inContact=false)
+balB-4: no stall candidate (task=none, inContact=false)
+balB-5: no stall candidate (task=none, inContact=false)
+balB-6: no stall candidate (task=none, inContact=false)
+balB-7: no stall candidate (task=none, inContact=false)
+
+balB-8: *** LINGERING *** tracked member moved 0.0m in 90s
+  task: id=0 label=Presence Patrol phase=moving kind=presence squadState=-
+  us-5           alive=false consc=false evac=false bs=holding/- pos=(1368,1631) path=0 goal=(1360,1635) gPass=true dGoal=9.4 ot=null bt=0.0 hold=false pace=1 supp=0.00 wounds=4 bleed=4.99
+  us-6           alive=true consc=true evac=false bs=moving/- pos=(1191,1211) path=7 goal=(2003,2153) gPass=true dGoal=1242.8 ot=(2003,2153) dOt=1242.8 bt=0.0 hold=false pace=0.2925 supp=0.00 wounds=0 bleed=0.00
+  us-7           alive=true consc=true evac=false bs=moving/- pos=(1203,1250) path=12 goal=(1193,1217) gPass=true dGoal=34.2 ot=(1203,1247) dOt=3.0 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=0 bleed=0.00
+  us-8           alive=true consc=true evac=false bs=moving/- pos=(1206,1260) path=14 goal=(1195,1223) gPass=true dGoal=39.3 ot=(1205,1258) dOt=3.0 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=0 bleed=0.00
+  us-9           alive=true consc=true evac=false bs=moving/- pos=(1237,1356) path=44 goal=(1197,1232) gPass=true dGoal=131.1 ot=(1236,1354) dOt=3.0 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=0 bleed=0.00
+  us-a           alive=true consc=true evac=false bs=moving/- pos=(1239,1361) path=44 goal=(1198,1237) gPass=true dGoal=130.8 ot=(1238,1359) dOt=3.0 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=0 bleed=0.00
+  us-b           alive=true consc=true evac=false bs=moving/- pos=(1208,1264) path=8 goal=(1200,1242) gPass=true dGoal=23.3 ot=(1206,1261) dOt=3.0 bt=0.0 hold=false pace=1.5490292928071838 supp=0.00 wounds=0 bleed=0.00
+  us-c           alive=true consc=false evac=false bs=moving/- pos=(1361,1609) path=0 goal=(1202,1246) gPass=true dGoal=396.2 ot=(1288,1548) dOt=95.6 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=2 bleed=0.00
+  us-d           alive=true consc=true evac=false bs=aiding/- pos=(1361,1609) path=3 goal=(1203,1251) gPass=true dGoal=391.2 ot=(1288,1553) dOt=92.8 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=1 bleed=0.00
+  us-4           alive=true consc=true evac=false bs=moving/- pos=(1238,1361) path=47 goal=(1195,1228) gPass=true dGoal=140.4 ot=(1237,1359) dOt=3.0 bt=0.0 hold=false pace=1.6 supp=0.00 wounds=0 bleed=0.00
+balB-9: no stall candidate (task=none, inContact=false)
+balB-10: ok (moved 44.8m, inContact=false)
+balB-11: no stall candidate (task=none, inContact=false)

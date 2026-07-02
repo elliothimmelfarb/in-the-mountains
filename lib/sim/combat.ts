@@ -238,6 +238,10 @@ const STANCE_SPEED: Record<Unit["stance"], number> = {
 // no-progress timeout is the backstop against any freeze.
 const STALL_WINDOW = 2; // seconds of continuous blocking before re-planning
 const NB_BUCKET = 4; // meters per spatial-hash bucket (neighbor queries / separation)
+// A tactical bound (moveTo) longer than this routes around solid obstacles instead of
+// walking a raw straight line: the 7 m steering fan solves anything shorter, while a
+// longer blocked line is exactly the stall-wipe/re-issue grind loop combat-grind.ts measures.
+const BOUND_ROUTE_M = 15;
 
 // --- natural-movement polish (deterministic; no per-tick RNG) ---
 const ARRIVE_EASE = 4; // m — decelerate into the final waypoint within this distance
@@ -1241,7 +1245,7 @@ export class CombatSim {
       if (d <= radius) {
         // cover/terrain mask reduces frag
         const cover = this.terrain.coverAt(u.pos.x, u.pos.y);
-        let dmg = blastDamageAt(d, radius, p.damage) * (1 - cover * 0.55);
+        const dmg = blastDamageAt(d, radius, p.damage) * (1 - cover * 0.55);
         if (dmg <= 0) continue;
         const region = this.rng.weighted(
           ["leg", "arm", "chest", "head", "abdomen"] as const,
@@ -1721,12 +1725,50 @@ export class CombatSim {
     return this.revealed.has(u.id);
   }
 
-  /** Order a unit to walk to a point (straight-line; the mover re-plans if blocked). */
+  /**
+   * Order a TACTICAL BOUND to a point — the one mechanism every combat brain moves through
+   * (cover seeks, shoot-and-scoot, exfil legs, assault bounds, buddy/medic dashes). Two
+   * guarantees, applied at this single chokepoint so no caller can re-create the wall-grind
+   * loop (2026-07-02 campaign, front A — scripts/combat-grind.ts is the regression watch):
+   *  1. The goal is SNAPPED to ground the man can actually stand on/reach. The cover and
+   *     exfil pickers could emit a point in a solid cell (walls/HESCO/cliff carry the top
+   *     cover values; exfil was a raw beeline) — a man sent INTO one paced at the face or
+   *     stall-wiped every 2 s forever while the brain re-issued the identical target
+   *     (measured: 570 grind events, one fighter frozen 678 s, 42% of a seed's insurgent
+   *     contact time blocked).
+   *  2. Past the steering fan's reach (BOUND_ROUTE_M; the fan probes 7 m) the bound ROUTES
+   *     like walkTo: straight when the lane is clear (the cheap common case), else the
+   *     BUDGETED corridor A* (cheapFallback — never the whole-map search, so dozens of
+   *     units under fire can't A*-storm a tick). Short bounds stay a single waypoint the
+   *     fan and the watchdog already handle.
+   */
   moveTo(u: Unit, point: Vec2) {
-    const p = { x: clamp(point.x, 0, this.terrain.worldSize), y: clamp(point.y, 0, this.terrain.worldSize) };
-    u.path = [p];
+    const p = this.standableGoal(point);
+    // Already standing on the reachable snap of the request (the true point may be inside
+    // the rocks/a wall): NOTHING to walk. Leave the path empty so the caller's own arrival
+    // logic fires (friendlyBrain's maybeReachedDest, the scoot->engage flip) — otherwise a
+    // brain that re-issues "move to the objective" every tick against an unreachable true
+    // point spins a man in place forever, holding his task in "moving".
+    if (dist(u.pos, p) < 1.2) {
+      u.path = [];
+      u.pathGoal = null;
+      this.resetStall(u);
+      return;
+    }
+    u.path =
+      dist(u.pos, p) <= BOUND_ROUTE_M || walkable(this.terrain, u.pos, p)
+        ? [p]
+        : findPath(this.terrain, u.pos, p, { cheapFallback: true });
     u.pathGoal = p;
     this.resetStall(u);
+  }
+
+  /** Clamp a requested goal into the map and snap it to ground a man can actually stand
+   *  on/reach — the shared source-snap for every movement order (moveTo and walkTo). */
+  private standableGoal(point: Vec2): Vec2 {
+    const q = { x: clamp(point.x, 2, this.terrain.worldSize - 2), y: clamp(point.y, 2, this.terrain.worldSize - 2) };
+    const cs = this.terrain.cellSize;
+    return this.terrain.passableCell(Math.floor(q.x / cs), Math.floor(q.y / cs)) ? q : this.terrain.reachablePoint(q.x, q.y);
   }
 
   /**
@@ -1738,7 +1780,11 @@ export class CombatSim {
    * 003) without any per-situation special-casing.
    */
   walkTo(u: Unit, point: Vec2) {
-    const p = { x: clamp(point.x, 2, this.terrain.worldSize - 2), y: clamp(point.y, 2, this.terrain.worldSize - 2) };
+    // Same source-snap as moveTo (standableGoal): a jittered muster point or rally can land
+    // inside a solid cell, and the walker then holds an impassable goal for the whole leg
+    // (230 s of the residual impassable-goal time on combat-grind was exactly the assembly
+    // muster). A passable request is untouched — the common case stays byte-identical.
+    const p = this.standableGoal(point);
     // walkTo is for SHORT, LOCAL moves (garrison seats, mustering, falling back to cover) — never a
     // cross-valley objective — so it uses the cheap fallback: if the corridor can't find the route it
     // best-efforts instead of paying the whole-map free A*. Only the player's squads (steerSquad ->
@@ -1908,6 +1954,13 @@ export class CombatSim {
       for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) {
         const pt = add(from, fromAngle(a, r));
         if (pt.x < 0 || pt.y < 0 || pt.x > this.terrain.worldSize || pt.y > this.terrain.worldSize) continue;
+        // Only ground a man can STAND ON. The solid classes carry the TOP cover values
+        // (Hesco .92, CompoundWall .86, Cliff .70, Structure .55 — COVER_CONCEAL), so
+        // unfiltered, the best-scoring "cover" was routinely INSIDE the wall and the man
+        // walked at the face and paced there (measured: 87 friendly loiters ≥15 s, 4.6%
+        // of friendly in-contact time spent holding an impassable goal). Cover ADJACENT
+        // to the wall is the real thing — the directional objCov below scores it.
+        if (!this.terrain.passableCell(Math.floor(pt.x / step), Math.floor(pt.y / step))) continue;
         // The cover this point offers FROM THE THREAT: the better of the 5 m raster and a discrete
         // object that screens it from the threat bearing — so a man now moves to tuck behind a boulder
         // on open ground the raster called bare. (Disabled by the ITM_NOOBJCOVER A/B kill-switch.)

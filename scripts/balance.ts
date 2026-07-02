@@ -83,13 +83,27 @@ for (let run = 0; run < N; run++) {
 
   // True stall test: run 90 more game-seconds; a moving element that is out of
   // contact should make progress. If its centroid barely moves, it's frozen.
+  // The centroid is of the LIVING, CONSCIOUS, not-evac'd members — what the comment
+  // always claimed. The code used to track memberIds[0] alone, and that man can be a
+  // KIA lying on the trail while the squad marches on (measured, balB-8 2026-07-02:
+  // tracked man alive=false, nine live members all moving with paths up — the old
+  // check asserted a corpse walks). A gate may only assert an invariant (charter);
+  // "the element's living men advance" is the invariant.
   const movingTask = state.tasks.find((tk) => tk.phase === "moving" || tk.phase === "returning");
+  const liveCentroid = (): { x: number; y: number; n: number } => {
+    let x = 0, y = 0, n = 0;
+    for (const id of movingTask!.memberIds) {
+      const u = sim.unit(id);
+      if (!u || !u.alive || !u.conscious || u.evac) continue;
+      x += u.pos.x; y += u.pos.y; n++;
+    }
+    return n ? { x: x / n, y: y / n, n } : { x: 0, y: 0, n: 0 };
+  };
   if (movingTask && !world.inContact()) {
-    const before = sim.unit(movingTask.memberIds[0])?.pos ?? { x: 0, y: 0 };
-    const bx = before.x, by = before.y;
+    const before = liveCentroid();
     for (let t = 0; t < 900 && !state.ended; t++) world.tick(0.1);
-    const after = sim.unit(movingTask.memberIds[0])?.pos ?? { x: bx, y: by };
-    if (!world.inContact() && Math.hypot(after.x - bx, after.y - by) < 4) stuck++;
+    const after = liveCentroid();
+    if (!world.inContact() && before.n > 0 && after.n > 0 && Math.hypot(after.x - before.x, after.y - before.y) < 4) stuck++;
   }
 }
 

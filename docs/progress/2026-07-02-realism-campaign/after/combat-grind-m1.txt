@@ -1,0 +1,45 @@
+combat-grind probe — 6 deployments (bal-0..5), 50 game-min each, balance.ts staging
+GRIND EVENT = stall-wipe re-issued to the same (±2 m) target that then stalls out again (≤8 s)
+
+seed    | engmts | inContact F/I | wipes F/I | grind F/I | grindUnits F/I | grindS mean/max F | grindS mean/max I | blocked%ofContact F/I | wipesOutOfContact
+bal-0   |      5 |     41/11     |    0/0    |    0/0    |      0/0       | —                 | —                 |     0.4%/0.0%     | 1
+bal-1   |     24 |     41/17     |    0/0    |    0/0    |      0/0       | —                 | —                 |     0.2%/0.1%     | 0
+bal-2   |     18 |     12/3      |    0/0    |    0/0    |      0/0       | —                 | —                 |     0.0%/0.0%     | 4
+bal-3   |      4 |     41/10     |    5/0    |    0/0    |      0/0       | —                 | —                 |     1.0%/0.0%     | 3
+bal-4   |     55 |     41/11     |    5/0    |    3/0    |      1/0       | 10.70/10.70       | —                 |     0.5%/0.0%     | 16
+bal-5   |      3 |     35/6      |    1/0    |    0/0    |      0/0       | —                 | —                 |     0.2%/0.0%     | 1
+ALL     |    109 |    211/58     |   11/0    |    3/0    |      1/0       | 10.70/10.70       | —                 |     0.4%/0.0%     | 25
+
+grind time as % of in-contact time: friendly 0.1% · insurgent 0.0%
+grind events per engagement (ALL): 0.03 (friendly 0.03)
+
+blind-spot signals (a man sent at an unreachable point who paces instead of wedging):
+  time holding a pathGoal in an IMPASSABLE cell, % of in-contact time: friendly 0.0% (0s) · insurgent 0.0% (0s)
+  LOITER events (same goal ≥15 s, net approach <5 m — PACING): friendly 13 · insurgent 2 · loiter secs mean/max F 51.18/318.90 · I 16.35/17.60
+  walkHolds (same goal ≥15 s but really closing — honest long bounds): friendly 59 · insurgent 45
+
+in-contact bound lifecycles (path issued while in contact):
+  started 390 · completed(arrived<3m) 101 (25.9%) · ended-in-stall-wipe 7 (1.8%) · other(order overwritten/abandoned) 282
+  completed-bound duration mean/max: 39.25/1198.40 s
+
+obstacle classes at in-contact stall-wipes (what they grind on):
+  CompoundWall                 10
+  Structure                    1
+
+grind-event attribution (faction:brainState/orderType at the re-stalled wipe):
+  friendly:holding/-                       3
+
+OUT-of-contact wipes — attribution + obstacle (the same loop after contact decays):
+  friendly:holding/-                       15
+  friendly:moving/-                        4
+  insurgent:patrolling/-                   3
+  friendly:moving/assault                  3
+  [obstacle] CompoundWall                 18
+  [obstacle] SteepSlope>1.4(flank)        4
+  [obstacle] SteepSlope>1.4               2
+  [obstacle] Structure                    1
+
+──────────────────────────────────────────────────────────────────────
+TRACE — worst grinder: bal-4 unit=us-3 (friendly) grindEvents=0 maxChain=0 grindS=0.0 loiters=2 maxLoiter=318.9s unreachGoalS=0.0
+  t=2495.8s LOITER-END held goal=(1797.5,2092.5) for 99.1s, approach 0.0m (PACING) pos=(1792.8,2095.7) d=5.7m goalCell=passable bs=toc/-
+  t=2818.8s LOITER-END held goal=(1797.5,2092.5) for 318.9s, approach 0.0m (PACING) pos=(1792.8,2095.7) d=5.7m goalCell=passable bs=toc/-
