@@ -1,0 +1,18 @@
+
+=== survey-7 / Landigal  center=(387,316) crow(gate->raw)=575m
+  raw center cell passable: false
+  passable cells within 50m: 196; in MAIN (anti-corner-cut gate component): 148
+  mover-faithful verdict: REACHABLE; Dijkstra geodesic gate->50m ring: 1033m
+  worthFreeSearch goal probe: nearestPassable(raw,6)=(386,316) inMain=false
+  findPath -> RAW center : 5 wpts, len=348m, endGap=295m
+  snapped objective (nearestReachable): (389,314) — 14m from raw center
+  findPath -> SNAPPED    : 11 wpts, len=1039m, endGap=0m, ratio=1.81
+
+=== survey-4 / Loy Kalay  center=(182,396) crow(gate->raw)=767m
+  raw center cell passable: true
+  passable cells within 50m: 293; in MAIN (anti-corner-cut gate component): 291
+  mover-faithful verdict: REACHABLE; Dijkstra geodesic gate->50m ring: 782m
+  worthFreeSearch goal probe: nearestPassable(raw,6)=(182,396) inMain=true
+  findPath -> RAW center : 10 wpts, len=823m, endGap=0m
+  snapped objective (nearestReachable): (182,396) — 0m from raw center
+  findPath -> SNAPPED    : 10 wpts, len=823m, endGap=0m, ratio=1.07

@@ -643,6 +643,10 @@ function setSecurity(u: Unit, t: Task, face: number) {
 }
 
 const WAKE_STEP = 3; // metres between the wake waypoints handed to a follower
+// ITM_NOMEANDER=1 (env, read ONCE at module load — constant per process, so determinism holds)
+// zeroes the per-man meander weave in driveFollower, for the executed-track texture A/B in
+// scripts/scratch-route-smoothness.ts. Unset (the app, all gates) is byte-identical behavior.
+const NO_MEANDER = typeof process !== "undefined" && process.env?.ITM_NOMEANDER === "1";
 // Straggler hustle (cohesion from the trail side — see driveFollower): how far behind his slot a man
 // must fall before he picks up the pace, how hard he closes per metre of lag, and the cap (matches
 // combat.ts PACE_MAX, the integrator's upper bound on paceScale).
@@ -694,7 +698,7 @@ function driveFollower(w: World, t: Task, nav: Unit, u: Unit, headDir: Vec2, bac
   // position (not the arc), so he picks the same line past the same rock every pass and
   // nine men thread nine slightly different lines instead of one rail. Snapped onto
   // passable ground by the same passTarget clamp as the wedge offset.
-  const mA = 0.3 + 0.5 * hashUnit01(u.id + "mA");
+  const mA = NO_MEANDER ? 0 : 0.3 + 0.5 * hashUnit01(u.id + "mA");
   const mL = 18 + 12 * hashUnit01(u.id + "mL");
   const mP = Math.PI * 2 * hashUnit01(u.id + "mP");
   const meanderAt = (p: Vec2) => mA * Math.sin(((p.x + p.y) * 0.7071 * Math.PI * 2) / mL + mP);

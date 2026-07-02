@@ -1,0 +1,25 @@
+# scripts/scratch-route-smoothness.ts A/B — follower meander amplitude zeroed
+# ITM_NOMEANDER=1 ITM_PART=exec npx tsx scripts/scratch-route-smoothness.ts
+# (flag reads env once at module load in lib/sim/world/formation.ts; default off is
+#  behavior-neutral: SMOKE OK + route-quality ALL 48/1.12/1.67/0/0.0/3m unchanged)
+# 2026-07-02
+
+== PART 2: EXECUTED track texture (combat-free patrol, dt=0.2, 2 s samples, ITM_NOMEANDER=1) ==
+seed          navLen  navT/100  folT/100  nav>30/km  fol>30/km  weaveRMS  cenRMS  men
+smoke-test      278m      25.9      67.8        3.6        0.0      0.19    1.00    9
+korengal        208m      25.4      84.7        4.8        0.6      0.19    1.47    9
+survey-2       (too few moving samples — skipped)
+survey-7         84m       4.4     100.5        0.0        4.3      0.14    0.66    9
+survey-9        181m      45.2     148.5        5.5        5.7      3.58    2.99    9
+valley-3         80m       0.0     165.2        0.0        5.2      0.15    0.54    9
+ridge-11        139m      72.7     149.3        7.2       10.9      0.22    2.06    9
+alpha-1         121m      25.0     144.0        0.0        4.1      0.19    1.35    9
+bravo-2         233m      25.2      94.5        4.3        0.6      0.29    1.18    9
+delta-4         131m      26.1      85.1        0.0        0.9      0.31    1.95    9
+------------------------------------------------------------------------------------
+MEAN                      27.8     115.5        2.8        3.6      0.58    1.47
+
+# weaveRMS excluding the survey-9 off-wake outlier: 0.21 m (HEAD: 0.41 m -> meander
+# contributes ~0.35 m RMS in quadrature, matching the 0.3-0.8 m sin amplitude)
+# folT/100 MEAN 158.4 -> 115.5 (-27%): meander is real but the residual wake-following
+# texture (3 m wake steps + waypoint chase) still carries 4x the navigator's turn density.

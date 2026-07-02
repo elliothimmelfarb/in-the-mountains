@@ -1,0 +1,7 @@
+seed=survey-7  COP=(285,319)  gateDir=(-0.71,0.71)  flood=227483 cells (87% of map)
+village      bearing  crowM fineBFS wpts  routeM  endGap  ratio  closeM   atS      phase  navRem   verdict
+Babiyal         130°   1151     yes   11    1201       0   1.04     263  1500     moving     264   EXEC (route ok, squad short)
+Darbart         142°    733     yes    7     765       0   1.04      50  1222     moving      50   SLOW
+Donga             8°     85     yes    1      85       0   1.00      50   226     moving      51   OK
+Landigal        137°    575     yes    5     348     295   0.61     226  1500     moving     224   ROUTER (route ends short)
+Yaka China       15°    445     yes    6     673       7   1.51      50  1261     moving      45   SLOW

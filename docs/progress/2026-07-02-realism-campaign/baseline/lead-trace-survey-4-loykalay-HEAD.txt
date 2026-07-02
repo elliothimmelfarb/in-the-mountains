@@ -1,0 +1,20 @@
+seed=survey-4 village=Loy Kalay obj=(182,396) crow=767m
+ t(s) distObj spd(m/s)  pace fatig mCost       land  blkT  navRem      phase
+    0     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  100     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  200     744     0.00  0.70  0.10  0.80       Road   0.0     794     moving
+  300     679     0.77  1.00  0.33  0.39       Road   0.0     715     moving
+  400     594     0.97  1.00  0.37  0.89       Road   0.0     616     moving
+  500     527     0.70  1.00  0.47  0.89       Road   0.0     546     moving
+  600     466     0.61  1.00  0.50  0.99       Road   0.0     485     moving
+  700     395     0.71  1.00  0.61  0.93      Track   0.0     414     moving
+  800     310     0.88  1.00  0.67  0.89      Track   0.0     325     moving
+  900     298     0.13  0.63  0.71  0.89      Track   0.0     312     moving
+ 1000     245     0.56  0.91  0.78  0.88      Track   0.0     257     moving
+ 1100     185     0.66  0.75  0.82  0.90      Track   0.0     191     moving
+ 1200     127     0.58  0.86  0.86  0.62    DryWash   0.0     132     moving
+ 1300      68     0.59  0.83  0.87  0.92      Track   0.0      72     moving
+ 1400       7     0.63  1.00  0.83  0.81      Trail   0.0      15  onstation
+ 1500      10     0.14  1.00  0.05  0.84      Trail   0.0       0  onstation
+ 1600      10     0.00  1.00  0.00  0.84      Trail   0.0       0  onstation
+closest approach: 5m  (ARRIVE=50m ⇒ ARRIVED)
