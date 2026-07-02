@@ -1,6 +1,7 @@
 import type { CombatSim } from "../combat";
 import { Unit } from "../entities";
 import { dist, sub, norm, add, scale, len } from "../vec";
+import { clamp } from "../rng";
 
 /**
  * Insurgent doctrine. They hold their fire in concealment until the patrol is in
@@ -129,6 +130,23 @@ export function insurgentBrain(sim: CombatSim, u: Unit, dt: number) {
     case "exfil": {
       u.rof = u.visibleEnemyIds.length > 0 && u.suppression < 0.3 ? "free" : "hold";
       if (u.path.length === 0) {
+        // Contact broken for real — a full leg done, no American within 600 m, nobody
+        // shooting at him: he has melted into the draws. The map-edge check alone left
+        // "zombie" fighters parked at the first impassable edge belt forever, stall-wiping
+        // out of contact (759 post-contact wipes on the baseline combat-grind probe) —
+        // doctrinally he is GONE long before he touches the map boundary.
+        let ndUS = Infinity;
+        for (const o of sim.units) {
+          if ((o.faction === "us" || o.faction === "ana") && o.alive && !o.evac) {
+            const d = dist(u.pos, o.pos);
+            if (d < ndUS) ndUS = d;
+          }
+        }
+        if (ndUS > 600 && u.visibleEnemyIds.length === 0 && u.suppression < 0.1) {
+          u.evac = true;
+          u.alive = true; // escaped, not a casualty — same accounting as the map-edge exit below
+          break;
+        }
         const out = exfilPoint(sim, u);
         sim.moveTo(u, out);
       }
@@ -194,7 +212,12 @@ export function displacePosition(sim: CombatSim, u: Unit): { x: number; y: numbe
   return cand;
 }
 
-/** Where to run to break contact — away from the nearest enemy and uphill, toward the map edge. */
+/** Where to run to break contact — away from the nearest enemy and uphill, toward the map edge.
+ *  The raw beeline is SNAPPED to reachable ground at the source: unsnapped, a 400–600 m line
+ *  routinely ended in a cliff/steep-band cell, the 2 s stall watchdog wiped the path, and this
+ *  brain re-issued the identical target forever (the dominant grind loop — 570 events, one
+ *  fighter frozen 678 s; combat-grind.ts). Insurgents spawn on reachability-snapped ground, so
+ *  a reachable goal is reachable from where the fighter stands. */
 export function exfilPoint(sim: CombatSim, u: Unit) {
   // direction away from nearest enemy
   let away = { x: 0, y: 0 };
@@ -214,5 +237,6 @@ export function exfilPoint(sim: CombatSim, u: Unit) {
   const probe = add(u.pos, scale(away, 30));
   const uphill = sim.terrain.elevAt(probe.x, probe.y) > e0 ? 1 : 0.5;
   const far = add(u.pos, scale(norm(away), 400 * uphill + 200));
-  return far;
+  const m = sim.terrain.worldSize;
+  return sim.terrain.reachablePoint(clamp(far.x, 2, m - 2), clamp(far.y, 2, m - 2));
 }
