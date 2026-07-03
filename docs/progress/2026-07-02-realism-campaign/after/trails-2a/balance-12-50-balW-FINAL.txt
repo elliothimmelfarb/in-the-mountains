@@ -1,0 +1,5 @@
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight · avg peak enemies on map 6.8
+  Avg US KIA: 0.33 · Avg US WIA: 7.58 · Avg enemy accounted: 5.75 · Civ cas total: 0
+  ↑ DIAGNOSTIC, not a target — no WIA band to defend. Deltas within the noise floor (between-prefix σ≈2.50 WIA) are NOISE. See docs/wiki/Harnesses.md.
+  ✓ No elements left stranded mid-route.

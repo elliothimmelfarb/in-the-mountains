@@ -1,0 +1,5 @@
+seed          troughCells   netVil   rate
+
+summary over 9 seeds:
+  total trough cells: 0 (item 8: must drop to ~0)
+  villages network-connected: 0 / 0 (0%) — target 100%

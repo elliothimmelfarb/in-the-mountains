@@ -1,0 +1,6 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+# First (timed-out) default run partials, Wave-2a tree, 2026-07-03 14:14 (contended with balance 12x50):
+#   [careful] survey-0: 3138.8s endDay 4 score 0 proj 0/3 enemyMean 22
+#   [careful] survey-1: 454.3s endDay 8 score 18 proj 1/4 enemyMean 6

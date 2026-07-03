@@ -1,0 +1,22 @@
+== PART 1: PLANNED route shape (findPath gateOutside->village, roadBias 0.25) ==
+seed          objs  ratio  turn/100m  >15/km  >30/km  >60/km   segM
+smoke-test       5   1.21       29.7     7.7     5.5     1.2   91.6
+korengal         5   1.06       14.9     4.9     1.5     0.0  106.1
+survey-2         4   1.10       23.2     7.0     3.3     0.1   94.8
+survey-7         4   1.62       46.0     7.5     6.5     2.9   80.6
+survey-9         4   1.92       36.1     7.3     5.4     2.6   93.4
+valley-3         4   1.20       27.3     6.2     3.2     0.0   92.9
+ridge-11         5   2.25       17.2     4.1     1.9     0.5  122.6
+alpha-1          5   1.15       69.1    12.1     9.6     3.5   87.6
+bravo-2          6   1.15       15.0     3.9     1.9     0.3  114.3
+delta-4          6   1.91       23.8     5.0     3.3     0.8   95.2
+------------------------------------------------------------------
+ALL             48   1.46       29.5     6.5     4.1     1.1   98.8
+
+TERRAIN RESPONSE (ALL seeds, by-length; contour = heading within 30deg of the
+contour line, fall = within 30deg of the fall line; random-heading null = 33%/33%)
+slope        share%  cont%  fall%  | beeline:  cont%  fall%
+flat<.15      25.2%     7%    60%        | (16%)    15%    40%
+mod.15-.3     38.7%    10%    59%        | (35%)    23%    45%
+stp.3-.6      21.9%    26%    46%        | (11%)    41%    23%
+vst>.6        14.2%    37%    36%        | (37%)    57%    17%

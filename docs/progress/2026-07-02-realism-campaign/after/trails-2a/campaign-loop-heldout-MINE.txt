@@ -1,0 +1,45 @@
+npm warn exec The following package was not found and will be installed: tsx@4.23.0
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 2 seeds × 9 game-days × 2 policies ===
+seeds: survey-40, survey-41   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+  [careful] survey-40: 965.8s  endDay 6  score 7  proj 1/3  enemyMean 17
+  [careful] survey-41: 363.2s  endDay 4  score 0  proj 0/3  enemyMean 36
+  [bodycount] survey-40: 1148.7s  endDay 6  score 0  proj 0/0  enemyMean 10
+  [bodycount] survey-41: 274.5s  endDay 10  score 14  proj 0/0  enemyMean 7
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   2/2   NaN-free:yes   serialize-clean:yes   mean end-day:5
+  TOUR SCORE:    3.5   (per-seed: 7, 0)
+  final metrics: stab 61  att 60  enemy 19  cbtPwr 30  higher 0
+  enemyStrAbs:   min 16  mean 26  max 63   %time-at-cap(80): 0%
+  village attitude start→end:  1.9 → 19.3   (Δ 17.4)
+  directives:    issued 2.0  complete 1.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 15750 → end 15750   ever-rose: yes
+  projects:      funded 3.0  complete 0.5   patrols issued 12  KLEs issued 11
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   2/2   NaN-free:yes   serialize-clean:yes   mean end-day:8
+  TOUR SCORE:    7.0   (per-seed: 0, 14)
+  final metrics: stab 69  att 52  enemy 1  cbtPwr 60  higher 0
+  enemyStrAbs:   min 0  mean 9  max 63   %time-at-cap(80): 0%
+  village attitude start→end:  1.9 → 3.5   (Δ 1.6)
+  directives:    issued 2.5  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 32680   ever-rose: yes
+  projects:      funded 0.0  complete 0.0   patrols issued 46  KLEs issued 0
+
+=== VERDICT ===
+  per-seed careful−bodycount: survey-40 7 (Δatt 22.9) · survey-41 -14 (Δatt 8.7)
+  noise floor: the 3-seed MEAN spread swings ~19 pts under a single world-init RNG draw (null perturbation, measured 2026-07-03) — mean-spread deltas inside that band are noise; the gate keys on the best pair.
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  !! FULLY CENSORED SET: 0/2 careful tours survived to end-of-tour (all relieved by the opening-days combat lottery) — magnitude checks unmeasurable on this draw; asserting liveness + ordinal dominance only.
+  [FAIL] score ORDINAL (censored)   careful 3.5 vs bodycount 7.0, best pair 7, bodycount survivors 1 → careful play is being BEATEN or out-survived — a real signal even censored
+  [PASS] COIN attitude ordinal      best paired seed Δatt 22.9 (>0; magnitude censored) (means: careful 17.4 vs bodycount 1.6; careful projects complete 0.5)
+  [PASS] directives issued (cens.)  issued 2.0 (deploy pair present; completion/cadence unmeasurable on a fully-relieved set)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 16  
+  [PASS] projects COMPLETE (secured) careful completes 1 on its best seed, 0.5/tour mean (was 0 — all sabotaged)
+  [CENSORED] directive cadence live 2.0 issued — cadence fires day 5–8; no tour lived that long
+
+INTERPRETATION: the strategy layer is LARGELY INERT — playing COIN well vs badly barely changes the outcome. See FAILs above.
+
+COIN GATE FAILED — 1 win-condition check(s) failed (see FAILs above).

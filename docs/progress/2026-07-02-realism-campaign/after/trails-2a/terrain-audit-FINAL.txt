@@ -1,0 +1,20 @@
+seed         bankCliff% riverTrap  cross  maxGapM  banksSplit  vilUnreach  nullRt  farMiss
+smoke-test           1%         0    160      305          ok         0/5       0     0/35
+korengal             0%         0     77      515          ok         0/5       0     0/31
+survey-2             2%         0     99      465          ok         0/4       0     0/40
+survey-7             2%         0    137      320          ok         0/4       0     0/33
+survey-9             1%         0    166      280          ok         0/4       0     0/28
+valley-3             2%         0    101      410          ok         0/4       0     0/40
+ridge-11             1%         0    113      470          ok         0/5       0     0/30
+delta-5              4%         0    129      380          ok         0/6       0     0/40
+bravo-2              1%         0    123      465          ok         0/6       0     0/36
+------------------------------------------------------------------------------------------------
+seeds audited: 9
+  river bank-cliff fraction:    2%  ← high = incised channel walled by cliffs
+  river TRAP cells (total):     0  ← passable river cells with no dry escape (stuck-in-river)
+  crossing cells (total):       1105
+  worst crossing gap:           515 m
+  seeds with banks SPLIT:       0/9 (0%)  ← genuinely can't walk across the valley
+  villages UNREACHABLE (BFS):   0/43 (0%)
+  router NULL routes to vil:    0/43 (0%)
+  FAR reachable objectives missed by router: 0/313 (0%)  ← router gives up on physically-reachable far points

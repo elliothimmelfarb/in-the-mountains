@@ -1,0 +1,14 @@
+seed          troughCells   netVil   rate
+smoke-test            141      5/5   100%
+korengal              161      5/5   100%
+survey-2              273      4/4   100%
+survey-7              644      4/4   100%
+survey-9              293      4/4   100%
+valley-3              180      4/4   100%
+ridge-11              101      5/5   100%
+delta-5               240      6/6   100%
+bravo-2               290      6/6   100%
+
+summary over 9 seeds:
+  total trough cells: 2323 (item 8: must drop to ~0)
+  villages network-connected: 43 / 43 (100%) — target 100%

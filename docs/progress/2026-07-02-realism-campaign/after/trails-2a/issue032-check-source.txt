@@ -1,0 +1,69 @@
+/** scratch-cop-road-check (issue 032 ordering defect) — counts Land.Road cells INSIDE the COP
+ *  perimeter ring (r <= copRadiusCells()+1) and Hesco ring cells that a later pass overwrote
+ *  (ring radius band holding non-Hesco walkable road). Must be 0 / 0 after the Wave-2a fix.
+ *  Run: npx tsx scripts/scratch-cop-road-check.ts seed [seed...] */
+import { createWorld } from "../lib/sim/world";
+import { Land } from "../lib/sim/terrain";
+
+let bad = 0;
+for (const seed of process.argv.slice(2)) {
+  const t: any = createWorld(seed, 120).terrain;
+  const cop = t.cop;
+  if (!cop) { console.log(`${seed}: no COP`); continue; }
+  const R = t.copRadiusCells();
+  let roadInside = 0;
+  let roadOnRing = 0;
+  for (let dy = -R - 1; dy <= R + 1; dy++)
+    for (let dx = -R - 1; dx <= R + 1; dx++) {
+      const x = cop.center.cx + dx, y = cop.center.cy + dy;
+      if (x < 0 || y < 0 || x >= t.size || y >= t.size) continue;
+      const d = Math.hypot(dx, dy);
+      const l = t.land[y * t.size + x] as Land;
+      if (l !== Land.Road) continue;
+      // the ECP lane through the gate mouth is design-legitimate (a real gate has a road)
+      const gd = Math.hypot(x - cop.gateOutside.cx, y - cop.gateOutside.cy);
+      if (gd <= 6) continue;
+      if (d <= R - 1) roadInside++;
+      else if (d <= R + 1) roadOnRing++; // the wire band itself — a Road here overwrote Hesco/gate ground
+    }
+  // HESCO RING CLOSURE: from center, every 1-degree bearing must hit Hesco within [R-2, R+2]
+  // except the gate wedge (±20 deg of the gate bearing) — an overwritten wall segment reads as
+  // an open bearing. This is the real issue-032 assertion (nothing may breach the wall).
+  const gAng = Math.atan2(cop.gateOutside.cy - cop.center.cy, cop.gateOutside.cx - cop.center.cx);
+  let openBearings = 0;
+  for (let a = 0; a < 360; a++) {
+    const ang = (a * Math.PI) / 180;
+    let dAng = Math.abs(ang - gAng);
+    if (dAng > Math.PI) dAng = 2 * Math.PI - dAng;
+    if (dAng < (20 * Math.PI) / 180) continue;
+    let hit = false;
+    for (let r = R - 2; r <= R + 2 && !hit; r += 0.5) {
+      const x = Math.round(cop.center.cx + Math.cos(ang) * r);
+      const y = Math.round(cop.center.cy + Math.sin(ang) * r);
+      if (x >= 0 && y >= 0 && x < t.size && y < t.size && (t.land[y * t.size + x] as Land) === Land.Hesco) hit = true;
+    }
+    if (!hit) openBearings++;
+  }
+  bad += roadInside + openBearings;
+  console.log(`${seed.padEnd(14)} R=${R}  Road inside ring: ${roadInside}  verge Road (info): ${roadOnRing}  open wall bearings: ${openBearings}`);
+}
+
+// (debug tail) — positions of offending cells relative to center and gate
+if (process.env.ITM_DUMP) {
+  const t: any = createWorld(process.env.ITM_DUMP!, 120).terrain;
+  const cop = t.cop;
+  const R = t.copRadiusCells();
+  console.log(`gateInside=(${cop.gate?.cx ?? "?"},${cop.gate?.cy ?? "?"}) gateOutside=(${cop.gateOutside.cx},${cop.gateOutside.cy}) center=(${cop.center.cx},${cop.center.cy})`);
+  for (let dy = -R - 1; dy <= R + 1; dy++)
+    for (let dx = -R - 1; dx <= R + 1; dx++) {
+      const x = cop.center.cx + dx, y = cop.center.cy + dy;
+      const d = Math.hypot(dx, dy);
+      if (d > R + 1) continue;
+      if ((t.land[y * t.size + x] as number) === 18 /* Land.Road */) {
+        const gd = Math.hypot(x - cop.gateOutside.cx, y - cop.gateOutside.cy);
+        console.log(`  Road at (${x},${y}) d=${d.toFixed(1)} distToGate=${gd.toFixed(1)}`);
+      }
+    }
+}
+
+process.exit(bad ? 1 : 0);

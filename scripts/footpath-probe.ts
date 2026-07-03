@@ -27,10 +27,13 @@
 import { createWorld } from "../lib/sim/world";
 import { Land } from "../lib/sim/terrain";
 
-const N = process.argv[2] ? Number(process.argv[2]) : 0;
+// [N] = survey-0..N-1 · [seed seed...] = explicit list (e.g. the held-out survey-40..47) · default = documented set
+const N = process.argv[2] && /^\d+$/.test(process.argv[2]) ? Number(process.argv[2]) : 0;
 const SEEDS = N
   ? Array.from({ length: N }, (_, i) => "survey-" + i)
-  : ["korengal", "korengal-2", "ridgeline", "restrepo", "kunar-3", "valley-7", "survey-2", "survey-9"];
+  : process.argv.length > 2
+    ? process.argv.slice(2)
+    : ["korengal", "korengal-2", "ridgeline", "restrepo", "kunar-3", "valley-7", "survey-2", "survey-9"];
 
 const PATH_LANDS = new Set<Land>([Land.Road, Land.Track, Land.Trail, Land.Footbridge, Land.Ford]);
 

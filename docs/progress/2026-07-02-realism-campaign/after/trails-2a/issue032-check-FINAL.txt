@@ -1,0 +1,8 @@
+valley-2533    R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+korengal       R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+survey-9       R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+restrepo       R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+valley-7       R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+survey-2       R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+kunar-3        R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0
+ridgeline      R=12  Road inside ring: 0  verge Road (info): 0  open wall bearings: 0

@@ -1,0 +1,9 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 2 seeds × 9 game-days × 2 policies ===
+seeds: survey-40, survey-41   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+  [careful] survey-40: 625.0s  endDay 4  score 9  proj 1/2  enemyMean 14
+  [careful] survey-41: 844.3s  endDay 10  score 34  proj 1/6  enemyMean 7
+
+# KILLED at coordinator wrap-up order 2026-07-03: HEAD-worktree held-out pair control, PID 87094,
+# 69:34 CPU — both careful legs completed (above); killed inside the bodycount survey-40 leg after
+# >35 min dwell (the recorded bodycount wall-time-explosion mode). No verdict printed.
