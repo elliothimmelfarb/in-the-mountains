@@ -136,6 +136,13 @@ export interface Task {
    *  cooldown, both on the world clock. */
   chokeHoldUntil?: number;
   chokeCooldownUntil?: number;
+  /** Wedge-wait: when a follower is genuinely BLOCKED (stuck on a building / the wire / broken
+   *  ground) and trailing, the point man takes a knee and HOLDS until this world-clock, then a
+   *  cooldown before he can hold again — so a stuck man can't string the file out, and can't
+   *  freeze the patrol either. Both on the world clock; transient (persisted with state). */
+  wedgeHoldUntil?: number;
+  wedgeCooldownUntil?: number;
+  wedgeHeldTotal?: number; // s of wedge-halt spent THIS leg (budget cap; reset each waypoint)
   lastSmokeClock?: number; // world clock of the squad's last smoke pop (throttle)
   /** Throttle clock (seconds) for the on-station dwell event-roll. A long realistic dwell is
    *  patient hours the player WARPS through; this rolls occasionally for a moment that pulls him
