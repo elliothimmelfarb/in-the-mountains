@@ -232,6 +232,13 @@ export const FOOT_CLIFF_SLOPE = 1.4;
  *  hard-won movement economy and combat balance untouched (see FOOT_CLIFF_SLOPE note). */
 export const STEEP_COST_FLOOR = 0.1;
 
+/** |n| with the kink rounded (ε ≈ 0.12): ridged noise built on a hard abs aliases into
+ *  single-cell slope spikes on a 5 m grid — fake-cliff speckle passability then has to reject.
+ *  The ridge/crease FORM survives the rounding; the speckle does not. */
+function softAbs(n: number): number {
+  return Math.sqrt(n * n + 0.015);
+}
+
 // Directional cover-object query tuning (issue 020). Footprint (m) mirrors the asset manifest so the
 // cover frontage matches the DRAWN sprite (drawn = sim); height (m) is the physical block height an
 // object presents to a standing/prone silhouette. COVER_AHEAD_M is how far in front of the target an
@@ -342,13 +349,14 @@ export class Terrain {
     const detailNoise = new ValueNoise(rng.int(1, 1e9));
     const { size } = this;
     const { floorSouth, floorNorth, ridgeHeight } = this.config;
-    void noise;
 
     // Per-meter feature frequencies, converted to cell-space (resolution-free).
     const fRidge = this.mfreq(950);
     const fRidge2 = this.mfreq(360);
     const fFinger = this.mfreq(520);
     const fDetail = this.mfreq(70);
+    // Structured 15–100 m relief lives in carveStrata (it needs the local slope to budget
+    // against the foot-cliff cutoff); the base loop stays the smooth macro form.
 
     // --- Meandering valley centerline (the river/floor) ---
     const meanderAmp = size * 0.16;
@@ -421,15 +429,23 @@ export class Terrain {
     }
 
     this.carveFloodplain(); // issue 010: a WALKABLE valley floor — the river is an obstacle, not a chasm
+    this.carveStrata(noise); // realism campaign front C: bedded-rock benches + risers (see method doc)
     this.computeSlope();
+    this.scrubSpeckle(3); // weathering: isolated slope spikes are artifacts, not cliff bands
+    this.connectBenches(); // realism campaign front C: scree chutes join walkable benches to the slope system
+    this.scrubSpeckle(2); // the chute blurs expose a few new borderline spikes — peel those too
     this.classifyLand(rng, draws);
     this.placeVillagesAndCOP(rng);
     this.placeFords(rng); // issue 010: regular crossings BEFORE roads, so the network can route over them
     this.carveRoadsAndTrails(rng);
     this.ensureGatePortal(); // issue 005: guarantee the gate connects at coarse scale (locally)
     this.ensureRiverCrossings(); // issue 010: guarantee both banks join — add fords until the valley is one piece
+    this.ensureWorldConnectivity(); // realism campaign front C: the gate must reach the walkable WORLD and the world must be ONE piece — BEFORE the network pass (village repair must route against the whole world, not a pocket)
+    this.ensureGatePortal(); // re-validate after the egress carves: cheap no-op when healthy. (A LATER portal pass was measured DESTRUCTIVE: its re-carve severs the network tracks outside the wire, in both orders and with a conditional network re-tie — see the front-C tuning log. The network pass below is therefore trusted not to need one.)
     this.ensureNetworkConnectivity(); // issue 008: guarantee the gate connects to the MSR + villages
     this.ensureInteriorConnectivity(); // issue 012: every COP seat/fighting-position joins the muster yard (no sealed pockets). LAST, so its findPath checks see the final terrain (river/network carving can't re-sever the yard after).
+    this.ensureWorldConnectivity(); // re-validate AFTER the last elevation/land mutator: the network pass's own benched-track cut-banks were measured re-severing the merged world (korengal-2 gateShare 0.97 during the pre-network pass → 0.53 in the final field). Nothing below mutates passability (generateCoverObjects is field-neutral by hash).
+    this.ensureRiverCrossings(); // re-validate the banks the same way: the connectivity carves' cut-banks can block the flat crossing cells the :442 pass validated (measured: survey-7 banksSplit after a gate-mouth lane). Idempotent — only ADDS fords, no-op when the banks already join.
     this.deriveCoverConcealment();
     this.generateCoverObjects(); // issue 020: discrete cover objects stamp the field + are what the renderer draws
     this.nameFeatures(rng);
@@ -453,27 +469,457 @@ export class Terrain {
     // Reach far enough to fully override the incision (riverCut reaches 2.4*(20/cs) cells), so no
     // incised cliff survives between the flat floor and the natural valley wall.
     const incisionReach = 2.4 * (20 / cellSize);
-    const floodHalf = Math.max(incisionReach + 1, 45 / cellSize); // cells each side of the river
+    const floodHalf = Math.max(incisionReach + 1, 45 / cellSize); // flat plate half-width (as HEAD)
     const channelHalf = Math.max(1.4, 8 / cellSize); // = riverHalf in classifyLand (kept in sync)
     const channelDepth = 2.0; // m: a shallow channel so the banks stay walkable (≈0.4 slope per cell)
-    const featherCells = 3.5; // ease the outer rim back to the natural hillside over this many cells
-    const featherStart = floodHalf - featherCells;
+    // TOE APRON (realism campaign 2026-07-02, front C). The old 3.5-cell feather climbed the FULL
+    // wall base (~60–80 m) in ~17 m — a slope-4..5 curb ring welded around the plate (rim-band
+    // slope p50 1.72 / p90 5.02 at HEAD). Real valley floors meet their walls through colluvial
+    // toe slopes and fans, so instead smoothstep the plate into the natural wall over ~110 m:
+    // a gentle apron at the rim, steepening into the lower wall (an inner-gorge shoulder that
+    // carveStrata then benches into river terraces).
+    const toeEnd = floodHalf + 110 / cellSize;
     for (let y = 0; y < size; y++) {
       const cx = this.centerX[y];
       const floorE = this.floorElevAtRow(y);
       for (let x = 0; x < size; x++) {
         const dx = Math.abs(x - cx);
-        if (dx > floodHalf) continue;
+        if (dx > toeEnd) continue;
         const i = this.idx(x, y);
         // Flat floodplain at the floor elevation, dipping to a shallow channel down the middle.
         const target = dx <= channelHalf ? floorE - channelDepth : floorE;
-        // Full flatten across the band; feather only the outer rim so the floor ties into the
-        // natural valley wall instead of leaving a hard step we'd merely have relocated outward.
-        const w = dx <= featherStart ? 1 : clamp01(1 - (dx - featherStart) / featherCells);
+        const w = dx <= floodHalf ? 1 : 1 - smoothstep(floodHalf, toeEnd, dx);
         this.elev[i] = lerp(this.elev[i], target, w);
         if (this.elev[i] < this.minElev) this.minElev = this.elev[i];
       }
     }
+  }
+
+  /**
+   * Realism campaign 2026-07-02 (front C) — GEOLOGIC STRATA. The Korengal's walls are bedded
+   * gneiss/schist: alternating steeper rock risers and gentler benches, roughly contour-parallel,
+   * expressing and vanishing along-strike. The smooth fbm field had none of this (typical wall
+   * cell sat 0.12 m from its 15 m-neighbourhood mean; wall transects ran ~1 km without a single
+   * 3 m elevation reversal). This pass soft-quantizes ELEVATION into bands of vertical wavelength
+   * LAMBDA: within each band the profile is re-shaped by g(frac) = frac − K/2π·sin(2π·frac),
+   * which flattens each band top into a bench (g' = 1−K < 0 → a slight back-dip, the colluvial
+   * wedge that makes real benches read as terrain rather than contour stripes) and steepens the
+   * band middle into a riser (g' = 1+K). Band boundaries drift on a low-frequency phase field
+   * (strata dip/undulation), and the whole effect is duty-cycled by a second low-frequency field
+   * so bands come and go like real outcrop. Strength ramps in on height-above-floor only, so the
+   * floodplain plate stays flat and the toe apron picks up river terraces. Runs AFTER
+   * carveFloodplain (so the toe/inner-gorge is benched too) and BEFORE computeSlope/classifyLand/
+   * village/COP/trail placement, so every downstream consumer sees the final field.
+   */
+  private carveStrata(noise: ValueNoise) {
+    const { size, cellSize } = this;
+    // Texture by slope REGIME — two states of the same bedded rock, which is also what keeps
+    // the oracle's dominant sustained-30-45° share intact (the mid band is left mostly alone):
+    //  STEEP (~20 m-support slope ≥1.05, saturating 1.3 — the monolithic >45° mass): BANDED
+    //  strata. An asymmetric cycle: a WIDE, gently back-dipping bench (frac < BENCH, dipping
+    //  DIP·λ·s at full expression) and a NARROW steep riser closing the cycle. The asymmetry
+    //  matters: with a lerp strength s, the un-terraced climb leaks through by (1−s)·(key span),
+    //  so symmetric low-K benches never actually reverse — this shape yields real 3.5-11 m
+    //  elevation reversals (dip slope ≤ ~0.7, a walkable ledge) at s ≥ ~0.72 while the risers
+    //  sharpen into discrete cliff bands.
+    //  WALKABLE GROUND (below the gate): ridged gully/outcrop dissection whose amplitude is
+    //  SLOPE-BUDGETED — scaled by the headroom to the strict-walkable line ((1.06 − s20)/0.68,
+    //  so a 0.4 shoulder gets full texture and the budget hits zero by ~1.0). Texture therefore
+    //  never throws otherwise-walkable ground over the cutoff: the impassable set stays
+    //  ORGANIZED (risers + true cliffs), not sprayed speckle — the measured failure of
+    //  slope-blind texture was reach% 60→33 with 22% fake-cliff speckle.
+    const L1 = 56; // vertical band wavelength (m) — sized so a riser is ≥2 cells thick (a 1-cell
+    // riser line reads as steppable-around speckle, not an obvious cliff band)
+    const BENCH = 0.45; // fraction of the cycle that is bench
+    const DIP = 0.26; // bench back-dip as a fraction of L1 at full strength
+    const fDuty = this.mfreq(430);
+    const fPhase = this.mfreq(240);
+    const fBreachX = this.mfreq(450);
+    const fBreachY = this.mfreq(110);
+    const fTex1 = this.mfreq(85);
+    const fTex2 = this.mfreq(42);
+    const fTex3 = this.mfreq(32);
+    const fTex4 = this.mfreq(20);
+    const ss01 = (t: number) => t * t * (3 - 2 * t);
+    const shape = (frac: number) =>
+      frac < BENCH ? -DIP * ss01(frac / BENCH) : -DIP + (1 + DIP) * ss01((frac - BENCH) / (1 - BENCH));
+    const src = this.elev.slice(); // two-phase: gate + key on the incoming field, no sweep bias
+    let mn = Infinity;
+    let mx = -Infinity;
+    for (let y = 0; y < size; y++) {
+      const floorE = this.floorElevAtRow(y);
+      const ya = Math.max(0, y - 2);
+      const yb = Math.min(size - 1, y + 2);
+      for (let x = 0; x < size; x++) {
+        const i = this.idx(x, y);
+        const e = src[i];
+        const lift = smoothstep(12, 48, e - floorE); // never touch the plate; ramp through the toe
+        if (lift > 0) {
+          const xa = Math.max(0, x - 2);
+          const xb = Math.min(size - 1, x + 2);
+          const gx = (src[this.idx(xb, y)] - src[this.idx(xa, y)]) / ((xb - xa) * cellSize);
+          const gy = (src[this.idx(x, yb)] - src[this.idx(x, ya)]) / ((yb - ya) * cellSize);
+          const s20 = Math.hypot(gx, gy);
+          const n01 = noise.fbm(x * fDuty + 71.3, y * fDuty + 23.9, 3) * 0.5 + 0.5;
+          let e2 = e;
+          // gentle-ground dissection
+          // Slope-BUDGETED texture: scale ∝ headroom to the 1.25 strict-walkable line, hitting
+          // zero by s20≈1.0. Along the whole curve (base + peak texture slope) stays under 1.25
+          // by construction, so the dense 15-45 m energy the md3/E15-45 oracle wants lives on
+          // the gentle-to-mid ground WITHOUT spraying fake-cliff speckle into the walkable skin
+          // (texture on 1.0-1.3 ground was the measured speckle/percolation killer).
+          // texture gets its own, earlier lift (river terraces start just off the plate — and the
+          // gentle toe apron is prime md3 ground); the strata lift stays higher so the bands do
+          // not march into the floodplain edge
+          const texScale = clamp01((1.06 - s20) / 0.68) * smoothstep(6, 22, e - floorE) * (0.55 + 0.45 * n01);
+          if (texScale > 0.02) {
+            const tex =
+              (1 - 2 * softAbs(noise.noise2(x * fTex1 + 19.7, y * fTex1 + 5.3))) * 5.9 +
+              (1 - 2 * softAbs(noise.noise2(x * fTex2 + 37.7, y * fTex2 + 11.3))) * 3.5 +
+              (1 - 2 * softAbs(noise.noise2(x * fTex3 + 201.7, y * fTex3 + 91.3))) * 2.1 +
+              (1 - 2 * softAbs(noise.noise2(x * fTex4 + 55.1, y * fTex4 + 147.9))) * 0.95;
+            e2 += tex * texScale;
+          }
+          // Banded strata, gated to ground that is ALREADY blocked at baseline (s20 ≥ ~1.05,
+          // saturating past the 1.3 cliff line): sculpting the monolithic >45° mass into
+          // bands+benches there cannot fragment the walkable skin. Strength varies SMOOTHLY in
+          // space — a hard strength cutoff (tried: s<0.72 → 0) leaves a ±10 m elevation
+          // discontinuity at every along-strike band terminus, a curtain wall that shattered
+          // the map into benched annuli (comps 5.3→56). Smooth strata are along-strike
+          // CONTINUOUS: risers run cross-strike only, and the dipping phase field lets bench
+          // levels hand off to each other, so the benches self-connect. BREACH channels
+          // (anisotropic, ~450 m cross-valley × 110 m along) still gap the band stacks into
+          // fall-line climbing corridors.
+          const gate = smoothstep(1.05, 1.3, s20);
+          if (gate > 0.02) {
+            const breach = smoothstep(0.4, 0.47, noise.fbm(x * fBreachX + 157.9, y * fBreachY + 41.7, 2) * 0.5 + 0.5);
+            const duty = 0.72 + 0.23 * clamp01((n01 - 0.42) * 3);
+            const s = lift * gate * duty * breach;
+            if (s > 0.02) {
+              const phase = noise.fbm(x * fPhase + 131.1, y * fPhase + 67.7, 2) * L1 * 0.5; // strata dip
+              const t = (e2 + phase) / L1;
+              const ft = Math.floor(t);
+              e2 = lerp(e2, (ft + shape(t - ft)) * L1 - phase, s);
+            }
+          }
+          this.elev[i] = e2;
+        }
+        const v = this.elev[i];
+        if (v < mn) mn = v;
+        if (v > mx) mx = v;
+      }
+    }
+    this.minElev = mn;
+    this.maxElev = mx;
+  }
+
+  /**
+   * Weathering pass (realism campaign front C). A cell whose slope exceeds FOOT_CLIFF_SLOPE while
+   * ≥6 of its 8 neighbours are comfortably walkable is an isolated texture spike — a fake cliff a
+   * soldier would step around and passability has to reject one cell at a time (the probe's
+   * "speckle"). Real cliff bands keep impassable neighbours and are untouched. Relax each such
+   * cell to its 3×3 mean; a few passes catch the pairs the first pass exposes. Deterministic
+   * (two-phase per pass: collect on a slope snapshot, then apply, then recompute the slope field).
+   */
+  private scrubSpeckle(passes: number) {
+    const { size } = this;
+    // Mirror passableCell's SLOPE rule (land classes don't exist yet at this point in gen):
+    // blocked iff s > cliff, or s in the conditional band with a too-steep 3×3 neighbourhood.
+    const slopePass = (x: number, y: number): boolean => {
+      const s = this.slope[this.idx(x, y)];
+      if (s > FOOT_CLIFF_SLOPE) return false;
+      return !(s > FOOT_MAX_SLOPE && this.meanSlope3(x, y) > FOOT_CLIFF_SLOPE);
+    };
+    for (let p = 0; p < passes; p++) {
+      const cand: number[] = [];
+      for (let y = 1; y < size - 1; y++)
+        for (let x = 1; x < size - 1; x++) {
+          const i = this.idx(x, y);
+          // Two spike rules: (a) blocked-by-slope with ≥5 walkable neighbours (a fake cliff);
+          // (b) merely conditional-band (>1.25) but ringed by ≥5 strictly-walkable neighbours —
+          // a pimple on open ground (band interiors survive: risers are ≥2 cells thick at L1=56,
+          // so their cells keep ≥4 steep neighbours; only band TIPS get nibbled).
+          let cnd = false;
+          if (!slopePass(x, y)) {
+            let walkable = 0;
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                if (!dx && !dy) continue;
+                if (slopePass(x + dx, y + dy)) walkable++;
+              }
+            cnd = walkable >= 5;
+          } else if (this.slope[i] > FOOT_MAX_SLOPE) {
+            let strict = 0;
+            for (let dy = -1; dy <= 1; dy++)
+              for (let dx = -1; dx <= 1; dx++) {
+                if (!dx && !dy) continue;
+                if (this.slope[this.idx(x + dx, y + dy)] <= FOOT_MAX_SLOPE) strict++;
+              }
+            cnd = strict >= 5;
+          }
+          if (cnd) cand.push(i);
+        }
+      if (!cand.length) break;
+      for (const i of cand) {
+        const x = i % size;
+        const y = (i / size) | 0;
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) sum += this.elev[this.idx(x + dx, y + dy)];
+        this.elev[i] = sum / 9;
+      }
+      this.computeSlope();
+    }
+  }
+
+  /**
+   * SCREE-CHUTE CONNECTOR (realism campaign front C). carveStrata sculpts the >45° mass into
+   * cliff bands with walkable benches; on a real wall every bench ties into the slope system
+   * through the scree chutes and gully seams that cut across the bedding. Enforce that here:
+   * over the pre-landcover field, label the strictly-walkable skin (slope ≤ FOOT_MAX_SLOPE,
+   * 8-connected with the mover's corner-cut rule), and for every walkable pocket ≥ 40 cells
+   * separated from the main skin carve a short ELEVATION-ONLY chute — a padded, blur-relaxed
+   * corridor (padPath + blurCorridor) to the nearest main-skin cell. Runs BEFORE classifyLand,
+   * so a chute is classified like any other steep scree ground — terrain, not a trail. Without
+   * this the benches float as isolated walkable annuli (measured: strict comps 5.3 → ~47 with
+   * everything else fixed); with it the largest baseline mega-shelf (41k cells on korengal, a
+   * HEAD-era macro feature) merges into the main walkable world.
+   */
+  private connectBenches() {
+    const { size } = this;
+    const n = size * size;
+    const MIN_POCKET = 40; // cells — smaller shelves may stay honest ledges
+    const REACH = 80; // cells — how far a connecting chute may range
+    for (let pass = 0; pass < 8; pass++) {
+      const comp = new Int32Array(n).fill(-1);
+      const sizes: number[] = [];
+      const stack: number[] = [];
+      const walk = (x: number, y: number) => this.slope[this.idx(x, y)] <= FOOT_MAX_SLOPE;
+      for (let s = 0; s < n; s++) {
+        if (comp[s] !== -1 || this.slope[s] > FOOT_MAX_SLOPE) continue;
+        const id = sizes.length;
+        comp[s] = id;
+        stack.length = 0;
+        stack.push(s);
+        let c = 0;
+        while (stack.length) {
+          const i = stack.pop()!;
+          c++;
+          const x = i % size;
+          const y = (i / size) | 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx < 1 || ny < 1 || nx >= size - 1 || ny >= size - 1) continue;
+              const j = ny * size + nx;
+              if (comp[j] !== -1 || this.slope[j] > FOOT_MAX_SLOPE) continue;
+              // corner-cut rule: match the mover/probe connectivity, else a diagonal-threaded
+              // pocket reads "connected" here while staying a separate component to the squad
+              if (dx !== 0 && dy !== 0 && !walk(x + dx, y) && !walk(x, y + dy)) continue;
+              comp[j] = id;
+              stack.push(j);
+            }
+        }
+        sizes.push(c);
+      }
+      if (sizes.length < 2) return;
+      let main = 0;
+      for (let k = 1; k < sizes.length; k++) if (sizes[k] > sizes[main]) main = k;
+      // pocket bboxes
+      const boxes = new Map<number, { x0: number; x1: number; y0: number; y1: number }>();
+      for (let i = 0; i < n; i++) {
+        const id = comp[i];
+        if (id === -1 || id === main || sizes[id] < MIN_POCKET) continue;
+        const x = i % size;
+        const y = (i / size) | 0;
+        const b = boxes.get(id);
+        if (!b) boxes.set(id, { x0: x, x1: x, y0: y, y1: y });
+        else {
+          b.x0 = Math.min(b.x0, x);
+          b.x1 = Math.max(b.x1, x);
+          b.y0 = Math.min(b.y0, y);
+          b.y1 = Math.max(b.y1, y);
+        }
+      }
+      if (!boxes.size) return;
+      let carvedAny = false;
+      for (const [id, b] of boxes) {
+        // bounded multi-source Dijkstra: pocket cells (cost 0) → nearest main-skin cell
+        const x0 = Math.max(0, b.x0 - REACH);
+        const x1 = Math.min(size - 1, b.x1 + REACH);
+        const y0 = Math.max(0, b.y0 - REACH);
+        const y1 = Math.min(size - 1, b.y1 + REACH);
+        const bw = x1 - x0 + 1;
+        const bh = y1 - y0 + 1;
+        const li = (cx: number, cy: number) => (cy - y0) * bw + (cx - x0);
+        const cost = new Float64Array(bw * bh).fill(Infinity);
+        const prev = new Int32Array(bw * bh).fill(-1);
+        const heap: number[] = [];
+        const push = (idx: number) => {
+          heap.push(idx);
+          let i = heap.length - 1;
+          while (i > 0) {
+            const p = (i - 1) >> 1;
+            if (cost[heap[p]] <= cost[heap[i]]) break;
+            [heap[p], heap[i]] = [heap[i], heap[p]];
+            i = p;
+          }
+        };
+        const pop = (): number => {
+          const top = heap[0];
+          const last = heap.pop()!;
+          if (heap.length) {
+            heap[0] = last;
+            let i = 0;
+            for (;;) {
+              const l = i * 2 + 1;
+              const r = l + 1;
+              let m = i;
+              if (l < heap.length && cost[heap[l]] < cost[heap[m]]) m = l;
+              if (r < heap.length && cost[heap[r]] < cost[heap[m]]) m = r;
+              if (m === i) break;
+              [heap[m], heap[i]] = [heap[i], heap[m]];
+              i = m;
+            }
+          }
+          return top;
+        };
+        for (let y = b.y0; y <= b.y1; y++)
+          for (let x = b.x0; x <= b.x1; x++)
+            if (comp[this.idx(x, y)] === id) {
+              const k = li(x, y);
+              cost[k] = 0;
+              push(k);
+            }
+        let goal = -1;
+        while (heap.length) {
+          const cur = pop();
+          const cx = (cur % bw) + x0;
+          const cy = ((cur / bw) | 0) + y0;
+          const gi = this.idx(cx, cy);
+          if (comp[gi] === main) {
+            goal = cur;
+            break;
+          }
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const nx = cx + dx;
+              const ny = cy + dy;
+              if (nx < x0 || ny < y0 || nx > x1 || ny > y1) continue;
+              const j = this.idx(nx, ny);
+              const step =
+                (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1) * (1 + this.slope[j] * 2) +
+                Math.abs(this.elev[j] - this.elev[this.idx(cx, cy)]) * 0.35;
+              const nc = cost[cur] + step;
+              const ni = li(nx, ny);
+              if (nc < cost[ni]) {
+                cost[ni] = nc;
+                prev[ni] = cur;
+                push(ni);
+              }
+            }
+        }
+        if (goal < 0) continue;
+        const path: { cx: number; cy: number }[] = [];
+        let c = goal;
+        while (c !== -1) {
+          path.push({ cx: (c % bw) + x0, cy: ((c / bw) | 0) + y0 });
+          c = prev[c];
+        }
+        if (path.length < 2) continue;
+        this.padPath(path);
+        this.blurCorridor(path);
+        carvedAny = true;
+      }
+      if (!carvedAny) return;
+      this.computeSlope();
+    }
+  }
+
+  /**
+   * PAD a carve path a few cells beyond each end, following WALKABLE ground only (a straight pad
+   * up a cliff face anchors the ramp high and forces a dive through the very pinch being opened).
+   * A pinch path can be 2-3 cells long while its sides differ by ~10 m — without pads, any carve
+   * (design line or blur) just averages the pinch with its steep sides and re-blocks it; the pads
+   * give the ramp the LENGTH it needs, reaching into both flats it connects. In-place.
+   */
+  private padPath(path: { cx: number; cy: number }[]) {
+    const size = this.size;
+    const sd = { dx: path[0].cx - path[1].cx, dy: path[0].cy - path[1].cy };
+    for (let k = 1; k <= 4; k++) {
+      const cx = path[0].cx + sd.dx;
+      const cy = path[0].cy + sd.dy;
+      if (cx < 1 || cy < 1 || cx >= size - 1 || cy >= size - 1) break;
+      if (this.slope[this.idx(cx, cy)] > FOOT_MAX_SLOPE) break;
+      path.unshift({ cx, cy });
+    }
+    const eN = path.length;
+    const ed = { dx: path[eN - 1].cx - path[eN - 2].cx, dy: path[eN - 1].cy - path[eN - 2].cy };
+    for (let k = 1; k <= 4; k++) {
+      const cx = path[path.length - 1].cx + ed.dx;
+      const cy = path[path.length - 1].cy + ed.dy;
+      if (cx < 1 || cy < 1 || cx >= size - 1 || cy >= size - 1) break;
+      if (this.slope[this.idx(cx, cy)] > FOOT_MAX_SLOPE) break;
+      path.push({ cx, cy });
+    }
+  }
+
+  /**
+   * Blur-relax a ±2-cell corridor along `path`: iterative 3×3 box means, iteration count scaled
+   * with corridor length (diffusion needs ~O(length) rounds to straighten a profile). Unlike a
+   * design-line cut this has no seams, self-heals overlapping/self-approaching segments, and
+   * relaxes the corridor toward a ramp at (ΔE over corridor length) — the callers' route costs
+   * keep that walkable-feasible. Returns the strip cell indices so callers can re-class ground
+   * the blur just made walkable. Never touches stamped architecture. (Both the bench connector
+   * and the gate-egress guard carve with this; the design-line/fan carve both replaced was
+   * measured failing silently — steep seams at short-pinch ends, banks re-blocking their lane.)
+   */
+  private blurCorridor(path: { cx: number; cy: number }[]): number[] {
+    const { size } = this;
+    const strip: number[] = [];
+    const seen = new Set<number>();
+    for (const p of path)
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const x = p.cx + dx;
+          const y = p.cy + dy;
+          if (x < 1 || y < 1 || x >= size - 1 || y >= size - 1) continue;
+          const i = this.idx(x, y);
+          if (seen.has(i)) continue;
+          seen.add(i);
+          const l = this.land[i] as Land;
+          // Never WRITE stamped architecture; never write a WORKING constructed tread (the
+          // portal lane/yard Gravel, roads/tracks/trails, fords, footbridges) — re-tilting a
+          // benched tread toward the natural steep ground it crosses un-benches it: measured on
+          // survey-7, the egress blur ate the MSR road outside the wire and sealed the squad at
+          // the gate. A tread cell that is ALREADY impassable is fair game — protecting broken
+          // treads from repair sealed the same seed the other way. Reads stay unrestricted, so a
+          // ramp still converges smoothly toward a protected tread's elevation and ties in.
+          if (l === Land.Hesco || l === Land.Structure || l === Land.CompoundWall || l === Land.Compound) continue;
+          const tread =
+            l === Land.Gravel || l === Land.Ford || l === Land.Footbridge ||
+            l === Land.Road || l === Land.Track || l === Land.Trail;
+          if (tread && this.slope[i] <= FOOT_MAX_SLOPE) continue;
+          strip.push(i);
+        }
+    const tmp = new Float32Array(strip.length);
+    const iters = Math.min(220, 16 + 4 * path.length);
+    for (let it = 0; it < iters; it++) {
+      for (let c = 0; c < strip.length; c++) {
+        const i = strip[c];
+        const x = i % size;
+        const y = (i / size) | 0;
+        let sum = 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) sum += this.elev[this.idx(x + dx, y + dy)];
+        tmp[c] = sum / 9;
+      }
+      for (let c = 0; c < strip.length; c++) this.elev[strip[c]] = tmp[c];
+    }
+    return strip;
   }
 
   /**
@@ -1399,9 +1845,10 @@ export class Terrain {
    * it would have caught the wall/penalty tuning regressions during the rebuild
    * instantly instead of as a mysterious "patrol can't leave" bug.
    */
-  private ensureGatePortal() {
+  /** Returns the number of carve passes it needed (0 = the portal was already transitable). */
+  private ensureGatePortal(): number {
     const cop = this.cop;
-    if (!cop) return;
+    if (!cop) return 0;
     // Verify the gate with the ACTUAL planner, not a hand-rolled flood. The old check was a plain
     // 8-connected coarse flood with no corner-cut rule; findPath FORBIDS a diagonal step when both
     // orthogonal neighbours are blocked (anti corner-cutting). So on a DIAGONAL gate the flood said
@@ -1450,6 +1897,7 @@ export class Terrain {
       this.computeSlopeLocal(cop.center.cx, cop.center.cy, cop.radius + 10);
     }
     this._gateReachable = undefined; // carving changed terrain — drop the memoised reachability mask
+    return tries;
   }
 
   /** Diagnostics for the gen-time network connectivity guard (issue 008). */
@@ -1884,6 +2332,277 @@ export class Terrain {
     this.netRepair = { carvedCells: carvedTotal, villagesConnected, villages: this.villages.length, passes };
   }
 
+  /** Diagnostics for the world-connectivity guard (realism campaign front C). */
+  egressRepair?: { passes: number; carvedCells: number; gateShare: number };
+
+  /**
+   * Realism campaign 2026-07-02 (front C) — WORLD CONNECTIVITY GUARANTEE. The strata field can
+   * split the walkable map into MEGA-components separated by riser bands only 15–45 m thick
+   * (measured: korengal-2 54%/42% halves, survey-9 33%/28%/18%/14% quarters, survey-7
+   * 37%/36%/17% — every gap 3–9 cells), and can ring the COP knoll with cliff-class bands the
+   * older gate guarantees were not built to cross (5/8 probe seeds had the gate's corner-cut
+   * component under 25% of passable ground, three at ~0.1%). This guard enforces the invariant
+   * every downstream system assumes — THE GATE REACHES THE WALKABLE WORLD, AND THE WALKABLE
+   * WORLD IS ONE PIECE (small honest shelves excepted). While any non-gate component holds
+   * ≥ max(1200 cells, 2% of passable): multi-source Dijkstra from the gate component's whole
+   * frontier over benchable ground (cliff allowed at heavy cost — a road cut) to the nearest
+   * cell of the largest such component, then carve a padded benched Track along the (usually
+   * 15–45 m) cut. A carve that fails to merge its target escalates the retry to a straight
+   * graded lane (survey-9's knife-edge gate web). Called TWICE from generate(): before
+   * ensureNetworkConnectivity (village repair must route against the whole world) and again
+   * after the last terrain mutator — the network pass's own benched-track cut-banks were
+   * measured re-severing a merged world (korengal-2 gateShare 0.97 → 0.53), so a guard that
+   * only runs before the mutators cannot guarantee anything about the shipped field.
+   * No-op (one flood + one labeling) on seeds where the world is already one piece.
+   */
+  private ensureWorldConnectivity() {
+    const cop = this.cop;
+    if (!cop) return;
+    const size = this.size;
+    const n = size * size;
+    // corner-cut flood (the mover's rule) from an arbitrary set of seed cells
+    const flood = (seeds: number[]): Uint8Array => {
+      const seen = new Uint8Array(n);
+      const st: number[] = [];
+      for (const s of seeds) {
+        if (!seen[s]) {
+          seen[s] = 1;
+          st.push(s);
+        }
+      }
+      while (st.length) {
+        const i = st.pop()!;
+        const x = i % size;
+        const y = (i / size) | 0;
+        for (let dy = -1; dy <= 1; dy++)
+          for (let dx = -1; dx <= 1; dx++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= size || ny >= size || !this.passableCell(nx, ny)) continue;
+            if (dx !== 0 && dy !== 0 && !this.passableCell(x + dx, y) && !this.passableCell(x, y + dy)) continue;
+            const j = ny * size + nx;
+            if (!seen[j]) {
+              seen[j] = 1;
+              st.push(j);
+            }
+          }
+      }
+      return seen;
+    };
+    let carvedTotal = 0;
+    let passes = 0;
+    let gateShare = 0;
+    let prevGoal = -1; // goal cell of the previous carve — gateSeen[prevGoal] next pass ⇒ it merged
+    let failStreak = 0;
+    for (let pass = 0; pass < 8; pass++) {
+      // gate component (corner-cut) + O(n) labeling of every other passable component
+      const gGate = this.nearestPassable(cop.gateOutside.cx, cop.gateOutside.cy, 16);
+      if (!this.passableCell(gGate.cx, gGate.cy)) break;
+      const gateSeen = flood([this.idx(gGate.cx, gGate.cy)]);
+      let gateN = 0;
+      let passN = 0;
+      const comp = new Int32Array(n).fill(-1);
+      const compSizes: number[] = [];
+      const st: number[] = [];
+      for (let s = 0; s < n; s++) {
+        if (gateSeen[s]) gateN++;
+        if (!this.passableCell(s % size, (s / size) | 0)) continue;
+        passN++;
+        if (comp[s] !== -1 || gateSeen[s]) continue;
+        const id = compSizes.length;
+        let c = 0;
+        comp[s] = id;
+        st.length = 0;
+        st.push(s);
+        while (st.length) {
+          const i = st.pop()!;
+          c++;
+          const x = i % size;
+          const y = (i / size) | 0;
+          for (let dy = -1; dy <= 1; dy++)
+            for (let dx = -1; dx <= 1; dx++) {
+              if (!dx && !dy) continue;
+              const nx = x + dx;
+              const ny = y + dy;
+              if (nx < 0 || ny < 0 || nx >= size || ny >= size || !this.passableCell(nx, ny)) continue;
+              if (dx !== 0 && dy !== 0 && !this.passableCell(x + dx, y) && !this.passableCell(x, y + dy)) continue;
+              const j = ny * size + nx;
+              if (comp[j] !== -1 || gateSeen[j]) continue;
+              comp[j] = id;
+              st.push(j);
+            }
+        }
+        compSizes.push(c);
+      }
+      gateShare = passN ? gateN / passN : 0;
+      passes = pass + 1;
+      const merged = prevGoal === -1 || gateSeen[prevGoal] === 1;
+      failStreak = merged ? 0 : failStreak + 1;
+      if (failStreak >= 3) break; // bench, lane AND re-bench all failed — this frontier honestly resists
+      // a component this big is a WORLD the game needs (villages, patrol space) — merge it;
+      // smaller ones are honest shelves/pockets (spawns snap around them, benches dead-end)
+      const minComp = Math.max(1200, 0.02 * passN);
+      let target = -1;
+      for (let k = 0; k < compSizes.length; k++)
+        if (compSizes[k] >= minComp && (target < 0 || compSizes[k] > compSizes[target])) target = k;
+      if (target < 0) break; // one world (plus honest small shelves)
+      // Carve with the portal/road/network stack's own carver family, padded so the design
+      // line anchors into walkable ground at both ends. Free-form carves near the gate (a blur
+      // corridor, a fan cut) were measured fighting the other gate-area carvers seed-by-seed:
+      // each fix flipped a different seed (the blur ate the MSR bench on survey-7; the portal
+      // re-carve stomped the corridor on alpha-1). One carver family near the gate, no fights.
+      // Two carvers, two route styles, alternated by failure streak:
+      //  streak 0 (and 2): a TRAIL-LIKE route (excess over the 0.42 road grade charged ×60 —
+      //    switchbacks, rides benches) benched by carveCutAlong. Clean on gentle/moderate
+      //    crossings (restrepo's 13 m step, korengal-2's halves) — minimal scarring.
+      //  streak 1 (bench failed): a DIRECT route (excess ×6 — the shortest sensible punch)
+      //    bulldozed as a straight graded lane by the portal's own carver. The bench fails on
+      //    wall crossings whose switchback legs pack adjacent on the grid and overwrite each
+      //    other's band edges (measured self-severing at slope 2.4–7.2 on survey-7/9); a
+      //    straight lane cannot self-cross and always opened the mouth webs and riser walls
+      //    (survey-7 96.3%, survey-9 92.1%). A SEALED MOUTH (gate component under 2% of
+      //    passable — the COP knoll ringed solid, survey-7's 0.9% pocket) goes straight to
+      //    the lane: a trail-like 100+-cell wall route is doomed there and burns the streak.
+      const mouth = gateShare < 0.02;
+      const lane = mouth || failStreak === 1;
+      const carve = this.routeForCut(gateSeen, (i) => comp[i] === target, lane ? 6 : 60);
+      if (!carve || carve.length < 2) break; // honestly unbridgeable at any road-cut cost
+      prevGoal = this.idx(carve[carve.length - 1].cx, carve[carve.length - 1].cy);
+      this.padPath(carve);
+      if (lane && carve.length <= 14) {
+        // gradeCorridor interpolates elevation STRAIGHT between the endpoints — over a short
+        // pinch that is the dozer punch that always opens a knife-edge mouth; over a long
+        // crossing it is a VIADUCT (measured: a lane across survey-7's valley wrote a 200 m
+        // embankment over the floodplain, burying the MSR at elev 1976 on a 1775 plate and
+        // damming the river). Hard-capped at 14 cells — longer routes always bench.
+        const a = carve[0];
+        const b = carve[carve.length - 1];
+        this.gradeCorridor(a.cx, a.cy, b.cx, b.cy, 1, Land.Track);
+        carvedTotal += carve.length;
+      } else {
+        carvedTotal += this.carveCutAlong(carve);
+      }
+      this.computeSlope();
+    }
+    this._gateReachable = undefined; // carving changed terrain — drop the memoised mask
+    this.egressRepair = { passes, carvedCells: carvedTotal, gateShare };
+  }
+
+  /** Dijkstra over any benchable ground (never wire/buildings/qalats; cliff & river at heavy
+   *  cost) from the FRONTIER of a source region (mask, e.g. the gate component) to the nearest
+   *  cell satisfying `isGoal`. Multi-source and full-map: the cut lands wherever along the whole
+   *  frontier the gap is cheapest — usually a 3–9 cell riser-band pinch far from the gate mouth,
+   *  which is also what keeps it clear of the portal lane. `excessW` prices each metre of
+   *  elevation change beyond the 0.42 road grade: 60 ⇒ trail-like switchback routes for the
+   *  bench carver, 6 ⇒ short direct punches for the straight-lane carver. Deterministic. */
+  private routeForCut(sourceMask: Uint8Array, isGoal: (i: number) => boolean, excessW: number): { cx: number; cy: number }[] | null {
+    const size = this.size;
+    const n = size * size;
+    const cost = new Float64Array(n).fill(Infinity);
+    const prev = new Int32Array(n).fill(-1);
+    const heap: number[] = [];
+    const push = (idx: number) => {
+      heap.push(idx);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (cost[heap[p]] <= cost[heap[i]]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    };
+    const pop = (): number => {
+      const top = heap[0];
+      const last = heap.pop()!;
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1;
+          const r = l + 1;
+          let m = i;
+          if (l < heap.length && cost[heap[l]] < cost[heap[m]]) m = l;
+          if (r < heap.length && cost[heap[r]] < cost[heap[m]]) m = r;
+          if (m === i) break;
+          [heap[m], heap[i]] = [heap[i], heap[m]];
+          i = m;
+        }
+      }
+      return top;
+    };
+    // seed: every source cell that touches a non-source cell (the frontier), cost 0
+    for (let i = 0; i < n; i++) {
+      if (!sourceMask[i]) continue;
+      const x = i % size;
+      const y = (i / size) | 0;
+      let frontier = false;
+      for (let dy = -1; dy <= 1 && !frontier; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          if (!sourceMask[ny * size + nx]) {
+            frontier = true;
+            break;
+          }
+        }
+      if (frontier) {
+        cost[i] = 0;
+        push(i);
+      }
+    }
+    let goal = -1;
+    let expanded = 0;
+    while (heap.length && expanded < 400000) {
+      const cur = pop();
+      expanded++;
+      if (!sourceMask[cur] && isGoal(cur)) {
+        goal = cur;
+        break;
+      }
+      const cx = cur % size;
+      const cy = (cur / size) | 0;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const i = ny * size + nx;
+          const l = this.land[i] as Land;
+          if (l === Land.Hesco || l === Land.Structure || l === Land.CompoundWall || l === Land.Compound) continue;
+          // CONSTRUCTIBILITY, not geometry: charge each step's elevation change beyond what the
+          // 0.42-grade design line (carveTrackAlong's cap) can absorb. A short cut straight up a
+          // riser stack is cheap by distance but unbuildable — measured: the cheapest slope-cost
+          // cut on korengal-2 climbed 174 m in 45 m, and eight bench carves in a row dead-ended
+          // into the wall. With a high excess charge the route SWITCHBACKS: it rides benches
+          // along-strike and climbs where the risers breach — a real contour trail — and the
+          // design line can then hug natural ground the whole way (shallow cut by construction).
+          const dM = (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1) * this.cellSize;
+          const dE = Math.abs(this.elev[i] - this.elev[cur]);
+          const excess = Math.max(0, dE - 0.42 * dM);
+          const step = dM * (1 + this.slope[i] + (l === Land.River ? 6 : 0)) + excess * excessW;
+          const nc = cost[cur] + step;
+          if (nc < cost[i]) {
+            cost[i] = nc;
+            prev[i] = cur;
+            push(i);
+          }
+        }
+    }
+    if (goal < 0) return null;
+    const path: { cx: number; cy: number }[] = [];
+    let c = goal;
+    while (c !== -1) {
+      path.push({ cx: c % size, cy: (c / size) | 0 });
+      c = prev[c];
+    }
+    path.reverse();
+    return path;
+  }
+
   /** A FINE bitmap of the cells the squad's planner can reach: a cell is set iff it is passable AND
    *  its 15 m COARSE node is in the gate's coarse flood (a node is open if ANY subcell is passable —
    *  exactly path.ts's node passability). This is the right "connected" notion for the connectivity
@@ -2090,6 +2809,16 @@ export class Terrain {
     if (path.length < 2) return 0;
     const cs = this.cellSize;
     const maxGrade = 0.42;
+    // A track HUGS the ground: the grade-limited line may deviate from natural only by a real
+    // cut-and-fill depth. Unbounded, the 0.42 line lags a strata-wall descent by metres per
+    // cell and lands ~200 m in the air — measured on survey-7, Phase B stamped the tread of a
+    // village descent at elev 1976 ACROSS the 1775 floodplain (an embankment that buried the
+    // MSR and dammed the river; the pre-strata field was smooth enough to never trigger this).
+    // Within the band the easing still smooths 1.5–2.2 spikes into walkable treads — the
+    // purpose it was built for. On ground steeper than the band allows, the tread honestly
+    // follows the ground (a steep track, not a viaduct).
+    const FILL_CAP = 2.5; // m above natural — a causeway is not a goat track
+    const CUT_CAP = 4; // m below natural — a bench cut, not a canyon
     let designE = this.elev[this.idx(path[0].cx, path[0].cy)];
     let laid = 0;
     for (let k = 1; k < path.length; k++) {
@@ -2099,10 +2828,53 @@ export class Terrain {
       const dM = (Math.hypot(b.cx - a.cx, b.cy - a.cy) || 1) * cs;
       const maxStep = maxGrade * dM;
       designE = natE < designE ? Math.max(natE, designE - maxStep) : Math.min(natE, designE + maxStep);
+      designE = clamp(designE, natE - CUT_CAP, natE + FILL_CAP);
       this.gradeTreadAt(b.cx, b.cy, designE, 1, Land.Track);
       laid++;
     }
     return laid;
+  }
+
+  /**
+   * Bench a fully-ENGINEERED cut along a routed cell path — the world-connectivity carver.
+   * carveTrackAlong's design line follows natural ground under the grade cap and writes the
+   * tread at partial strength (0.72): right for long village tracks riding walkable ground,
+   * measured WRONG for the short riser-band cuts that join two walkable worlds — on a 13 m
+   * step the partial write leaves a 0.28·13 ≈ 3.6 m residual (slope 0.72, still impassable)
+   * and the natural-following line arrives at the high side short, so the junction step
+   * survives and repeated carves only nibble (restrepo stayed split 48%/39% after two failed
+   * attempts). This carver instead anchors the design line at BOTH endpoints' natural ground,
+   * rate-limits it in three passes (fwd/bwd/fwd — the classic cut profile: it deviates from
+   * natural exactly where the ground out-climbs the cap, cutting the step lip down and ramping
+   * the approach), and writes the tread at FULL strength. The grade cap STAYS at the 0.42
+   * road grade — raising it was measured strictly worse (0.8 and 1.1 both): consecutive tread
+   * steps share band cells, which the later step overwrites, so a tread at along-grade g
+   * reads a forward-difference slope of up to ~2g at band boundaries and bends — 0.8 blocked
+   * its own tread at slope 1.42–1.53 on the restrepo cut that 0.42 carved clean. Steeper
+   * crossings than 0.42 can span are NOT this carver's job: routeForCut's tightly-packed
+   * switchback legs overwrite each other's band edges (self-severing, measured slope 2.4–7.2
+   * on survey-7/9 wall climbs at every cap), so the world-connectivity pass escalates those
+   * to a straight graded lane instead (which cannot self-cross).
+   */
+  private carveCutAlong(path: { cx: number; cy: number }[]): number {
+    if (path.length < 2) return 0;
+    const cs = this.cellSize;
+    const maxGrade = 0.42;
+    const L = path.length;
+    const nat = new Float64Array(L);
+    const stepUp = new Float64Array(L); // max design climb from k-1 to k
+    for (let k = 0; k < L; k++) {
+      nat[k] = this.elev[this.idx(path[k].cx, path[k].cy)];
+      if (k > 0) stepUp[k] = maxGrade * cs * Math.hypot(path[k].cx - path[k - 1].cx, path[k].cy - path[k - 1].cy);
+    }
+    const d = Float64Array.from(nat);
+    for (let k = 1; k < L; k++) d[k] = clamp(d[k], d[k - 1] - stepUp[k], d[k - 1] + stepUp[k]);
+    d[L - 1] = nat[L - 1]; // anchor the far junction flush
+    for (let k = L - 2; k >= 0; k--) d[k] = clamp(d[k], d[k + 1] - stepUp[k + 1], d[k + 1] + stepUp[k + 1]);
+    d[0] = nat[0]; // re-anchor the near junction; the final pass carries any residual mid-path
+    for (let k = 1; k < L; k++) d[k] = clamp(d[k], d[k - 1] - stepUp[k], d[k - 1] + stepUp[k]);
+    for (let k = 0; k < L; k++) this.gradeTreadAt(path[k].cx, path[k].cy, d[k], 1, Land.Track, 1);
+    return L;
   }
 
   /** Densify a polyline of world waypoints into a contiguous run of cells (a findPath route is
@@ -2178,8 +2950,9 @@ export class Terrain {
     this.descendTrack(ds.cx, ds.cy, 1, 0.32, Land.Road, rng);
   }
 
-  /** Stamp a `half`-band graded tread around a cell, easing it to `targetE`. */
-  private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number, land: Land = Land.Road) {
+  /** Stamp a `half`-band graded tread around a cell, easing it to `targetE`. `w` overrides the
+   *  per-land write strength (1 = a fully-engineered cut that lands ON the design line). */
+  private gradeTreadAt(cxf: number, cyf: number, targetE: number, half: number, land: Land = Land.Road, w?: number) {
     const bx = Math.round(cxf);
     const by = Math.round(cyf);
     // Bench the tread to grade, and FEATHER one ring beyond it (eased partway to grade) so the
@@ -2187,7 +2960,7 @@ export class Terrain {
     // groove that made the old village descents read as ugly "troughs". Only the tread (≤half)
     // takes the road/track landcover; the feather ring stays natural ground, just smoothed.
     const reach = half + 1;
-    const treadW = land === Land.Trail ? 0.6 : land === Land.Track ? 0.72 : 0.82;
+    const treadW = w ?? (land === Land.Trail ? 0.6 : land === Land.Track ? 0.72 : 0.82);
     for (let dy = -reach; dy <= reach; dy++)
       for (let dx = -reach; dx <= reach; dx++) {
         const x = bx + dx;

@@ -41,7 +41,9 @@
  *
  * Read-only on lib/**. Deterministic. Writes only the transect CSV (path printed).
  *
- * Run: npx tsx scripts/terrain-roughness.ts [N]   (N survey seeds, default 8)
+ * Run: npx tsx scripts/terrain-roughness.ts [N] [START]   (N survey seeds from survey-START,
+ *   default 8 from 0; e.g. `… 8 40` = held-out survey-40..47. CSV is only written for START=0;
+ *   override its path with ITM_TRANSECT_CSV=… so a post-change run can't clobber the baseline.)
  */
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -50,9 +52,12 @@ import { createWorld } from "../lib/sim/world";
 import { Land } from "../lib/sim/terrain";
 
 const N = process.argv[2] ? Number(process.argv[2]) : 8;
-const SURVEY = Array.from({ length: N }, (_, i) => "survey-" + i);
+const START = process.argv[3] ? Number(process.argv[3]) : 0;
+const SURVEY = Array.from({ length: N }, (_, i) => "survey-" + (START + i));
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const CSV_PATH = resolve(REPO, "docs/progress/2026-07-02-realism-campaign/baseline/terrain-transects-korengal-HEAD.csv");
+const CSV_PATH =
+  process.env.ITM_TRANSECT_CSV ??
+  resolve(REPO, "docs/progress/2026-07-02-realism-campaign/baseline/terrain-transects-korengal-HEAD.csv");
 
 const WALL_DX = 13; // cells; carveFloodplain flatten+feather reaches 10.6 cells (53 m) each side
 const MARGIN = 2; // skip map border + forward-difference edge artifacts
@@ -70,7 +75,7 @@ const f = (v: number, d = 2) => (Number.isFinite(v) ? v.toFixed(d) : "  — ");
 interface SeedStats {
   seed: string;
   pAll: number[]; pWall: number[];
-  bandPct: number; cliffPct: number; bandedPct: number; comps: number;
+  bandPct: number; cliffPct: number; bandedPct: number; comps: number; maxBlobPct: number;
   r100raw50: number; r100raw90: number; r100detr50: number; r100detr90: number;
   R3: number; R9: number; md3: number; md9: number; E515: number; E1545: number; E45135: number;
   floorP50: number; floorP90: number; floorR3: number; floorMd3: number;
@@ -122,7 +127,7 @@ function analyse(seed: string): SeedStats {
     for (let x = MARGIN; x < size - MARGIN; x++)
       if (isWall(x, y) && slope[idx(x, y)] > 1.0) mask[idx(x, y)] = 1;
   const seen = new Uint8Array(size * size);
-  let comps = 0, bandedCells = 0, totalMask = 0;
+  let comps = 0, bandedCells = 0, totalMask = 0, maxBlob = 0;
   const stack: number[] = [];
   for (let y = MARGIN; y < size - MARGIN; y++)
     for (let x = MARGIN; x < size - MARGIN; x++) {
@@ -146,6 +151,7 @@ function analyse(seed: string): SeedStats {
           }
       }
       if (compSize >= 20) { comps++; bandedCells += compSize; }
+      if (compSize > maxBlob) maxBlob = compSize;
     }
 
   // --- box means via summed-area table (edge-clamped windows) ---
@@ -252,6 +258,7 @@ function analyse(seed: string): SeedStats {
     cliffPct: (100 * cliff) / wallN,
     bandedPct: totalMask ? (100 * bandedCells) / totalMask : 0,
     comps,
+    maxBlobPct: totalMask ? (100 * maxBlob) / totalMask : 0,
     r100raw50: pct(rawSorted, 0.5), r100raw90: pct(rawSorted, 0.9),
     r100detr50: pct(detrSorted, 0.5), r100detr90: pct(detrSorted, 0.9),
     R3, R9, md3, md9, E515, E1545, E45135,
@@ -276,11 +283,11 @@ const meanArr = (get: (r: SeedStats) => number[]) =>
 
 // TABLE 1 — slope distribution
 console.log("TABLE 1 — slope distribution (rise/run; 0.58≈30°, 1.0=45°)");
-console.log("seed        |  ALL p10  p25  p50  p75  p90  p99 | WALL p10  p25  p50  p75  p90  p99 | band30-45% cliff>1.0% banded% comps");
+console.log("seed        |  ALL p10  p25  p50  p75  p90  p99 | WALL p10  p25  p50  p75  p90  p99 | band30-45% cliff>1.0% banded% comps maxBlob%");
 const t1 = (r: SeedStats) =>
-  `${r.seed.padEnd(11)} |      ${r.pAll.map((v) => f(v)).join(" ")} |      ${r.pWall.map((v) => f(v)).join(" ")} |      ${f(r.bandPct, 1).padStart(5)}      ${f(r.cliffPct, 1).padStart(5)}   ${f(r.bandedPct, 1).padStart(5)}    ${String(r.comps).padStart(3)}`;
+  `${r.seed.padEnd(11)} |      ${r.pAll.map((v) => f(v)).join(" ")} |      ${r.pWall.map((v) => f(v)).join(" ")} |      ${f(r.bandPct, 1).padStart(5)}      ${f(r.cliffPct, 1).padStart(5)}   ${f(r.bandedPct, 1).padStart(5)}    ${String(r.comps).padStart(3)}    ${f(r.maxBlobPct, 1).padStart(5)}`;
 for (const r of rows) console.log(t1(r));
-console.log(t1({ ...rows[0], seed: "MEAN", pAll: meanArr((r) => r.pAll), pWall: meanArr((r) => r.pWall), bandPct: mean((r) => r.bandPct), cliffPct: mean((r) => r.cliffPct), bandedPct: mean((r) => r.bandedPct), comps: Math.round(mean((r) => r.comps)) }));
+console.log(t1({ ...rows[0], seed: "MEAN", pAll: meanArr((r) => r.pAll), pWall: meanArr((r) => r.pWall), bandPct: mean((r) => r.bandPct), cliffPct: mean((r) => r.cliffPct), bandedPct: mean((r) => r.bandedPct), comps: Math.round(mean((r) => r.comps)), maxBlobPct: mean((r) => r.maxBlobPct) }));
 console.log(t1(kor));
 
 // TABLE 2 — relief & roughness spectrum
@@ -324,7 +331,7 @@ at play zoom (normals are 5 m forward differences of the same field, shaders.ts:
 only gates the sub-cell MATERIAL tooth, which at 2 px/cell could not resolve anyway.`);
 
 // Transect CSV (seed korengal) + per-transect shape summary
-{
+if (START === 0) {
   const t = createWorld("korengal", 120).terrain;
   const size = t.size, cs = t.cellSize;
   const lines = ["transect,y_m,x_m,elev_m"];

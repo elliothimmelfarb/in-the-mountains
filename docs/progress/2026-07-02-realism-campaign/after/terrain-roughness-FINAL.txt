@@ -1,0 +1,62 @@
+terrain-roughness — valley SHAPE statistics vs real-Korengal oracle
+seeds: survey-0, survey-1, survey-2, survey-3, survey-4, survey-5, survey-6, survey-7 + korengal (transects)  |  wall = |dx| > 13 cells (65 m) from centerline
+
+TABLE 1 — slope distribution (rise/run; 0.58≈30°, 1.0=45°)
+seed        |  ALL p10  p25  p50  p75  p90  p99 | WALL p10  p25  p50  p75  p90  p99 | band30-45% cliff>1.0% banded% comps maxBlob%
+survey-0    |      0.18 0.38 0.69 0.96 2.21 6.97 |      0.20 0.43 0.71 0.98 2.29 7.08 |       38.9       24.2    98.0     63     52.4
+survey-1    |      0.18 0.37 0.73 1.04 2.22 6.92 |      0.20 0.43 0.75 1.06 2.31 7.00 |       36.9       28.4    98.4     81     37.7
+survey-2    |      0.18 0.41 0.73 0.99 1.83 6.09 |      0.22 0.46 0.75 1.01 1.90 6.13 |       40.7       25.5    97.2     72     44.5
+survey-3    |      0.19 0.43 0.74 1.04 2.08 5.62 |      0.23 0.48 0.76 1.06 2.16 5.69 |       39.1       28.7    98.0     71     53.7
+survey-4    |      0.18 0.42 0.73 1.02 2.04 5.74 |      0.22 0.47 0.75 1.04 2.10 5.80 |       39.6       27.3    97.6     69     44.7
+survey-5    |      0.19 0.45 0.76 1.09 2.28 5.87 |      0.23 0.50 0.78 1.12 2.34 5.92 |       37.9       31.1    98.2     75     51.5
+survey-6    |      0.18 0.35 0.69 1.01 2.25 7.00 |      0.20 0.39 0.71 1.03 2.33 7.10 |       34.9       26.7    98.3     45     52.7
+survey-7    |      0.19 0.45 0.76 1.04 2.22 7.42 |      0.24 0.50 0.78 1.05 2.29 7.47 |       40.4       28.8    97.9     61     36.3
+MEAN        |      0.18 0.41 0.73 1.02 2.14 6.45 |      0.22 0.46 0.75 1.05 2.22 6.52 |       38.6       27.6    98.0     67     46.7
+korengal    |      0.19 0.40 0.75 1.03 2.19 5.88 |      0.22 0.46 0.77 1.05 2.26 5.97 |       38.5       28.4    98.1     69     32.0
+
+TABLE 2 — relief + roughness (meters; md = median |dev|, robust vs RMS)
+seed        | relief rowRel50 | r100raw p50  p90 | r100detr p50  p90 |   R3   R9  md3  md9 | E5-15 E15-45 E45-135 | floor p50  p90   fR3  fmd3 |  rim p50  p90
+survey-0    |   1304     801  |       88.5 234.7 |       22.1  78.1 | 2.44 4.87 0.18 1.06 |  2.44   3.30   10.98 |      0.18 0.42  0.64  0.00 |      0.18 0.45
+survey-1    |   1251     810  |      101.2 215.8 |       28.8  74.3 | 2.48 5.06 0.19 1.18 |  2.48   3.46   10.23 |      0.18 0.44  0.51  0.00 |      0.18 0.37
+survey-2    |   1298     784  |       93.1 196.8 |       22.8  62.3 | 1.98 4.63 0.18 1.08 |  1.98   3.30    9.23 |      0.18 0.44  1.69  0.00 |      0.18 0.40
+survey-3    |   1285     793  |       99.6 209.4 |       26.5  64.4 | 1.82 4.67 0.19 1.18 |  1.82   3.37    9.37 |      0.18 0.38  0.35  0.00 |      0.18 0.36
+survey-4    |   1293     825  |       99.5 204.3 |       27.7  65.9 | 1.86 4.57 0.19 1.16 |  1.86   3.28    9.46 |      0.18 0.33  0.82  0.00 |      0.18 0.32
+survey-5    |   1226     794  |      103.8 220.8 |       30.4  65.6 | 2.03 5.13 0.18 1.20 |  2.03   3.71   10.14 |      0.18 0.49  1.23  0.02 |      0.18 0.50
+survey-6    |   1278     810  |       88.9 221.1 |       25.3  73.2 | 2.41 4.95 0.18 1.14 |  2.41   3.42   10.89 |      0.18 0.44  0.42  0.00 |      0.18 0.46
+survey-7    |   1280     801  |      106.8 203.4 |       29.5  88.9 | 3.16 7.14 0.20 1.22 |  3.16   5.25   11.24 |      0.18 0.38  3.05  0.00 |      0.18 0.43
+MEAN        |   1277     802  |       97.7 213.3 |       26.6  71.6 | 2.27 5.13 0.19 1.15 |  2.27   3.64   10.19 |      0.18 0.41  1.09  0.00 |      0.18 0.41
+korengal    |   1355     806  |       99.4 210.5 |       26.0  61.7 | 1.88 4.70 0.18 1.13 |  1.88   3.36    9.17 |      0.18 0.26  0.34  0.00 |      0.18 0.35
+
+TABLE 3 — mean WALL slope by distance from centerline (100 m bins; section shape)
+dist m      |     0-100  100-200  200-300  300-400  400-500  500-600  600-700  700-800  800-900 900-10001000-11001100-1200    1200+
+MEAN slope  |      0.83     1.48     0.89     0.91     0.96     1.02     1.17     1.30     1.28     1.30     1.21     0.93     0.57
+korengal    |      0.75     1.34     0.84     0.87     0.95     1.02     1.11     1.23     1.51     1.31     1.10     0.79     0.65
+
+ORACLE (real Korengal, CONTEXT.md): sustained 30–45° walls ⇒ WALL p25–p75 should sit in/around
+[0.58, 1.0] and band30-45% should be the DOMINANT wall class; cliff bands + scree chutes ⇒ a real
+>1.0 fraction organized in CONTIGUOUS bands (banded% high), not speckle; 100 m window on a 35°
+wall ≈ 70 m raw relief; within-wall texture (cliff steps, chutes, outcrop) ⇒ plane-detrended
+100 m relief ~10–30 m, NOT ~fbm-amp; relief/width: 1200–1800 m over 2000–3000 m horizontal
+(gradient 0.4–0.9 rim-to-river; sim half-width is 1280 m).
+
+RENDER MATH — what relief wavelength is even visible on screen
+u_detailGain = clamp((ppm-1.0)/2, 0, 1)  (terrain-gl.ts:696); default camera ppm 0.4 (WorldView.tsx:104)
+ppm   px/5m-cell  detailGain |  px per wavelength:   15m    25m    35m    70m   100m   200m
+0.4      2.0      0.00    |                         6.0   10.0   14.0   28.0   40.0   80.0
+0.7      3.5      0.00    |                        10.5   17.5   24.5   49.0   70.0  140.0
+1.0      5.0      0.00    |                        15.0   25.0   35.0   70.0  100.0  200.0
+1.5      7.5      0.25    |                        22.5   37.5   52.5  105.0  150.0  300.0
+2.0     10.0      0.50    |                        30.0   50.0   70.0  140.0  200.0  400.0
+3.0     15.0      1.00    |                        45.0   75.0  105.0  210.0  300.0  600.0
+A hillshade undulation needs ≳6 px per full wavelength (a resolvable light/dark pair) —
+at the default ppm 0.4 that is λ ≥ 15 m: every wavelength the FIELD carries at 15 m+ renders fine
+at play zoom (normals are 5 m forward differences of the same field, shaders.ts:48). u_detailGain
+only gates the sub-cell MATERIAL tooth, which at 2 px/cell could not resolve anyway.
+
+TRANSECT SHAPE (korengal) — floor flat-run + wall reversal density (3 m hysteresis)
+a smooth monotone power wall reverses ~0×/km; benched/cliff-banded rock reverses often
+row   | floorFlat m | west: span m  rev/km  | east: span m  rev/km
+y=128 |     165     |        1425     7.7  |         980    10.2
+y=256 |     140     |         965     6.2  |        1440     8.3
+y=384 |     150     |        1055     9.5  |        1350    17.8
+transects (korengal, rows y=128/256/384) → /private/tmp/claude-501/-Users-elliothimmelfarb-code-in-the-mountains/20b0f1e2-c0a3-4c00-8620-aafe2df2f33e/scratchpad/transects-FINAL.csv

@@ -1,0 +1,110 @@
+FRONT C — terrain structure tuning log (2026-07-02/03)
+Mechanisms shipped in lib/sim/terrain.ts (in pipeline order):
+  1. carveFloodplain: hard 3.5-cell feather → ~110 m smoothstep TOE APRON (kills the rim curb)
+  2. carveStrata: slope-gated texture-by-regime —
+     gentle (<~1.0, budget (1.06−s20)/0.68): ridged gully/outcrop dissection 85/42/32/20 m,
+       softAbs creases, slope-budgeted so base+texture stays under the 1.25 walkable line
+     steep (≥1.05→1.3): BANDED strata, asym bench(0.45)/riser cycle, λ=56 m vertical, dip 0.26λ,
+       duty 0.72-0.95, phase-drift (240 m), anisotropic BREACH chutes (450×110 m, ~20% gaps)
+  3. scrubSpeckle (3+2 passes): isolated slope spikes relaxed to 3×3 mean (probe-aligned rules)
+  4. connectBenches: strict-skin corner-cut components; pockets ≥40 cells get a padded,
+     blur-carved scree-chute corridor to the main skin (≤8 passes, elevation-only, pre-classify)
+  5. ensureGateEgress (pre-network): while gate corner-cut component <30% of passable, padded
+     blur-carve to the largest component + Track/Scree re-class (post-classify carve)
+  6. gate-egress ordering: ensureGateEgress BEFORE ensureNetworkConnectivity (village repair
+     must route against the big gate component, not a pocket)
+
+TUNING ROUNDS (survey-0..7 MEAN unless noted; DoD target in header)
+round | key config change                                | rev/km   | E15-45(≥3.2) | md3(≥0.30) | band%(≥38.7) | rim p50(<1.0) | wall p50 | reach%(≥60.6) | speckle(≤6) | comps(≤5.3)
+HEAD  | —                                                | 0-2.8    | 1.98         | 0.12       | 38.7         | 1.72          | 0.77     | 60.6          | 6           | 5.3
+T1    | dense strata λ34 K1.7 + ridged, toe apron        | 1.4-4.4  | 3.03         | 0.47       | 17.9 ✗       | 0.18          | 0.68     | —             | —           | —
+T2    | slope-gated strata (0.85-1.2)                    | 0-2.8    | 2.08         | 0.21       | 39.2         | 0.18          | 0.72     | —             | —           | —
+T5    | asym bench/riser shape λ40 (leak-through fix)    | 14-31    | 3.92         | 0.37       | 34.4 ✗       | 0.18          | 0.67     | —             | —           | —
+T8    | gate(0.9,1.1) + dissection retune                | 14-31    | 3.53         | 0.31       | 40.2         | 0.18          | 0.70     | 34.4 ✗       | 26 ✗        | 41 ✗
+T12   | budget 1.15, strength quantize (curtain-wall bug)| —        | —            | —          | —            | —             | —        | 14.1 ✗       | 13          | 55 ✗
+T16   | smooth strength + gate(1.05,1.3) (fix T12)       | —        | —            | —          | —            | —             | —        | 57.9          | 20          | 46 ✗
+T25   | connectBenches blur-carve + scrubs                | 6.3-16.3 | 3.64         | 0.17 ✗     | 39.3         | 0.18          | 0.74     | 60.0          | 13          | 20.4
+T29/30| texture rebalance (final)                        | 6.2-17.8 | 3.44         | 0.18 ✗     | 38.6 (−0.1)  | 0.18          | 0.75     | 63.4          | 13          | 15.4
+FINAL | + padded egress rewrite, egress-before-network   | 6.2-17.8 | 3.44         | 0.18 ✗     | 38.6         | 0.18          | 0.75     | 59.5*         | 13 ✗        | 17.4 ✗
+HELDOUT survey-40..47                                    | —        | 3.65         | 0.18       | 39.2         | 0.18          | 0.77     | —             | —           | —
+
+* probe seed set is a mixed (non-tuning) set; reach fluctuates ±4 across egress variants by seed.
+  vs baseline per-seed: survey-9 11→15, korengal 73.6→72.0, korengal-2 82→43 (worst),
+  survey-2 87.9→84.6, ridgeline 45→79, restrepo 74→72, kunar-3 56→55, valley-7 55.6→55.1.
+
+MACRO GUARDS (FINAL vs bands): wall p50 0.75 ∈[0.60,0.90] OK · r100raw p50 97.2 ∈[70,115] OK ·
+relief ratio 0.627 ∈[0.52,0.72] OK · rowRel50 802 · TABLE3 section shape preserved (toe bin
+0-100 0.82→0.9-1.0, 100-200 carries the inner-gorge shoulder).
+
+>45° BLOB SHIFT (report per DoD): comps 64→67, maxBlob 43.3%→48.1%, banded% 98.6→98.0 — the
+mask is NOT broken up in the shipped config (T8 achieved 110/39% but cratered reach to 34%).
+
+BASELINE POCKET FACT (HEAD worktree, korengal): the 3 mega-pockets (43.7k/17.1k/8.1k cells)
+exist AT HEAD — macro features, not strata damage. Baseline strict comps korengal = 7; final = ~9
+(probe run) with the 41k flank MERGED by connectBenches (main comp 142k→~185k). Speckle in
+ABSOLUTE cells: 787→~1100 (+42%); the 6%→13% ratio is denominator-inflated (slope-impassable
+share halved).
+
+RECORDED TENSIONS (do-not-grind-further):
+ A. md3 ≥0.30 vs band%/speckle/"step-like": md3 is 15 m-scale CURVATURE; step-like fields put
+    curvature at sparse edges. Dense Gaussian fine-noise reaches 0.30+ (measured 0.47 in T1) but
+    collapses band% to 18-34 and sprays 26% speckle. Final 0.18 = +50% over baseline.
+ B. >45° blob-break vs walkable-skin percolation: breach chutes that keep reach ≥60 are
+    un-strata'd steep base ground — the same material that keeps the >1.0 mask connected.
+ C. comps ≤5.3 vs bench-rich walls: benches are walkable shelves; connector merges all pockets
+    with a ≤80-cell feasible corridor; ~8-12 small shelves/seed persist (baseline had ~5, incl.
+    3 mega-flanks).
+
+================================================================================
+FINISHER PASS (2026-07-03) — world connectivity: the guards the strata field broke
+Predecessor's FINAL row above was measured with a dirty main tree and an earlier
+knob state; the finisher re-measured everything in an ISOLATED worktree (HEAD
+5764134 + terrain.ts + terrain-roughness.ts only). Verbatim isolated re-measure of
+the inherited state: reach 59.5 (guard >=60.6), vilUnreach 4/43 (guard <=2/44),
+routerNULL 2 (guard 0), korengal-2 reach 82->43 crater. Mechanism found with a
+component diagnostic: the strata field splits the walkable map into MEGA-components
+(korengal-2 54/42% halves, survey-7 37/36/17%, survey-9 33/28/18/14%) separated by
+riser bands 15-45 m thick, and the old gate-egress guard (a) stopped at gateShare
+0.3, (b) ran BEFORE ensureNetworkConnectivity whose benched-track cut-banks
+re-severed the world (korengal-2 gateShare 0.97 during the pass -> 0.53 shipped).
+
+ROUNDS (each with stated hypothesis, measured in isolation):
+F1 routeForCut multi-source full-map + merge-all-comps>=max(1200, 2% passable):
+   cheapest cuts were 174 m climbs over 45 m (unbuildable) -> 8 bench carves
+   dead-ended. Grade-feasibility cost added (excess over 0.42 charged x60):
+   s7 96.3 / k2 95.0 / s9 77.6, but restrepo 74->39.5 (bench carve leaves 0.28x
+   step residual; 14-cell cap on the lane escalation blocked its 25-cell fix).
+F2 carveCutAlong (anchored fwd/bwd/fwd design line, FULL-strength tread): restrepo
+   87.4, but survey-7 mouth sealed (0.9% gate pocket) — 0.42 cannot span the
+   knife-edge web.
+F3 grade-cap experiments REFUTED: cap 1.1 and 0.8 both strictly worse — a tread at
+   along-grade g reads forward-difference slope up to ~2g at band boundaries
+   (measured 1.42-1.53 blocking restrepo's own tread at 0.8; 0.42 carved it clean).
+   Bench+lane alternation with direct-route lanes (excess x6) opened the mouths.
+F4 VIADUCT BUG (the big one): long gradeCorridor lanes AND Phase B's
+   carveTrackAlong both write the design line regardless of ground: on strata
+   walls the 0.42 line lags a descent by ~3 m/cell and landed a village-track
+   tread at elev 1976 ACROSS survey-7's 1775 floodplain — a 200 m embankment that
+   buried the MSR (125-cell perched road island at (280,256)) and dammed the
+   river (audit banksSplit). Fix: lanes hard-capped at 14 cells (a dozer punch,
+   never a causeway); carveTrackAlong design line clamped to hug ground
+   (fill<=2.5 m, cut<=4 m); ensureRiverCrossings re-run AFTER the last mutator
+   (same re-validate-last principle as the world pass).
+
+FINAL (isolated, definitive):
+  terrain-audit: banksSplit 0/9, vilUnreach 0/43 (HEAD 2/44), routerNULL 0/43,
+    farMiss 0/313 — ALL GREEN, better than HEAD.
+  passability MEAN: reach 75.2 (HEAD 60.6, guard >=60.6; worst seed survey-9 65.3
+    vs 11.0 at HEAD), pass 81.5, comps 16.5, speckle 14%.
+  route-quality: ALL 1.52, loopy 4/48 (8%), rev 0.0, maxExc 40 m. (HEAD smooth
+    field: 1.12/0. Inherited state's "1.01/1" was an artifact — alpha-1 0.14 /
+    delta-4 0.19 were best-effort stubs to unreachable objectives. On the banded
+    field every objective is now reachable and walls cost real detours; ridge-11
+    5.54 pre-exists the finisher work. Residual -> Wave-2 trails contouring.)
+  roughness: unchanged from predecessor's achievement (connectivity carves are
+    ~100-2600 cells/seed of tread): tuned rev/km 6.2-17.8, E15-45 3.4-4.2, band%
+    38.5-38.7, rim 0.18, wall p50 0.75, r100 97-98; held-out survey-40..47 band%
+    39.1, E15-45 4.0, wall p50 0.77, r100 101. md3 0.18-0.19 (recorded tension A).
+  squad-arrival (HEAD movement stack): 23-25/27 arrive, coh 86-87, return 76-78 —
+    below the 100/89 HEAD baseline; the movement front's stack (pending combat.ts
+    + FM windows) measured 99-100/89 on this same terrain (their m2 files).
