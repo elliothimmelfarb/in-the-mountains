@@ -2946,8 +2946,14 @@ export class Terrain {
     // 1) Through the ECP and across the apron: a flat graded tread from inside the
     //    gate out to the descent start (the apron is already benched, so it's gentle).
     this.gradeCorridor(gi.cx, gi.cy, ds.cx, ds.cy, 1);
-    // 2) Switchback down to the valley road at a vehicle grade (road tread).
-    this.descendTrack(ds.cx, ds.cy, 1, 0.32, Land.Road, rng);
+    // 2) Switchback down to the valley road at a vehicle grade (road tread), hugging AROUND the
+    //    wire when the valley road lies on the outpost's far side (issue-032 ordering defect —
+    //    see descendTrack's avoid param).
+    this.descendTrack(ds.cx, ds.cy, 1, 0.32, Land.Road, rng, {
+      cx: cop.center.cx,
+      cy: cop.center.cy,
+      r: this.copRadiusCells() + 3, // tread half=1 + feather 1 — keep the whole cut off the wall
+    });
   }
 
   /** Stamp a `half`-band graded tread around a cell, easing it to `targetE`. `w` overrides the
@@ -3029,7 +3035,21 @@ export class Terrain {
    * real graded trail threads down to the road instead of leaving a sheer drop. Returns
    * the cell where it tied into the valley.
    */
-  private descendTrack(startCx: number, startCy: number, half: number, maxGrade: number, land: Land, rng: RNG): { cx: number; cy: number } {
+  private descendTrack(
+    startCx: number,
+    startCy: number,
+    half: number,
+    maxGrade: number,
+    land: Land,
+    rng: RNG,
+    // Issue-032 ordering defect: with the COP built BEFORE the roads, a descent whose target
+    // (the valley road) lies on the far side of the outpost used to walk straight back THROUGH
+    // the wire — stamping Road across the yard and re-benching the interior (9 cells inside the
+    // ring on valley-2533/korengal). An avoid disc makes the tread slide around the perimeter
+    // verge instead — a road hugs the wire, it never crosses it (the gate's own ECP lane is
+    // buildCop's and legitimate).
+    avoid?: { cx: number; cy: number; r: number },
+  ): { cx: number; cy: number } {
     const size = this.size;
     const cs = this.cellSize;
     const sCx = clamp(startCx, 0, size - 1);
@@ -3085,8 +3105,18 @@ export class Terrain {
         hx /= hl;
         hy /= hl;
       }
-      const nx = px + hx * stepCells;
-      const ny = py + hy * stepCells;
+      let nx = px + hx * stepCells;
+      let ny = py + hy * stepCells;
+      if (avoid) {
+        const adx = nx - avoid.cx;
+        const ady = ny - avoid.cy;
+        const ad = Math.hypot(adx, ady);
+        if (ad < avoid.r) {
+          // slide the step out to the wire verge — hug the perimeter, never cross it
+          nx = avoid.cx + (adx / (ad || 1)) * avoid.r;
+          ny = avoid.cy + (ady / (ad || 1)) * avoid.r;
+        }
+      }
       designE = Math.max(floorE, designE - Math.min(maxGrade, Math.max(0, needGrade)) * stepM);
       this.gradeTreadAt(nx, ny, designE, half, land);
       line.push(this.cellCenter(clamp(Math.round(nx), 0, size - 1), clamp(Math.round(ny), 0, size - 1)));
@@ -3123,7 +3153,6 @@ export class Terrain {
     const axisLen = Math.hypot(destCx - sCx, destCy - sCy) || 1;
     const ax = (destCx - sCx) / axisLen;
     const ay = (destCy - sCy) / axisLen;
-    const swHalf = 11;
     let px = sCx + 0.5;
     let py = sCy + 0.5;
     let side = sideSeed & 1 ? 1 : -1;
@@ -3146,63 +3175,119 @@ export class Terrain {
     visited.add(this.idx(sCx, sCy));
     let bestE = startE; // highest elevation reached — a trail climbs, it doesn't wander
     let stall = 0; // steps since we last gained new height (a contour wander along a cliff base)
-    for (let iter = 0; iter < 220; iter++) {
+    // Step budget sized to the design grade: a full 180 m climb at the ~0.15 sustained grade is
+    // ~1200 m of tread (~175 steps of 7 m) plus hairpins and contour recoveries — 320 covers it.
+    // (The old 220 was sized to the 0.3-grade fall-line era and would truncate every long climb.)
+    for (let iter = 0; iter < 320; iter++) {
       const cxi = clamp(Math.round(px), 0, size - 1);
       const cyi = clamp(Math.round(py), 0, size - 1);
       const hereE = this.elev[this.idx(cxi, cyi)];
       if (hereE - startE >= climbTarget) break; // gained enough height — at the shoulder
       if (hereE > bestE + 0.3) { bestE = hereE; stall = 0; } else stall++;
-      if (stall > 12) break; // not gaining height for a dozen steps (boxed against a cliff band): a
-      // real switchback gains height every few steps, so this means the walker is SHUFFLING sideways
-      // among a cluster of passable cells at the foot of a face — end the trail rather than scribble.
+      if (stall > 64) break; // no new height for ~450 m of tread: genuinely walled. The limit is
+      // 64 (was 12) because on the strata walls height is gained ONLY at riser BREACHES, spaced
+      // ~110–450 m along-strike (carveStrata's breach field) — a real trail contours the riser
+      // base to the breach, then ladders up it, so the guard must tolerate a full inter-breach
+      // traverse (measured: stall 12 killed survey-9's every wall climb at <24 m net, leaving 1
+      // walked line + fall-line fallback stamps). Scribble is culled by the OTHER issue-029
+      // machinery, all intact: visited-cell guard (no re-stepping), no-downhill tries, and the
+      // net-climb gate (a long traverse that never climbs lays NOTHING).
       if (hereE < bestE - 18) break; // descending below our high point — a climbing trail doesn't drop
       const g = this.gradientCells(px, py); // points UPHILL
       const gl = Math.hypot(g.x, g.y);
-      if (gl < 1e-3) break; // flat / summit — nowhere left to climb
-      const fx = g.x / gl;
-      const fy = g.y / gl;
       const localSlope = this.slope[this.idx(cxi, cyi)];
+      // NEAR-FLAT ground (a bench top, the floodplain plate on the way to the wall) has no fall
+      // line to respect — the trail walks STRAIGHT TOWARD THE DESTINATION like any field path,
+      // with the same acceptance checks (the old `gl<1e-3 → break` ended every trail that had to
+      // cross flat ground first: measured, it killed entire village fans on survey-9/korengal-2).
+      const flat = gl < 1e-3 || localSlope < 0.06;
+      const fx = flat ? 0 : g.x / gl;
+      const fy = flat ? 0 : g.y / gl;
       // base heading: climb straight up where gentle, else traverse the contour with a little climb
       let cxr = -fy; // contour (perpendicular to fall line)
       let cyr = fx;
-      if (Math.sign(cxr * -ay + cyr * ax) !== side) {
+      if (!flat && Math.sign(cxr * -ay + cyr * ax) !== side) {
         cxr = -cxr;
         cyr = -cyr;
       }
-      const climbMix = localSlope <= maxGrade ? 0.95 : 0.36; // straight up on gentle ground; on a steep
-      // face, traverse with a firm ~35% climb component so the switchback gains height like a real goat
-      // trail (a dozen hairpins to a shoulder), instead of an endless near-level contour scribble.
-      // try the preferred heading, then progressively more contour-hugging, then a pure contour, until
-      // walkable. The old list ended with a slightly-DOWNHILL try (-0.12); combined with the hairpin
-      // recovery that let a boxed walker bounce downhill→sideways→back among fresh cells, scribbling a
-      // tangle at the foot of a cliff. A climbing trail never steps downhill, so the worst case is now a
-      // clean contour traverse that the stall guard ends if it isn't gaining height.
-      const tries = [climbMix, 0.1, 0.0];
+      // GRADE TARGETING (realism campaign 2026-07-02 Wave 2a — the USFS trail-construction oracle).
+      // The tread's along-track grade is set EXPLICITLY, not left to a heading blend: design grade
+      // g = min(hillside, max(half the hillside grade, FLOOR), maxGrade) — the half-rule (trail
+      // grade ≤ half the sideslope, so the tread sheds water instead of becoming the stream),
+      // floored so the trail still makes honest progress on moderate ground, capped at the
+      // sustained maximum a laden human walks all day (the oracle's 15–25% max-sustained band).
+      // The heading is then built with an EXACT uphill dot product k = g/slope:
+      // h = contour·√(1−k²) + up·k ⇒ along-grade = slope·k = g by construction. The old blend
+      // (climbMix 0.95/0.36, then normalize) put ~0.49·slope up the fall line on steep faces —
+      // measured alongGr 0.185 ≈ 2× the ~10% oracle. Low g on steep ground is ALSO what makes the
+      // legs long: a 0.15 tread on a 1.0 face runs ~7× the fall-line distance — the long contour
+      // traverse + switchback-ladder look of a real Hindu Kush footpath.
+      const gAlong = Math.min(localSlope, Math.max(0.5 * localSlope, TRAIL_GRADE_FLOOR), maxGrade);
+      const k = localSlope > 1e-3 ? Math.min(1, gAlong / localSlope) : 1;
+      // Candidate headings, best-first. On sloped ground: the design-grade line, then flatter
+      // recoveries, then a pure contour (never steeper than design, never a downhill try — the
+      // old -0.12 downhill try scribbled tangles at cliff feet, issue 029). On near-flat ground:
+      // the destination line. EACH base heading is also tried at small rotations (±17°, ±34°) —
+      // the weave a real builder walks around a boulder or a texture bump. Without the fan, one
+      // rejected cell killed all tries at once on the banded field (all three mixes collapse
+      // onto nearly the same contour line when k is small): measured `boxed` after <10 steps on
+      // survey-9's every wall climb.
       let stepped = false;
       for (let attempt = 0; attempt < 2 && !stepped; attempt++) {
-        for (const mix of tries) {
-          let hx = cxr * (1 - Math.abs(mix)) + fx * mix;
-          let hy = cyr * (1 - Math.abs(mix)) + fy * mix;
-          const hl = Math.hypot(hx, hy) || 1;
-          hx /= hl;
-          hy /= hl;
-          const nx = px + hx * stepCells;
-          const ny = py + hy * stepCells;
-          if (!passAt(nx, ny)) continue;
-          const ncx = clamp(Math.round(nx), 0, size - 1);
-          const ncy = clamp(Math.round(ny), 0, size - 1);
-          const ni = this.idx(ncx, ncy);
-          if (visited.has(ni)) continue; // already laid here — don't fold the trail back over itself
-          const last = line[line.length - 1];
-          const ncW = this.cellCenter(ncx, ncy);
-          if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
-          const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
-          if (Math.abs(offAxis) > swHalf) side = offAxis > 0 ? -1 : 1;
-          px = nx;
-          py = ny;
-          stepped = true;
-          break;
+        const bases: [number, number][] = [];
+        if (flat) {
+          const ddx = destCx + 0.5 - px;
+          const ddy = destCy + 0.5 - py;
+          const dl = Math.hypot(ddx, ddy) || 1;
+          bases.push([ddx / dl, ddy / dl]);
+        } else {
+          for (const mix of [k, k * 0.45, 0]) {
+            // contour and uphill are orthogonal unit vectors, so this is unit-length by construction
+            const cw = Math.sqrt(Math.max(0, 1 - mix * mix));
+            bases.push([cxr * cw + fx * mix, cyr * cw + fy * mix]);
+          }
         }
+        for (const [bx0, by0] of bases) {
+          for (const [rc, rs] of TRAIL_ROT) {
+            const hx = bx0 * rc - by0 * rs;
+            const hy = bx0 * rs + by0 * rc;
+            const nx = px + hx * stepCells;
+            const ny = py + hy * stepCells;
+            if (!passAt(nx, ny)) continue;
+            const ncx = clamp(Math.round(nx), 0, size - 1);
+            const ncy = clamp(Math.round(ny), 0, size - 1);
+            const ni = this.idx(ncx, ncy);
+            if (visited.has(ni)) continue; // already laid here — don't fold the trail back over itself
+            // A-POSTERIORI grade acceptance (Wave 2a): the heading construction linearizes the
+            // LOCAL gradient, which the banded strata field breaks — a 7 m step across a riser
+            // edge jumps 3–4 m however gentle the design heading (measured: walked lines at
+            // meanGr 0.35–0.53 on restrepo with the design capped at 0.15). Check the REAL
+            // cell-to-cell rise and reject any step beyond the sustained hard cap (the oracle's
+            // 25%) or rolling down more than 0.2 (a trail dips through a saddle or over a bench
+            // lip; it doesn't dive into a gully — total descent is bounded by the drop18 guard).
+            // A rejected riser step deflects through the fan ⇒ the trail contours the riser base
+            // and climbs where the risers breach — exactly the real trail line.
+            const dCell = Math.hypot(ncx - cxi, ncy - cyi) || 1;
+            const realG = (this.elev[ni] - hereE) / (dCell * this.cellSize);
+            if (realG > TRAIL_GRADE_HARD || realG < -0.2) continue;
+            const last = line[line.length - 1];
+            const ncW = this.cellCenter(ncx, ncy);
+            if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
+            const offAxis = (nx - (sCx + 0.5)) * -ay + (ny - (sCy + 0.5)) * ax;
+            // Hairpin cadence follows the ground (Wave 2a): TIGHT ladders on steep spur noses
+            // (real switchbacks stack where the face is steep — short legs, quick turns), LONG
+            // contour traverses on moderate ground (a bench-riding leg runs until the strata hand
+            // it a reason to turn). One threshold per regime keeps the walk deterministic.
+            const swLim = localSlope > 0.55 ? 9 : 18;
+            if (Math.abs(offAxis) > swLim) side = offAxis > 0 ? -1 : 1;
+            px = nx;
+            py = ny;
+            stepped = true;
+            break;
+          }
+          if (stepped) break;
+        }
+        if (flat) break; // no hairpin side to flip in destination-seeking mode
         if (!stepped) {
           side = -side; // boxed in on this side — try a hairpin to the other
           cxr = -cxr;
@@ -3282,7 +3367,7 @@ export class Terrain {
       for (let k = 0; k < best.length; k++) {
         const b = best[k];
         if (b.x < 0) continue;
-        const pts = this.ascendTrail(o.cx, o.cy, b.x, b.y, 0, 0.3, Land.Trail, o.cx * 31 + o.cy + k * 7);
+        const pts = this.ascendTrail(o.cx, o.cy, b.x, b.y, 0, TRAIL_GRADE_TARGET, Land.Trail, o.cx * 31 + o.cy + k * 7);
         if (pts.length < 2) continue;
         this.trailLines.push({ kind: "trail", pts });
         // A trail that genuinely climbed somewhere becomes a node of the ridgeline network.
@@ -3295,6 +3380,38 @@ export class Terrain {
           });
         }
       }
+    }
+    // BENCH LATERALS + PATROL PATHS (Wave 2a): a grade-routed FOOT trail (trailRoute) between
+    // the trailheads of every village-MST pair, and from the COP gate to EVERY village — the
+    // paths a valley actually wears: neighbours walk to neighbours, and a year of patrols wears
+    // a foot line to each village. The MST already gets a wheeled Track (layTrack/findPath);
+    // these are the parallel foot lines — they ride the strata benches and ladder through riser
+    // breaches (trailRoute prices climb beyond the design grade), which hands the planner
+    // CONTOUR corridors at village altitude, where the walked gate→village routes actually live
+    // (measured fall-line 59%/contour 11% on moderate slopes without them). A pair the router
+    // can't reach lays nothing — no path to nowhere. Endpoints are the villages' PASSABLE edge
+    // cells (gradeableEdgeCell) — the qalat center is walled.
+    const benchEdge = new Map<number, { cx: number; cy: number } | null>();
+    const edgeOf = (i: number) => {
+      if (!benchEdge.has(i)) benchEdge.set(i, this.gradeableEdgeCell(this.villages[i].cx, this.villages[i].cy));
+      return benchEdge.get(i)!;
+    };
+    const benchPairs: [{ cx: number; cy: number }, { cx: number; cy: number }][] = [];
+    for (const [ia, ib] of this.villageMST()) {
+      const a = edgeOf(ia);
+      const b = edgeOf(ib);
+      if (a && b) benchPairs.push([a, b]);
+    }
+    if (this.cop?.gateOutside) {
+      const g = this.nearestPassable(this.cop.gateOutside.cx, this.cop.gateOutside.cy, 16);
+      for (let i = 0; i < this.villages.length; i++) {
+        const e = edgeOf(i);
+        if (e) benchPairs.push([{ cx: g.cx, cy: g.cy }, e]);
+      }
+    }
+    for (const [a, b] of benchPairs) {
+      const route = this.trailRoute(a.cx, a.cy, b.cx, b.cy);
+      if (route) this.layTrailRoute(route);
     }
     // Ridgeline links: along each valley wall, walk a contour-holding lateral trail between
     // successive trail summits — only laid when the walker actually arrives (a high path to
@@ -3314,6 +3431,150 @@ export class Terrain {
   }
 
   /**
+   * Grade-priced Dijkstra for a FOOT TRAIL between two passable cells (Wave 2a) — the bench
+   * lateral / patrol-path router. The greedy lateral walker boxes on the strata field (no
+   * backtracking: measured, most village-MST walks died in grade cul-de-sacs at 0–150 steps);
+   * routing is a SEARCH problem and the codebase's proven answer is routeForCut's family —
+   * price each step's elevation change beyond the trail design grade, so the route rides
+   * benches along-strike and ladders through riser breaches, like a real footpath. Differences
+   * from routeForCut: strictly PASSABLE ground (a foot trail is worn, never cut — no cliff/river
+   * crossing; fords/footbridges are passable and become the honest crossings), symmetric grade
+   * pricing (walked both ways), a hard per-step cap (0.35 — a rock step, well under the probe's
+   * 0.45 unwalkable line), and a bounded search box. Returns the cell path or null (honestly
+   * unreachable). Deterministic.
+   * The caller stamps landcover only (conform 0 — see ascendTrail on why that is load-bearing);
+   * a Dijkstra path never revisits a cell, so self-overlap is 0 by construction (issue 029).
+   */
+  private trailRoute(
+    aCx: number,
+    aCy: number,
+    bCx: number,
+    bCy: number,
+    designGrade = TRAIL_GRADE_TARGET,
+    hardGrade = 0.35,
+    excessW = 45,
+  ): { cx: number; cy: number }[] | null {
+    const size = this.size;
+    const cs = this.cellSize;
+    const PAD = 45; // cells of slack around the endpoints' bounding box (~225 m of detour room)
+    const x0 = Math.max(0, Math.min(aCx, bCx) - PAD);
+    const y0 = Math.max(0, Math.min(aCy, bCy) - PAD);
+    const x1 = Math.min(size - 1, Math.max(aCx, bCx) + PAD);
+    const y1 = Math.min(size - 1, Math.max(aCy, bCy) + PAD);
+    const bw = x1 - x0 + 1;
+    const bh = y1 - y0 + 1;
+    const li = (cx: number, cy: number) => (cy - y0) * bw + (cx - x0);
+    const cost = new Float64Array(bw * bh).fill(Infinity);
+    const prev = new Int32Array(bw * bh).fill(-1);
+    const heap: number[] = [];
+    const push = (idx: number) => {
+      heap.push(idx);
+      let i = heap.length - 1;
+      while (i > 0) {
+        const p = (i - 1) >> 1;
+        if (cost[heap[p]] <= cost[heap[i]]) break;
+        [heap[p], heap[i]] = [heap[i], heap[p]];
+        i = p;
+      }
+    };
+    const pop = (): number => {
+      const top = heap[0];
+      const last = heap.pop()!;
+      if (heap.length) {
+        heap[0] = last;
+        let i = 0;
+        for (;;) {
+          const l = i * 2 + 1;
+          const r = l + 1;
+          let m = i;
+          if (l < heap.length && cost[heap[l]] < cost[heap[m]]) m = l;
+          if (r < heap.length && cost[heap[r]] < cost[heap[m]]) m = r;
+          if (m === i) break;
+          [heap[m], heap[i]] = [heap[i], heap[m]];
+          i = m;
+        }
+      }
+      return top;
+    };
+    if (!this.passableCell(aCx, aCy) || !this.passableCell(bCx, bCy)) return null;
+    const start = li(aCx, aCy);
+    const goal = li(bCx, bCy);
+    cost[start] = 0;
+    push(start);
+    let expanded = 0;
+    // excessW 45 is ~5× the indifference point between a fall-line pitch and a 3× longer
+    // contour line — the half-rule, made price (30 measured a 0.127 network mean; 45 holds it
+    // in the 0.10–0.13 oracle band). Riding EXISTING path landcover is discounted so the
+    // network coalesces into shared lines instead of braiding parallel ones.
+    while (heap.length && expanded < 350000) {
+      const cur = pop();
+      if (cur === goal) break;
+      expanded++;
+      const cx = (cur % bw) + x0;
+      const cy = ((cur / bw) | 0) + y0;
+      const eHere = this.elev[this.idx(cx, cy)];
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const nx = cx + dx;
+          const ny = cy + dy;
+          if (nx < x0 || ny < y0 || nx > x1 || ny > y1 || !this.passableCell(nx, ny)) continue;
+          // the mover's anti-corner-cut rule — never thread a diagonal both of whose orthogonal
+          // neighbours are blocked (the planner/mover cannot walk it, so the trail must not)
+          if (dx !== 0 && dy !== 0 && !this.passableCell(cx + dx, cy) && !this.passableCell(cx, cy + dy)) continue;
+          const ni = li(nx, ny);
+          const gi = this.idx(nx, ny);
+          const dM = (dx !== 0 && dy !== 0 ? Math.SQRT2 : 1) * cs;
+          const dE = Math.abs(this.elev[gi] - eHere);
+          if (dE > hardGrade * dM) continue; // beyond a rock step — unwalkable as a path, route around
+          const excess = Math.max(0, dE - designGrade * dM);
+          const l = this.land[gi] as Land;
+          const onNet = l === Land.Road || l === Land.Track || l === Land.Trail || l === Land.Footbridge || l === Land.Ford;
+          const step = (dM * (1 + 0.6 * this.slope[gi]) + excess * excessW) * (onNet ? 0.7 : 1);
+          const nc = cost[cur] + step;
+          if (nc < cost[ni]) {
+            cost[ni] = nc;
+            prev[ni] = cur;
+            push(ni);
+          }
+        }
+    }
+    if (!Number.isFinite(cost[goal])) return null;
+    const path: { cx: number; cy: number }[] = [];
+    let c = goal;
+    while (c !== -1) {
+      path.push({ cx: (c % bw) + x0, cy: ((c / bw) | 0) + y0 });
+      c = prev[c];
+    }
+    path.reverse();
+    return path;
+  }
+
+  /** Stamp a routed foot-trail cell path as PURE LANDCOVER (conform 0) and record its centerline
+   *  for the renderer. Never overwrites engineered surfaces or crossings (a trail joining a ford
+   *  keeps the ford). Returns the trailLine points, or [] if the path was degenerate. */
+  private layTrailRoute(path: { cx: number; cy: number }[]): Vec2[] {
+    if (path.length < 2) return [];
+    const line: Vec2[] = [];
+    for (const p of path) {
+      const i = this.idx(p.cx, p.cy);
+      const l = this.land[i] as Land;
+      if (
+        l !== Land.Hesco && l !== Land.Structure && l !== Land.Compound && l !== Land.CompoundWall &&
+        l !== Land.Road && l !== Land.Track && l !== Land.Gravel && l !== Land.River && l !== Land.Ford &&
+        l !== Land.Footbridge
+      )
+        this.land[i] = Land.Trail;
+      // (Track kept: trailRoute deliberately RIDES the existing network — relabelling a benched
+      // Track cut as "Trail" both mislabels engineered tread and trips the trough metric with
+      // the track's own legitimate benching. The foot line shares the wheeled tread there.)
+      line.push(this.cellCenter(p.cx, p.cy));
+    }
+    this.trailLines.push({ kind: "trail", pts: line });
+    return line;
+  }
+
+  /**
    * Walk a contour-holding HIGH TRAIL between two ridge/shoulder cells — the lateral path that
    * links the tops of the climbing trails into a network (herders and fighters move ALONG the
    * high ground). Greedy and deterministic: each step prefers the direct heading to the target
@@ -3327,7 +3588,16 @@ export class Terrain {
     const size = this.size;
     const cs = this.cellSize;
     const stepCells = 1.4;
-    const maxAlong = 0.5; // max |signed grade| along the tread — a high trail rolls, it doesn't climb
+    // Wave 2a grade discipline: a ridge trail ROLLS at a walkable grade — the old 0.5 cap let a
+    // "high trail" pitch at 27° along-track (the oracle's max-sustained band is 15–25%). Steps are
+    // accepted in two tiers: BENCH-RIDING first (|grade| ≤ 0.12 — the strata benches are near-flat
+    // shelves and the natural line between shoulders), then a short BUMP pitch only when no gentle
+    // step exists (0.35 for ONE step is a rock step on a village path, not a sustained grade — the
+    // oracle's 15–25% band is about sustained pitch; per-step enforcement at 0.25 boxed every
+    // MST bench lateral on the textured field, measured 100+ grade rejections per walk). The
+    // bench tier + the probe's length-weighted mean keep the network at the ~10% average.
+    const maxAlong = 0.35; // bump tier — a single rock step, never the preferred line
+    const benchAlong = 0.12; // preferred tier — ride the bench when one is there
     let px = aCx + 0.5;
     let py = aCy + 0.5;
     const line: Vec2[] = [this.cellCenter(aCx, aCy)];
@@ -3366,27 +3636,36 @@ export class Terrain {
       const cands: [number, number][] = gl > 1e-4
         ? [[ux, uy], [ux * 0.55 + tx * 0.45, uy * 0.55 + ty * 0.45], [tx, ty], [-tx, -ty]]
         : [[ux, uy]];
+      // Same weave fan as ascendTrail (TRAIL_ROT): each candidate is tried straight, then at
+      // ±17°/±34° — without it one rejected cell kills the whole 4-candidate list at once and
+      // the walk boxes within a few steps on the textured field (measured on every MST pair).
       let stepped = false;
-      for (const [hx0, hy0] of cands) {
-        const hl = Math.hypot(hx0, hy0) || 1;
-        const hx = hx0 / hl;
-        const hy = hy0 / hl;
-        const nx = px + hx * stepCells;
-        const ny = py + hy * stepCells;
-        if (!passAt(nx, ny)) continue;
-        const along = (elevAtCell(nx, ny) - elevAtCell(px, py)) / (stepCells * cs);
-        if (Math.abs(along) > maxAlong) continue;
-        const ncx = clamp(Math.round(nx), 0, size - 1);
-        const ncy = clamp(Math.round(ny), 0, size - 1);
-        const ni = this.idx(ncx, ncy);
-        if (visited.has(ni)) continue; // don't fold the ridge trail back over a cell already laid
-        const last = line[line.length - 1];
-        const ncW = this.cellCenter(ncx, ncy);
-        if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
-        px = nx;
-        py = ny;
-        stepped = true;
-        break;
+      for (const lim of [benchAlong, maxAlong]) {
+        for (const [hx0, hy0] of cands) {
+          const hl = Math.hypot(hx0, hy0) || 1;
+          for (const [rc, rs] of TRAIL_ROT) {
+            const hx = (hx0 * rc - hy0 * rs) / hl;
+            const hy = (hx0 * rs + hy0 * rc) / hl;
+            const nx = px + hx * stepCells;
+            const ny = py + hy * stepCells;
+            if (!passAt(nx, ny)) continue;
+            const along = (elevAtCell(nx, ny) - elevAtCell(px, py)) / (stepCells * cs);
+            if (Math.abs(along) > lim) continue;
+            const ncx = clamp(Math.round(nx), 0, size - 1);
+            const ncy = clamp(Math.round(ny), 0, size - 1);
+            const ni = this.idx(ncx, ncy);
+            if (visited.has(ni)) continue; // don't fold the ridge trail back over a cell already laid
+            const last = line[line.length - 1];
+            const ncW = this.cellCenter(ncx, ncy);
+            if (ncW.x !== last.x || ncW.y !== last.y) { line.push(ncW); visited.add(ni); }
+            px = nx;
+            py = ny;
+            stepped = true;
+            break;
+          }
+          if (stepped) break;
+        }
+        if (stepped) break;
       }
       if (!stepped) return []; // boxed in against a cliff — no ridge path here
     }
@@ -3569,14 +3848,32 @@ export class Terrain {
     const { size } = this;
     const off = Math.round(10 / this.cellSize);
     const halfW = Math.max(1, Math.round(4 / this.cellSize));
+    // Issue-032 ordering defect: buildCop runs BEFORE this pass, so the per-row MSR stamp used to
+    // write Land.Road straight through the COP ring wherever the knoll met the valley floor at
+    // slope < 0.6 — 7 Road cells inside the wire on valley-2533, some overwriting Hesco bastion
+    // cells. The wire is a hard exclusion now: a row whose road column falls inside the perimeter
+    // + a verge has the column pushed AROUND the ring on the river side (a real MSR detours around
+    // an outpost's wire — the perimeter ring road itself is buildCop's own and legitimate), and
+    // the stamp loop skips any cell inside the exclusion disc (belt + braces for the band edges).
+    const cop = this.cop;
+    const exR = cop ? this.copRadiusCells() + 3 : 0; // interior + wall band + a verge
+    const copSide = cop
+      ? Math.sign(Math.round(this.centerX[clamp(cop.center.cy, 0, size - 1)]) - cop.center.cx) || 1
+      : 1;
     // Valley-floor road just off the river.
     for (let y = 0; y < size; y++) {
-      const cx = Math.round(this.centerX[y]) + (rng.chance(0.5) ? off : -off);
+      let cx = Math.round(this.centerX[y]) + (rng.chance(0.5) ? off : -off);
+      if (cop && Math.abs(y - cop.center.cy) <= exR) {
+        const chord = Math.ceil(Math.sqrt(exR * exR - (y - cop.center.cy) ** 2)) + halfW + 1;
+        if (Math.abs(cx - cop.center.cx) < chord) cx = cop.center.cx + copSide * chord;
+      }
       for (let w = -halfW; w <= halfW; w++) {
         const x = cx + w;
         if (!this.inBounds(x, y)) continue;
+        if (cop && Math.hypot(x - cop.center.cx, y - cop.center.cy) <= exR) continue;
         const i = this.idx(x, y);
-        if (this.land[i] !== Land.River && this.slope[i] < 0.6 && this.land[i] !== Land.CompoundWall)
+        const l = this.land[i] as Land;
+        if (l !== Land.River && l !== Land.CompoundWall && l !== Land.Hesco && l !== Land.Structure && l !== Land.Gravel && this.slope[i] < 0.6)
           this.land[i] = Land.Road;
       }
     }
@@ -3614,12 +3911,34 @@ export class Terrain {
       // ground where the climb fizzles, the straight field-path fallback is authentic anyway.
       const upX = clamp(th.v.cx - th.dir * Math.round(size * 0.08), 0, size - 1);
       const upY = clamp(th.v.cy + rng.int(-8, 8), 0, size - 1);
-      const drawPts = this.ascendTrail(th.v.cx, th.v.cy, upX, upY, 0, 0.3, Land.Trail, th.v.cx * 17 + th.v.cy, 6);
+      const drawPts = this.ascendTrail(th.v.cx, th.v.cy, upX, upY, 0, TRAIL_GRADE_TARGET, Land.Trail, th.v.cx * 17 + th.v.cy, 6);
       if (drawPts.length >= 6) {
         this.trailLines.push({ kind: "trail", pts: drawPts });
       } else {
-        this.layPath([this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)], Land.Trail, 0, 0);
-        this.trailLines.push({ kind: "trail", pts: [this.cellCenter(th.v.cx, th.v.cy), this.cellCenter(upX, upY)] });
+        // Gentle-fizzle fallback, GRADE-GATED (Wave 2a): a straight field path is authentic on
+        // gentle ground, but when the climb died against a banded wall the old unconditional
+        // stamp laid the single steepest "trail" on the map straight up the fall line (measured:
+        // survey-9's 2-pt fallback at meanGr 0.67 carried 207 of its 214 steep metres — no human
+        // walks that). Sample the line at ~10 m and lay it only when it is genuinely a field
+        // path: mean grade within the sustained target, no pitch beyond the 0.25 hard cap.
+        const a = this.cellCenter(th.v.cx, th.v.cy);
+        const b = this.cellCenter(upX, upY);
+        const L = Math.hypot(b.x - a.x, b.y - a.y);
+        const nSeg = Math.max(1, Math.ceil(L / 10));
+        let ok = L > 1;
+        let gSum = 0;
+        let prevE = this.elevAt(a.x, a.y);
+        for (let s = 1; s <= nSeg && ok; s++) {
+          const e = this.elevAt(a.x + ((b.x - a.x) * s) / nSeg, a.y + ((b.y - a.y) * s) / nSeg);
+          const g = Math.abs(e - prevE) / (L / nSeg);
+          if (g > TRAIL_GRADE_HARD) ok = false;
+          gSum += g;
+          prevE = e;
+        }
+        if (ok && gSum / nSeg <= TRAIL_GRADE_TARGET) {
+          this.layPath([a, b], Land.Trail, 0, 0);
+          this.trailLines.push({ kind: "trail", pts: [a, b] });
+        }
       }
     }
     // 2) Village ↔ village MST (graded secondary Track) — direct inter-village links.
@@ -3699,6 +4018,9 @@ export class Terrain {
             const i = this.idx(x, y);
             const l = this.land[i] as Land;
             if (l === Land.Hesco || l === Land.Structure || l === Land.Compound || l === Land.CompoundWall || l === Land.Road || l === Land.Gravel) continue;
+            // a foot TRAIL never relabels an engineered Track tread (the benched cut would then
+            // read as a "trail trench" — Wave 2a); a Track may still overwrite a Trail it crosses
+            if (land === Land.Trail && l === Land.Track) continue;
             if (l === Land.River) {
               // bridge=false (the pure-landcover trail walkers): never stamp a crossing — a stray
               // half-cell interpolation across a bank corner would mint a phantom one-cell ford
@@ -3741,6 +4063,16 @@ export class Terrain {
    */
   private layTrack(fromW: Vec2, toW: Vec2, rng: RNG) {
     const cs = this.cellSize;
+    // Wave 2a NEGATIVE (recorded here so it isn't re-tried): routing the tracks with the
+    // grade-priced Dijkstra (trailRoute, design 0.25 / hard 0.6 / excess 25) was measured
+    // strictly worse — route-quality ALL 1.41 → 1.47, delta-4 1.88 → 2.40, walked-route
+    // terrain-response unmoved. Walked routes ride the track network 75–100% of their length
+    // (scratch-route-why), so contour-detouring the tracks only LENGTHENS every walked route;
+    // the planner's findPath texture is the movement-honest line for an engineered track.
+    const fc = {
+      cx: clamp(Math.round(fromW.x / cs), 0, this.size - 1),
+      cy: clamp(Math.round(fromW.y / cs), 0, this.size - 1),
+    };
     const route = findPath(this, fromW, toW, { roadBias: 0.6 });
     const last = route[route.length - 1];
     const reached = !!last && Math.hypot(last.x - toW.x, last.y - toW.y) < cs * 3;
@@ -3749,11 +4081,16 @@ export class Terrain {
       this.trailLines.push({ kind: "track", pts: [fromW, ...route] });
       return;
     }
-    const fc = {
-      cx: clamp(Math.round(fromW.x / cs), 0, this.size - 1),
-      cy: clamp(Math.round(fromW.y / cs), 0, this.size - 1),
-    };
-    const tie = this.descendTrack(fc.cx, fc.cy, 1, 0.42, Land.Track, rng);
+    const cop = this.cop;
+    const tie = this.descendTrack(
+      fc.cx,
+      fc.cy,
+      1,
+      0.42,
+      Land.Track,
+      rng,
+      cop ? { cx: cop.center.cx, cy: cop.center.cy, r: this.copRadiusCells() + 2 } : undefined,
+    );
     // tie the graded descent explicitly into the MSR so the village is actually ON the network
     const road = this.nearestRoadCell(tie.cx, tie.cy);
     this.layPath([this.cellCenter(tie.cx, tie.cy), this.cellCenter(road.cx, road.cy)], Land.Track, 1, 0.15);
@@ -4254,8 +4591,34 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
 };
 
 /**
+ * Foot-trail DESIGN GRADES (realism campaign 2026-07-02 Wave 2a — the USFS trail-construction
+ * oracle cited in the campaign CONTEXT: half-rule ⇒ trail grade ≤ half the hillside grade;
+ * ~10% network average; 15–25% max sustained). TARGET is the sustained along-track grade cap a
+ * laid climbing trail never exceeds by construction (ascendTrail's exact-dot-product heading);
+ * FLOOR keeps the tread making honest progress on moderate ground and holds the network mean
+ * near the ~10% oracle. The old single maxGrade 0.3 walked ≈2× the oracle (alongGr 0.185).
+ */
+const TRAIL_GRADE_TARGET = 0.15;
+const TRAIL_GRADE_FLOOR = 0.1;
+/** Hard per-step cap on the REAL laid grade (the oracle's 25% max-sustained ceiling) — the
+ *  a-posteriori check that holds the tread honest where the strata field breaks the local
+ *  gradient linearization (see ascendTrail). */
+const TRAIL_GRADE_HARD = 0.25;
+/** Heading fan for the trail walker: each candidate heading is tried straight, then rotated
+ *  ±17° and ±34° — the weave a builder walks around a boulder without leaving the design line.
+ *  [cos, sin] pairs, straight first (deterministic order). */
+const TRAIL_ROT: readonly [number, number][] = [
+  [1, 0],
+  [Math.cos(0.3), Math.sin(0.3)],
+  [Math.cos(0.3), -Math.sin(0.3)],
+  [Math.cos(0.6), Math.sin(0.6)],
+  [Math.cos(0.6), -Math.sin(0.6)],
+];
+
+/**
  * Effective walking-grade cap on a CONSTRUCTED tread (rise/run) — the design grade the
- * generator lays the path at (ascendTrail maxGrade 0.3 + a margin for the 5 m sampling).
+ * generator lays the path at (ascendTrail TRAIL_GRADE_TARGET 0.15 + a margin for the 5 m
+ * sampling; was 0.35 in the maxGrade-0.3 era — the cap tracks the laid grade by definition).
  * A path cell's slope[] still reads the face it crosses (LOS, render and passability are
  * untouched); only the movement-speed slope term is capped. See moveCostAt / dirSpeedAt.
  * FOOT TRAILS (+ footbridges) ONLY, deliberately: roads/tracks are physically benched at
@@ -4267,7 +4630,7 @@ const COVER_CONCEAL: Record<Land, [number, number]> = {
  * must be set before the process starts (A/B probe lever, like ITM_NOSWITCH); node-only.
  */
 const TREAD_GRADE_CAP: Partial<Record<Land, number>> = process.env.ITM_NOTREADCAP ? {} : {
-  [Land.Trail]: 0.35,
+  [Land.Trail]: 0.2,
   [Land.Footbridge]: 0.08,
 };
 
