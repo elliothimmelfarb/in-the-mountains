@@ -103,3 +103,22 @@ strandings**, and **village/COP siting + gate-overwatch byte-identical** (slope 
 `ITM_ASPECT` lets the owner dial or disable it. A future balance-compensation pass could push the signal
 higher. Remaining ecology pieces (terraces/qalats/hydrology) carry the same balance-revalidation cost.
 See `docs/progress/2026-06-10-open-issues/007-aspect-ecology/` + `public/manual/archive/reports/2026-06-10-reading-the-sun/`.
+
+## Update (2026-07-03, realism campaign front C — the valley LANDFORM got its bedding)
+
+Adjacent to this issue's ecology remainder: the owner's "terrain too smooth/abstract vs real Korengal"
+complaint metricized to a valley whose **macro form was correct** (wall median ~37°, relief ratio 0.62)
+but which carried **zero 15–45 m structured relief** — the fbm walls were smooth gradient washes with no
+cliff-band/bench alternation, plus a fake 60–79° floodplain rim curb. `7180b41` rebuilt the walls as
+**bedded gneiss/schist**: banded strata (asymmetric bench/riser cycles, λ≈56 m, phase-drifted,
+anisotropic breach chutes), slope-budgeted gully/outcrop dissection on walkable ground, and a ~110 m
+smoothstep toe apron replacing the rim curb — plus a world-connectivity + river-crossing re-validation
+AFTER the last terrain mutator (and a hug-the-ground track clamp that fixed a measured **viaduct bug**:
+survey-7 laid village-track tread at elev 1976 across the 1775 plate, burying the MSR and damming the
+river). Measured (evidence `docs/progress/2026-07-02-realism-campaign/after/terrain-roughness-FINAL.txt`):
+**wall reversal density 0–2.8 → 6.2–17.8 /km**, **E15-45 band energy 1.98 → 3.64 m**, **rim-band slope
+p50 1.72 → 0.18**, **passability reach 60.6 → 75.2 %** (worst seed survey-9 11.0 → 65.3). This is
+**landform, not ecology** — terraces/qalats/hydrology (this issue's real remainder) are still open. Named
+strata residuals (md3 wall-texture 0.19 vs 0.30 target; the >45° mass thinned but not shattered — T8's
+shatter cratered reach to 34 %, refuted; speckle/comps denominator artifacts) live in the `7180b41`
+commit body and the terrain tuning log.

@@ -60,3 +60,21 @@ Balance 12×50 attribution (tuned seed set):
   network-riding is the realistic behaviour, nothing strands, near villages got faster. If a future
   campaign wants the window back, the lever is the fatigue-blind planner cost (it under-prices
   wall-clock distance), NOT removing trails.
+
+## Update (2026-07-03, realism campaign Wave 2a — trails now CONTOUR like real trails)
+
+The owner's "walked paths look too squiggly/unrealistic" complaint (front B of the 2026-07-02
+campaign) metricized to the **opposite** of squiggle: planned routes were near-beelines
+(route-quality **1.12**) and, on moderate slopes, **66 % fall-line vs 11 % contour** — trails ran
+*too straight, straight down the hill*, at ~2× the real grade. `bd5cf77` rebuilt the trail carvers to
+the USFS half-rule oracle (trail grade ≤ ½ hillside grade, ~10 % network average, contour traverses +
+switchback ladders at spur noses): `ascendTrail` now does **explicit grade targeting**
+(g = min(hillside, max(hillside/2, 0.10), 0.15)) with a-posteriori per-step acceptance vs real cell
+rise; `lateralTrail` prefers a 0.12 bench tier; a new grade-priced Dijkstra (`trailRoute`/`layTrailRoute`)
+lays bench laterals on the village-MST + a COP-gate→every-village fan. Measured (evidence
+`docs/progress/2026-07-02-realism-campaign/after/trails-2a/`): **footpath alongGr 0.215 → 0.114**
+(the walker's experienced grade, at the oracle's ~10 %), **along>45 % 12 % → 2 %**, held-out
+survey-40..47 alongGr 0.130 — MET. **RECORDED NEGATIVE (do not re-attempt):** grade-priced Dijkstra
+routing for **tracks** is strictly worse (RQ 1.41→1.47) — walked routes ride the tracks, so
+contour-detouring them lengthens every route; tracks stay straight, only *foot-trails* contour. Route
+residuals (RQ 1.46, structural detours) tracked in issue **034**.

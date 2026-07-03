@@ -65,3 +65,22 @@ a solid cell is a breach whoever writes it). Measured, bal-2 50 game-min balance
 out-of-contact garrison stall-wipes **951 → 1** (the survivor is a patrol ford-crossing
 wipe, unrelated). The self-heal does NOT excuse the unchecked write: a wounded man mid-drag
 can still spend the fight inside a wall until the garrison reclaims him.
+
+## Resolution (ROOT FIX, 2026-07-03 — combat.ts owner) — ✅ FULLY RESOLVED
+
+The unchecked writer is now guarded at the source. `CombatSim.dragToCover`
+(`lib/sim/combat.ts:1988`, shipped in `fa797c5` item 3) checks the hauling buddy's spot
+before writing it; if the cell is impassable the buddy simply stays where he stands and
+keeps pulling from there (he is adjacent and the drag already moved the casualty):
+
+```ts
+const haul = add(next, scale(dir, -1));
+if (this.terrain.passableCell(Math.floor(haul.x / cs), Math.floor(haul.y / cs))) buddy.pos = haul;
+```
+
+The buddy can no longer be teleported into a solid cell, so the eternal wipe/re-issue
+loop cannot form. The garrison self-heal from `dbf317c` remains as the invariant backstop
+(any off-task man found in a solid cell — whatever wrote him there — still snaps out once).
+Both halves are now in place: **root writer fix + containment backstop.** Verified: smoke
+SMOKE OK, `combat-grind` out-of-contact wipes across all causes **1718 → 25**
+(`docs/progress/2026-07-02-realism-campaign/after/`).
