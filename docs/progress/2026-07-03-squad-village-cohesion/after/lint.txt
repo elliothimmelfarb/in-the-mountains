@@ -1,0 +1,498 @@
+
+> in-the-mountains@0.1.0 lint
+> eslint
+
+
+/Users/elliothimmelfarb/code/in-the-mountains/components/world/WorldView.tsx
+  241:9   error    Error: Cannot access variable before it is declared
+
+`draw` is accessed before it is declared, which prevents the earlier access from updating when this value changes over time.
+
+/Users/elliothimmelfarb/code/in-the-mountains/components/world/WorldView.tsx:241:9
+  239 |           tgl.render(camRef.current, { shakePx: { x: ox, y: oy }, sky, atmo, secondsOfDay: wNow.secondsOfDay });
+  240 |         }
+> 241 |         draw(ctx, camRef.current, now);
+      |         ^^^^ `draw` accessed before it is declared
+  242 |         // feed the audio listener pose (positional pan + distance + zoom-scaled radius).
+  243 |         getAudio().setCamera(camRef.current);
+  244 |       }
+
+/Users/elliothimmelfarb/code/in-the-mountains/components/world/WorldView.tsx:255:3
+  253 |   }, []);
+  254 |
+> 255 |   function draw(ctx: CanvasRenderingContext2D, cam: Camera, nowMs = 0) {
+      |   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 256 |     const st = useGame.getState();
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 257 |     const w = st.world;
+      …
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 816 |     }
+      | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+> 817 |   }
+      | ^^^^ `draw` is declared here
+  818 |
+  819 |   // Cartographic HUD: compass rose (top-right) + an accurate, zoom-aware scale bar.
+  820 |   function drawHud(ctx: CanvasRenderingContext2D, cam: Camera) {  react-hooks/immutability
+  253:6   warning  React Hook useEffect has a missing dependency: 'draw'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               react-hooks/exhaustive-deps
+  771:42  error    Error: Cannot call impure function during render
+
+`performance.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+/Users/elliothimmelfarb/code/in-the-mountains/components/world/WorldView.tsx:771:42
+  769 |       const fc = terrain.cellCenter(w.state.fireRequest.cx, w.state.fireRequest.cy);
+  770 |       const [fx, fy] = worldToScreen(cam, fc.x, fc.y);
+> 771 |       const pulse = 0.5 + 0.5 * Math.sin(performance.now() / 220);
+      |                                          ^^^^^^^^^^^^^^^^^ Cannot call impure function
+  772 |       ctx.strokeStyle = `rgba(224,80,40,${0.55 + 0.4 * pulse})`;
+  773 |       ctx.lineWidth = 1.5;
+  774 |       ctx.beginPath();                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/purity
+
+/Users/elliothimmelfarb/code/in-the-mountains/docs/progress/2026-06-06-world-scale-realism/build/diagrams.mjs
+   14:39  warning  'BLUE' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  146:9   warning  'CAT' is assigned a value but never used   @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/docs/progress/2026-06-07-realism-research/tools/gen-combat-movers.ts
+  30:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  51:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  54:81  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/docs/progress/2026-06-07-realism-research/tools/gen-oproute.ts
+   18:10  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   22:7   warning  'C' is assigned a value but never used    @typescript-eslint/no-unused-vars
+  129:18  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  138:20  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/docs/progress/2026-06-07-ui-ux-20x/build/shotel.mjs
+  11:237  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  17:74   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/docs/progress/2026-06-07-ui-ux-20x/build/shotpage.mjs
+  11:237  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  17:74   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/ai/squad-combat.ts
+  541:63  warning  '_isAuto' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/combat.ts
+  2045:41  warning  'target' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/entities.ts
+  250:11  error  An interface declaring no members is equivalent to its supertype  @typescript-eslint/no-empty-object-type
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/los.ts
+  39:7  warning  'DEG' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/steering.ts
+  3:44  warning  'sub' is defined but never used        @typescript-eslint/no-unused-vars
+  3:49  warning  'fromAngle' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/terrain.ts
+  1926:11  warning  'farther' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  4235:24  warning  'rng' is defined but never used               @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/lib/sim/world/formation.ts
+  106:99  warning  'dt' is defined but never used  @typescript-eslint/no-unused-vars
+  251:94  warning  'dt' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/public/manual/lightbox.js
+  261:100  warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+  262:92   warning  'e2' is defined but never used  @typescript-eslint/no-unused-vars
+  294:38   warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+  301:44   warning  'e' is defined but never used   @typescript-eslint/no-unused-vars
+  322:125  warning  'er' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/atmospherics-probe.ts
+   48:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   48:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   81:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   98:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  156:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  221:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  238:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  332:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  333:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  344:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/build-asset-doc.mjs
+  36:10  warning  'esc' is defined but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/civ-live.ts
+  13:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  18:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  20:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/cohesion.ts
+   55:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/combat-feel-probe.ts
+  210:13  warning  'id' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/cop-defense-probe.ts
+  21:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/cop-diagram.ts
+   16:10  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   18:7   warning  'cs' is assigned a value but never used   @typescript-eslint/no-unused-vars
+   54:64  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:51  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:59  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:41  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  110:19  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/cop-render.ts
+  17:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/cop-shot.mjs
+  112:99  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  140:11  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/copaudit.ts
+   56:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   56:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  117:74  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  128:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  140:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  148:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  169:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  200:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  236:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  296:16  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  356:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  356:93  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/copinterior.ts
+   31:26  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   31:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:34  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  105:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/copstuck.ts
+  26:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/copsurvey.ts
+  36:9   warning  'size' is assigned a value but never used       @typescript-eslint/no-unused-vars
+  41:36  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  62:53  error    Unexpected any. Specify a different type        @typescript-eslint/no-explicit-any
+  81:9   warning  'impassPct' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/corridor-shortfall.ts
+  124:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/dbg-connect.ts
+  4:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/doctrine-pace.ts
+   33:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   59:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   93:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  101:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:28  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  103:36  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  108:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/follower-strand.ts
+  34:10  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  39:12  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  50:40  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  69:64  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  87:38  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  87:46  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+  89:7   warning  'stationCentroid' is assigned a value but never used  @typescript-eslint/no-unused-vars
+  98:13  error    Unexpected any. Specify a different type              @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/footpath-probe.ts
+  46:9  warning  'idx' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/fx-probe.ts
+  19:3  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/infil-probe.ts
+  18:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  24:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/lead-trace.ts
+  18:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  21:75  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  23:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  29:11  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/logistics-probe.ts
+  14:27   warning  'lineOfSight' is defined but never used   @typescript-eslint/no-unused-vars
+  18:179  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:17   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:12   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:14   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  39:42   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  49:14   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  50:42   error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/movement-diag.ts
+   28:29  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   51:10  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   59:9   warning  'copC' is assigned a value but never used  @typescript-eslint/no-unused-vars
+   64:14  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+   86:40  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  102:64  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  123:40  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  123:48  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/network-probe.ts
+   35:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   62:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  116:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/opposite-gate.ts
+   39:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   99:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  133:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  134:43  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/reachability.ts
+  20:7   warning  'cs' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  29:10  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:15  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  42:43  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/realism-probe.ts
+   38:20  warning  'sim' is assigned a value but never used                @typescript-eslint/no-unused-vars
+  100:21  error    'roundsEnemy' is never reassigned. Use 'const' instead  prefer-const
+  177:31  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  326:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  356:39  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  357:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  393:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  414:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  436:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  437:29  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  478:25  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  479:29  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  480:29  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  619:27  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+  704:31  error    A `require()` style import is forbidden                 @typescript-eslint/no-require-imports
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/return-audit.ts
+  19:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  28:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  33:52  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  36:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/route-quality.ts
+  50:10  error    Unexpected any. Specify a different type   @typescript-eslint/no-explicit-any
+  57:11  warning  'goal' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/route-smoothness.ts
+  103:29  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  146:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  273:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  281:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  282:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  282:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  285:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  299:66  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scale-probe.mjs
+   79:99  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  202:11  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scene-shots.mjs
+  125:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  153:19   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-cop-footprint.ts
+  17:10  warning  'Land' is defined but never used          @typescript-eslint/no-unused-vars
+  25:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  25:25  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:10  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  35:31  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-cop-men.ts
+  17:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-gl-probe.mjs
+  115:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  124:19   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-shot1.mjs
+  44:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  56:19   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-timelapse.mjs
+  28:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/scratch-village-wedge.ts
+   39:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   39:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   72:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   76:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   86:12  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   95:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  102:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:64  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  145:46  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  183:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  200:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  202:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/security-halt-render.ts
+  20:7   warning  'cs' is assigned a value but never used   @typescript-eslint/no-unused-vars
+  22:10  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  34:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:20  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:29  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:38  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  76:47  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:17  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:25  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  77:33  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  81:27  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  99:23  error    Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/security-halt.ts
+   70:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   87:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   96:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  150:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  166:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  174:31  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:32  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  181:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  182:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/shoot.mjs
+  128:99  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  165:11  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/squad-arrival.ts
+   26:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   65:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   90:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  109:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  120:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:15  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  121:23  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  125:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  147:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  149:33  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  162:62  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  163:37  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/strand-vectors.ts
+   22:10  warning  'Land' is defined but never used                 @typescript-eslint/no-unused-vars
+   29:24  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   58:20  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   63:10  warning  'nearestPassableComp' is defined but never used  @typescript-eslint/no-unused-vars
+   63:33  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   67:23  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   88:10  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+   93:37  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+  148:10  error    Unexpected any. Specify a different type         @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/svg2png.mjs
+  37:13  warning  'name' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/terrain-audit.ts
+   38:21  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   43:50  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   47:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   82:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  112:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  127:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  152:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  266:22  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/thrash-probe.ts
+   31:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   41:14  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   60:40  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  129:17  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/tic-release-probe.ts
+  165:9  warning  'blockTicks' is assigned a value but never used  @typescript-eslint/no-unused-vars
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/trail-shots.mjs
+  106:7  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/trail-utility.ts
+  25:25  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  38:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:47  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/trajectory-png.ts
+  16:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  22:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  30:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:18  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:27  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/trajectory-svg.ts
+  19:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  27:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  41:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/ux-audit.mjs
+  286:99  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  407:11  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/ux-rightpanel-matrix.mjs
+   61:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  107:19   warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/village-drill.ts
+  12:10  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  15:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  16:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/visual-matrix.mjs
+  105:143  warning  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+
+/Users/elliothimmelfarb/code/in-the-mountains/scripts/why-short.ts
+  27:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  48:19  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:24  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  56:38  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  83:13  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  84:41  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+✖ 311 problems (251 errors, 60 warnings)
+

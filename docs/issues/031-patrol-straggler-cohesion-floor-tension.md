@@ -93,3 +93,14 @@ hustle only runs during the patrol move; combat resets `paceScale`).
 npx tsx scripts/squad-arrival.ts          # authoritative: within-window 25/27, squadCoh 100%, maxStrag 29m
 npx tsx scripts/follower-strand.ts        # worstGap distribution: only india-9/kilo-11 > 50m
 ```
+
+## Follow-up note (2026-07-03, issue 036)
+
+This issue's `maxWedge = 0.0 s on every seed → nobody is stuck` reassurance rested on a **dead metric**:
+`follower-strand`'s `maxWedge` was defined as time with `blockedTimer > 6`, but `watchStall` caps
+`blockedTimer` at `STALL_WINDOW = 2 s`, so it was structurally always 0.0 s. Fixed in `follower-strand.ts`
+(sums real wedge time now). Men **do** wedge on the march (COP b-huts, the wire, broken ground) — see
+[036](036-point-man-doesnt-wait-for-wedged-follower.md), which adds a **bounded halt** so the point man
+waits for a wedged/strung follower. Crucially it does NOT re-attempt the refuted floor-reorder: it is a
+discrete, per-leg-budgeted stop (gated on being *blocked*, not merely *slow*), so it stays window-neutral
+(`squad-arrival` identical) and the hustle here still owns the slow-climber case.

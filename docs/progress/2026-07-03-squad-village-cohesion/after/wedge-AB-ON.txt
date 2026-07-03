@@ -1,0 +1,32 @@
+# village-wedge probe v2  MODE=near  (block attributed to the cell that blocks the man)
+
+seed            obj  arr    wall  struct    terr  peakFwd  peakStr navSpd|stuck   halt%
+korengal       299m    y    3.4s    2.4s    0.0s      33m      55m            -      0%
+survey-2       491m    N    0.0s   20.0s   48.3s      37m      59m      0.06m/s     83%
+survey-7       358m    N    0.0s    6.0s   90.1s      28m      49m      0.16m/s     34%
+survey-9       246m    y    2.5s    2.2s   43.9s      40m      67m      0.22m/s     75%
+valley-3       484m    N    0.0s    3.1s   22.6s      47m      77m      0.24m/s     30%
+ridge-11       223m    N    0.0s    9.0s  113.7s      32m      65m      0.12m/s     64%
+alpha-1        172m    y    0.0s   12.2s   15.2s      36m      50m      0.23m/s      0%
+bravo-2        426m    y    3.9s    4.0s    1.3s      42m      61m            -      0%
+charlie-3      323m    y    0.0s    0.4s    5.4s      24m      39m            -      0%
+delta-4        297m    N    0.0s   11.5s   24.9s      50m      86m      0.17m/s     62%
+echo-5         222m    N    0.0s   54.9s   54.0s      94m     355m      0.26m/s     14%
+foxtrot-6      338m    y    0.0s   10.8s    0.0s      55m     319m      1.39m/s      0%
+golf-7         330m    y    0.0s   11.6s    0.0s      27m      42m            -      0%
+hotel-8        280m    N    0.0s    0.5s   56.4s      47m      67m      0.40m/s     19%
+india-9        262m    y    0.0s   10.1s   18.6s      32m      58m      0.14m/s     70%
+juliet-10      231m    y    1.3s   49.8s  164.9s      52m      90m      0.23m/s     15%
+kilo-11        236m    y    0.0s   17.2s   64.1s      36m      58m      0.15m/s     72%
+lima-12        428m    y    0.0s    9.4s    0.0s      47m      63m            -      0%
+mike-13        471m    N    0.0s    2.8s   55.5s      65m     257m      0.34m/s     52%
+november-14    360m    y    0.0s    2.9s   11.0s      46m      74m      0.76m/s      0%
+oscar-15       298m    y    0.0s    3.5s   27.4s      65m      93m      0.27m/s     18%
+
+# AGGREGATE across 21 seeds (MODE=near)   [march phase only, past the wire]
+  mean blocked-sec by cause  wall / struct / terr : 0.5 / 11.6 / 38.9
+  mean peak point-man-forward (m)   : 44.4
+  mean peak file stretch (m)        : 99.3
+  mean nav SPEED while a man wedged  : 0.32 m/s  (lower = point man waits)
+  mean halt% while a man wedged      : 38%  (point man fully stopped)
+  seeds peakForward > 40m           : 11 / 21

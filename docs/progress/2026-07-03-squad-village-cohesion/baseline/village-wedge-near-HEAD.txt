@@ -1,0 +1,33 @@
+# village-wedge probe  MODE=near  (blockedTimer>0 = real block; wall = CompoundWall/Structure adjacency)
+
+seed            obj  arr  wallSec       worstMan maxContig  peakFwd  peakStr navPace|stuck navAdv|stuck
+korengal       299m    y     5.8s saw_gunner 2.4s      1.2s      33m      55m          1.00           0m
+survey-2       491m    N    21.5s squad_leader 6.4s      2.5s      38m      59m          0.92           9m
+survey-7       358m    N     6.7s grenadier 2.0s      1.9s      28m      49m          0.99           8m
+survey-9       246m    y     6.4s saw_gunner 2.2s      1.9s      40m      73m          0.75           7m
+valley-3       484m    N     3.1s squad_leader 0.9s      1.9s      47m      77m          0.99           3m
+ridge-11       223m    N     9.0s  rifleman 3.9s      1.9s      35m      66m          0.91          16m
+alpha-1        172m    y    14.5s squad_leader 2.9s      1.9s      36m      57m          0.88           2m
+bravo-2        426m    y     7.9s saw_gunner 1.9s      1.9s      42m      61m          1.00           0m
+charlie-3      323m    y     3.6s saw_gunner 2.1s      1.9s      24m      39m          1.00           1m
+delta-4        297m    N    11.5s  rifleman 6.8s      1.9s      52m      86m          0.95           2m
+echo-5         222m    N    65.9s rifleman 54.7s      1.9s      94m     355m          0.87          24m
+foxtrot-6      338m    y    10.8s grenadier 3.8s      1.9s      55m     320m          1.00           0m
+golf-7         330m    y    11.6s saw_gunner 7.7s      1.9s      27m      42m          1.00           1m
+hotel-8        280m    N     1.9s squad_leader 0.5s      1.9s      47m      67m          0.84           3m
+india-9        262m    y    10.1s  rifleman 2.9s      1.9s      34m      60m          0.99           4m
+juliet-10      231m    y   153.0s rifleman 114.8s      1.9s      52m      91m          0.99          22m
+kilo-11        236m    y    17.2s saw_gunner 13.4s      1.9s      40m      68m          0.88          12m
+lima-12        428m    y     9.4s  rifleman 4.2s      1.9s      47m      63m          1.00           3m
+mike-13        471m    N    46.0s squad_leader 14.4s      1.9s      66m     251m          0.91           9m
+november-14    360m    y     4.7s grenadier 1.6s      1.9s      46m      74m          1.00           0m
+oscar-15       298m    y     3.9s squad_leader 1.6s      1.9s      65m      93m          0.96           2m
+
+# AGGREGATE across 21 seeds (MODE=near)
+  mean total wall-wedge sec/patrol : 20.2
+  mean peak point-man-forward (m)  : 45.1
+  mean peak file stretch (m)       : 100.3
+  mean nav paceScale while stuck   : 0.94  (1.0 = point man ignores the stuck man)
+  mean nav advance while stuck (m) : 6.0
+  seeds with any wall-wedge > 3s   : 20 / 21
+  seeds peakForward > 40m          : 12 / 21

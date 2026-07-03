@@ -307,6 +307,10 @@ function stalled(t: Task, value: number, dt: number, limit: number): boolean {
 function resetProgress(t: Task) {
   t.goalDist = undefined;
   t.noProgressS = 0;
+  // Refill the point man's per-leg wedge-halt budget and clear the hold latch at each new waypoint.
+  t.wedgeHeldTotal = 0;
+  t.wedgeHoldUntil = 0;
+  t.wedgeCooldownUntil = 0;
 }
 
 /**

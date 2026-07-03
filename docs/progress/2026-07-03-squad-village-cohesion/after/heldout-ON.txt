@@ -1,0 +1,29 @@
+# village-wedge probe v2  MODE=near  (block attributed to the cell that blocks the man)
+
+seed            obj  arr    wall  struct    terr  peakFwd  peakStr navSpd|stuck   halt%
+survey-40      247m    y    0.6s    3.4s    0.0s      32m      58m            -      0%
+survey-41      445m    y    1.9s   11.5s    5.6s      37m      76m            -      0%
+survey-42      251m    N    0.0s    7.1s    5.9s      34m      53m      0.00m/s    100%
+survey-43      497m    N    0.0s    3.0s   21.6s      53m      81m      0.63m/s      0%
+survey-44      315m    y    3.3s    2.8s    0.0s      36m      59m            -      0%
+survey-45      154m    y    0.0s   11.3s   60.7s      46m      64m      0.14m/s      0%
+survey-46      190m    y    3.3s    5.1s    0.0s      34m      53m            -      0%
+survey-47      347m    N    0.0s    6.3s    0.6s      32m      50m            -      0%
+survey-48      363m    N    0.0s   20.5s    9.4s      39m     169m      0.41m/s     38%
+survey-49      227m    y    2.1s   62.8s    3.7s      43m      67m      1.23m/s      0%
+survey-50      289m    y    0.0s    8.3s   24.0s      39m      70m      0.21m/s     58%
+survey-51      280m    y    0.0s    7.2s    0.0s      30m      55m            -      0%
+survey-52      322m    N    0.0s   27.3s   21.3s      39m      63m            -      0%
+survey-53      216m    y    0.2s   17.7s   59.3s      54m      99m      0.63m/s      4%
+survey-54      254m    N    0.0s    2.7s   19.7s     162m     241m      0.21m/s     33%
+survey-55      188m    y    8.8s   12.6s    0.0s      32m      54m      0.56m/s      0%
+
+# AGGREGATE across 16 seeds (MODE=near)   [march phase only, past the wire]
+  mean blocked-sec by cause  wall / struct / terr : 1.3 / 13.1 / 14.5
+  mean peak point-man-forward (m)   : 46.5
+  mean AVG point-man-forward (m)     : 30.7  <- the 'often far forward' metric
+  mean % march time >30m forward    : 29%
+  mean peak file stretch (m)        : 82.1
+  mean nav SPEED while a man wedged  : 0.45 m/s  (lower = point man waits)
+  mean halt% while a man wedged      : 26%  (point man fully stopped)
+  seeds peakForward > 40m           : 5 / 16

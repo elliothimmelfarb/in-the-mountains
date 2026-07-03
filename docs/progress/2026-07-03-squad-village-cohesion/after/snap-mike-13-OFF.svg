@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="506" viewBox="0 0 460 506" font-family="ui-monospace,monospace">
+  <rect width="460" height="506" fill="#11161c"/>
+  <text x="14" y="24" fill="#e6edf3" font-size="15" font-weight="700">BASELINE — point man does not wait</text>
+  <text x="14" y="42" fill="#8b98a5" font-size="12">mike-13 · point man 66 m ahead of centroid (worst march moment)</text>
+  <g transform="translate(0,46)">
+    <line x1="346.3" y1="361.4" x2="161.0" y2="158.6" stroke="#f2c94c" stroke-width="1.6" stroke-dasharray="4 3"/>
+    <path d="M155.0,152.6 l12,12 M167.0,152.6 l-12,12" stroke="#c9d4e0" stroke-width="1.6"/>
+    <circle cx="235.7" cy="206.2" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="346.3" cy="361.4" r="7" fill="#e5484d" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="138.8" cy="141.8" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="132.3" cy="134.1" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="129.0" cy="124.4" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="115.6" cy="122.4" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="116.0" cy="112.2" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="113.7" cy="98.6" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="121.3" cy="125.9" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+    <text x="346.3" y="350.4" fill="#e5484d" font-size="11" text-anchor="middle">point</text>
+  </g>
+</svg>

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="460" height="506" viewBox="0 0 460 506" font-family="ui-monospace,monospace">
+  <rect width="460" height="506" fill="#11161c"/>
+  <text x="14" y="24" fill="#e6edf3" font-size="15" font-weight="700">FIX — point man holds for the file</text>
+  <text x="14" y="42" fill="#8b98a5" font-size="12">delta-4 · point man 40 m ahead of centroid (worst march moment)</text>
+  <g transform="translate(0,46)">
+    <line x1="351.4" y1="273.1" x2="182.9" y2="213.1" stroke="#f2c94c" stroke-width="1.6" stroke-dasharray="4 3"/>
+    <path d="M176.9,207.1 l12,12 M188.9,207.1 l-12,12" stroke="#c9d4e0" stroke-width="1.6"/>
+    <circle cx="197.2" cy="213.0" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="351.4" cy="273.1" r="7" fill="#e5484d" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="206.6" cy="225.1" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="224.6" cy="227.3" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="177.8" cy="209.1" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="152.7" cy="201.9" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="108.6" cy="188.2" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="117.4" cy="186.9" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+<circle cx="109.8" cy="193.3" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+    <text x="351.4" y="262.1" fill="#e5484d" font-size="11" text-anchor="middle">point</text>
+  </g>
+</svg>

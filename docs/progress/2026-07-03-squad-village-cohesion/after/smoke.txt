@@ -1,0 +1,48 @@
+=== WORLD ===
+Terrain: 512 cells @ 5 m = 2560 m, 1548 - 2833 m
+COP cell: { cx: 264, cy: 418 } Villages: Donga, Chichal, Korangal, Babiyal, Kandlay
+Platoon: 41 in 5 squads · civilians: 37
+Named features: Hill 2610(2826m), Sawtalo Sar(2742m), Abas Ghar(2631m), Gatigal Spur(2542m), Divpalu Ridge(2537m), Hill 2310(2495m), Sautalo(2409m)
+Landcover classes present: 25 / 26
+  Forest:24.0%  Scree:21.0%  Cliff:13.8%  DryWash:13.6%  Scrub:8.5%  Meadow:5.0%  Terrace:4.7%  Cropland:2.7%  Track:1.4%  Rock:1.2%  TerraceWall:1.1%  River:0.5%  Marsh:0.5%  Trail:0.5%  Grass:0.5%  Road:0.4%  Orchard:0.3%  CompoundWall:0.1%  Hesco:0.1%  Gravel:0.1%  Ford:0.1%  Structure:0.0%  Compound:0.0%  Cemetery:0.0%  Footbridge:0.0%
+
+=== COP LAYOUT ===
+Center: { cx: 264, cy: 418 } · radius 12 cells (60 m) · gate passable: true · wall sealed: true
+Buildings: TOC, Chow Hall, Aid Station, Armory, Latrines, Barracks A, Barracks B, Motor Pool
+Fighting positions: 8 (towers: 3) · LZ: { cx: 257, cy: 418 }
+
+=== PATROL ===
+Task: Presence Patrol · pax 10 · phase assembling · route legs 2
+
+=== AFTER 30 GAME-MINUTES ( Day 1 · 06:29 ) ===
+Contact occurred: true · peak enemies on map: 5 · peak projectiles: 22
+Patrol pushed 559 m from the COP center (gate egress through the wire OK )
+US KIA: 0 · US WIA: 0 · enemy accounted: 7
+Metrics: {
+  stability: '40%',
+  attitude: '40%',
+  enemy: '47%',
+  power: '100%',
+  higher: '60%'
+}
+Intel reports: 1 | latest: ICOM: fighters moving toward Babiyal tonight.
+Tasks active: 1 | ammo 5.56: 22000
+
+Log tail:
+  [Day 1 · 06:19] RADIO: ICOM chatter about a tube — possible incoming indirect.
+  [Day 1 · 06:19] CONTACT: Presence Patrol: CONTACT — enemy to the upper.
+  [Day 1 · 06:19] RADIO: Presence Patrol: fire superiority gained — maneuvering on the upper flank.
+  [Day 1 · 06:19] INFO: A patrol held its fire with locals in the open near Kandlay. Word travels.
+  [Day 1 · 06:20] INFO: A patrol held its fire with locals in the open near Kandlay. Word travels.
+  [Day 1 · 06:20] RADIO: Presence Patrol: contact broken — resuming movement.
+  [Day 1 · 06:28] CONTACT: Presence Patrol: CONTACT — enemy to the upper.
+  [Day 1 · 06:28] RADIO: Presence Patrol: fire superiority gained — maneuvering on the upper flank.
+  [Day 1 · 06:28] RADIO: Presence Patrol: contact broken — resuming movement.
+  [Day 1 · 06:29] CONTACT: Presence Patrol: CONTACT — enemy to the upper.
+  [Day 1 · 06:29] RADIO: Presence Patrol: fire superiority gained — maneuvering on the upper flank.
+  [Day 1 · 06:29] RADIO: Presence Patrol: contact broken — resuming movement.
+
+Serialized save size: 143.1 KB · units: 79
+Material lib hash OK: 3664222144
+
+SMOKE OK

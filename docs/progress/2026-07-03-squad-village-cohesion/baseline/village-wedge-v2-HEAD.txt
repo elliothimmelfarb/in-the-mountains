@@ -1,0 +1,32 @@
+# village-wedge probe v2  MODE=near  (block attributed to the cell that blocks the man)
+
+seed            obj  arr    wall  struct    terr   crowd     worstWallMan  peakFwd  peakStr  navPace
+korengal       299m    y    3.4s    2.4s    0.0s    0.0s  saw_gunner 1.7s      33m      55m     1.00
+survey-2       491m    N    0.0s   20.0s   56.3s    0.0s           - 0.0s      38m      59m     0.92
+survey-7       358m    N    0.0s    6.0s   92.3s    0.0s           - 0.0s      28m      49m     0.99
+survey-9       246m    y    4.2s    2.2s   39.9s    0.0s  saw_gunner 1.9s      40m      73m     0.75
+valley-3       484m    N    0.0s    3.1s   22.9s    0.0s           - 0.0s      47m      77m     0.99
+ridge-11       223m    N    0.0s    9.0s  134.8s    0.0s           - 0.0s      35m      66m     0.91
+alpha-1        172m    y    0.0s   12.2s   15.2s    0.0s           - 0.0s      36m      57m     0.88
+bravo-2        426m    y    3.9s    4.0s    1.3s    0.0s  saw_gunner 1.9s      42m      61m     1.00
+charlie-3      323m    y    0.0s    0.4s    5.4s    0.0s           - 0.0s      24m      39m     1.00
+delta-4        297m    N    0.0s   11.5s    7.6s    0.0s           - 0.0s      52m      86m     0.95
+echo-5         222m    N    0.0s   54.9s   54.1s    0.0s           - 0.0s      94m     355m     0.87
+foxtrot-6      338m    y    0.0s   10.8s    0.0s    0.0s           - 0.0s      55m     320m     1.00
+golf-7         330m    y    0.0s   11.6s    0.0s    0.0s           - 0.0s      27m      42m     1.00
+hotel-8        280m    N    0.0s    0.5s   41.1s    0.0s           - 0.0s      47m      67m     0.84
+india-9        262m    y    0.0s   10.1s   19.7s    0.0s           - 0.0s      34m      60m     0.99
+juliet-10      231m    y    1.4s   49.8s  166.3s    0.0s    rifleman 0.8s      52m      91m     0.99
+kilo-11        236m    y    0.0s   17.2s   59.2s    0.0s           - 0.0s      40m      68m     0.88
+lima-12        428m    y    0.0s    9.4s    0.0s    0.0s           - 0.0s      47m      63m     1.00
+mike-13        471m    N    0.0s    2.8s   55.1s    0.0s           - 0.0s      66m     251m     0.91
+november-14    360m    y    0.0s    2.9s   11.0s    0.0s           - 0.0s      46m      74m     1.00
+oscar-15       298m    y    0.0s    3.5s   27.4s    0.0s           - 0.0s      65m      93m     0.96
+
+# AGGREGATE across 21 seeds (MODE=near)
+  mean blocked-sec by cause  wall / struct / terr / crowd : 0.6 / 11.6 / 38.6 / 0.0
+  wall-block split  approach / halt : 0.1 / 0.6 s
+  mean peak point-man-forward (m)   : 45.1
+  mean peak file stretch (m)        : 100.3
+  mean nav paceScale while stuck    : 0.94 (1.0 = point man ignores the stuck man)
+  seeds peakForward > 40m           : 12 / 21

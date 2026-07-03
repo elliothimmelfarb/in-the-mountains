@@ -4,7 +4,8 @@
  * outcomes. This one runs a patrol to onstation and reports, for EACH man:
  *   - did he ever get within ARRIVE of the objective while the squad was on station
  *   - his distance from the squad centroid at onstation (straggler gap)
- *   - peak time spent with blockedTimer>6 (wedged / re-pathing to rejoin)
+ *   - peak CONTIGUOUS time wedged (has a path but speed~0 — the real not-advancing signal; the old
+ *     blockedTimer>6 test was structurally dead, watchStall caps blockedTimer at STALL_WINDOW=2s)
  *   - whether he was left inside the wire after t.exited
  *
  * Reports the WORST follower per seed and the global worst cases.
@@ -26,7 +27,7 @@ interface Per {
   role: string;
   arrivedObj: boolean;        // ever within ARRIVE of objective
   gapAtStation: number;       // dist from centroid when squad reaches onstation/return
-  maxWedgeS: number;          // longest continuous stretch with blockedTimer>6
+  maxWedgeS: number;          // TOTAL time wedged (has a path but not advancing) — the grind
   insideWireAfterExit: number; // ticks spent inside wire after t.exited became true
 }
 
@@ -59,7 +60,6 @@ function run(seed: string) {
     const u = w.sim.unit(id);
     per[id] = { id, role: u?.role ?? "?", arrivedObj: false, gapAtStation: -1, maxWedgeS: 0, insideWireAfterExit: 0 };
   }
-  const wedgeRun: Record<string, number> = {};
 
   let reachedStation = false;
   let stationCentroid: { x: number; y: number } | null = null;
@@ -73,9 +73,13 @@ function run(seed: string) {
       const p = per[u.id];
       if (Math.hypot(u.pos.x - objW.x, u.pos.y - objW.y) < ARRIVE) p.arrivedObj = true;
       // wedge tracking
-      const bt = u.blockedTimer ?? 0;
-      if (bt > 6) { wedgeRun[u.id] = (wedgeRun[u.id] ?? 0) + 0.1; p.maxWedgeS = Math.max(p.maxWedgeS, wedgeRun[u.id]); }
-      else wedgeRun[u.id] = 0;
+      // REAL wedge signal: TOTAL time a man WANTS to move (has a path) but isn't advancing. The old
+      // test `blockedTimer > 6` was DEAD — watchStall resets blockedTimer at STALL_WINDOW=2s, so it
+      // never exceeds ~2 and >6 never fired (maxWedge read 0.0s on every seed, which mis-reassured
+      // issue 031 that "nobody is stuck"). Contiguous max is uninformative too (the 2s watchdog re-plan
+      // caps it), so we SUM the wedged time — the grind of repeated 2s stalls, which is what reads as
+      // "stuck on a building" in play.
+      if (u.moving && (u.speed ?? 0) < 0.05 && u.path && u.path.length > 0) p.maxWedgeS += 0.1;
       // inside-wire-after-exit
       if (task?.exited && task.phase === "moving" && Math.hypot(u.pos.x - copW.x, u.pos.y - copW.y) < wire - 6) {
         p.insideWireAfterExit++;
@@ -98,7 +102,7 @@ function run(seed: string) {
 const rows: any[] = [];
 console.log(
   "seed".padEnd(12), "objDist".padStart(8), "station?".padStart(8),
-  "worstGap".padStart(9), "worstRole".padStart(12), "noArrive".padStart(9), "maxWedge".padStart(9), "wireStuck".padStart(10)
+  "worstGap".padStart(9), "worstRole".padStart(12), "noArrive".padStart(9), "wedgeTot".padStart(9), "wireStuck".padStart(10)
 );
 for (const seed of SEEDS) {
   const r = run(seed);

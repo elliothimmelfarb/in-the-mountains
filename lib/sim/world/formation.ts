@@ -145,6 +145,8 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
 
   const slots = squadSlots(w, sq, plan);
   let lag = 0; // metres the most-behind man trails his slot, MEASURED ALONG THE WAKE
+  let wedgedLag = 0; // worst lag among followers who are ACTUALLY blocked this tick (stuck on a
+                     // building / the wire / broken ground) — the men the point man WAITS for
   for (const s of slots) {
     const u = sim.unit(s.id);
     if (!u || u === nav) continue;
@@ -154,10 +156,12 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
       s.face === "rear" ? angle(scale(tan, -1)) : s.face === "left" ? angle(scale(perp, -1)) : s.face === "right" ? angle(perp) : angle(tan);
     setSecurity(u, t, face);
     const followLag = driveFollower(w, t, nav, u, headDir, s.back, s.lat * widthScale);
-    // A man genuinely wedged on terrain (re-pathing to rejoin) is excluded from the pace
-    // calc so one trapped soldier can't freeze the whole patrol — the squad keeps a slow
-    // creep on and he catches up via his own route. A man merely lagging DOES set the pace.
-    if (!(u.blockedTimer && u.blockedTimer > 6)) lag = Math.max(lag, followLag);
+    lag = Math.max(lag, followLag);
+    // A follower who is genuinely WEDGED this tick (blockedTimer>0 — stuck on a COP b-hut, the
+    // HESCO wire, or broken ground) AND trailing is one the point man HOLDS for (below), as
+    // distinct from a merely-slow climber. (The old `blockedTimer > 6` exclusion here was dead
+    // code: watchStall resets blockedTimer at STALL_WINDOW=2s, so >6 never fired.)
+    if ((u.blockedTimer ?? 0) > 0) wedgedLag = Math.max(wedgedLag, followLag);
   }
 
   // Pace governor (continuous — a squad NEVER abandons cohesion): the point man eases the
@@ -185,6 +189,32 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
   const farLag = clamp01((lag - slowZone * 3) / (slowZone * 3)); // engages only when truly strung out
   nav.paceScale = (1 - 0.35 * slow) * (1 - 0.55 * farLag); // ~0.65 floor normally, down to ~0.29 when badly strung
 
+  const clock = w.state.clock;
+
+  // WEDGE-WAIT — the missing behaviour the owner flagged ("he just keeps going ... unrealistically far
+  // forward"). The pace governor only EASES the point man (floor ~0.29, never a stop), so when a follower
+  // snags on a COP b-hut, the wire, or broken ground the lead marches away and the file strings out. Here
+  // the point man instead TAKES A KNEE and holds (formationHold => halt(), a real stop that bypasses the
+  // never-freeze march floor) whenever a genuinely WEDGED follower (blockedTimer>0) has fallen behind. It
+  // is clock-latched and cooldown-bounded, so a single pathologically stuck man can never freeze the
+  // patrol — he re-paths free in ~2s, and the cooldown resumes the march regardless. Gated on being
+  // BLOCKED (not merely slow): a spent straggler on a long climb is never blocked, so this never fires
+  // there and cannot reintroduce the far-village slow-failure the pace-floor prevents (issue 031 — that
+  // cohesion is still paid from the trail by the hustle). Pure clock/geometry → deterministic.
+  // Trigger on EITHER a genuinely wedged straggler (transient — stuck on something) OR a badly
+  // strung file (large along-wake lag with no active wedge — a man simply left behind). Both are
+  // bounded by HOLD_BUDGET per leg so the arrival can't slip out of the tactical window.
+  const strung = wedgedLag > WEDGE_WAIT_GAP || lag > COHESION_HALT_GAP;
+  if (!WEDGE_WAIT_OFF && strung && (t.wedgeHeldTotal ?? 0) < HOLD_BUDGET) {
+    if ((t.wedgeHoldUntil ?? 0) > clock) {
+      nav.formationHold = true; // holding the knee
+      t.wedgeHeldTotal = (t.wedgeHeldTotal ?? 0) + dt; // spend the per-leg budget
+    } else if ((t.wedgeCooldownUntil ?? 0) <= clock) {
+      t.wedgeHoldUntil = clock + WEDGE_HOLD;
+      t.wedgeCooldownUntil = clock + WEDGE_COOLDOWN;
+    }
+  }
+
   // Escalation-of-force feel: ease the throttle (never a dead stop) if an unalarmed civilian
   // is on the patrol's track just ahead — let him clear rather than barging through. Pure
   // throttle (no re-path), so cohesion and the stall watchdog are untouched; clears the
@@ -206,7 +236,6 @@ export function steerSquad(w: World, t: Task, members: Unit[], target: Vec2, pla
       aheadMin = Math.min(aheadMin, freeWidth(w, p, perp2));
     }
     if (aheadMin < corridor * 0.6) nav.paceScale = Math.min(nav.paceScale, 0.7);
-    const clock = w.state.clock;
     if ((t.chokeHoldUntil ?? 0) > clock) {
       nav.formationHold = true; // the held beat at the mouth
     } else if (aheadMin < 5 && corridor >= 5 && (t.chokeCooldownUntil ?? 0) <= clock) {
@@ -653,6 +682,22 @@ const NO_MEANDER = typeof process !== "undefined" && process.env?.ITM_NOMEANDER 
 const HUSTLE_LAG = 5; // m behind his slot before he double-times to close
 const HUSTLE_GAIN = 0.03; // extra pace per metre of lag beyond HUSTLE_LAG
 const HUSTLE_CAP = 1.6; // max catch-up multiplier (a spent man hustles, never sprints)
+// Wedge-wait (steerSquad): the point man HOLDS when a genuinely blocked follower trails this far,
+// for a bounded beat, then a cooldown resumes the march (never a permanent freeze). Tuned so the
+// lead effectively waits (~HOLD of every HOLD+gap seconds) while a man is snagged, without stalling
+// the advance once he's free. Wedges are transient (watchStall re-paths at 2s), so a short hold covers most.
+const WEDGE_WAIT_GAP = 8; // m a WEDGED follower must trail his slot before the point man takes a knee
+const COHESION_HALT_GAP = 26; // m the rearmost man may trail ALONG THE WAKE before the lead halts even
+                              // without an active wedge — a badly strung file (a 9-man column is ~30m,
+                              // so 26m of slot-lag means the rear is nearly a whole file-length back)
+const WEDGE_HOLD = 4; // s the point man holds (a real halt) per wedge beat
+const WEDGE_COOLDOWN = 6; // s min between holds — resumes even if the man is still closing (no freeze)
+const HOLD_BUDGET = 45; // s of total halt PER LEG (reset each waypoint) — caps the arrival delay so this
+                        // can never reproduce the issue-031 slow-failure: 45s is negligible vs the 1500s
+                        // tactical window, yet enough to rein a strung file back in on a normal patrol.
+// ITM_NOWAIT=1 (env, read ONCE at module load — constant per process, so determinism holds) disables
+// the wait, for the A/B in scripts/scratch-village-wedge.ts. Unset (the app, all gates) runs the wait.
+const WEDGE_WAIT_OFF = typeof process !== "undefined" && process.env?.ITM_NOWAIT === "1";
 
 /**
  * Drive one follower along the navigator's WAKE, and return how far it trails its slot
