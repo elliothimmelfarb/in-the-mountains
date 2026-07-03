@@ -68,3 +68,29 @@ Evidence + the published explainer: `docs/progress/2026-06-26-harness-charter/` 
   practice), so the rename/consolidate churn was deferred in favour of the high-value re-anchor.
 - **COIN gate runtime.** The default (3 seeds × 8 days) is ~8 min wall — fine for a pre-commit gate but
   heavier than smoke/balance. If it becomes friction, a 1-seed fast mode exists (`campaign-loop.ts 1 8`).
+
+## Update (2026-07-03, realism campaign) — the runtime pathology is worse than "~8 min", fast config still open
+
+The 2026-07-02 realism campaign hammered the COIN gate as a pre-merge check and the **wall-time
+pathology is now measured**, not estimated:
+
+- The event-driven pacing re-anchor (`9c031da` — schedulers run every strategic step instead of once a
+  day at midnight, which had starved op squads to **83–89 % idle**) legitimately fits **more** ops into
+  each daylight window, which **raises** the runtime: the 3-seed default now runs **~30–40 min wall**
+  (was ~18), and a single **weapons-free body-count leg was measured at 45–69 min CPU** and had to be
+  **killed** more than once mid-leg (`after/trails-2a/campaign-loop-*.txt`, `after/campaign-loop-*-bisect.txt`).
+  This is a genuine friction: a gate you routinely kill is not a gate.
+- The **de-noising** (`3666d14`) is real work that made the gate honest — a **null-perturbation control**
+  (one extra world-init RNG draw, zero behaviour change) swung the 3-seed mean spread **37.3 → 18.3** at
+  the same commit, proving the old mean-based discriminator was reading **±19 pts of pure noise**. The
+  gate now keys on the **paired best seed** + a fully-censored-draw tier. The root noise source —
+  opening-days **relief-of-command as a lottery** censoring ~half of careful tours — is now its own
+  issue **035**.
+- Charter page updated to match (`docs/wiki/Harnesses.md`: the "COIN-gate cost & scope" + "noise floor &
+  censoring" notes now carry the 30–40 min figure and the paired-best-seed rule).
+
+**Still open (the day-one debt from this issue, unchanged in substance):** a **fast, deterministic,
+pre-vetted "COIN smoke" config** at a horizon long enough to discriminate but short enough to run every
+sim/AI/balance change without being killed. The fast-vs-reliable tension is genuine — the 1-seed/8-day
+config still **under-discriminates** and the 3-seed default is too slow to run casually. Real
+calibration work, logged not guessed.

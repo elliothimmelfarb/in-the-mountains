@@ -119,6 +119,30 @@ is a probe-first, oracle-gated instrument, never a baseline freeze):
 - **Run-to-run variance** — bake the σ floor into `balance.ts` permanently (done) so no future
   casualty delta is ever again read finer than the noise.
 
+## Durable probes added by the 2026-07-03 realism campaign
+
+Four coverage gaps recorded in the campaign's `CONTEXT.md` (no curvature metric, no
+terrain roughness/relief-spectrum metric, no doctrine-pace check, no in-combat movement
+probe) are now filled by durable, oracle-*informed* probes (they print; they do not
+assert sim-output baselines — Law-compliant):
+
+- **`scripts/route-smoothness.ts`** — planned-route small-angle turn density + terrain
+  response (contour vs fall-line, cited to the USFS half-rule) + executed-track weave;
+  `ITM_NOMEANDER` A/B. *This is how "squiggly" was proven to actually be too-straight.*
+  (Re-aim noted in issue 034: wall-mask the contour/fall split.)
+- **`scripts/terrain-roughness.ts`** — slope percentiles, band energy (E5-15/E15-45),
+  wall-reversal density, 100 m local relief, floodplain rim seam, transect CSVs, all
+  against the real-Korengal oracle. *This is how "too smooth" was quantified and the
+  strata pass verified.*
+- **`scripts/doctrine-pace.ts`** — patrol effective km/h vs FM 21-18 (2.4 kph day) and
+  the FM 3-97.6 ascent tax. *This is how the 2.45× uphill over-speed and its fix to
+  ~1.0 were measured.*
+- **`scripts/combat-grind.ts`** — the in-combat movement probe (renamed from a
+  `scratch-*` per Principle 5): grind events, blocked-% of contact, impassable-goal
+  time, worst-frozen-unit, bounds-completed, post-contact wipe zombies. *All existing
+  movement probes were patrol-based (combat-free); this one covers the fight, where the
+  real "stuck" bug lived.*
+
 ## How to add a harness (the checklist)
 
 1. Decide **gate or probe** by the Law above. When unsure, probe.
