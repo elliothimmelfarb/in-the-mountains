@@ -90,6 +90,17 @@ None of this was malice — it was a missing principle. Here it is.
 > every-commit gate. **One seed is too noisy to gate on** (survey-0 alone gives a ~3-pt score spread and
 > fails to discriminate) — use the 3-seed default. A faster, more deterministic "COIN smoke" variant
 > suitable for routine gating is an open coverage item.
+>
+> **COIN-gate noise floor & censoring (measured 2026-07-03).** A tour's score is **censored by
+> relief-of-command**: the opening-days combat lottery (trajectory-chaotic, policy-blind) relieves
+> ~half of careful tours at the 8-day horizon and floors them at ~0, so per-seed careful scores are
+> bimodal (0 relieved | ~30–70 survived). **One extra world-init RNG draw — zero behavior change —
+> swung the 3-seed mean spread 37.3 → 18.3 at the same commit** (and a second null draw at the next
+> commit relieved all 3 careful tours). Mean-spread deltas of ~±19 are therefore **noise**. The
+> discrimination checks accordingly key on the **paired best seed** (same valley, only the policy
+> differs), and a **fully-censored draw** (0 careful survivors) asserts liveness + ordinal dominance
+> only, reporting magnitudes as CENSORED rather than red — see the verdict comments in
+> `campaign-loop.ts` and `docs/progress/2026-07-02-realism-campaign/after/coin-*` for the evidence.
 
 ## Coverage gaps (candidate NEW harnesses — the "improve the game 100%" list)
 
