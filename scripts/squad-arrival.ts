@@ -46,9 +46,18 @@ const cs = 5;
 const ARRIVE = 50;
 const COH = 90; // a man within ARRIVE + ~2*spacing of the objective counts as "closed up"
 const DT = 0.25;
-const TAC = 1500; // s — the tactical window (a reachable objective should arrive within this)
-const OUT_CAP = 2200; // s outbound — generous so even a far village arrives (a true SLOW shows as >TAC)
-const HOME_CAP = 1800; // s for the return leg
+const TAC = 1500; // s — the tactical window; REPORTED, so a doctrine-slow march shows as the tension it is
+// Loop budgets, NOT pass/fail thresholds. Re-anchored 2026-07-02 to the FM oracle: the old
+// 2200/1800/90 were calibrated when the sim marched 1.42× faster than FM 21-18 + FM 3-97.6
+// (doctrine-pace baseline; the locomotion grade tax fixed that, mean ratio now 1.09). The
+// worst honest nearest-village leg the probe stages (~1 km walked, ~300 m gained) is
+// FM-priced at ~5100 s — measured traces arrive at ratio 0.93–1.19 of the FM figure — so a
+// budget below that scores doctrine-honest marching as a movement failure (a sim-output-
+// derived threshold, the exact practice the harness charter bans). The ≤TAC report line
+// above keeps the tactical tension visible instead.
+const OUT_CAP = 6000; // s outbound loop budget (FM-honest bound for the staged legs + margin)
+const HOME_CAP = 6000; // s return-leg loop budget
+const WALK_IN = 240; // s post-complete garrison walk-in — the last men climb the bench at taxed pace
 const MAX_VIL = Number(process.env.MAX_VIL ?? 3); // cap villages/seed for speed
 const REACH_CELLS = Math.ceil(ARRIVE / cs);
 
@@ -149,7 +158,7 @@ for (const seed of SEEDS) {
       w.tick(DT);
       if (task.phase === "complete") break;
     }
-    for (let k = 0; k < 90 / DT; k++) w.tick(DT); // let the garrison walk in the last straggler or two (as in-game)
+    for (let k = 0; k < WALK_IN / DT; k++) w.tick(DT); // let the garrison walk in the last straggler or two (as in-game)
     const home2 = ids.map((id) => w.sim.unit(id)).filter((u: any) => u && u.alive);
     const inside = home2.filter((u: any) => Math.hypot(u.pos.x - center.x, u.pos.y - center.y) < wire).length;
     const homeOK = home2.length > 0 && inside >= Math.ceil(home2.length * 0.6);

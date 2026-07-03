@@ -238,10 +238,6 @@ const STANCE_SPEED: Record<Unit["stance"], number> = {
 // no-progress timeout is the backstop against any freeze.
 const STALL_WINDOW = 2; // seconds of continuous blocking before re-planning
 const NB_BUCKET = 4; // meters per spatial-hash bucket (neighbor queries / separation)
-// A tactical bound (moveTo) longer than this routes around solid obstacles instead of
-// walking a raw straight line: the 7 m steering fan solves anything shorter, while a
-// longer blocked line is exactly the stall-wipe/re-issue grind loop combat-grind.ts measures.
-const BOUND_ROUTE_M = 15;
 
 // --- natural-movement polish (deterministic; no per-tick RNG) ---
 const ARRIVE_EASE = 4; // m — decelerate into the final waypoint within this distance
@@ -249,6 +245,30 @@ const PACE_MAX = 1.6; // upper bound on paceScale. <1 = the navigator easing (sq
 // follower who has fallen behind his slot HUSTLING to close the interval (FM 3-21.8 "close it up").
 // Capped so a spent man double-times to regain his place, never sprints — the cohesion lever that
 // works WITHOUT slowing the point man (slowing the lead misses the objective on a hard climb — 031).
+// Mountain-march grade tax (moveUnit). Derivation from the doctrine planning math:
+// a foot march takes its flat-rate time PLUS a fixed hour-per-meters-climbed surcharge.
+// At the FM 21-18 cross-country day rate of 2.4 km/h, 1 km on grade g gains 1000g m,
+// so a surcharge of 1 h per H meters multiplies time by 1 + (2400/H)·g — i.e. speed
+// divides by that. The surcharge is LOAD-KEYED between two cited anchors:
+//   - Naismith's rule (unladen walker):        +1 h per 600 m  ⇒ rate 2400/600 = 4
+//   - FM 3-97.6 (infantry under fighting load): +1 h per 300 m ⇒ rate 2400/300 = 8
+// interpolated on carried kg (ASCENT_LOAD_*) — a 40 kg American pays the full FM figure,
+// a chest-rig fighter climbs near twice as fast: the Korengal mobility asymmetry every
+// first-hand account records (Junger, WAR — locals moved uphill at multiples of a loaded
+// platoon's pace). Keyed on LOAD (physical), never on faction.
+// Descent prices at half the ascent rate (FM: 600 m down ≡ 300 m up) and only for the
+// grade beyond DESCENT_FREE (Langmuir — a gentle downgrade walks at rate; footing is
+// already priced by the isotropic moveCostAt slope term this tax multiplies ON TOP of).
+// TAX_MIN caps the divisor so the steepest passable pitch still visibly creeps (with the
+// walk floor 0.5 m/s that is ≥ 0.075 m/s — never-freeze preserved; the floor itself is
+// untouched and the tax multiplies after it, exactly like the arrival ease).
+const ASCENT_RATE_MIN = 4; // Naismith unladen: (1+4g)⁻¹
+const ASCENT_RATE_MAX = 8; // FM 3-97.6 fighting load: (1+8g)⁻¹ ⇒ 2.4 kph flat → ~0.98 kph at 18%
+const ASCENT_LOAD_LO = 10; // kg — at or below this, the unladen Naismith rate
+const ASCENT_LOAD_HI = 35; // kg — at or above this, the full FM fighting-load rate
+const DESCENT_FREE = 0.2; // downgrades gentler than this walk at rate (Langmuir)
+const TAX_MIN = 0.15; // tax factor floor (engages at g ≈ 0.71 up, full load) — keeps everything moving
+const GRADE_PROBE = 5; // m ahead along the walk direction — the elevation field's resolution
 const SCAN_AMP = 0.3; // rad (~17°) — how far a halted man sweeps his sector while scanning
 const MIN_BODY = 1.1; // m — closer than this two non-hostile bodies interpenetrate (de-overlap)
 const MOVE_SLEW = 3.0; // rad/s (~172°/s) — facing turn-rate while marching
@@ -830,8 +850,10 @@ export class CombatSim {
     speed *= 1 - u.suppression * 0.4;
     // Combat load: every man a mule. A heavy load (the SAW/240 gunner, the man
     // humping mortar rounds) drags the pace and burns him out faster; fitness offsets
-    // some of it. Computed here (cheap), the same figure feeds the fatigue accrual.
-    const overload = Math.max(0, combatLoadKg(u, this.weaponOf(u)) - REF_LOAD_KG);
+    // some of it. Computed here (cheap); the same figure feeds the fatigue accrual
+    // below AND keys the mountain grade tax's ascent rate (Naismith↔FM 3-97.6).
+    const loadKg = combatLoadKg(u, this.weaponOf(u));
+    const overload = Math.max(0, loadKg - REF_LOAD_KG);
     speed *= clamp(1 - overload * (0.006 * (1.3 - u.fitnessMax)), 0.5, 1);
     // leg wounds slow you
     if (u.wounds.some((w) => w.region === "leg" && !w.treated)) speed *= 0.5;
@@ -847,6 +869,25 @@ export class CombatSim {
     // (per-person pace) instead of being clamped up to a soldier's marching floor.
     const floor = u.faction === "civilian" ? 0.12 : tech === "crawl" ? 0.2 : tech === "concealed" ? 0.35 : 0.5;
     speed = Math.max(floor, speed);
+    // Mountain grade tax — the SIGNED grade along the walk direction, priced at the
+    // LOAD-KEYED doctrine rate (constants + full derivation at ASCENT_RATE_MIN above).
+    // This is LOCOMOTION, not route selection: the router's cost model is untouched. It
+    // multiplies AFTER the never-freeze floor (like the arrival ease below) because the
+    // doctrinal uphill pace (~0.27 m/s at an 18% grade under load) is BELOW the 0.5 m/s
+    // march floor — TAX_MIN bounds the product so nothing ever freezes. Treads keep
+    // their moveCostAt benefit (a benched trail is faster ground); the climb itself is
+    // paid here per meter gained, which a switchback spreads over distance but can never
+    // cheat (the surcharge is per meter of GAIN). Two elevAt reads, no allocation.
+    const gAhead =
+      (this.terrain.elevAt(u.pos.x + goalDir.x * GRADE_PROBE, u.pos.y + goalDir.y * GRADE_PROBE) -
+        this.terrain.elevAt(u.pos.x, u.pos.y)) / GRADE_PROBE;
+    const ascRate =
+      ASCENT_RATE_MIN +
+      (ASCENT_RATE_MAX - ASCENT_RATE_MIN) * clamp01((loadKg - ASCENT_LOAD_LO) / (ASCENT_LOAD_HI - ASCENT_LOAD_LO));
+    speed *= Math.max(
+      TAX_MIN,
+      gAhead > 0 ? 1 / (1 + ascRate * gAhead) : 1 / (1 + 0.5 * ascRate * Math.max(0, -gAhead - DESCENT_FREE))
+    );
     // Arrival ease-in: flow into the LAST waypoint (slot / objective / cover) instead of
     // marching at full pace then snapping to a halt — a body decelerates onto its mark.
     if (u.path.length === 1) speed *= 0.45 + 0.55 * smoothstep(0.4, ARRIVE_EASE, d);
@@ -1755,10 +1796,12 @@ export class CombatSim {
       this.resetStall(u);
       return;
     }
-    u.path =
-      dist(u.pos, p) <= BOUND_ROUTE_M || walkable(this.terrain, u.pos, p)
-        ? [p]
-        : findPath(this.terrain, u.pos, p, { cheapFallback: true });
+    // walkable() decides — never distance. The first cut short-circuited bounds ≤15 m to a
+    // raw straight waypoint ("the fan can solve it"), but the 7 m steering fan cannot solve
+    // an 8–15 m bound across a compound wall: measured (combat-grind, bal-5), a holding man
+    // 10 m from his cover point ground a wipe/re-issue chain at the wall face — the exact
+    // loop this mechanism exists to kill. The walkable ray over ≤15 m is 1–3 cells; cheap.
+    u.path = walkable(this.terrain, u.pos, p) ? [p] : findPath(this.terrain, u.pos, p, { cheapFallback: true });
     u.pathGoal = p;
     this.resetStall(u);
   }
@@ -1935,7 +1978,14 @@ export class CombatSim {
     const next = add(cas.pos, scale(dir, step));
     if (this.terrain.passableCell(Math.floor(next.x / cs), Math.floor(next.y / cs))) {
       cas.pos = next;
-      buddy.pos = add(next, scale(dir, -1)); // the buddy just behind, hauling
+      // The buddy hauls from just behind the drag point — but NEVER written into a solid
+      // cell (issue 032: a drag along a building face — findCover loves walls — placed the
+      // buddy 1.9 m inside the latrine footprint, and a man inside a solid cell is wedged
+      // FOREVER: every micro-step fails, walkable() never samples the start cell, and one
+      // wedged guard alone produced 944 of bal-2's 951 out-of-contact stall-wipes). If his
+      // spot is solid he simply stays where he stands and keeps pulling from there.
+      const haul = add(next, scale(dir, -1));
+      if (this.terrain.passableCell(Math.floor(haul.x / cs), Math.floor(haul.y / cs))) buddy.pos = haul;
       buddy.moving = true;
       buddy.speed = 0.7;
     }
