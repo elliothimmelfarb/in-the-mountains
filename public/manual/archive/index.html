@@ -186,6 +186,7 @@
     <a class="rep" href="reports/2026-06-13-the-valley-is-real/report.html"><span class="rd">2026-06-13</span><span class="rt">The valley is real — a WebGL terrain rebuild</span><span class="rs">A first attempt was reverted for being "the old flat map with the sun switched on" (blit parity + a colour filter). This rebuild inverts it: the painted albedo is demoted to one input of five, and a WebGL2 fragment <em>recomposes the surface per-pixel</em> from the sim's own arrays — per-landcover materials + detail-normal raking, baked horizon AO, live-sun ridge shadows, a dark-silt flow-advected river, single-scatter aerial perspective, ACES + bloom — under a transparent 2D HUD (the legibility firewall), with a <code>u_detailGain</code> zoom-ramp that collapses to byte-faithful relief at strategic (Δ+0.2 luma). 9 green commits; a 4-critic adversarial pass caught a snow-white river + contrast-crushing haze (1/4 → fixed → fresh-eyes confirmed clears the bar). Terrain = full 10×; assets = grounded (full relight + FX deferred, issue 028).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-26-harness-charter/report.html"><span class="rd">2026-06-26</span><span class="rt">When the tests start defending the bug</span><span class="rs">This game is built test-first — but a test can quietly stop measuring whether the game is <em>good</em> and start measuring whether it is <em>the same</em>. An audit of all 84 harnesses found exactly one such blocker: a remembered "~8.58 WIA band" — a casualty number that was just the sim's own past output (the day aspect-vegetation shipped), not any real-world rate. It had flagged <em>fewer</em> wounded soldiers as a defect, narrowed a realism win, and reverted features. And it was policed finer than the harness's own noise: four identical-config draws ranged 2.67–9.42 WIA (σ≈2.5). The fix is a charter, not a patch — a gate may never assert the sim's own output, and the COIN <em>win condition</em> now gets the standing gate the firefight wrongly held.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-07-02-realism-campaign/report.html"><span class="rd">2026-07-02</span><span class="rt">When "too squiggly" meant "too straight"</span><span class="rs">Four realism complaints — stuck soldiers, squiggly paths, smooth terrain, a fake outpost — measured before a line of code changed, and <em>two were the opposite of what they looked like</em>. "Squiggly" paths were a near-beeline (ratio 1.12, 66% down the fall line); the wobble was 0.16&nbsp;px at play zoom. "Getting stuck" wasn't the patrols at all — it was an in-combat freeze (one fighter pinned 678&nbsp;s, 42% of insurgent contact time blocked → <b>0</b>). The real wins, front by front: the uphill march re-anchored to FM&nbsp;3-97.6 (2.45× too fast → doctrine-honest 0.98), foot-trails taught to contour by the USFS half-rule (walker's grade 0.215 → 0.114), the fbm valley walls re-bedded as banded strata (wall reversals 0 → 6–18/km, reachable valley 60.6 → 75.2%), and the KOP dressed in the clutter that <em>is</em> the realism (concertina, parapets, nets, tents, road clipped at the wire). Plus two commits that fixed the <em>test</em>, not the game: a null RNG draw swung the COIN gate ±19 pts, so it now scores the paired best seed. Honest residual: the outpost was dressed, not reshaped — the perfect-circle rebuild is the next campaign (issue 033).</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-07-03-squad-cohesion/report.html"><span class="rd">2026-07-03</span><span class="rt">The point man waits</span><span class="rs">The owner reported two things — the point man runs "unrealistically far forward," and squad members "get stuck on buildings in the villages." Metricized before touching code, and the named suspect was innocent: village qalat walls block <b>0.6&nbsp;s</b> of a patrol; the real grind is the outpost's own b-huts (11.6&nbsp;s) and the terrain/HESCO wire (38.6&nbsp;s). The actual defect is cause-agnostic — while a follower is genuinely stuck the point man runs at 0.51&nbsp;m/s and is <b>halted just 1% of the time</b>, so the file strings to 355&nbsp;m. Two guards meant to catch this were dead code (both keyed on a <code>blockedTimer&gt;6</code> the watchdog caps at 2&nbsp;s — one had read 0.0&nbsp;s on every seed and mis-reassured a prior investigation). Fix: a real <em>halt</em> gated on being <em>blocked</em>, not merely <em>slow</em>, and capped at 45&nbsp;s per leg — so it fires in villages and on the wire yet stays byte-identical on the tactical-window gate (the issue-031 arbiter). Halted-while-wedged <b>1%→38%</b>; peaks reined in 12/21→9/21 seeds; held-out clean, 0 new strandings. Honest residual: the ~29&nbsp;m average lead is nine-man-file geometry, not a defect — and the biggest <em>building</em> grind (COP egress) is deferred to a muster-routing pass.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1245,6 +1246,40 @@
         <span class="m"><span class="lbl">roads stamped inside the wire</span><span class="b">9</span><span class="ar">→</span><span class="a">0 / 8 seeds</span></span>
       </div>
       <a class="readmore" href="reports/2026-07-02-realism-campaign/report.html">Read the full report (four fronts, the two inversions, and the honest residuals) →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-07-03-squad-cohesion">
+    <div class="shot">
+      <a href="reports/2026-07-03-squad-cohesion/report.html"><img src="assets/2026-07-03-squad-cohesion.png" alt="Two snapshots of the same squad at its most-strung march moment: baseline with the point man 52 m ahead, the fix with him reined to 40 m" loading="lazy"></a>
+      <div class="cap">The same squad, worst march moment: baseline (left) strings the point man 52&nbsp;m clear of the pack; the fix (right) holds him to 40&nbsp;m. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-07-03</span></div>
+      <h3>The point man waits</h3>
+      <div class="tags"><span class="tag">Movement</span><span class="tag">Squad AI</span><span class="tag">Doctrine</span><span class="tag">Harnesses</span></div>
+      <p>Two complaints: the point man runs <em>unrealistically far forward</em>, and men <em>get stuck on
+      buildings in the villages</em>, so the file spreads. The house rule is no fix without a number — so a
+      probe attributed every stalled tick to the cell that actually blocked the man, and the named suspect
+      was innocent. Village qalat walls cause <b>0.6&nbsp;s</b> of wedging per patrol; the grind is on the
+      outpost's own b-huts (<b>11.6&nbsp;s</b>) and terrain/the HESCO wire (<b>38.6&nbsp;s</b>). I even
+      implemented "make village walls cosmetic" — it moved the number by nothing, and was reverted.</p>
+      <p class="shape"><b>The shape:</b> the real defect is cause-agnostic — whatever a man snags on, the
+      lead barely reacts (<b>halted 1%</b> of the time a follower is stuck). The fix is a genuine halt —
+      the point man takes a knee — gated on a follower being <em>blocked</em> (not merely <em>slow</em>, the
+      case issue&nbsp;031 proved you must not touch) and capped at 45&nbsp;s per leg. That budget makes it
+      byte-identical on the tactical-window gate while it reins the file in. Two dead guards surfaced and
+      were fixed: both keyed on a <code>blockedTimer&gt;6</code> the watchdog caps at 2&nbsp;s — one a harness
+      column that had read 0.0&nbsp;s on every seed and told a prior pass "nobody is stuck."</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">point man halted while a follower is wedged</span><span class="b">1%</span><span class="ar">→</span><span class="a">38%</span></span>
+        <span class="m"><span class="lbl">nav speed while a man is wedged</span><span class="b">0.51 m/s</span><span class="ar">→</span><span class="a">0.32 m/s</span></span>
+        <span class="m"><span class="lbl">seeds with point man &gt;40 m forward</span><span class="b">12 / 21</span><span class="ar">→</span><span class="a">9 / 21</span></span>
+        <span class="m"><span class="lbl">"buildings in villages" — qalat-wall wedge</span><span class="b">named cause</span><span class="ar">→</span><span class="a">0.6 s (innocent)</span></span>
+        <span class="m"><span class="lbl">tactical-window gate (issue-031 arbiter)</span><span class="b">15 / 27</span><span class="ar">→</span><span class="a">15 / 27 (identical)</span></span>
+        <span class="m"><span class="lbl">held-out survey-40…55 · new strandings</span><span class="b">—</span><span class="ar">→</span><span class="a">0</span></span>
+      </div>
+      <a class="readmore" href="reports/2026-07-03-squad-cohesion/report.html">Read the full report (the innocent suspect, the two dead metrics, and the budgeted halt) →</a>
     </div>
   </article>
 

@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Point Man Waits — squad cohesion on the march</title>
+<style>
+  :root{
+    --bg:#0b0e12; --panel:#11161c; --panel2:#161d26; --ink:#e6edf3; --dim:#8b98a5; --line:#232c38;
+    --red:#e5484d; --steel:#5b7fa6; --gold:#f2c94c; --green:#3fb950; --amber:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:16px/1.62 ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px 90px}
+  header.hero{padding:64px 0 34px;border-bottom:1px solid var(--line)}
+  .kicker{font:600 12.5px/1 ui-monospace,monospace;letter-spacing:.22em;text-transform:uppercase;color:var(--amber)}
+  h1{font-size:clamp(30px,5vw,50px);line-height:1.04;margin:16px 0 12px;letter-spacing:-.02em;font-weight:800}
+  .sub{color:var(--dim);font-size:18px;max-width:70ch}
+  .meta{margin-top:20px;display:flex;flex-wrap:wrap;gap:8px}
+  .tag{font:600 12px/1 ui-monospace,monospace;color:var(--dim);background:var(--panel);
+    border:1px solid var(--line);border-radius:999px;padding:7px 12px}
+  .tag.ok{color:var(--green);border-color:#1c3a24}
+  h2{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);
+    margin:56px 0 6px;font-weight:700;font-family:ui-monospace,monospace}
+  h2 + .lead{color:var(--dim);font-size:15px;margin:0 0 20px}
+  p{margin:14px 0}
+  .quote{border-left:3px solid var(--steel);background:var(--panel);padding:16px 20px;border-radius:0 10px 10px 0;
+    color:#c9d4e0;font-size:16.5px;margin:22px 0}
+  .quote b{color:var(--ink)}
+  .grid{display:grid;gap:16px}
+  .g3{grid-template-columns:repeat(3,1fr)} .g2{grid-template-columns:repeat(2,1fr)}
+  @media(max-width:720px){.g3,.g2{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+  .stat{font:800 34px/1 ui-monospace,monospace;letter-spacing:-.02em}
+  .stat .arrow{color:var(--dim);font-weight:400;font-size:22px;margin:0 6px}
+  .stat .to{color:var(--green)}
+  .stat.bad .to{color:var(--red)}
+  .stat.flat .to{color:var(--dim)}
+  .cap{color:var(--dim);font-size:13.5px;margin-top:8px}
+  table{width:100%;border-collapse:collapse;margin:8px 0;font-size:14.5px}
+  th,td{text-align:right;padding:10px 12px;border-bottom:1px solid var(--line)}
+  th:first-child,td:first-child{text-align:left}
+  thead th{color:var(--dim);font:600 12px/1 ui-monospace,monospace;letter-spacing:.06em;text-transform:uppercase}
+  td.num{font-family:ui-monospace,monospace}
+  .up{color:var(--green)} .down{color:var(--green)} .warn{color:var(--amber)} .neutral{color:var(--dim)}
+  .snap{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:18px 0}
+  @media(max-width:720px){.snap{grid-template-columns:1fr}}
+  .snap figure{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .snap svg{display:block;width:100%;height:auto}
+  .snap figcaption{padding:12px 16px;color:var(--dim);font-size:13.5px;border-top:1px solid var(--line)}
+  .snap .b1{color:var(--red);font-weight:700} .snap .b2{color:var(--green);font-weight:700}
+  .bar{height:12px;border-radius:6px;background:var(--panel2);overflow:hidden;margin-top:6px}
+  .bar>i{display:block;height:100%;border-radius:6px}
+  .rowbar{display:grid;grid-template-columns:150px 1fr 64px;gap:12px;align-items:center;margin:11px 0;font-size:14px}
+  .rowbar .lab{color:var(--dim)} .rowbar .val{font-family:ui-monospace,monospace;text-align:right}
+  ul.clean{margin:12px 0;padding-left:20px} ul.clean li{margin:8px 0}
+  .callout{background:linear-gradient(180deg,#12181f,#0f141a);border:1px solid var(--line);
+    border-left:3px solid var(--gold);border-radius:0 12px 12px 0;padding:18px 22px;margin:22px 0}
+  .callout b{color:var(--gold)}
+  code{font-family:ui-monospace,monospace;background:var(--panel2);border:1px solid var(--line);
+    border-radius:5px;padding:1px 6px;font-size:.9em;color:#cbd5e1}
+  .foot{margin-top:60px;padding-top:22px;border-top:1px solid var(--line);color:var(--dim);font-size:13.5px}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-size:13px;margin:2px 0 0}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:6px;border:1px solid #0b0e12}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="hero">
+  <div class="kicker">In the Mountains · Movement · 2026-07-03</div>
+  <h1>The point man waits</h1>
+  <p class="sub">A squad shouldn't string out across a draw because one man snagged on a wall while the
+  lead kept marching. Fixing that meant first proving <em>what</em> the men actually snag on — and the
+  obvious answer was wrong.</p>
+  <div class="meta">
+    <span class="tag ok">tsc ✓</span><span class="tag ok">build ✓</span>
+    <span class="tag ok">smoke ✓ (determinism + serialize)</span>
+    <span class="tag ok">balance ✓ (0 stranded)</span>
+    <span class="tag ok">window gate: unchanged</span>
+    <span class="tag ok">held-out: 0 new strandings</span>
+  </div>
+</header>
+
+<h2>The report</h2>
+<div class="quote">
+  “(1) The point man should slow down and <b>stop when the squad isn’t together</b>. Right now he just
+  keeps going — the worst part — and it makes him unrealistically far forward. (2) Squad members,
+  especially later in the file, are <b>getting stuck on buildings in the villages</b>, and the squad
+  spreads out <b>because the point man does not wait</b>. Unless you find a real solution, we can just
+  make the buildings visual-only.”
+</div>
+<p>Two asks, and a causal theory tying them together: men snag → the lead doesn’t wait → the file
+spreads. The house rule here is <b>no fix without a number</b>, so before touching a line I built a
+probe that attributes every stalled tick to the exact cell that blocked the man, and ran it on 21
+near-village patrols — the ones a player actually watches.</p>
+
+<h2>Finding #1 — “buildings in villages” is the wrong suspect</h2>
+<p class="lead">Blocked-seconds per patrol, by the land type that actually stopped the man.</p>
+<div class="grid g3">
+  <div class="card">
+    <div class="stat"><span style="color:var(--steel)">0.6s</span></div>
+    <div class="cap"><b>Village qalat walls.</b> Almost nothing. The thing the report named is the
+    <em>least</em> of it.</div>
+  </div>
+  <div class="card">
+    <div class="stat"><span style="color:var(--amber)">11.6s</span></div>
+    <div class="cap"><b>COP b-huts.</b> The men grind the outpost’s own buildings on the way <em>out</em>
+    — “later in the file,” exactly as reported.</div>
+  </div>
+  <div class="card">
+    <div class="stat"><span style="color:var(--red)">38.6s</span></div>
+    <div class="cap"><b>Terrain &amp; the HESCO wire.</b> Cliffs, the river, and sliding along the
+    perimeter berm on egress dominate.</div>
+  </div>
+</div>
+<div class="callout">
+  <b>The premise was testable, and it failed.</b> I did implement “make qalat walls passable-but-still-cover”
+  (it’s combat-safe — cover and line-of-sight are baked independently of passability, and sight is
+  blocked by elevation and vegetation, never by walls). It moved the aggregate from 20.2s → 19.9s.
+  Walls were never the cause, so I <b>reverted it</b> rather than ship a change that softens the village
+  maze for no measured gain.
+</div>
+
+<h2>Finding #2 — the real defect, and two dead metrics</h2>
+<p>Whatever a man snags on — a wall, a b-hut, the wire, a cliff — the point man barely reacts. While a
+follower is genuinely stuck he runs at <b>0.51&nbsp;m/s</b> (full march) and is <b>fully halted just 1%
+of the time</b>. He marches on; the file opens to 94&nbsp;m ahead of centroid, and stretches to 355&nbsp;m
+on the worst seed. That is the “unrealistically far forward.”</p>
+<p>Two guards that were <em>supposed</em> to catch this turned out to be dead code — both keyed on
+<code>blockedTimer&nbsp;&gt;&nbsp;6</code>, but the stall watchdog resets <code>blockedTimer</code> at 2&nbsp;seconds,
+so it can never exceed ~2. One was a mis-aimed exclusion in the pace governor; the other was the
+<code>follower-strand</code> harness’s <code>maxWedge</code> column, which had read <b>0.0s on every seed</b> —
+the very “nobody is stuck” reassurance a prior investigation had leaned on. Both fixed.</p>
+
+<h2>The fix — a bounded halt, gated on being <em>stuck</em>, not <em>slow</em></h2>
+<p>The point man now takes a knee — a genuine stop — when a follower is <b>blocked</b> and trailing, or
+when the rearmost man’s along-wake lag exceeds a file-length. It’s clock-latched and, critically,
+<b>capped at 45&nbsp;seconds of halt per leg</b>.</p>
+<div class="callout">
+  <b>Why this doesn’t re-break the tactical window.</b> A prior effort (issue 031) proved you can’t
+  <em>slow the lead</em> for a tired straggler on a climb — a chronic sub-floor creep over hundreds of
+  seconds makes far villages arrive too late. This is a different animal: a <b>discrete, budgeted stop</b>
+  (45s is a rounding error against the 1500s window), gated on a follower actually being
+  <b>blocked</b> — which a merely-slow climber never is. So it fires in villages and on the wire, and
+  stays silent on the long climb where the hustle already owns the problem.
+</div>
+
+<h2>See it — delta-4, worst march moment</h2>
+<p class="lead">Every dot is a soldier at the instant the point man is furthest ahead of the element
+centroid (×). Same seed, same route — only the wait differs.</p>
+<div class="legend">
+  <span><span class="dot" style="background:var(--red)"></span>point man</span>
+  <span><span class="dot" style="background:var(--steel)"></span>the other eight</span>
+  <span><span class="dot" style="background:#c9d4e0"></span>element centroid</span>
+  <span><span style="color:var(--gold)">— — —</span> the “forward” span</span>
+</div>
+<div class="snap">
+  <figure>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 506" font-family="ui-monospace,monospace" aria-label="baseline snapshot">
+      <rect width="460" height="506" fill="#11161c"/>
+      <text x="14" y="24" fill="#e6edf3" font-size="15" font-weight="700">BASELINE — he does not wait</text>
+      <text x="14" y="42" fill="#8b98a5" font-size="12">delta-4 · point man 52 m ahead of centroid</text>
+      <g transform="translate(0,46)">
+        <line x1="364.9" y1="281.6" x2="171.0" y2="206.4" stroke="#f2c94c" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <path d="M165.0,200.4 l12,12 M177.0,200.4 l-12,12" stroke="#c9d4e0" stroke-width="1.6"/>
+        <circle cx="174.1" cy="202.7" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="364.9" cy="281.6" r="7" fill="#e5484d" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="186.8" cy="216.0" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="212.6" cy="219.5" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="158.5" cy="199.8" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="137.6" cy="193.7" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="95.1" cy="178.4" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="109.3" cy="182.7" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="99.7" cy="183.3" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <text x="364.9" y="270.6" fill="#e5484d" font-size="11" text-anchor="middle">point</text>
+      </g>
+    </svg>
+    <figcaption><span class="b1">52 m strung.</span> The point man has run well clear of the pack.</figcaption>
+  </figure>
+  <figure>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 506" font-family="ui-monospace,monospace" aria-label="fix snapshot">
+      <rect width="460" height="506" fill="#11161c"/>
+      <text x="14" y="24" fill="#e6edf3" font-size="15" font-weight="700">FIX — he holds for the file</text>
+      <text x="14" y="42" fill="#8b98a5" font-size="12">delta-4 · point man 40 m ahead of centroid</text>
+      <g transform="translate(0,46)">
+        <line x1="351.4" y1="273.1" x2="182.9" y2="213.1" stroke="#f2c94c" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <path d="M176.9,207.1 l12,12 M188.9,207.1 l-12,12" stroke="#c9d4e0" stroke-width="1.6"/>
+        <circle cx="197.2" cy="213.0" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="351.4" cy="273.1" r="7" fill="#e5484d" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="206.6" cy="225.1" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="224.6" cy="227.3" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="177.8" cy="209.1" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="152.7" cy="201.9" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="108.6" cy="188.2" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="117.4" cy="186.9" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <circle cx="109.8" cy="193.3" r="5" fill="#5b7fa6" stroke="#0b0e12" stroke-width="1.2"/>
+        <text x="351.4" y="262.1" fill="#e5484d" font-size="11" text-anchor="middle">point</text>
+      </g>
+    </svg>
+    <figcaption><span class="b2">40 m.</span> He’s reined in toward the element — the file is tighter.</figcaption>
+  </figure>
+</div>
+
+<h2>The numbers</h2>
+<p class="lead">A/B on identical code (a runtime switch disables the halt), near villages, march phase only.</p>
+<div class="grid g3">
+  <div class="card">
+    <div class="stat"><span style="color:var(--red)">1%</span><span class="arrow">→</span><span class="to">38%</span></div>
+    <div class="cap"><b>Point man halted</b> while a follower is wedged. He now actually waits.</div>
+  </div>
+  <div class="card">
+    <div class="stat"><span style="color:var(--red)">0.51</span><span class="arrow">→</span><span class="to">0.32</span></div>
+    <div class="cap"><b>m/s</b> — his speed while a man is stuck. Cut by a third.</div>
+  </div>
+  <div class="card">
+    <div class="stat">12<span class="arrow">→</span><span class="to">9</span></div>
+    <div class="cap"><b>of 21 seeds</b> with the point man &gt;40 m forward at his worst. Peaks reined in.</div>
+  </div>
+</div>
+
+<h3 style="margin:30px 0 4px;font-size:15px;color:var(--dim);font-weight:600">Held-out — survey-40…55, sixteen seeds I never tuned on</h3>
+<table>
+  <thead><tr><th>metric</th><th>baseline</th><th>fix</th><th>read</th></tr></thead>
+  <tbody>
+    <tr><td>halt % while a man is wedged</td><td class="num">0%</td><td class="num">26%</td><td class="up">waits</td></tr>
+    <tr><td>nav speed while wedged (m/s)</td><td class="num">0.58</td><td class="num">0.45</td><td class="down">slower</td></tr>
+    <tr><td>seeds with peak forward &gt; 40 m</td><td class="num">9 / 16</td><td class="num">5 / 16</td><td class="down">tighter</td></tr>
+    <tr><td>new strandings introduced</td><td class="num">—</td><td class="num">0</td><td class="up">none</td></tr>
+  </tbody>
+</table>
+
+<h3 style="margin:30px 0 4px;font-size:15px;color:var(--dim);font-weight:600">Tactical-window gate (<code>squad-arrival</code>) — the issue-031 arbiter</h3>
+<table>
+  <thead><tr><th>metric</th><th>baseline</th><th>fix</th><th>read</th></tr></thead>
+  <tbody>
+    <tr><td>point man arrived</td><td class="num">25 / 27</td><td class="num">25 / 27</td><td class="neutral">identical</td></tr>
+    <tr><td>…within tactical window (≤1500 s)</td><td class="num">15 / 27</td><td class="num">15 / 27</td><td class="neutral">identical</td></tr>
+    <tr><td>squad cohesion @ objective</td><td class="num">99%</td><td class="num">98%</td><td class="neutral">noise</td></tr>
+    <tr><td>elements stranded mid-route (balance)</td><td class="num">0</td><td class="num">0</td><td class="up">none</td></tr>
+  </tbody>
+</table>
+<p>Byte-for-byte the same arrival profile — the 45s/leg budget makes the halt provably window-neutral.
+Combat is untouched (the halt only runs during the patrol move; contact resets it): KIA 0.83 / WIA 8.75
+/ civilian casualties 0, within the noise floor.</p>
+
+<h2>What I did <em>not</em> fix — named, on purpose</h2>
+<ul class="clean">
+  <li><b>The ~29 m average lead is a geometry floor, not a defect.</b> A nine-man file at 5.5 m spacing
+  is ~44 m long; the point man is at the <em>front</em>, so ~22 m ahead of the centroid by construction.
+  The halt reins in the <em>peaks</em>; it can’t (and shouldn’t) move the average — only lowering the
+  cruise pace would, and that’s the window-costly lever issue 031 already ruled out.</li>
+  <li><b>COP-egress grind on the outpost’s own b-huts (11.6 s/patrol) is the biggest <em>building</em>
+  wedge</b> — and the clearest remaining “stuck on a building” a player may see. It happens during the
+  gate pour, a deliberately full-pace choke this fix doesn’t touch. It belongs to a muster/egress
+  routing pass (the issue-003 family) and is filed as a residual, not silently dropped.</li>
+  <li><b>Making qalat walls cosmetic is safe but pointless</b> (it fixes 0.6 s and softens the village
+  maze), so it was proven-out and left on the shelf.</li>
+</ul>
+
+<div class="foot">
+  <p><b>Reproduce.</b> <code>npx tsx scripts/squad-wedge.ts</code> (cause attribution + halt %;
+  <code>ITM_NOWAIT=1</code> for the baseline) · <code>npx tsx scripts/squad-arrival.ts</code> (the window
+  gate) · held-out A/B on <code>survey-40…55</code>. Full evidence, verbatim baselines, and per-seed
+  tables in <code>docs/progress/2026-07-03-squad-village-cohesion/</code>; the mechanism and residuals in
+  <code>docs/issues/036</code>.</p>
+  <p>Code: <code>lib/sim/world/formation.ts</code> (the wedge/cohesion halt), <code>tasks.ts</code>
+  (per-leg budget reset), <code>types.ts</code> (task latch fields), <code>scripts/squad-wedge.ts</code>
+  (the probe), <code>scripts/follower-strand.ts</code> (dead-metric fix).</p>
+</div>
+</div>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
