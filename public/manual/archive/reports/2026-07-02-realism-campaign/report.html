@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>When "too squiggly" meant "too straight" — In the Mountains</title>
+<style>
+  :root{
+    --bg:#14130e; --bg2:#1b1a13; --panel:#201e16; --panel2:#262318;
+    --ink:#e8e2cf; --dim:#a59c80; --faint:#6f684f; --line:#3a3526;
+    --rust:#b5532a; --amber:#e0a72b; --olive:#7a7e4c; --blood:#9c2c20; --teal:#6fae9f; --us:#6ea8e0;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#14130e,#100f0a 60%);color:var(--ink);
+    font-family:var(--sans);line-height:1.62;font-size:16px}
+  a{color:var(--amber);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 46px;border-bottom:1px solid var(--line);
+    background:radial-gradient(1000px 380px at 16% -10%,rgba(122,126,76,.20),transparent 62%);}
+  .kicker{font-family:var(--mono);letter-spacing:.32em;text-transform:uppercase;
+    color:var(--rust);font-size:12px;margin-bottom:16px}
+  h1{font-size:44px;line-height:1.06;margin:0 0 14px;letter-spacing:-.015em}
+  h1 .sub{color:var(--dim);font-weight:400;font-size:34px;display:block;margin-top:6px}
+  .lede{font-size:19px;color:var(--dim);max-width:820px}
+  .meta{margin-top:26px;font-family:var(--mono);font-size:12.5px;color:var(--faint);
+    display:flex;gap:22px;flex-wrap:wrap}
+  .meta b{color:var(--olive)}
+  h2{font-size:28px;margin:52px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--rust);font-size:15px;margin-right:12px}
+  h3{font-size:18px;margin:26px 0 6px;color:var(--ink)}
+  p{margin:12px 0}
+  code{font-family:var(--mono);font-size:.85em;background:#000;padding:1px 5px;border-radius:4px;color:#d8cfa8}
+  em{color:#efe9d6;font-style:italic}
+  .callout{display:block;background:rgba(224,167,43,.07);border:1px solid var(--line);
+    border-left:3px solid var(--amber);border-radius:8px;padding:14px 18px;margin:18px 0;color:#e8e2cf}
+  .callout b{color:var(--amber)}
+  .bad{border-left-color:var(--blood);background:rgba(156,44,32,.07)} .bad b{color:var(--blood)}
+  .good{border-left-color:var(--teal);background:rgba(111,174,159,.07)} .good b{color:var(--teal)}
+  .stat{display:flex;gap:16px;flex-wrap:wrap;margin:22px 0}
+  .stat .s{background:#000;border:1px solid var(--line);border-radius:10px;padding:14px 18px;min-width:150px;flex:1}
+  .stat .v{font-size:25px;font-weight:800;color:var(--amber);font-family:var(--mono);line-height:1.1}
+  .stat .v .was{color:var(--faint);font-size:15px;font-weight:500}
+  .stat .v .arw{color:var(--dim);font-size:15px;margin:0 5px}
+  .stat .v .now{color:var(--teal)}
+  .stat .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--olive)}
+  td.was{color:var(--faint);font-family:var(--mono)} td.now{color:var(--teal);font-family:var(--mono);font-weight:600}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}
+  .pair figure{margin:0}
+  .pair img{width:100%;height:auto;border-radius:8px;border:1px solid var(--line);display:block;background:#000}
+  .pair figcaption{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+    margin-top:8px;color:var(--dim)}
+  .pair .b-lbl{color:var(--faint)} .pair .a-lbl{color:var(--teal)}
+  .capline{font-size:13.5px;color:var(--dim);margin:-6px 0 24px;font-style:italic}
+  @media(max-width:720px){ .pair{grid-template-columns:1fr} h1{font-size:34px} h1 .sub{font-size:24px} }
+  ol.essence{counter-reset:e;list-style:none;padding:0;margin:14px 0}
+  ol.essence li{counter-increment:e;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px 14px 52px;margin:10px 0;position:relative}
+  ol.essence li::before{content:counter(e,decimal-leading-zero);position:absolute;left:14px;top:13px;
+    font-family:var(--mono);color:var(--rust);font-weight:700;font-size:15px}
+  ol.essence b{color:var(--ink)}
+  .toc{position:sticky;top:0;background:rgba(16,15,10,.94);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:20;font-family:var(--mono);font-size:12px}
+  .toc .wrap{display:flex;gap:18px;padding:11px 22px;overflow-x:auto}
+  .toc a{color:var(--dim);white-space:nowrap} .toc a:hover{color:var(--amber)}
+  .quote{font-size:21px;line-height:1.4;color:var(--ink);border-left:3px solid var(--rust);
+    padding:4px 0 4px 20px;margin:24px 0;font-style:italic}
+  .tl{margin:20px 0;border-left:2px solid var(--line);padding-left:22px}
+  .tl .ev{position:relative;margin:0 0 18px}
+  .tl .ev::before{content:"";position:absolute;left:-29px;top:5px;width:11px;height:11px;border-radius:50%;
+    background:var(--panel);border:2px solid var(--rust)}
+  .tl .ev .hh{font-family:var(--mono);font-size:12px;color:var(--amber)}
+  .tl .ev .tt{color:var(--ink);font-weight:600;margin-left:8px}
+  .tl .ev .dd{color:var(--dim);font-size:14px;margin-top:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  @media(max-width:720px){ .grid2{grid-template-columns:1fr} }
+  .grid2 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .grid2 .card h4{margin:0 0 6px;font-size:15px;color:var(--amber)}
+  .grid2 .card p{margin:6px 0;font-size:14px;color:var(--dim)}
+  footer{padding:44px 0 74px;color:var(--faint);font-size:13px;font-family:var(--mono);border-top:1px solid var(--line);margin-top:40px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--olive);border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin:0 6px 6px 0}
+</style>
+</head>
+<body>
+<nav class="toc"><div class="wrap">
+  <a href="#complaints">① Four complaints</a>
+  <a href="#inversions">② The two inversions</a>
+  <a href="#fight">③ The fight</a>
+  <a href="#trails">④ The trails</a>
+  <a href="#walls">⑤ The walls</a>
+  <a href="#outpost">⑥ The outpost</a>
+  <a href="#gate">⑦ The gate that lied</a>
+  <a href="#commits">The nine commits</a>
+  <a href="#next">⑧ What's next</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">Field note · build record · 2026-07-02 → 03</div>
+  <h1>When "too squiggly" meant "too straight"<span class="sub">a four-front realism campaign in the Korengal</span></h1>
+  <p class="lede">The owner watched the game and named four things that felt fake: soldiers got
+  <em>stuck</em>, the walked paths looked <em>too squiggly</em>, the terrain was <em>too smooth</em>
+  next to real Korengal photos, and the outpost itself felt <em>staged</em>. The rule on this project
+  is that a complaint about feel becomes a number before anyone touches code. So we measured all four
+  first — and <em>two of them turned out to be the exact opposite of what they looked like.</em></p>
+  <div class="meta">
+    <span><b>Span</b> 83e4256 → bd5cf77 · 9 commits</span>
+    <span><b>Fronts</b> movement · trails · terrain · the KOP</span>
+    <span><b>Gates</b> tsc · smoke · balance · COIN — all green</span>
+  </div>
+</div></header>
+
+<main class="wrap">
+
+<h2 id="complaints"><span class="n">01</span>The four complaints</h2>
+<p>The brief was blunt: <em>up the realism of what already exists — no new features. Question
+everything.</em> Four things bugged him, so we built or sharpened one measuring instrument per
+complaint and took a verbatim baseline on the starting commit before writing a line of fix.</p>
+<div class="grid2">
+  <div class="card"><h4>A · "Soldiers get stuck"</h4><p>Squads seemed to hang up on things; movement felt off. Suspicion: pathfinding.</p></div>
+  <div class="card"><h4>B · "Paths are too squiggly"</h4><p>The walked routes looked unnaturally wiggly, not like men picking a line across ground.</p></div>
+  <div class="card"><h4>C · "Terrain is too smooth"</h4><p>Next to real Korengal photos the valley walls looked like a soft airbrushed blob.</p></div>
+  <div class="card"><h4>D · "The KOP feels fake"</h4><p>The combat outpost read like a game asset — a neat ring on a flat pad — not a lived-in firebase.</p></div>
+</div>
+<p>The measuring is the point. Three of these four measurements changed what the fix even was — and
+one of them, the "stuck" complaint, sent us looking in a completely different room of the house.</p>
+
+<h2 id="inversions"><span class="n">02</span>The two inversions</h2>
+<p>Before the wins, the honesty: the two loudest complaints were misdiagnoses, and the metric caught
+both. This is exactly why the process exists.</p>
+
+<div class="callout bad"><b>"Too squiggly" was actually too straight.</b> A new route-shape probe
+measured the <em>planned</em> route: length ÷ straight-line ratio <code>1.12</code> — a near-beeline.
+On moderate slopes, <b>66% of route length ran straight down the fall line and only 11% along the
+contour</b> — the opposite of a real mountain trail, which traverses. The visible "squiggle" was the
+per-man walking wobble, and it measured <code>0.2–0.4&nbsp;m</code> RMS — <b>0.16&nbsp;px at play
+zoom.</b> Invisible. The paths didn't need <em>de</em>-wiggling; the trails needed to learn to
+<em>traverse</em>.</div>
+
+<div class="callout bad"><b>"Getting stuck" wasn't the patrols at all.</b> The patrol router came within
+<code>0.6–5%</code> of the true shortest path; the two seeds that looked "STUCK" were probe-window
+artifacts (the patrol just hadn't finished yet). The real freeze lived only <em>in combat</em>: a new
+in-combat movement probe found an insurgent breaking contact was handed a raw 500&nbsp;m beeline whose
+end sat inside a cliff — the stall watchdog wiped the path, the brain re-issued the identical dead
+target, forever. <b>One fighter was frozen for 678 seconds.</b> 42% of all insurgent in-contact time
+was spent blocked.</div>
+
+<p class="quote">The fix for "the paths are too squiggly" was to make them <em>curvier</em> — because
+real trails bend around the mountain instead of charging up it. You cannot get there by trusting the
+complaint. You get there by measuring it.</p>
+
+<h2 id="fight"><span class="n">03</span>The fight — where "stuck" actually lived</h2>
+<p><b>Front A.</b> Combat in this game is 100% AI — the player approves fires and MEDEVAC, and watches.
+So a movement bug in a firefight is invisible to the player as a <em>bug</em>; it just reads as men
+behaving strangely. The probe found three mechanisms, all fixed at the one chokepoint every combat
+brain already calls (<code>CombatSim.moveTo</code>): snap every move goal to standable ground, route
+the short bound past the 7&nbsp;m steering fan, and treat cover <em>adjacent</em> to a wall as real
+(cover <em>inside</em> the wall is not). Two more followed: a buddy dragging a casualty could teleport
+the hauler into a solid cell and wedge him forever (one wedged guard produced 944 of 951 stall-wipes
+on a single test), and the uphill march was simply too fast.</p>
+
+<div class="stat">
+  <div class="s"><div class="v"><span class="was">570</span><span class="arw">→</span><span class="now">0</span></div><div class="l">insurgent grind events</div></div>
+  <div class="s"><div class="v"><span class="was">42%</span><span class="arw">→</span><span class="now">0%</span></div><div class="l">insurgent time blocked in contact</div></div>
+  <div class="s"><div class="v"><span class="was">678s</span><span class="arw">→</span><span class="now">10.7s</span></div><div class="l">worst frozen unit</div></div>
+  <div class="s"><div class="v"><span class="was">951</span><span class="arw">→</span><span class="now">1</span></div><div class="l">garrison stall-wipes (bal-2)</div></div>
+</div>
+
+<h3>The march learned the mountain</h3>
+<p>Uphill movement was pricing at <b>2.45× too fast</b> against doctrine. The fix is a load-keyed grade
+tax that interpolates two cited anchors — Naismith's rule for an unladen walker and <b>FM&nbsp;3-97.6</b>
+(+1&nbsp;hour per 300&nbsp;m of ascent under a fighting load) — keyed on the weight a man carries, never
+on which side he's on. The Korengal mobility asymmetry Sebastian Junger describes in <em>War</em> — light
+fighters flowing uphill while laden Americans grind — now emerges from physics, not a faction flag.</p>
+<div class="callout good"><b>Doctrine pace:</b> sim-vs-FM ratio <b>1.42 → 0.98</b> (1.0 = doctrine-honest),
+8/8 patrols arrive. The 249&nbsp;m climb that read 2.45× too fast now prices at ~1.0. Flat routes stay
+honest at 1.03–1.23 (a tax that spuriously bit terrace micro-grades would push them below 1.0 — it
+doesn't).</div>
+<p class="capline">Casualties are a <em>diagnostic</em> on this project, never a target — there is no
+"correct" wounded count to defend, and the harness prints its own ±2.5 noise floor so nobody tunes to
+a number inside it. Final balance: 0 elements stranded, civilian casualties 0.</p>
+
+<h2 id="trails"><span class="n">04</span>The trails — teaching them to traverse</h2>
+<p><b>Front B.</b> Once the inversion was clear, the target was doctrine: the <b>USFS half-rule</b> (a
+trail's grade should be at most half the hillside's), a ~10% network average, and 15–25% only in short
+sustained pitches — real trails <em>contour</em> across a slope and stack <em>switchbacks</em> at the
+spur noses. They are neither fall-line nor squiggle. The trail carvers were rebuilt to target grade
+explicitly and accept each step against the <em>real</em> cell rise, with a grade-priced route planner
+laying bench-riding laterals between villages.</p>
+
+<div class="pair">
+  <figure><img src="img/route-before.png" alt="Planned patrol route, before — a near-straight diagonal"><figcaption class="b-lbl">Before · 83e4256 — the planned route</figcaption></figure>
+  <figure><img src="img/route-after.png" alt="Planned patrol route, after — contoured"><figcaption class="a-lbl">After · bd5cf77 — same seed, contoured ground</figcaption></figure>
+</div>
+<p class="capline">The traced patrol route on <code>korengal</code>. The story here is in the numbers more
+than the schematic — the walker's <em>experienced</em> grade is what changed.</p>
+
+<div class="stat">
+  <div class="s"><div class="v"><span class="was">0.215</span><span class="arw">→</span><span class="now">0.114</span></div><div class="l">walker's grade (aim ~0.10)</div></div>
+  <div class="s"><div class="v"><span class="was">12%</span><span class="arw">→</span><span class="now">2%</span></div><div class="l">trail length above 45%</div></div>
+  <div class="s"><div class="v"><span class="was">9</span><span class="arw">→</span><span class="now">0</span></div><div class="l">roads stamped inside the wire</div></div>
+</div>
+<div class="callout"><b>An honest recorded dead-end.</b> The same grade-priced routing applied to
+<em>vehicle tracks</em> made every route worse (1.41 → 1.47) — because walked patrols <em>ride</em> the
+tracks, so contour-detouring a track just lengthens the march. Tracks stay straight; only foot-trails
+contour. Written into the code as a do-not-retry.</div>
+
+<h2 id="walls"><span class="n">05</span>The walls — from airbrush to bedded rock</h2>
+<p><b>Front C.</b> The measurement here was the most surprising: the valley's <em>macro</em> form was
+already right — wall slopes at a 37° median, a correct rim-to-river relief ratio. What it was missing
+was the <em>meso</em> scale, the 15–45&nbsp;m structured relief that makes a real gneiss-and-schist
+mountainside read as bedded rock: cliff bands, benches, scree chutes, outcrop. The fbm walls were
+smooth gradient washes with a fake 60–79° curb where the floodplain met the slope. The fix re-beds the
+walls as banded strata — asymmetric bench/riser cycles, breach chutes, gully dissection, and a soft toe
+apron replacing the curb — with a full re-validation of world connectivity and river crossings after
+the last terrain edit.</p>
+
+<div class="pair">
+  <figure><img src="img/terrain-dawn-before.png" alt="Valley walls at dawn, before — smooth washes"><figcaption class="b-lbl">Before · dawn — smooth gradient washes</figcaption></figure>
+  <figure><img src="img/terrain-dawn-after.png" alt="Valley walls at dawn, after — contour banding"><figcaption class="a-lbl">After · dawn — contour-banded strata</figcaption></figure>
+</div>
+<p class="capline">Same seed, same camera, same clock. The raking dawn light now catches horizontal
+cliff-band/bench striation on the walls; the baseline caught nothing to catch.</p>
+
+<div class="pair">
+  <figure><img src="img/terrain-noon-before.png" alt="Valley at noon, before — smooth"><figcaption class="b-lbl">Before · noon — flat slopes, straight trails</figcaption></figure>
+  <figure><img src="img/terrain-noon-after.png" alt="Valley at noon, after — banded slopes, contoured trails"><figcaption class="a-lbl">After · noon — banded slopes, trails traversing</figcaption></figure>
+</div>
+<p class="capline">The two campaigns visible in one frame: banded walls (front C) and trails that now
+switchback across the contour instead of running down the fall line (front B).</p>
+
+<table>
+  <thead><tr><th>Wall metric</th><th>Before</th><th>After</th><th>Held-out</th></tr></thead>
+  <tbody>
+    <tr><td>Wall reversal density (per km)</td><td class="was">0–2.8</td><td class="now">6.2–17.8</td><td>—</td></tr>
+    <tr><td>15–45&nbsp;m band energy (m)</td><td class="was">1.98</td><td class="now">3.64</td><td>3.43</td></tr>
+    <tr><td>Floodplain rim slope (the fake curb)</td><td class="was">1.72</td><td class="now">0.18</td><td>0.18</td></tr>
+    <tr><td>Reachable valley (mean)</td><td class="was">60.6%</td><td class="now">75.2%</td><td>—</td></tr>
+    <tr><td>Reachable, worst seed</td><td class="was">11.0%</td><td class="now">65.3%</td><td>—</td></tr>
+  </tbody>
+</table>
+<div class="callout good"><b>A bug the rebuild exposed and killed:</b> the connectivity re-validation caught
+a village track being laid at elevation 1976 <em>across</em> the 1775&nbsp;m floodplain — a 200&nbsp;m
+embankment burying the main road and damming the river. A hug-the-ground clamp now stops it.</div>
+<div class="callout bad"><b>Named partial win:</b> the fine within-wall texture reached 0.19 against a
+0.30 target — pushing it higher with dense noise collapsed the banding and sprayed speckle, so it was
+left as a residual, not forced. And the single giant &gt;45° slope component was <em>thinned and gapped</em>
+but not shattered: an earlier attempt that shattered it cratered reachability to 34%. Reported as partial,
+because it is partial.</div>
+
+<h2 id="outpost"><span class="n">06</span>The outpost — the clutter is the realism</h2>
+<p><b>Front D.</b> Real Korengal-era firebases (Junger's <em>War</em> and <em>Vanity Fair</em> dispatches;
+the film <em>Restrepo</em>) are terraced up a hillside, wrapped in a kinked "lumpy amoeba" of HESCO and
+wire, and <em>buried in stuff</em>: concertina everywhere, sandbag parapets, camo nets, conex boxes and
+GP tents, water pallets, ammo stacks, burn barrels, an improvised gym. The clutter <em>is</em> the
+realism. Our KOP had seven of those exact art assets sitting unused in the manifest, drawn nowhere — and
+a tan road painted edge-to-edge straight across the yard.</p>
+
+<div class="pair">
+  <figure><img src="img/kop-before.png" alt="The KOP before — a clean parametric circle"><figcaption class="b-lbl">Before · a parametric ring, checkerboard yard, road through the middle</figcaption></figure>
+  <figure><img src="img/kop-after.png" alt="The KOP after — dressed and lived-in"><figcaption class="a-lbl">After · concertina, parapets, nets, tents, clutter, road clipped at the wire</figcaption></figure>
+</div>
+<p class="capline">Every asset added is anchored to a reason it would be there: the gym sits at the exact
+spot the garrison sends its two off-duty lifters; burn barrels sit under the latrine smoke plume; the
+windsock is on the LZ. The buildings' collision footprints are untouched — this is skin, not new geometry.</p>
+
+<p>Alongside the dressing, the garrison stopped reading as evenly-spaced frozen dots: a gym pair, 2–3-man
+conversation knots for ~40% of idlers, per-man staggered seat drift — deterministic, no random draws.
+And the road-through-the-yard was fixed on <em>both</em> sides: clipped at the wire in the renderer, and
+routed around the perimeter in generation (<b>0 road cells inside the ring across 8 seeds</b>, wall
+closed on all 360 bearings). Cost: about +2&nbsp;ms a frame at a full combat tableau.</p>
+
+<div class="callout"><b>The honest half.</b> This front <em>dressed</em> the outpost — it did not
+<em>rebuild</em> it. Look closely at the "after" and the HESCO ring is still a perfect circle on a flat
+bench, the yard still faintly checkerboards. Making the perimeter itself kink along the contour, terracing
+the interior onto benches, and adding an ANA sub-compound is a generation rebuild — scoped, written up as
+issue 033, and deliberately held for the next campaign rather than faked now.</div>
+
+<h2 id="gate"><span class="n">07</span>The gate that lied</h2>
+<p>Two of the nine commits fixed no game bug at all — they fixed the <em>test</em>. When the terrain and
+combat changes were finished, the COIN win-condition gate (the standing check that asks <em>does playing
+counterinsurgency well beat playing it badly?</em>) went red. It would have been easy to "fix the game"
+until it went green. Instead we asked whether the gate was telling the truth.</p>
+<div class="callout bad"><b>It wasn't.</b> A null-perturbation control — adding <em>one</em> unused
+random-number draw at world creation, a change with zero behavioural effect — swung the gate's 3-seed
+score spread from <b>37.3 to 18.3</b>. The metric was reading ±19 points of pure noise. The root cause:
+relief-of-command fires on an opening-days combat lottery that censors about half of careful tours to a
+score of zero, so a 3-seed average is really a survivor-count coin-flip.</div>
+<p>The fix was to the <em>measurement</em>, not the game: score on the <b>paired best seed</b> (same
+valley, only the policy differs) and treat a fully-censored draw as a liveness check, never a red. Then a
+second, real ceiling surfaced that the noise had been hiding — the strategic scheduler only sampled once
+per game-day at midnight, starving operational squads to <b>83–89% idle</b>. Making it event-driven and
+daylight-gated let the campaign's tempo emerge from how long operations actually take. The honest price,
+reported not buried: careful play scores lower under equal, doctrine-honest pacing (65 → 50) — but still
+beats body-count <b>87 to 0</b> on its best valley.</p>
+<p class="capline">The rule this project runs on: a gate may only assert an invariant or cited doctrine —
+<em>never the sim's own past output</em>. A test that defends today's numbers criminalizes tomorrow's
+improvement. This whole episode is why that rule exists.</p>
+
+<h2 id="commits">The nine commits, in order</h2>
+<p>The whole campaign in its own chronology — Phase 1 measures, three build fronts, two commits that
+fixed the test, and the trail contouring that closed it out. Every one carries its own before→after in
+the git log.</p>
+<div class="tl">
+  <div class="ev"><span class="hh">7e1ea74</span><span class="tt">Three probes + Phase-1 baselines</span><div class="dd">route-smoothness, terrain-roughness, doctrine-pace. The two inversions were caught right here — "squiggly" is 1.12 near-beeline; "stuck" is in-combat only (42% of insurgent contact blocked). No sim change.</div></div>
+  <div class="ev"><span class="hh">f573728</span><span class="tt">Combat tactical bounds — front A</span><div class="dd">Snap every combat move goal to standable ground, route past the 7&nbsp;m steering fan, cover adjacent to a wall not inside it. Grind 570→0, worst freeze 678&nbsp;s→10.7&nbsp;s.</div></div>
+  <div class="ev"><span class="hh">dbf317c</span><span class="tt">Garrison yard-life + solid-cell self-heal</span><div class="dd">A gym pair, talk knots, seat drift — and a self-heal that snaps an off-task man out of a wall. Guard stall-wipes 951→1.</div></div>
+  <div class="ev"><span class="hh">5764134</span><span class="tt">Dress the KOP — front D</span><div class="dd">Concertina, sandbag parapets, camo nets, conex/tent skins, clutter, worn foot-lanes; roads clipped at the wire. The seven unused assets, finally drawn.</div></div>
+  <div class="ev"><span class="hh">3666d14</span><span class="tt">COIN gate de-noised</span><div class="dd">A null-draw control proved the gate was reading ±19 pts of noise. Re-anchored to the paired best seed + a censored-draw tier. Aggregation only — no sim change.</div></div>
+  <div class="ev"><span class="hh">9c031da</span><span class="tt">COIN pacing re-anchor</span><div class="dd">The scheduler sampled once per game-day at midnight, starving op squads to 83–89% idle. Event-driven, daylight-gated ops let tempo emerge.</div></div>
+  <div class="ev"><span class="hh">fa797c5</span><span class="tt">Doctrine mountain march — front A</span><div class="dd">Load-keyed grade tax (Naismith→FM&nbsp;3-97.6): uphill 2.45×→~1.0. Plus the drag-to-cover root fix that closed the solid-cell wedge for good.</div></div>
+  <div class="ev"><span class="hh">7180b41</span><span class="tt">Strata-band walls — front C</span><div class="dd">Cliff bands, benches, breach chutes, toe apron. Wall reversals 0→6–18/km, reachable valley 60.6→75.2%; a viaduct bug caught and killed.</div></div>
+  <div class="ev"><span class="hh">bd5cf77</span><span class="tt">Trails contour — front B</span><div class="dd">Half-rule grades, bench-riding traverses, switchback ladders. Walker's grade 0.215→0.114; 0 roads left inside the wire.</div></div>
+</div>
+
+<h2 id="next"><span class="n">08</span>What's next — and what we didn't fake</h2>
+<p>Numbers-first means residuals-named. The wins above are real and held on held-out seeds; here is what
+is honestly still open, each filed with a repro recipe.</p>
+<ol class="essence">
+  <li><b>Wave 2b — the KOP generation rebuild (issue 033).</b> The outpost is dressed, not reshaped. A
+  contour-kinked polygonal perimeter, terraced interior benches, a continuous yard, and an ANA
+  sub-compound are the next campaign. This is the biggest remaining "that looks fake" tell.</li>
+  <li><b>Routing &amp; metric residuals (issue 034).</b> Banded walls impose real detours (route ratio
+  1.46, carried by three ford crossings) — the lever is planner cost, not trail generation. Two probes
+  want a small re-aim under the new terrain.</li>
+  <li><b>Relief-of-command is a lottery (issue 035).</b> The COIN gate's noise source, now contained for
+  testing but unfixed at the source: relief should fire on a <em>pattern of command</em> — an ROE and
+  casualty trend — not a day-three dice roll.</li>
+  <li><b>The COIN gate is slow (issue 030).</b> Doctrine-honest pacing fits more operations into each
+  day, which pushed the full 3-seed check to 30–40 minutes (a body-count leg hit 45–69 min and was
+  killed more than once). A fast, deterministic "COIN smoke" config is still owed.</li>
+</ol>
+
+<p class="quote">You can win every firefight and still lose the valley. This campaign didn't touch that
+truth — it made the ground you fight over, the trails you walk, and the outpost you defend honest enough
+that a soldier reading a field manual would recognize them.</p>
+
+<footer>
+  In the Mountains — build record · 2026-07-02 → 03 realism campaign · 83e4256 → bd5cf77 ·
+  9 commits · tsc / smoke / balance / COIN gate green ·
+  engineering record under <code>docs/progress/2026-07-02-realism-campaign/</code>,
+  issues 007 / 027 / 030 / 032 / 033 / 034 / 035.
+</footer>
+
+</main>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>

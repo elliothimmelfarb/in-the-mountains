@@ -185,6 +185,7 @@
     <a class="rep" href="reports/2026-06-11-sound-realism/report.html"><span class="rd">2026-06-11</span><span class="rt">Calibre voices</span><span class="rs">One sentence of sim code — stamping which weapon produced each effect — unlocked the sound pass the synth itself had been asking for ("we have no per-weapon id on the Effect"). The .50s now hammer an octave below the 7.62 guns (DShK darker than the PKM by 772 Hz, measured), the RPG announces its launch before the blast, the M320 bloops, bolt guns cycle their bolts, pistols bark, and 60 vs 120 mm mortars grade by calibre (LF share 14.1→19.9%). Plus the sounds that were missing: reload clatter at −51.6 dB, and upgrades that make the IED heave (centroid 5233→3951 Hz), the incoming shell tear instead of sing, and the near miss complete its N-wave. 13/13 oracle assertions; new cues proven on 3 held-out seeds of organic combat. Playable A/B audio throughout.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-13-the-valley-is-real/report.html"><span class="rd">2026-06-13</span><span class="rt">The valley is real — a WebGL terrain rebuild</span><span class="rs">A first attempt was reverted for being "the old flat map with the sun switched on" (blit parity + a colour filter). This rebuild inverts it: the painted albedo is demoted to one input of five, and a WebGL2 fragment <em>recomposes the surface per-pixel</em> from the sim's own arrays — per-landcover materials + detail-normal raking, baked horizon AO, live-sun ridge shadows, a dark-silt flow-advected river, single-scatter aerial perspective, ACES + bloom — under a transparent 2D HUD (the legibility firewall), with a <code>u_detailGain</code> zoom-ramp that collapses to byte-faithful relief at strategic (Δ+0.2 luma). 9 green commits; a 4-critic adversarial pass caught a snow-white river + contrast-crushing haze (1/4 → fixed → fresh-eyes confirmed clears the bar). Terrain = full 10×; assets = grounded (full relight + FX deferred, issue 028).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-06-26-harness-charter/report.html"><span class="rd">2026-06-26</span><span class="rt">When the tests start defending the bug</span><span class="rs">This game is built test-first — but a test can quietly stop measuring whether the game is <em>good</em> and start measuring whether it is <em>the same</em>. An audit of all 84 harnesses found exactly one such blocker: a remembered "~8.58 WIA band" — a casualty number that was just the sim's own past output (the day aspect-vegetation shipped), not any real-world rate. It had flagged <em>fewer</em> wounded soldiers as a defect, narrowed a realism win, and reverted features. And it was policed finer than the harness's own noise: four identical-config draws ranged 2.67–9.42 WIA (σ≈2.5). The fix is a charter, not a patch — a gate may never assert the sim's own output, and the COIN <em>win condition</em> now gets the standing gate the firefight wrongly held.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-07-02-realism-campaign/report.html"><span class="rd">2026-07-02</span><span class="rt">When "too squiggly" meant "too straight"</span><span class="rs">Four realism complaints — stuck soldiers, squiggly paths, smooth terrain, a fake outpost — measured before a line of code changed, and <em>two were the opposite of what they looked like</em>. "Squiggly" paths were a near-beeline (ratio 1.12, 66% down the fall line); the wobble was 0.16&nbsp;px at play zoom. "Getting stuck" wasn't the patrols at all — it was an in-combat freeze (one fighter pinned 678&nbsp;s, 42% of insurgent contact time blocked → <b>0</b>). The real wins, front by front: the uphill march re-anchored to FM&nbsp;3-97.6 (2.45× too fast → doctrine-honest 0.98), foot-trails taught to contour by the USFS half-rule (walker's grade 0.215 → 0.114), the fbm valley walls re-bedded as banded strata (wall reversals 0 → 6–18/km, reachable valley 60.6 → 75.2%), and the KOP dressed in the clutter that <em>is</em> the realism (concertina, parapets, nets, tents, road clipped at the wire). Plus two commits that fixed the <em>test</em>, not the game: a null RNG draw swung the COIN gate ±19 pts, so it now scores the paired best seed. Honest residual: the outpost was dressed, not reshaped — the perfect-circle rebuild is the next campaign (issue 033).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1201,6 +1202,49 @@
         <span class="m"><span class="lbl">the suite itself</span><span class="b">suspected blocker</span><span class="ar">→</span><span class="a">healthy — 1 bad habit, now ruled out</span></span>
       </div>
       <a class="readmore" href="reports/2026-06-26-harness-charter/report.html">Read the full report (the evidence + the charter) →</a>
+    </div>
+  </article>
+
+  <!-- ============================== ACT · JULY 2–3 ============================== -->
+  <section class="act">
+    <div class="actkick">Act · July 2–3</div>
+    <h2>Making the mountains real</h2>
+    <p class="actsub">Four things felt fake — the way soldiers moved, the shape of the paths, the smooth
+    walls, the staged outpost. The rule held: measure before you touch code. Two of the four complaints
+    turned out to be the opposite of what they looked like.</p>
+  </section>
+
+  <article class="chapter" id="c-2026-07-02-realism-campaign">
+    <div class="shot">
+      <a href="reports/2026-07-02-realism-campaign/report.html"><img src="assets/2026-07-02-realism-campaign.png" alt="The valley at noon after the campaign — banded strata walls and trails that switchback across the contour" loading="lazy"></a>
+      <div class="cap">The valley after: the walls carry cliff-band/bench striation and the foot-trails traverse the slope instead of charging down the fall line. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-07-02 → 03</span></div>
+      <h3>When "too squiggly" meant "too straight"</h3>
+      <div class="tags"><span class="tag">Terrain</span><span class="tag">Movement</span><span class="tag">The KOP</span><span class="tag">Doctrine</span></div>
+      <p>The owner named four realism complaints: soldiers get <em>stuck</em>, the paths are <em>too
+      squiggly</em>, the terrain is <em>too smooth</em>, the outpost feels <em>fake</em>. Metricized first,
+      two inverted. The "squiggly" paths were a near-beeline — planned route ratio <b>1.12</b>, 66% of it
+      straight down the fall line — and the visible wobble measured <b>0.16&nbsp;px</b> at play zoom; real
+      trails needed to <em>traverse</em>, not de-wiggle. And "getting stuck" wasn't the patrols (router
+      within 0.6–5% of optimal) — it was an in-combat freeze where a fighter breaking contact got a
+      beeline into a cliff and re-issued the dead target forever: <b>one unit frozen 678&nbsp;s.</b></p>
+      <p class="shape"><b>The shape:</b> three build fronts, each grounded in cited doctrine — the uphill
+      march re-anchored Naismith→<b>FM&nbsp;3-97.6</b>, the foot-trails to the <b>USFS half-rule</b>, the
+      walls to real Korengal gneiss-and-schist bedding (Junger, <em>Restrepo</em>). Then two commits fixed
+      the <em>test</em>: a single unused RNG draw swung the COIN gate ±19 pts (relief-of-command is an
+      opening-days lottery), so it now scores the paired best seed. Honest residual: the KOP was
+      <em>dressed</em>, not reshaped — the perfect-circle generation rebuild is the next campaign.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">insurgent time blocked in contact</span><span class="b">42%</span><span class="ar">→</span><span class="a">0%</span></span>
+        <span class="m"><span class="lbl">uphill march vs FM 3-97.6</span><span class="b">2.45× too fast</span><span class="ar">→</span><span class="a">0.98 (doctrine-honest)</span></span>
+        <span class="m"><span class="lbl">trail grade a walker feels</span><span class="b">0.215</span><span class="ar">→</span><span class="a">0.114 (~USFS 10%)</span></span>
+        <span class="m"><span class="lbl">wall reversals / km (bedded rock)</span><span class="b">0–2.8</span><span class="ar">→</span><span class="a">6.2–17.8</span></span>
+        <span class="m"><span class="lbl">reachable valley (mean)</span><span class="b">60.6%</span><span class="ar">→</span><span class="a">75.2%</span></span>
+        <span class="m"><span class="lbl">roads stamped inside the wire</span><span class="b">9</span><span class="ar">→</span><span class="a">0 / 8 seeds</span></span>
+      </div>
+      <a class="readmore" href="reports/2026-07-02-realism-campaign/report.html">Read the full report (four fronts, the two inversions, and the honest residuals) →</a>
     </div>
   </article>
 
