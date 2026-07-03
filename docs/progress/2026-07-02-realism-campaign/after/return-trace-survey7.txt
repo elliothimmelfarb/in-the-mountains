@@ -1,0 +1,9 @@
+
+survey-7 vil#0 (Donga): OUTBOUND arrived t=288s walked=129m ascent=10m fmPred=312s
+  RETURN 60%-inside t=136s (old window 1800+90s) walked=126m ascent=0m fmPred=189s taskPhase=complete
+
+survey-7 vil#1 (Yaka China): OUTBOUND arrived t=4317s walked=694m ascent=221m fmPred=3695s
+  RETURN 60%-inside t=2255s (old window 1800+90s) walked=734m ascent=1m fmPred=1117s taskPhase=complete
+
+survey-7 vil#2 (Landigal): OUTBOUND arrived t=5881s walked=1031m ascent=298m fmPred=5120s
+  RETURN 60%-inside t=2602s (old window 1800+90s) walked=578m ascent=4m fmPred=913s taskPhase=complete

@@ -1,0 +1,31 @@
+seed=survey-7 village=Landigal obj=(387,316) crow=575m
+ t(s) distObj spd(m/s)  pace fatig mCost       land  blkT  navRem      phase
+    0     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  100     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  200     571     0.00  1.00  0.01  0.72      Track   0.0     998     moving
+  300     564     0.77  1.00  0.27  0.76      Trail   0.0     918     moving
+  400     538     0.70  1.00  0.49  0.83      Track   0.0     847     moving
+  500     511     0.80  1.00  0.58  0.81      Track   0.0     767     moving
+  600     527     0.74  0.70  0.71  0.85       Road   0.0     694     moving
+  700     561     0.68  1.00  0.82  0.74      Track   0.0     626     moving
+  800     549     0.48  0.70  1.00  0.13      Scree   0.0     574     moving
+  900     516     0.36  1.00  1.00  0.10      Scree   0.0      22     moving
+ 1000     491     0.26  0.77  1.00  0.16      Scree   0.0     509     moving
+ 1100     445     0.50  0.33  1.00  0.16      Scree   0.0     459     moving
+ 1200     400     0.50  0.29  1.00  0.26      Scrub   0.0     409     moving
+ 1300     355     0.50  0.29  1.00  0.51      Track   0.0     359     moving
+ 1400     308     0.50  0.29  1.00  0.58      Track   0.0     309     moving
+ 1500     262     0.49  0.29  1.00  0.81      Track   0.0     261     moving
+ 1600     214     0.49  0.29  1.00  0.88      Track   0.0     212     moving
+ 1700     164     0.50  0.29  1.00  0.29      Scrub   0.0     162     moving
+ 1800     114     0.50  0.29  1.00  0.25 TerraceWall   0.0     112     moving
+ 1900      64     0.50  0.29  1.00  0.28      Scrub   0.0      62     moving
+ 2000      18     0.50  0.29  1.00  0.40    Terrace   0.0      12     moving
+ 2100      20     0.04  1.00  0.48  0.26 TerraceWall   0.0       0  onstation
+ 2200      20     0.00  1.00  0.00  0.26 TerraceWall   0.0       0  onstation
+ 2300      20     0.00  1.00  0.00  0.26 TerraceWall   0.0       0  onstation
+ 2400      20     0.00  1.00  0.00  0.26 TerraceWall   0.0       0  onstation
+ 2500      20     0.00  1.00  0.00  0.26 TerraceWall   0.0       0  onstation
+ 2600      20     0.00  1.00  0.00  0.26 TerraceWall   0.0       0  onstation
+suppression=0.00 visEnemies=0 bs=holding
+closest approach: 14m  (ARRIVE=50m ⇒ ARRIVED)

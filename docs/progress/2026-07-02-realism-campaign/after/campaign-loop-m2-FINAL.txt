@@ -1,0 +1,57 @@
+campaign-loop.ts (COIN win-condition GATE) — M2 combat diff, with trunk bisection
+==================================================================================
+Date: 2026-07-03 (finisher session). 3-seed default (survey-0..2 x 8 days x 2 policies).
+Trees: M2 = isolated worktree HEAD 5764134 + lib/sim/combat.ts + scripts/squad-arrival.ts;
+controls = clean worktrees at the named commits.
+
+HEADLINE: THE GATE IS RED ON CLEAN TRUNK HEAD — before the M2 diff.
+
+  base                              careful score (per-seed)   bodycount   spread   gate
+  f573728 (clean)                   40.7 (0, 53, 69)           3.3         37.3     OK, exit 0
+  5764134 = HEAD (clean)            21.3 (0, 36, 28)           1.3         20.0     FAILED, exit 1
+  HEAD + M2 diff                     7.7 (0, 11, 12)           incomplete  <=7.7    FAIL certain
+  dbf317c (clean)                   21.3 (0, 36, 28)           1.3         20.0     FAILED, exit 1
+
+  dbf317c's verdict is IDENTICAL to clean HEAD's (same scores, same Δatt) ⇒ 5764134
+  (render/KOP dressing) has zero campaign effect; dbf317c (garrison yard-life +
+  solid-cell self-heal) alone turned the gate red.
+
+  f573728 reproduces the recorded M1 pass byte-for-byte (per-seed scores, endDays,
+  proj counts identical to campaign-loop-m1.txt) — determinism contract held; that
+  "M1" run was in fact the f573728 base. The gate went red on trunk in dbf317c
+  (garrison yard-life) — NOT in the M2 combat diff.
+
+CLEAN HEAD (5764134) VERDICT (exit 1):
+  [FAIL] score DISCRIMINATES (>25)  careful 21.3 − bodycount 1.3 = SPREAD 20.0
+  [FAIL] COIN moves attitude        careful Δatt 6.8 vs bodycount Δatt 2.5
+  (other 6 checks PASS)
+
+HEAD + M2 DIFF (run killed mid-3rd-bodycount-seed after ~70 min wall; partial rows):
+  [careful]   survey-0: endDay 5  score 0   proj 0/3
+  [careful]   survey-1: endDay 9  score 11  proj 1/3
+  [careful]   survey-2: endDay 7  score 12  proj 1/2
+  [bodycount] survey-0: endDay 4  score 0
+  [bodycount] survey-1: endDay 6  score 0
+  [bodycount] survey-2: DID NOT FINISH — wall-time explosion (>45 min on that one seed
+              vs 273 s on clean HEAD, >10x): the aggressive policy's fights at taxed
+              march speeds keep the adaptive fine-dt combat stepping engaged far longer.
+  The discrimination FAIL is mathematically certain regardless of the missing seed:
+  careful mean 7.7, bodycount >= 0 ⇒ spread <= 7.7 < 25.
+
+ATTRIBUTION OF THE M2 CAREFUL DROP (21.3 -> 7.7 on identical seeds/base):
+  Doctrine-honest march speeds shrink what the harness's fixed 8-day policy script
+  accomplishes per tour (projects complete 1.0 -> 0.67; survey-2 tour ends day 7 vs 9).
+  Same class of window-miscalibration as squad-arrival's old 2200 s cap (re-anchored to
+  FM this campaign) and reachability's 1500 s window (see the disambiguation record):
+  the policy script and tour horizon were tuned against a sim marching 1.42x faster
+  than FM 21-18/3-97.6. The COIN loop itself is alive (CERP two-way, directives live,
+  enemy dynamic, projects complete on both trees).
+
+CONSEQUENCE FOR THE M2 COMMIT: gate not green ⇒ the finisher brief's no-commit rule
+applies. The diff stays validated-but-uncommitted; the gate must first be made green on
+trunk (fix or recalibrate for dbf317c/5764134's effect, issue 030's known calibration
+debt) before any sim change can clear it.
+
+Raw: campaign-loop-HEAD-control.txt · campaign-loop-f573728-bisect.txt ·
+campaign-loop-dbf317c-bisect.txt (this directory) · predecessor context in
+campaign-loop-m1.txt. Partial raw: campaign-loop-m2-partial.txt.

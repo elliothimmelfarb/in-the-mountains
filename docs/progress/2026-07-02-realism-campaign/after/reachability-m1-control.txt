@@ -1,0 +1,15 @@
+seed          villages  arrived   rate   worst-miss
+survey-0             6        2    33%   miss Darbart by 822m
+survey-1             5        2    40%   miss Aliabad by 517m
+survey-2             6        4    67%   miss Donga by 715m
+survey-3             4        2    50%   miss Marastanau by 478m
+survey-4             5        4    80%   miss Loy Kalay by 109m
+survey-5             4        1    25%   miss Landigal by 535m
+survey-6             6        3    50%   miss Korangal by 386m
+survey-7             5        3    60%   miss Babiyal by 263m
+survey-8             5        3    60%   miss Kandlay by 794m
+survey-9             5        3    60%   miss Loy Kalay by 563m
+survey-10            4        4   100%   all reached
+survey-11            6        2    33%   miss Donga by 1008m
+
+TOTAL villages reached: 33 / 61 (54%)

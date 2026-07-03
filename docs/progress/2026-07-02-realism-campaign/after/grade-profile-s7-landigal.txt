@@ -1,0 +1,14 @@
+profile from objective toward gate (the lead's approach axis, reversed):
+  s=0m elev=2072 grade25m=0.70 slopeAt=3.79 passable=false
+  s=50m elev=2059 grade25m=0.34 slopeAt=1.50 passable=false
+  s=100m elev=2033 grade25m=0.72 slopeAt=0.72 passable=true
+  s=150m elev=1998 grade25m=0.72 slopeAt=0.76 passable=true
+  s=200m elev=1961 grade25m=0.85 slopeAt=0.84 passable=true
+  s=250m elev=1919 grade25m=1.31 slopeAt=0.90 passable=true
+  s=300m elev=1836 grade25m=0.06 slopeAt=0.18 passable=true
+  s=350m elev=1837 grade25m=0.09 slopeAt=0.18 passable=true
+  s=400m elev=1835 grade25m=0.00 slopeAt=0.06 passable=true
+  s=450m elev=1834 grade25m=0.01 slopeAt=0.01 passable=true
+  s=500m elev=1836 grade25m=0.00 slopeAt=0.00 passable=false
+  s=550m elev=1834 grade25m=0.11 slopeAt=0.44 passable=true
+  s=600m elev=1839 grade25m=0.06 slopeAt=0.36 passable=true

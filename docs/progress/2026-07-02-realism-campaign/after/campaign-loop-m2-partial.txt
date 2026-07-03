@@ -1,0 +1,8 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+  [careful] survey-0: 169.0s  endDay 5  score 0  proj 0/3  enemyMean 10
+  [careful] survey-1: 48.7s  endDay 9  score 11  proj 1/3  enemyMean 6
+  [careful] survey-2: 48.3s  endDay 7  score 12  proj 1/2  enemyMean 7
+  [bodycount] survey-0: 28.1s  endDay 4  score 0  proj 0/0  enemyMean 36
+  [bodycount] survey-1: 379.2s  endDay 6  score 0  proj 0/0  enemyMean 9

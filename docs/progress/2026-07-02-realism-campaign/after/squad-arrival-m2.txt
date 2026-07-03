@@ -1,0 +1,18 @@
+seed          vil  reach  leadArr  squadCoh  maxStrag  homeOK
+smoke-test      3      3      3/3      100%       29m     3/3
+korengal        3      3      3/3      100%       30m     2/3
+survey-2        3      3      3/3      100%       26m     3/3
+survey-7        3      3      1/3      100%       25m     1/1
+survey-9        3      3      3/3      100%       37m     3/3
+valley-3        3      3      3/3      100%       31m     3/3
+ridge-11        3      3      3/3      100%       33m     0/3
+delta-5         3      3      3/3      100%       26m     1/3
+bravo-2         3      3      3/3      100%       28m     1/3
+------------------------------------------------------------------------
+villages: 27  reachable tested: 27
+  point man ARRIVED:            25/27 (93%)
+  ...within tactical window:    24/27 (89%) (≤1500s)
+  mean squad cohesion @ objective: 100%  ← whole-element (arrived patrols)
+  squads ≥70% closed up:        25/25 (100%)  ← target high
+  worst straggler:              37 m
+  RETURN home (≥60% inside wire): 17/25 (68%)  ← the exfil leg (arrived patrols)

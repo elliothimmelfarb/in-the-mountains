@@ -1,0 +1,43 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+  [careful] survey-0: 112.1s  endDay 5  score 0  proj 0/2  enemyMean 10
+  [careful] survey-1: 76.4s  endDay 9  score 36  proj 2/3  enemyMean 6
+  [careful] survey-2: 290.8s  endDay 9  score 28  proj 1/4  enemyMean 5
+  [bodycount] survey-0: 105.5s  endDay 6  score 0  proj 0/0  enemyMean 23
+  [bodycount] survey-1: 105.3s  endDay 7  score 0  proj 0/0  enemyMean 11
+  [bodycount] survey-2: 269.5s  endDay 9  score 4  proj 0/0  enemyMean 6
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:8
+  TOUR SCORE:    21.3   (per-seed: 0, 36, 28)
+  final metrics: stab 67  att 50  enemy 1  cbtPwr 59  higher 10
+  enemyStrAbs:   min 0  mean 7  max 46   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -1.1   (Δ 6.8)
+  directives:    issued 2.3  complete 0.7  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 16500 → end 20413   ever-rose: yes
+  projects:      funded 3.0  complete 1.0   patrols issued 6  KLEs issued 7
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:7
+  TOUR SCORE:    1.3   (per-seed: 0, 0, 4)
+  final metrics: stab 64  att 47  enemy 8  cbtPwr 45  higher 0
+  enemyStrAbs:   min 5  mean 13  max 46   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -5.4   (Δ 2.5)
+  directives:    issued 2.3  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 31667   ever-rose: yes
+  projects:      funded 0.0  complete 0.0   patrols issued 13  KLEs issued 0
+
+=== VERDICT ===
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  [FAIL] score DISCRIMINATES (>25)  careful 21.3 − bodycount 1.3 = SPREAD 20.0  → strategy choice barely matters
+  [FAIL] COIN moves attitude        careful Δatt 6.8 vs bodycount Δatt 2.5  (careful projects complete 1.0)
+  [PASS] directives fully live      complete 0.7/2.3; failure/penalty path n/a at this horizon (needs ≥13d; verified live under neglect) (deadlines elapsed on neglect: 0.0/tour)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 0  
+  [PASS] projects COMPLETE (secured) careful completes 1.0 projects/tour (was 0 — all sabotaged)
+  [PASS] directive cadence live     2.3 directives issued/tour (was 2 fixed)
+
+INTERPRETATION: the strategy layer is LARGELY INERT — playing COIN well vs badly barely changes the outcome. See FAILs above.
+
+COIN GATE FAILED — 2 win-condition check(s) failed (see FAILs above).

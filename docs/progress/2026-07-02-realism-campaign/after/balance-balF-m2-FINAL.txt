@@ -1,0 +1,37 @@
+balance.ts 12 50 balF — FINAL gate run for the M2 combat diff (ascent tax + drag guard)
+=========================================================================================
+Tree: isolated worktree = HEAD 5764134 + lib/sim/combat.ts + scripts/squad-arrival.ts
+(main-tree terrain.ts NOT present). Fresh prefix balF (held-out seeds per harness law).
+Date: 2026-07-03. Exit code 0 (NaN gate + stall gate).
+(NOTE: this content originally lived in balance-FINAL.txt; renamed m2-scoped after the
+parallel terrain finisher wrote its own run to that filename — one-writer-per-file.)
+
+M2 TREE (HEAD + the two files):
+Ran 12 continuous deployments, 50 game-min each (1 squad + medic patrol, heat ~0.6-0.9):
+  Contacts: 12/12 runs saw a firefight · avg peak enemies on map 7.0
+  Avg US KIA: 1.25 · Avg US WIA: 5.67 · Avg enemy accounted: 6.75 · Civ cas total: 0
+  ↑ DIAGNOSTIC, not a target — no WIA band to defend.
+  ⚠ 1 runs left an element lingering (check task resume).
+
+CLEAN HEAD CONTROL (same seeds, clean 5764134 worktree):
+  Contacts: 12/12 · avg peak enemies 6.5
+  Avg US KIA: 1.58 · Avg US WIA: 6.00 · Avg enemy accounted: 6.50 · Civ cas total: 0
+  ✓ No elements left stranded mid-route.
+(KIA/WIA deltas M2 vs HEAD are inside the σ≈2.5 noise floor.)
+
+THE ⚠ LOCALIZED (scratch-stall-localize + scratch-balf1-drill, deterministic replay):
+  Seed balF-1 only. At the 50-min mark the navigator is climbing a slope-1.3 scree pitch
+  at the taxed doctrine pace (0.12 m/s, pace governor 0.29, blocked 0.0, no contact), and
+  9 followers sit compressed at the pitch base (paceScale 1.6 hustle, valid 40+-waypoint
+  wake paths, blockedTimer 0.0, speed ~0) — a follower separation-crowd compression that
+  the 90 s / <4 m centroid probe reads as a linger. LONG-HORIZON REPLAY: the compression
+  clears by +320 s (followers moving 0.32-0.38 m/s), and by +720 s the file is strung up
+  the pitch at the taxed climb pace. TRANSIENT (order ~2-5 min), self-clearing, element
+  continues; NOT a wedge (no stall-wipes, no thrash). On clean HEAD the same seed never
+  compresses because the pre-tax 0.5 m/s floor walked the navigator up the cliff-grade
+  pitch at 6x the FM pace — the exact unrealism the ascent tax removes.
+  RESIDUAL (recorded, not fixed here — formation.ts/steering, not this diff's files):
+  a hustling follower crowd CAN separation-jam to ~0 m/s for a minute-plus when the file
+  compresses behind a very slow navigator; shows on 1/12 fresh-prefix seeds.
+  Raw: balance-balF-HEAD-control.txt · stall-localize-balF-m2.txt ·
+  stall-drill-balF1-longhorizon.txt (this directory).

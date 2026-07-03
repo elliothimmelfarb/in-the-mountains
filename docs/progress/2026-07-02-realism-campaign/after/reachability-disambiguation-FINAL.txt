@@ -1,0 +1,54 @@
+Reachability disambiguation — is the M2 drop window-shaped or a real movement regression?
+==========================================================================================
+Date: 2026-07-03 (finisher session). Probe: scratch single-pass variant of reachability.ts
+(identical staging; one 2500 s run per village recording closest approach at t<=1500 /
+<=2000 / <=2500 — the @1500 column is tick-identical to reachability.ts's default window).
+Trees: M2 = isolated worktree HEAD 5764134 + lib/sim/combat.ts + scripts/squad-arrival.ts;
+CONTROL = clean HEAD 5764134 worktree. 12 survey seeds, 61 villages.
+
+HEADLINE
+                       @1500 s (legacy window)   @2500 s (FM-honest window)
+  clean HEAD 5764134         34/61 (56%)               49/61 (80%)
+  M2 (HEAD + diff)           31/61 (51%)               44/61 (72%)
+
+  (Historical, different bases: campaign-start HEAD 35/61, M1-control 33/61,
+   predecessor M2-on-f573728 30/61 — all @1500.)
+
+PER-VILLAGE VERDICTS (single 2500 s pass; CLOSING = miss shrank >25 m from 1500->2500)
+  M2:   ARRIVED 31 · ARRIVED-LATE 13 · CLOSING 15 · STUCK 2
+  HEAD: ARRIVED 34 · ARRIVED-LATE 15 · CLOSING 11 · STUCK 1
+  Mean miss shrink 1500->2500 across M2 non-arrivals: 218 m (misses SHRINK with window).
+
+THE STUCK SET
+  survey-0 Aliabad — STUCK ON BOTH TREES (M2 252 m / HEAD 251 m, zero movement at every
+  window): a pre-existing terrain block, present on clean HEAD, NOT this diff.
+  survey-7 Landigal — M2-only (HEAD arrives 1929 s). TRACED (scratch lead-trace, 2600 s):
+  the lead closes monotonically at 0.04-0.08 m/s, blockedTimer 0.0, suppression 0, zero
+  re-path thrash, one scheduled REST HALT at t~1800-2000 (fatigue 1.00 -> 0.11, then
+  resumes with a fresh 535 m route). Ground truth (elevation profile along the approach):
+  the final ~250 m to the village climb 236 m — a sustained 72-131% grade. At that gain
+  FM 3-97.6 (+1 h/300 m under load) prices the leg at ~0.08 m/s — the sim IS the FM
+  figure. Clean HEAD "arrives" only because the pre-tax 0.5 m/s never-freeze floor walked
+  the pitch at ~6x doctrine pace. NOT stuck — throttled by doctrine on a trail that is
+  itself ~2x too steep (the recorded front-B terrain defect, CONTEXT.md).
+
+REGRESSION-CANDIDATE SET (HEAD arrives @2500, M2 does not) — 6 villages:
+  survey-1  Aliabad     M2 CLOSING 559->399 (flat 2000-2500: rest-halt signature)
+  survey-5  Kandlay     M2 CLOSING 276->223
+  survey-6  Korangal    M2 CLOSING 582->486 (flat tail: rest-halt signature)
+  survey-7  Landigal    M2 traced above — FM creep on a 72-131% pitch, moving
+  survey-7  Yaka China  M2 CLOSING 336->237
+  survey-11 Marastanau  M2 CLOSING 342->193
+  All six are moving and closing; none is wedged (no blocked-timer growth, no thrash).
+
+VERDICT: WINDOW-SHAPED. The @1500 drop (34->31 on identical bases) is doctrine-honest
+slower marching against a window calibrated when the sim marched 1.42x faster than
+FM 21-18/3-97.6 (doctrine-pace control, mean ratio 1.42 -> 1.09 with the tax). At the
+FM-honest 2500 s window M2 reaches 44/61 >= the declared 33 floor, misses shrink
+monotonically with window, and the ONLY zero-movement village is stuck identically on
+clean HEAD. No genuinely-stuck village attributable to this diff exists. Holding the new
+locomotion to the pre-tax window number would freeze the old physics-defying pace as a
+"win" — the exact practice the harness charter bans (issues 020/022/027).
+
+Full tables: reach-detail-m2.txt · reach-detail-head.txt · lead-trace-s7-landigal-{m2,head}.txt
+(this directory).

@@ -1,0 +1,48 @@
+combat-grind probe — 3 deployments (bal-0..2), 50 game-min each, balance.ts staging
+GRIND EVENT = stall-wipe re-issued to the same (±2 m) target that then stalls out again (≤8 s)
+
+seed    | engmts | inContact F/I | wipes F/I | grind F/I | grindUnits F/I | grindS mean/max F | grindS mean/max I | blocked%ofContact F/I | wipesOutOfContact
+bal-0   |      7 |     41/15     |    1/0    |    0/0    |      0/0       | —                 | —                 |     0.8%/0.0%     | 1
+bal-1   |      8 |     41/9      |    2/0    |    0/0    |      0/0       | —                 | —                 |     0.2%/0.0%     | 1
+bal-2   |      7 |     25/6      |    0/0    |    0/0    |      0/0       | —                 | —                 |     0.4%/0.0%     | 7
+ALL     |     22 |    107/30     |    3/0    |    0/0    |      0/0       | —                 | —                 |     0.3%/0.0%     | 9
+
+grind time as % of in-contact time: friendly 0.0% · insurgent 0.0%
+grind events per engagement (ALL): 0.00 (friendly 0.00)
+
+blind-spot signals (a man sent at an unreachable point who paces instead of wedging):
+  time holding a pathGoal in an IMPASSABLE cell, % of in-contact time: friendly 7.9% (779s) · insurgent 30.0% (599s)
+    [impassable-goal attribution] insurgent:exfil/-                    596s
+    [impassable-goal attribution] friendly:suppressed_halt/-           347s
+    [impassable-goal attribution] friendly:holding/-                   269s
+    [impassable-goal attribution] friendly:assembling/-                143s
+    [impassable-goal attribution] friendly:aiding/-                    13s
+    [impassable-goal attribution] friendly:standto/-                   5s
+    [impassable-goal attribution] insurgent:scoot/-                    3s
+    [impassable-goal attribution] friendly:securing/-                  2s
+    [impassable-goal attribution] insurgent:engage/-                   0s
+  LOITER events (same goal ≥15 s, net approach <5 m — PACING): friendly 0 · insurgent 2 · loiter secs mean/max F — · I 53.55/78.10
+  walkHolds (same goal ≥15 s but really closing — honest long bounds): friendly 13 · insurgent 8
+
+in-contact bound lifecycles (path issued while in contact):
+  started 257 · completed(arrived<3m) 42 (16.3%) · ended-in-stall-wipe 3 (1.2%) · other(order overwritten/abandoned) 212
+  completed-bound duration mean/max: 37.04/557.20 s
+
+obstacle classes at in-contact stall-wipes (what they grind on):
+  SteepBand1.25-1.4            2
+  Structure                    1
+
+grind-event attribution (faction:brainState/orderType at the re-stalled wipe):
+
+OUT-of-contact wipes — attribution + obstacle (the same loop after contact decays):
+  friendly:moving/-                        9
+  [obstacle] Structure                    5
+  [obstacle] Structure(flank)             1
+  [obstacle] Hesco(flank)                 1
+  [obstacle] SteepSlope>1.4(flank)        1
+  [obstacle] SteepSlope>1.4               1
+
+──────────────────────────────────────────────────────────────────────
+TRACE — worst grinder: bal-1 unit=insurgent-2l (insurgent) grindEvents=0 maxChain=0 grindS=0.0 loiters=2 maxLoiter=78.1s unreachGoalS=425.0
+  t=1427.6s LOITER-END held goal=(2560.0,1887.5) for 29.0s, approach -0.0m (PACING) pos=(2379.5,1943.0) d=188.9m goalCell=IMPASSABLE SteepBand1.25-1.4 bs=exfil/-
+  t=1519.5s LOITER-END held goal=(2560.0,1887.5) for 78.1s, approach -0.0m (PACING) pos=(2379.5,1942.9) d=188.9m goalCell=IMPASSABLE SteepBand1.25-1.4 bs=exfil/-

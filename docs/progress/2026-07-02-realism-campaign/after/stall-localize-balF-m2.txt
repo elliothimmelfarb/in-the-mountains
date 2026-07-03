@@ -1,0 +1,22 @@
+balF-0: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-1: centroidΔ 1.1m over 90s  n 10→10  phase moving→moving  inContactEnd=false  *** LINGER ***
+    us-5 alive=true consc=true evac=false bs=moving/- pos=(1263,1226) cellPassable=true path=51 blocked=0.0s dObj=NaNm
+    us-6 alive=true consc=true evac=false bs=moving/- pos=(1425,1224) cellPassable=true path=3 blocked=0.0s dObj=NaNm
+    us-7 alive=true consc=true evac=false bs=moving/- pos=(1263,1226) cellPassable=true path=54 blocked=0.0s dObj=NaNm
+    us-8 alive=true consc=true evac=false bs=moving/- pos=(1263,1227) cellPassable=true path=52 blocked=0.0s dObj=NaNm
+    us-9 alive=true consc=true evac=false bs=moving/- pos=(1263,1228) cellPassable=true path=47 blocked=0.0s dObj=NaNm
+    us-a alive=true consc=true evac=false bs=moving/- pos=(1263,1228) cellPassable=true path=45 blocked=0.0s dObj=NaNm
+    us-b alive=true consc=true evac=false bs=moving/- pos=(1263,1226) cellPassable=true path=45 blocked=0.0s dObj=NaNm
+    us-c alive=true consc=true evac=false bs=moving/- pos=(1263,1227) cellPassable=true path=44 blocked=0.0s dObj=NaNm
+    us-d alive=true consc=true evac=false bs=moving/- pos=(1263,1226) cellPassable=true path=42 blocked=0.0s dObj=NaNm
+    us-4 alive=true consc=true evac=false bs=moving/- pos=(1263,1227) cellPassable=true path=50 blocked=0.0s dObj=NaNm
+balF-2: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-3: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-4: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-5: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-6: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-7: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-8: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-9: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-10: no out-of-contact moving task at 50 min (task=none, inContact=false) — SKIP (matches balance.ts)
+balF-11: centroidΔ 11.5m over 90s  n 8→8  phase moving→moving  inContactEnd=false  ok

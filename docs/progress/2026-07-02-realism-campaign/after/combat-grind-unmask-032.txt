@@ -1,0 +1,34 @@
+issue-032 dragToCover passability guard — UNMASKED A/B (no garrison self-heal in the tree)
+==========================================================================================
+Date: 2026-07-03 (finisher session). Probe: scripts/combat-grind.ts 3 50 bal (balance.ts
+staging, seeds bal-0..2, 50 game-min each). The dbf317c garrison self-heal CONTAINS the
+wedge symptom on HEAD, so the writer fix is A/B'd at 83e4256 (the commit the 951 baseline
+was recorded on), with ONLY the dragToCover guard hunk applied — no ascent tax, no moveTo
+change, no self-heal in either tree.
+
+TREE A — clean 83e4256 (unfixed writer, no self-heal):
+  bal-0 wipesOutOfContact   1
+  bal-1 wipesOutOfContact   1
+  bal-2 wipesOutOfContact 951   ← friendly:guard/- 938 · [obstacle] Structure(flank) 945
+  ALL   wipesOutOfContact 953
+  (EXACT reproduction of baseline/combat-grind-HEAD.txt bal-2 = 951 — determinism holds)
+
+TREE B — 83e4256 + ONLY the guard hunk (buddy.pos checked via passableCell before write):
+  bal-0 wipesOutOfContact   1   (identical to Tree A — hunk is surgical)
+  bal-1 wipesOutOfContact   1   (identical to Tree A)
+  bal-2 wipesOutOfContact   7   ← [obstacle] Structure(flank) 1
+  ALL   wipesOutOfContact   9
+
+VERDICT: bal-2 out-of-contact stall-wipes 951 → 7 (Structure(flank) 945 → 1) from the
+guard hunk alone. The unchanged bal-0/bal-1 rows prove the hunk perturbs nothing outside
+the drag write. The residual 7 are ordinary patrol-march wipes (present in both trees'
+other seeds at the same magnitude), not a wedge loop.
+
+SECONDARY (f573728 base = HEAD's combat.ts content, still no self-heal): the bal-2 wedge
+incident does not manifest at that base at all (clean f573728: bal-2 wipesOut 4; f573728 +
+full M2 combat.ts: bal-2 wipesOut 6, ALL 12, zero grind events) — f573728's tactical-bounds
+change shifted the bal-2 timeline off the mutual-aid drag. The 83e4256 A/B above is the
+honest reproduction of the recorded 951.
+
+Full probe outputs: combat-grind-83e4256-ctrl.txt · combat-grind-83e4256-guardonly.txt
+(this directory, verbatim).

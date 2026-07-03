@@ -1,0 +1,11 @@
+seed       village        crow  walked  ascent   desc    time  simKph  fmKph  ratio   note
+survey-0   Darbart       1198m   1736m     11m   190m   2648s    2.36   2.29   1.03   arrived
+survey-1   Loy Kalay     1309m   1574m     63m   209m   2943s    1.93   1.82   1.06   arrived
+survey-2   Donga         1373m   1610m    249m   173m   5691s    1.02   1.07   0.95   arrived
+survey-3   Marastanau    1251m   1347m      2m   183m   1963s    2.47   2.37   1.04   arrived
+survey-5   Aliabad       1479m   1541m      2m   174m   2030s    2.73   2.38   1.15   arrived
+korengal   Babiyal       1176m   1424m      3m   192m   1775s    2.89   2.37   1.22   arrived
+valley-3   Kandlay       1072m   1122m     17m    99m   1838s    2.20   2.14   1.03   arrived
+ridge-11   Landigal      1061m   1193m      2m   129m   1468s    2.93   2.37   1.23   arrived
+
+arrived 8/8 — ratio sim/FM: mean 1.09, min 0.95, max 1.23  (1.0 = doctrine-honest; >1 too fast, <1 too slow)

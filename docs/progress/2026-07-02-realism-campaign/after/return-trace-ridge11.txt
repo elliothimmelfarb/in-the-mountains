@@ -1,0 +1,9 @@
+
+ridge-11 vil#0 (Marastanau): OUTBOUND arrived t=323s walked=200m ascent=0m fmPred=304s
+  RETURN 60%-inside t=1114s (old window 1800+90s) walked=532m ascent=30m fmPred=1154s taskPhase=complete
+
+ridge-11 vil#1 (Donga): OUTBOUND arrived t=682s walked=605m ascent=2m fmPred=936s
+  RETURN 60%-inside t=747s (old window 1800+90s) walked=555m ascent=40m fmPred=1312s taskPhase=complete
+
+ridge-11 vil#2 (Landigal): OUTBOUND arrived t=1601s walked=1229m ascent=2m fmPred=1864s
+  RETURN 60%-inside t=3937s (old window 1800+90s) walked=1136m ascent=133m fmPred=3300s taskPhase=complete

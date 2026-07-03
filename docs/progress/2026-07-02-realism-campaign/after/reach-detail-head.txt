@@ -1,0 +1,64 @@
+seed	village	c@1500	c@2000	c@2500	arriveT	verdict
+survey-0	Korangal	50	50	50	1232s	ARRIVED
+survey-0	Darbart	753	609	467	-	CLOSING
+survey-0	Loy Kalay	77	50	50	1544s	ARRIVED-LATE
+survey-0	Babiyal	50	50	50	489s	ARRIVED
+survey-0	Aliabad	251	251	251	-	STUCK
+survey-0	Chichal	50	50	50	252s	ARRIVED
+survey-1	Chichal	50	50	50	248s	ARRIVED
+survey-1	Aliabad	520	262	50	2331s	ARRIVED-LATE
+survey-1	Yaka China	137	50	50	1601s	ARRIVED-LATE
+survey-1	Landigal	50	50	50	771s	ARRIVED
+survey-1	Loy Kalay	499	300	168	-	CLOSING
+survey-2	Darbart	50	50	50	610s	ARRIVED
+survey-2	Yaka China	50	50	50	183s	ARRIVED
+survey-2	Babiyal	50	50	50	1065s	ARRIVED
+survey-2	Loy Kalay	50	50	50	687s	ARRIVED
+survey-2	Donga	715	501	274	-	CLOSING
+survey-2	Chichal	81	50	50	1537s	ARRIVED-LATE
+survey-3	Marastanau	497	233	50	2254s	ARRIVED-LATE
+survey-3	Yaka China	268	50	50	1869s	ARRIVED-LATE
+survey-3	Darbart	50	50	50	481s	ARRIVED
+survey-3	Landigal	50	50	50	227s	ARRIVED
+survey-4	Donga	50	50	50	555s	ARRIVED
+survey-4	Loy Kalay	80	50	50	1562s	ARRIVED-LATE
+survey-4	Landigal	50	50	50	327s	ARRIVED
+survey-4	Kandlay	50	50	50	509s	ARRIVED
+survey-4	Korangal	50	50	50	1190s	ARRIVED
+survey-5	Kandlay	276	50	50	1940s	ARRIVED-LATE
+survey-5	Yaka China	50	50	50	243s	ARRIVED
+survey-5	Landigal	535	349	54	-	CLOSING
+survey-5	Aliabad	456	220	50	2341s	ARRIVED-LATE
+survey-6	Yaka China	50	50	50	429s	ARRIVED
+survey-6	Donga	50	50	50	917s	ARRIVED
+survey-6	Loy Kalay	202	83	83	-	CLOSING
+survey-6	Kandlay	67	50	50	1530s	ARRIVED-LATE
+survey-6	Korangal	387	61	50	2013s	ARRIVED-LATE
+survey-6	Landigal	50	50	50	914s	ARRIVED
+survey-7	Babiyal	261	50	50	1815s	ARRIVED-LATE
+survey-7	Darbart	50	50	50	1184s	ARRIVED
+survey-7	Donga	50	50	50	226s	ARRIVED
+survey-7	Landigal	262	50	50	1929s	ARRIVED-LATE
+survey-7	Yaka China	50	50	50	1262s	ARRIVED
+survey-8	Landigal	50	50	50	281s	ARRIVED
+survey-8	Chichal	606	359	273	-	CLOSING
+survey-8	Donga	50	50	50	912s	ARRIVED
+survey-8	Loy Kalay	50	50	50	396s	ARRIVED
+survey-8	Kandlay	836	613	545	-	CLOSING
+survey-9	Marastanau	50	50	50	342s	ARRIVED
+survey-9	Chichal	50	50	50	504s	ARRIVED
+survey-9	Loy Kalay	563	229	149	-	CLOSING
+survey-9	Kandlay	50	50	50	394s	ARRIVED
+survey-9	Darbart	271	170	77	-	CLOSING
+survey-10	Aliabad	50	50	50	472s	ARRIVED
+survey-10	Korangal	50	50	50	1451s	ARRIVED
+survey-10	Chichal	50	50	50	300s	ARRIVED
+survey-10	Darbart	50	50	50	870s	ARRIVED
+survey-11	Aliabad	50	50	50	801s	ARRIVED
+survey-11	Loy Kalay	275	50	50	1810s	ARRIVED-LATE
+survey-11	Donga	1008	808	600	-	CLOSING
+survey-11	Yaka China	50	50	50	312s	ARRIVED
+survey-11	Marastanau	273	50	50	1932s	ARRIVED-LATE
+survey-11	Korangal	671	347	294	-	CLOSING
+
+TOTAL arrived @1500s: 34/61   @2500s: 49/61

@@ -1,0 +1,31 @@
+seed=survey-7 village=Landigal obj=(387,316) crow=575m
+ t(s) distObj spd(m/s)  pace fatig mCost       land  blkT  navRem      phase
+    0     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  100     NaN     0.00  0.00  0.00  0.00              0.0       0 assembling
+  200     568     0.00  1.00  0.00  0.89      Trail   0.0    1004     moving
+  300     573     0.61  1.00  0.23  0.73      Track   0.0     941     moving
+  400     551     0.63  1.00  0.39  0.72      Trail   0.0     878     moving
+  500     524     0.69  0.99  0.51  0.87      Track   0.0     808     moving
+  600     517     0.72  1.00  0.63  0.80      Track   0.0     735     moving
+  700     538     0.70  1.00  0.74  0.86      Track   0.0     665     moving
+  800     563     0.51  1.00  0.86  0.74      Track   0.0     612     moving
+  900     559     0.13  1.00  0.92  0.58      Track   0.0     598     moving
+ 1000     551     0.19  0.70  0.94  0.72      Track   0.0     580     moving
+ 1100     549     0.07  1.00  0.98  0.13      Scree   0.0     573     moving
+ 1200     546     0.04  1.00  1.00  0.19      Scree   0.0     567     moving
+ 1300     539     0.08  1.00  1.00  0.72      Trail   0.0     559     moving
+ 1400     531     0.08  1.00  1.00  0.72      Trail   0.0     551     moving
+ 1500     524     0.08  1.00  1.00  0.72      Trail   0.0     543     moving
+ 1600     516     0.08  1.00  1.00  0.10      Scree   0.0     535     moving
+ 1700     509     0.08  0.91  1.00  0.72      Trail   0.0     527     moving
+ 1800     505     0.05  1.00  1.00  0.72      Trail   0.0      10     moving
+ 1900     516     0.14  1.00  0.13  0.10      Scree   0.0      16     moving
+ 2000     521     0.05  1.00  0.11  0.10      Scree   0.0       6     moving
+ 2100     516     0.06  1.00  0.20  0.10      Scree   0.0     535     moving
+ 2200     509     0.08  1.00  0.27  0.72      Trail   0.0     528     moving
+ 2300     501     0.09  1.00  0.36  0.10      Scree   0.0     519     moving
+ 2400     494     0.08  1.00  0.43  0.12      Scree   0.0     511     moving
+ 2500     487     0.08  1.00  0.49  0.16      Scree   0.0     504     moving
+ 2600     480     0.08  0.94  0.55  0.14      Scree   0.0     496     moving
+suppression=0.00 visEnemies=0 bs=moving
+closest approach: 480m  (ARRIVE=50m ⇒ SHORT)
