@@ -1,0 +1,264 @@
+/**
+ * scratch-coin-budget.ts — Q4 time-budget probe (disposable).
+ *
+ * Runs the campaign-loop CAREFUL policy (verbatim scheduler + adaptive stepping) and dumps
+ * WHERE THE DAY GOES for the two op squads (sq1 presence / sq2 KLE):
+ *   - per-day seconds by task phase: assembling | march-out (moving pre+post exit) |
+ *     onstation | returning, plus IDLE (squad has no active task)
+ *   - schedule MISSES: days where the daily tick found the squad busy (no op ordered)
+ *   - per-task lifecycle latencies (as scratch-coin-diag)
+ * This is the A-vs-B discriminator: if march eats the day AND idle is near zero, the tempo
+ * is movement-bound (B); if idle is large because ops straddle the once-a-day scheduler
+ * tick, it is HARNESS PACING DEBT (A).
+ *
+ * Usage: npx tsx scripts/scratch-coin-budget.ts <seed> [days=8]
+ */
+import { createWorld, World } from "../lib/sim/world";
+import type { VillageState } from "../lib/sim/campaign";
+
+const seed = process.argv[2] ?? "survey-1";
+const DAYS = Number(process.argv[3] ?? 8);
+const DT = 30;
+const COMBAT_DT = 2;
+const DAY = 86400;
+
+function meanAttitude(villages: VillageState[]): number {
+  return villages.reduce((a, v) => a + v.attitude, 0) / Math.max(1, villages.length);
+}
+function patrolInContact(w: World): boolean {
+  const patrolOut = w.state.tasks.some(
+    (t) =>
+      (t.phase === "moving" || t.phase === "onstation" || t.phase === "returning") &&
+      t.kind !== "secure" &&
+      t.memberIds.some((id) => {
+        const u = w.sim.unit(id);
+        return u && u.alive && !u.evac;
+      })
+  );
+  return patrolOut && w.inContact();
+}
+function squadFree(w: World, squadId: string): boolean {
+  const sq = w.platoon.squads.find((s) => s.id === squadId);
+  if (!sq) return false;
+  const committed = new Set<string>();
+  for (const t of w.state.tasks) if (t.phase !== "complete") for (const id of t.memberIds) committed.add(id);
+  const ready = sq.memberIds.filter((id) => {
+    const m = w.platoon.members.find((x) => x.id === id);
+    return m && m.alive && (m.status === "ready" || m.status === "rest");
+  });
+  if (ready.length < 4) return false;
+  return !ready.some((id) => committed.has(id));
+}
+function readyMembers(w: World, squadId: string): string[] {
+  const sq = w.platoon.squads.find((s) => s.id === squadId);
+  if (!sq) return [];
+  return sq.memberIds.filter((id) => {
+    const m = w.platoon.members.find((x) => x.id === id);
+    return m && m.alive && (m.status === "ready" || m.status === "rest");
+  });
+}
+function midRoute(w: World, vx: number, vy: number) {
+  const cop = w.terrain.copCell;
+  return [
+    { cx: Math.round((cop.cx + vx) / 2), cy: Math.round((cop.cy + vy) / 2) },
+    { cx: vx, cy: vy },
+  ];
+}
+
+let villageCursor = 0;
+let patrolsIssued = 0;
+let klesIssued = 0;
+let sq1Misses = 0;
+let sq2Misses = 0;
+function scheduleCareful(w: World) {
+  const villages = w.state.villages;
+  if (villages.length === 0) return;
+  if (squadFree(w, "sq1")) {
+    const v = villages[villageCursor % villages.length];
+    villageCursor++;
+    const ids = readyMembers(w, "sq1");
+    const t = w.formPatrol(ids, midRoute(w, v.cx, v.cy), "presence", "tactical", {
+      movement: "patrol",
+      contact: "hold",
+      roe: "tight",
+    });
+    if (t) patrolsIssued++;
+  } else sq1Misses++;
+  if (squadFree(w, "sq2")) {
+    const target = [...villages].sort((a, b) => a.lastVisitedDay - b.lastVisitedDay)[0];
+    const ids = readyMembers(w, "sq2");
+    const t = w.conductKLE(ids, target.id, "tactical");
+    if (t) klesIssued++;
+  } else sq2Misses++;
+  const anyInFlight = w.state.projects.some(
+    (p) => p.stage === "building" || p.stage === "awaiting_materials" || p.stage === "awaiting_contractor"
+  );
+  if (!anyInFlight && w.state.cerp >= 5000) {
+    const cop = w.terrain.cellCenter(w.terrain.copCell.cx, w.terrain.copCell.cy);
+    const hasHistory = (vid: string) => w.state.projects.some((p) => p.villageId === vid);
+    const rank = (v: VillageState) => {
+      const c = w.terrain.cellCenter(v.cx, v.cy);
+      return (hasHistory(v.id) ? 100000 : 0) + Math.hypot(c.x - cop.x, c.y - cop.y) - v.attitude * 4;
+    };
+    const fundable = villages
+      .filter((v) => !v.projects.includes(v.wants))
+      .sort((a, b) => rank(a) - rank(b))[0];
+    if (fundable) w.startProject(fundable.id, fundable.wants);
+  }
+  const building = w.state.projects.find((p) => p.stage !== "complete" && p.stage !== "sabotaged");
+  if (building) {
+    const bv = w.state.villages.find((v) => v.id === building.villageId);
+    const alreadySecuring = w.state.tasks.some(
+      (t) => t.kind === "secure" && t.secureVillageId === building.villageId && t.phase !== "complete"
+    );
+    if (bv && !alreadySecuring) {
+      const sid = squadFree(w, "wpn") ? "wpn" : squadFree(w, "sq3") ? "sq3" : null;
+      if (sid) {
+        w.secureBuild(readyMembers(w, sid), bv.id, "tactical", { movement: "patrol", contact: "hold", roe: "tight" });
+      }
+    }
+  }
+  if (w.state.supplies.construction < 12 || w.state.supplies.ammo_556 < 8000) {
+    w.requestResupply("convoy");
+  }
+}
+
+// ---------------------------------------------------------------- run
+const w = createWorld(seed, DAYS);
+const { state } = w;
+let lastSchedDay = -1;
+let guard = 0;
+const GUARD_MAX = Math.ceil(((DAYS + 2) * DAY) / DT) + 1000;
+
+// member -> squad map for attributing task time
+const memberSquad = new Map<string, string>();
+for (const sq of w.platoon.squads) for (const id of sq.memberIds) memberSquad.set(id, sq.id);
+const taskSquad = (t: { memberIds: string[] }) => memberSquad.get(t.memberIds[0]) ?? "?";
+
+type Buckets = { assembling: number; marchOut: number; onstation: number; returning: number; idle: number };
+const mkB = (): Buckets => ({ assembling: 0, marchOut: 0, onstation: 0, returning: 0, idle: 0 });
+// per-day, per op-squad (sq1, sq2)
+const budget = new Map<string, Buckets>(); // key `${day}:${sq}`
+const bucketFor = (day: number, sq: string) => {
+  const k = `${day}:${sq}`;
+  let b = budget.get(k);
+  if (!b) { b = mkB(); budget.set(k, b); }
+  return b;
+};
+
+interface TaskRec {
+  id: number; kind: string; label: string; sq: string; orderedClock: number;
+  movingAt?: number; exitedAt?: number; onstationAt?: number; completedAt?: number; lastPhase: string;
+}
+const taskRecs = new Map<number, TaskRec>();
+
+console.log(`=== scratch-coin-budget: CAREFUL policy, seed=${seed}, ${DAYS} days ===`);
+
+while (!state.ended && guard++ < GUARD_MAX) {
+  const day = w.day;
+  if (day !== lastSchedDay) {
+    lastSchedDay = day;
+    scheduleCareful(w);
+  }
+  let stepT = DT;
+  if (patrolInContact(w)) {
+    let acc = 0;
+    while (acc < DT) {
+      const step = Math.min(COMBAT_DT, DT - acc);
+      w.tick(step);
+      acc += step;
+      if (state.ended) break;
+      if (!patrolInContact(w) && acc >= COMBAT_DT) {
+        if (DT - acc > 0) w.tick(DT - acc);
+        break;
+      }
+    }
+    stepT = DT;
+  } else {
+    w.tick(DT);
+  }
+
+  // --- attribute this step's time for the two op squads
+  const active = new Map<string, string>(); // squad -> phase-bucket
+  for (const t of state.tasks) {
+    if (t.phase === "complete") continue;
+    const sq = taskSquad(t);
+    if (sq !== "sq1" && sq !== "sq2") continue;
+    const bucket =
+      t.phase === "assembling" ? "assembling"
+      : t.phase === "moving" ? "marchOut"
+      : t.phase === "onstation" ? "onstation"
+      : "returning";
+    active.set(sq, bucket);
+  }
+  for (const sq of ["sq1", "sq2"]) {
+    const b = bucketFor(w.day, sq);
+    const ph = active.get(sq);
+    if (ph) (b as unknown as Record<string, number>)[ph] += stepT;
+    else b.idle += stepT;
+  }
+
+  // --- task lifecycle
+  const liveIds = new Set<number>();
+  for (const t of state.tasks) {
+    liveIds.add(t.id);
+    let r = taskRecs.get(t.id);
+    if (!r) {
+      r = { id: t.id, kind: t.kind, label: t.label, sq: taskSquad(t), orderedClock: t.startedClock ?? state.clock, lastPhase: t.phase };
+      taskRecs.set(t.id, r);
+    }
+    if (r.movingAt === undefined && t.phase !== "assembling") r.movingAt = state.clock;
+    if (r.exitedAt === undefined && (t as { exited?: boolean }).exited) r.exitedAt = state.clock;
+    if (r.onstationAt === undefined && t.phase === "onstation") r.onstationAt = state.clock;
+    r.lastPhase = t.phase;
+  }
+  for (const r of taskRecs.values()) {
+    if (r.completedAt === undefined && !liveIds.has(r.id)) r.completedAt = state.clock;
+  }
+}
+
+const H = (s: number) => (s / 3600).toFixed(1);
+console.log(`\n--- PER-DAY TIME BUDGET (hours) — where the op squads' day goes ---`);
+console.log(`day  squad | assemble | march | onstation | return | IDLE`);
+const days = [...new Set([...budget.keys()].map((k) => Number(k.split(":")[0])))].sort((a, b) => a - b);
+for (const d of days) {
+  for (const sq of ["sq1", "sq2"]) {
+    const b = budget.get(`${d}:${sq}`) ?? mkB();
+    console.log(
+      `d${String(d).padStart(2)}  ${sq}   | ${H(b.assembling).padStart(8)} | ${H(b.marchOut).padStart(5)} | ${H(b.onstation).padStart(9)} | ${H(b.returning).padStart(6)} | ${H(b.idle).padStart(4)}`
+    );
+  }
+}
+// aggregates
+for (const sq of ["sq1", "sq2"]) {
+  const tot = mkB();
+  for (const d of days) {
+    const b = budget.get(`${d}:${sq}`) ?? mkB();
+    tot.assembling += b.assembling; tot.marchOut += b.marchOut; tot.onstation += b.onstation;
+    tot.returning += b.returning; tot.idle += b.idle;
+  }
+  const sum = tot.assembling + tot.marchOut + tot.onstation + tot.returning + tot.idle;
+  console.log(
+    `TOTAL ${sq}: assemble ${H(tot.assembling)}h  march ${H(tot.marchOut)}h  onstation ${H(tot.onstation)}h  ` +
+      `return ${H(tot.returning)}h  IDLE ${H(tot.idle)}h  (of ${H(sum)}h; march+return = ${(100 * (tot.marchOut + tot.returning) / Math.max(1, sum)).toFixed(0)}%, onstation = ${(100 * tot.onstation / Math.max(1, sum)).toFixed(0)}%, idle = ${(100 * tot.idle / Math.max(1, sum)).toFixed(0)}%)`
+  );
+}
+
+console.log(`\n--- TASK LIFECYCLE ---`);
+console.log(`id kind    sq   label                        | muster | gate | ->onstation | total | endPhase`);
+const recs = [...taskRecs.values()].sort((a, b) => a.orderedClock - b.orderedClock);
+for (const r of recs) {
+  const muster = r.movingAt !== undefined ? (r.movingAt - r.orderedClock).toFixed(0) : "-";
+  const gate = r.exitedAt !== undefined && r.movingAt !== undefined ? (r.exitedAt - r.movingAt).toFixed(0) : "-";
+  const onsta = r.onstationAt !== undefined ? (r.onstationAt - r.orderedClock).toFixed(0) : "-";
+  const total = r.completedAt !== undefined ? (r.completedAt - r.orderedClock).toFixed(0) : "OPEN";
+  console.log(
+    `${String(r.id).padStart(2)} ${r.kind.padEnd(7)} ${r.sq.padEnd(4)} ${r.label.slice(0, 28).padEnd(28)} | ${muster.padStart(6)} | ${gate.padStart(4)} | ${onsta.padStart(11)} | ${total.padStart(5)} | ${r.lastPhase}`
+  );
+}
+
+console.log(`\nSUMMARY seed=${seed}`);
+console.log(`  patrols issued ${patrolsIssued} (sq1 sched-misses ${sq1Misses})  KLEs issued ${klesIssued} (sq2 sched-misses ${sq2Misses})`);
+console.log(`  projects: funded ${state.projects.length}, complete ${state.projects.filter((p) => p.stage === "complete").length}`);
+console.log(`  KIA ${w.platoon.members.filter((m) => !m.alive).length}  attitude end ${meanAttitude(state.villages).toFixed(1)}`);
+console.log(`  endDay ${w.day}  SCORE ${w.computeTourScore()}`);

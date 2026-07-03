@@ -1,0 +1,51 @@
+=== scratch-coin-budget: CAREFUL policy, seed=survey-1, 8 days ===
+
+--- PER-DAY TIME BUDGET (hours) — where the op squads' day goes ---
+day  squad | assemble | march | onstation | return | IDLE
+d 1  sq1   |      0.0 |   0.1 |       1.0 |    0.2 | 16.6
+d 1  sq2   |      0.0 |   0.1 |       1.1 |    0.2 | 16.5
+d 2  sq1   |      0.0 |   1.3 |       1.0 |    1.8 | 19.9
+d 2  sq2   |      0.0 |   1.1 |       1.4 |    1.8 | 19.7
+d 3  sq1   |      0.0 |   0.8 |       1.0 |    1.2 | 20.9
+d 3  sq2   |      0.0 |   1.1 |       1.4 |    1.8 | 19.7
+d 4  sq1   |      0.0 |   0.5 |       1.0 |    0.8 | 21.7
+d 4  sq2   |      0.0 |   1.1 |       1.4 |    1.8 | 19.6
+d 5  sq1   |      0.0 |   1.5 |       1.0 |    1.9 | 19.6
+d 5  sq2   |      0.0 |   1.1 |       1.4 |    1.8 | 19.7
+d 6  sq1   |      0.0 |   0.1 |       1.0 |    0.3 | 22.6
+d 6  sq2   |      0.0 |   1.1 |       1.4 |    1.8 | 19.7
+d 7  sq1   |      0.0 |   1.2 |       1.0 |    1.7 | 20.0
+d 7  sq2   |      0.0 |   1.2 |       1.4 |    1.8 | 19.6
+d 8  sq1   |      0.0 |   0.0 |       0.0 |    0.0 | 24.0
+d 8  sq2   |      0.0 |   1.4 |       1.6 |    1.9 | 19.1
+d 9  sq1   |      0.0 |   0.0 |       0.0 |    0.0 |  0.0
+d 9  sq2   |      0.0 |   0.0 |       0.0 |    0.0 |  0.0
+TOTAL sq1: assemble 0.2h  march 5.5h  onstation 7.0h  return 8.0h  IDLE 165.3h  (of 186.0h; march+return = 7%, onstation = 4%, idle = 89%)
+TOTAL sq2: assemble 0.2h  march 8.4h  onstation 11.2h  return 12.7h  IDLE 153.5h  (of 186.0h; march+return = 11%, onstation = 6%, idle = 83%)
+
+--- TASK LIFECYCLE ---
+id kind    sq   label                        | muster | gate | ->onstation | total | endPhase
+ 0 patrol  sq1  Presence Patrol              |    150 |  150 |         570 |  5040 | returning
+ 1 kle     sq2  KLE — Chichal                |    120 |  210 |         660 |  5490 | returning
+ 2 secure  wpn  Secure — Chichal             |    120 |  180 |         600 | 264780 | returning
+ 3 patrol  sq1  Presence Patrol              |    150 |  210 |        4680 | 14670 | returning
+ 4 kle     sq2  KLE — Aliabad                |    120 |  120 |        4230 | 15660 | returning
+ 5 patrol  sq1  Presence Patrol              |    150 |  240 |        3090 | 11130 | returning
+ 6 kle     sq2  KLE — Aliabad                |    120 |  210 |        4170 | 15660 | returning
+ 7 patrol  sq1  Presence Patrol              |    150 |  150 |        1980 |  8460 | returning
+ 8 kle     sq2  KLE — Aliabad                |    120 |  120 |        4170 | 15690 | returning
+ 9 patrol  sq1  Presence Patrol              |    150 |  120 |        5520 | 16050 | returning
+10 kle     sq2  KLE — Aliabad                |    120 |  150 |        4110 | 15630 | returning
+11 secure  wpn  Secure — Landigal            |     90 |  150 |        1830 | 116910 | onstation
+12 patrol  sq1  Presence Patrol              |    150 |  150 |         570 |  5100 | returning
+13 kle     sq2  KLE — Aliabad                |    120 |  120 |        4080 | 15570 | returning
+14 patrol  sq1  Presence Patrol              |    120 |  150 |        4560 | 14400 | returning
+15 kle     sq2  KLE — Aliabad                |     90 |  240 |        4320 | 15780 | returning
+16 secure  sq3  Secure — Yaka China          |    120 |   90 |        3210 | 91380 | returning
+17 kle     sq2  KLE — Loy Kalay              |     90 |  120 |        5280 | 17820 | returning
+
+SUMMARY seed=survey-1
+  patrols issued 7 (sq1 sched-misses 1)  KLEs issued 8 (sq2 sched-misses 0)
+  projects: funded 3, complete 1
+  KIA 27  attitude end -3.8
+  endDay 9  SCORE 11

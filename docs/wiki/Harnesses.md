@@ -85,8 +85,9 @@ None of this was malice — it was a missing principle. Here it is.
 | `scripts/balance.ts` | **probe** + no-stall **gate** | no-NaN; no stranded mover. Casualties are **printed, not asserted**, with the σ floor | the stall is an invariant; casualties are a diagnostic (this page) |
 | `scripts/campaign-loop.ts` | **gate** (the win-condition) | COIN **discriminates** (careful beats body-count), attitude moves, directives live, CERP two-way, enemy dynamic, projects complete | every assertion is a **design oracle**, not a fitted output |
 
-> **COIN-gate cost & scope.** `campaign-loop.ts` runs a multi-day sim per seed (minutes/seed; one heavy
-> seed can be ~9 min), so it is a **pre-merge check for sim / AI / COIN / balance changes**, not an
+> **COIN-gate cost & scope.** `campaign-loop.ts` runs a multi-day sim per seed (minutes/seed; a heavy
+> seed can run 10–25 min, and the event-driven pacing re-anchor of 2026-07-03 puts the 3-seed default
+> at ~30–40 min wall), so it is a **pre-merge check for sim / AI / COIN / balance changes**, not an
 > every-commit gate. **One seed is too noisy to gate on** (survey-0 alone gives a ~3-pt score spread and
 > fails to discriminate) — use the 3-seed default. A faster, more deterministic "COIN smoke" variant
 > suitable for routine gating is an open coverage item.

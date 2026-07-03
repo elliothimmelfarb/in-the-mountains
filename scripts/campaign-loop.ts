@@ -260,26 +260,39 @@ function runDeployment(seed: string, policy: Policy): Result {
   while (!state.ended && guard++ < GUARD_MAX) {
     const day = w.day;
 
-    // ---- daily strategic scheduling -------------------------------------------------
+    // ---- daily bookkeeping ------------------------------------------------------------
     if (day !== lastSchedDay) {
       lastSchedDay = day;
-
       // deadline bookkeeping (read-only observation of the dead penalty path)
       for (const d of state.directives) {
         if (d.status === "active" && day > d.deadlineDay) deadlinePassedSet.add(d.id);
       }
+    }
 
-      if (policy === "careful") {
-        scheduleCareful(w, () => villageCursor++, () => villageCursor, () => {
-          patrolsIssued++;
-        }, () => {
-          klesIssued++;
-        });
-      } else {
-        scheduleBodycount(w, () => {
-          patrolsIssued++;
-        });
-      }
+    // ---- EVENT-DRIVEN strategic scheduling (pacing re-anchor, 2026-07-03) --------------
+    // The scheduler used to run ONCE PER GAME-DAY at the midnight tick — so an op that
+    // straddled midnight idled its squad for the rest of the day (~20 h). Measured on an
+    // 8-day careful tour at doctrine-honest march speeds: sq1/sq2 IDLE 83–89% of the tour,
+    // march+return only 7–11% (coin-q4-budget-m2-s1.txt) — the fixed daily sample, not
+    // movement, was the throughput ceiling. That under-expresses the CAREFUL policy's own
+    // design intent (FM 3-24: sustained daytime population engagement — presence in every
+    // village, shuras, secured builds), and misattributes any honest-speed change to "COIN
+    // got worse". Re-anchored EVENT-DRIVEN: the schedulers run every strategic step and an
+    // op squad steps off again when it is home+free — gated to DAYLIGHT for the careful
+    // policy (a shura convenes in daylight; a careful commander does not push presence
+    // patrols into the night), ungated for body-count (aggressive night ambushes are its
+    // character). Tempo therefore EMERGES from op duration + the daylight window + the
+    // muster/rest machinery — no fixed ops/day count exists to tune.
+    if (policy === "careful") {
+      scheduleCareful(w, () => villageCursor++, () => villageCursor, () => {
+        patrolsIssued++;
+      }, () => {
+        klesIssued++;
+      });
+    } else {
+      scheduleBodycount(w, () => {
+        patrolsIssued++;
+      });
     }
 
     // ---- ADAPTIVE strategic step (faithful combat, coarse strategy) ----
@@ -400,10 +413,14 @@ function scheduleCareful(
 ) {
   const villages = w.state.villages;
   if (villages.length === 0) return;
+  // Population engagement is a DAYTIME act (the pacing re-anchor's one gate): shuras
+  // convene in daylight and a careful commander doesn't walk presence patrols at night.
+  const daylight = !w.isNight();
 
   // 1st Squad: rolling presence patrol, one village at a time (advances the presence
   // directive — it needs boots in EVERY village — and lifts attitude on-station).
-  if (squadFree(w, "sq1")) {
+  // Event-driven: steps off again as soon as it is home+free in daylight.
+  if (daylight && squadFree(w, "sq1")) {
     const v = villages[getCursor() % villages.length];
     bumpCursor();
     const ids = readyMembers(w, "sq1");
@@ -416,8 +433,8 @@ function scheduleCareful(
   }
 
   // 2nd Squad: KLE with the least-recently-engaged village (advances the kle directive,
-  // big attitude/cooperation lift on-station).
-  if (squadFree(w, "sq2")) {
+  // big attitude/cooperation lift on-station). Event-driven, daylight-gated as above.
+  if (daylight && squadFree(w, "sq2")) {
     // pick the village we've engaged least (lowest lastVisitedDay), break ties by index
     const target = [...villages].sort((a, b) => a.lastVisitedDay - b.lastVisitedDay)[0];
     const ids = readyMembers(w, "sq2");

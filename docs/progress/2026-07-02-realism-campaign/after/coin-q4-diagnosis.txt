@@ -1,0 +1,70 @@
+COIN gate Q4 — why the M2 diff (doctrine march speeds) reads RED, and which kind of red (2026-07-03)
+====================================================================================================
+Question (coordinator): A) harness pacing debt, B) genuine design consequence (8 days too
+short at honest speeds), or C) M2 defect (tax bites where it shouldn't)?
+
+VERDICT: A — HARNESS PACING DEBT, with the Q1 relief lottery riding on top. B and C refuted
+with numbers below.
+
+C REFUTED (tax only bites real grades) — from M2's own doctrine-pace evidence
+(doctrine-pace-m2.txt, 8 staged COP->village marches):
+  flat-ish routes (ascent 2-17 m): sim/FM ratio 1.03-1.23  <- AT or ABOVE the FM rate; a
+    tax spuriously biting terrace micro-grades would push these well BELOW 1.0
+  the real climb (Donga, 249 m ascent): ratio 0.95         <- exactly doctrine-priced
+  mean 1.09 overall (was 1.42 pre-tax). The grade probe reads the 5 m elevation field
+  along the walk direction (combat.ts GRADE_PROBE) and the tax formula is the cited
+  Naismith<->FM 3-97.6 load interpolation. No defect found.
+
+B REFUTED (movement does NOT eat the day) — per-day time budget of the careful policy's
+op squads under M2, survey-1, 8-day tour (coin-q4-budget-m2-s1.txt):
+  TOTAL sq1: assemble 0.2h  march 5.5h  onstation 7.0h  return 8.0h  IDLE 165.3h
+             -> march+return 7% of tour time, onstation 4%, IDLE 89%
+  TOTAL sq2: march+return 11%, onstation 6%, IDLE 83%
+  A KLE at honest speeds costs ~4.3 h door-to-door (was ~3.5 h at trunk speeds); the
+  daylight alone could hold 2-3 such ops. The squads are idle ~20 h/day.
+
+A CONFIRMED (the once-a-day scheduler is the ceiling):
+  The harness scheduler sampled ONCE PER GAME-DAY at the midnight tick; any op straddling
+  it idled its squad the rest of the day. Tempo was pinned at <=1 op/squad/day at ANY
+  movement speed — so the careful policy's COIN delivery ran at a fraction of its own
+  design intent (FM 3-24 sustained daytime population engagement), leaving margins so
+  thin that M2's honest speeds + one bad trajectory roll dropped the surviving seed's
+  score under the gate bar.
+  Throughput under M2 (old pacing), survey-1: patrols 7 (1 sched-miss), KLEs 8, projects
+  1/3 — essentially UNCHANGED from trunk (8/8, 2/3). What actually moved the score
+  36 -> 11 was the Q1 lottery: a single day-7 catastrophe (+12 KIA in one day; tour KIA
+  21 -> 27, coin-q4-diag-m2-s1.txt) — combat-trajectory chaos, not movement throughput.
+
+THE FIX (scripts/campaign-loop.ts — harness only, zero new tuned constants):
+  Event-driven scheduling: the schedulers run every strategic step; an op squad steps off
+  again when it is home+free — DAYLIGHT-gated for careful (shuras convene in daylight; a
+  careful commander does not push presence patrols into the night; gate = the sim's own
+  isNight()), ungated for body-count (night ambushes are its character). TOC-level acts
+  (CERP funding, secure dispatch, resupply) also become event-driven (all already
+  idempotent-guarded). Tempo now EMERGES from op duration + the daylight window + the
+  muster/rest machinery. Justified from design intent; no ops/day count exists to tune.
+
+DECISION RUNS (re-anchored script, 3 seeds x 8 days x 2 policies, isolated worktrees;
+verbatim outputs coin-q4-gate-trunk-repaced.txt / coin-q4-gate-m2-repaced.txt):
+  trunk 3666d14 clean:     GREEN 8/8 exit 0 — careful (0, 100, 95) mean 65.0 vs bodycount
+                           0.0; best pair 100; Δatt best pair 50.2; projects complete
+                           1.7/tour mean, 3 on the best seed. (Old pacing: (0, 36, 28)
+                           mean 21.3, best pair 36 — the scheduler, not the sim, was
+                           capping careful COIN at a fifth of its expressible delivery.)
+  trunk + M2 combat diff:  GREEN 8/8 exit 0 — careful (0, 63, 87) mean 50.0 vs bodycount
+                           0.0; best pair 87 (>25 with 3.5x margin); Δatt best pair 40.9.
+                           (Old pacing: (0, 11, 12), best pair 11-12 — RED.)
+
+THE HONEST PRICE OF DOCTRINE SPEEDS (report, don't narrow — harness law): under equal
+event-driven pacing, honest march speeds cost careful ~15 mean points (65.0 -> 50.0):
+fewer daylight ops fit the day at FM pace. Careful still beats body-count by 87 on its
+best valley — "COIN delivered slower is still COIN delivered"; the M2 tax is realism the
+score can absorb.
+
+WALL COST (recorded): the re-paced gate runs heavier — trunk ~36 min, M2 ~30 min for the
+3x8 default (was ~18 min): more ops out = more patrol-contact windows = more fine-dt
+sub-stepping (worst single seed: trunk bodycount survey-2, 1274 s). Still pre-merge
+viable; the issue-030 fast COIN-smoke config remains the open fix.
+
+survey-0 remains relieved-day-4 on ALL trees and pacings (the Q1 lottery; both policies
+die in the opening days on that draw) — the per-seed prints keep it visible.
