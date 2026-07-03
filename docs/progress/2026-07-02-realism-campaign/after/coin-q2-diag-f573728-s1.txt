@@ -1,0 +1,44 @@
+=== scratch-coin-diag: CAREFUL policy, seed=survey-1, 8 days ===
+day | patrols kles | projF projC | attMean | enemyAbs | TICs | KIA WIA | cerp
+d 1 |       1    1 |     1     0 |   -12.6 |       51 |    0 |   0   0 | 25000
+d 2 |       1    1 |     1     0 |    -8.7 |        0 |   20 |   2   0 | 25000
+d 3 |       2    2 |     1     0 |    -8.7 |        1 |   24 |   2   0 | 25000
+d 4 |       3    3 |     1     0 |    -8.3 |        1 |   26 |   2   0 | 25000
+d 5 |       4    4 |     1     1 |    -5.0 |        1 |   32 |   3   0 | 26500
+d 6 |       5    5 |     2     1 |    -4.6 |        0 |   38 |   4   0 | 21500
+d 7 |       6    6 |     2     1 |    -4.8 |        1 |   47 |   4   0 | 21500
+d 8 |       7    7 |     3     1 |    -4.7 |        1 |   60 |   5   0 | 16500
+d 9 |       8    8 |     3     1 |    -4.6 |        1 |   72 |   5   0 | 24380
+d 9 |       8    8 |     3     1 |    -4.6 |        1 |   72 |   5   0 | 24380
+
+--- TASK LIFECYCLE (clock seconds; muster = ordered->moving, gate = moving->exited) ---
+id kind        label                          n | muster | gate | ->onstation | total | endPhase
+ 0 patrol      Presence Patrol                 9 |    150 |  120 |         570 |  4830 | returning
+ 1 kle         KLE — Chichal                   9 |    120 |  120 |         690 |  5220 | returning
+ 2 secure      Secure — Chichal                9 |    120 |  120 |         600 | 264570 | returning
+ 3 patrol      Presence Patrol                 9 |    150 |  150 |        4230 | 11430 | returning
+ 4 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4380 | returning
+ 5 patrol      Presence Patrol                 9 |    150 |  150 |        2880 |  9000 | returning
+ 6 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4380 | returning
+ 7 patrol      Presence Patrol                 9 |    150 |   90 |        1800 |  7080 | returning
+ 8 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4380 | returning
+ 9 patrol      Presence Patrol                 8 |    150 |  210 |        4350 | 11910 | returning
+10 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4410 | returning
+11 secure      Secure — Landigal               8 |    120 |  150 |        1890 | 154110 | returning
+12 patrol      Presence Patrol                 8 |    150 |  120 |         570 |  4890 | returning
+13 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4380 | returning
+14 patrol      Presence Patrol                 8 |    150 |  150 |        4230 | 11340 | returning
+15 kle         KLE — Aliabad                   8 |    120 |   90 |         390 |  4380 | returning
+16 secure      Secure — Yaka China             7 |    120 |   90 |        2820 |  OPEN | onstation
+17 patrol      Presence Patrol                 8 |    150 |  210 |        2940 |  9090 | returning
+18 kle         KLE — Aliabad                   7 |    120 |   90 |         390 |  4380 | returning
+
+SUMMARY seed=survey-1
+  tasks ordered: 19  (patrol 8, kle 8)
+  muster latency mean: 133 s  (n=19)
+  gate latency mean:   122 s  (n=19)
+  TIC edges: 72
+  KIA 5  WIA 0
+  projects: funded 3, complete 1
+  attitude end: -4.6
+  endDay 9  SCORE 53

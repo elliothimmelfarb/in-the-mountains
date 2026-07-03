@@ -1,0 +1,251 @@
+/**
+ * scratch-coin-diag.ts — COIN-gate regression mechanism probe (disposable).
+ *
+ * Runs ONLY the careful policy of scripts/campaign-loop.ts (same scheduler, same adaptive
+ * stepping, same seeds) and dumps the mechanism the trunk diagnosis needs:
+ *   - per-TASK lifecycle latencies: ordered -> moving (muster), moving -> exited (gate),
+ *     -> onstation, -> completed. If yard-life states resist tasking, muster/gate latency
+ *     grows vs the f573728 control. If not, they match.
+ *   - per-DAY ledger: patrols/KLEs issued, projects funded/complete, mean attitude,
+ *     enemyStrengthAbs, TIC rising edges, KIA/WIA cumulative.
+ *   - final computeTourScore().
+ *
+ * Usage: npx tsx scratch-coin-diag.ts <seed> [days=8]
+ */
+import { createWorld, World } from "../lib/sim/world";
+import type { VillageState } from "../lib/sim/campaign";
+
+const seed = process.argv[2] ?? "survey-1";
+const DAYS = Number(process.argv[3] ?? 8);
+const DT = 30;
+const COMBAT_DT = 2;
+const DAY = 86400;
+
+function meanAttitude(villages: VillageState[]): number {
+  return villages.reduce((a, v) => a + v.attitude, 0) / Math.max(1, villages.length);
+}
+function patrolInContact(w: World): boolean {
+  const patrolOut = w.state.tasks.some(
+    (t) =>
+      (t.phase === "moving" || t.phase === "onstation" || t.phase === "returning") &&
+      t.kind !== "secure" &&
+      t.memberIds.some((id) => {
+        const u = w.sim.unit(id);
+        return u && u.alive && !u.evac;
+      })
+  );
+  return patrolOut && w.inContact();
+}
+function squadFree(w: World, squadId: string): boolean {
+  const sq = w.platoon.squads.find((s) => s.id === squadId);
+  if (!sq) return false;
+  const committed = new Set<string>();
+  for (const t of w.state.tasks) if (t.phase !== "complete") for (const id of t.memberIds) committed.add(id);
+  const ready = sq.memberIds.filter((id) => {
+    const m = w.platoon.members.find((x) => x.id === id);
+    return m && m.alive && (m.status === "ready" || m.status === "rest");
+  });
+  if (ready.length < 4) return false;
+  return !ready.some((id) => committed.has(id));
+}
+function readyMembers(w: World, squadId: string): string[] {
+  const sq = w.platoon.squads.find((s) => s.id === squadId);
+  if (!sq) return [];
+  return sq.memberIds.filter((id) => {
+    const m = w.platoon.members.find((x) => x.id === id);
+    return m && m.alive && (m.status === "ready" || m.status === "rest");
+  });
+}
+function midRoute(w: World, vx: number, vy: number) {
+  const cop = w.terrain.copCell;
+  return [
+    { cx: Math.round((cop.cx + vx) / 2), cy: Math.round((cop.cy + vy) / 2) },
+    { cx: vx, cy: vy },
+  ];
+}
+
+// verbatim careful policy from scripts/campaign-loop.ts
+let villageCursor = 0;
+let patrolsIssued = 0;
+let klesIssued = 0;
+function scheduleCareful(w: World) {
+  const villages = w.state.villages;
+  if (villages.length === 0) return;
+  if (squadFree(w, "sq1")) {
+    const v = villages[villageCursor % villages.length];
+    villageCursor++;
+    const ids = readyMembers(w, "sq1");
+    const t = w.formPatrol(ids, midRoute(w, v.cx, v.cy), "presence", "tactical", {
+      movement: "patrol",
+      contact: "hold",
+      roe: "tight",
+    });
+    if (t) patrolsIssued++;
+  }
+  if (squadFree(w, "sq2")) {
+    const target = [...villages].sort((a, b) => a.lastVisitedDay - b.lastVisitedDay)[0];
+    const ids = readyMembers(w, "sq2");
+    const t = w.conductKLE(ids, target.id, "tactical");
+    if (t) klesIssued++;
+  }
+  const anyInFlight = w.state.projects.some(
+    (p) => p.stage === "building" || p.stage === "awaiting_materials" || p.stage === "awaiting_contractor"
+  );
+  if (!anyInFlight && w.state.cerp >= 5000) {
+    const cop = w.terrain.cellCenter(w.terrain.copCell.cx, w.terrain.copCell.cy);
+    const hasHistory = (vid: string) => w.state.projects.some((p) => p.villageId === vid);
+    const rank = (v: VillageState) => {
+      const c = w.terrain.cellCenter(v.cx, v.cy);
+      return (hasHistory(v.id) ? 100000 : 0) + Math.hypot(c.x - cop.x, c.y - cop.y) - v.attitude * 4;
+    };
+    const fundable = villages
+      .filter((v) => !v.projects.includes(v.wants))
+      .sort((a, b) => rank(a) - rank(b))[0];
+    if (fundable) w.startProject(fundable.id, fundable.wants);
+  }
+  const building = w.state.projects.find((p) => p.stage !== "complete" && p.stage !== "sabotaged");
+  if (building) {
+    const bv = w.state.villages.find((v) => v.id === building.villageId);
+    const alreadySecuring = w.state.tasks.some(
+      (t) => t.kind === "secure" && t.secureVillageId === building.villageId && t.phase !== "complete"
+    );
+    if (bv && !alreadySecuring) {
+      const sid = squadFree(w, "wpn") ? "wpn" : squadFree(w, "sq3") ? "sq3" : null;
+      if (sid) {
+        w.secureBuild(readyMembers(w, sid), bv.id, "tactical", { movement: "patrol", contact: "hold", roe: "tight" });
+      }
+    }
+  }
+  if (w.state.supplies.construction < 12 || w.state.supplies.ammo_556 < 8000) {
+    w.requestResupply("convoy");
+  }
+}
+
+// ---------------------------------------------------------------- run
+interface TaskRec {
+  id: number;
+  kind: string;
+  label: string;
+  n: number;
+  orderedClock: number;
+  movingAt?: number; // first tick phase !== assembling
+  exitedAt?: number; // first tick t.exited === true
+  onstationAt?: number;
+  completedAt?: number; // vanished from state.tasks
+  lastPhase: string;
+}
+
+const w = createWorld(seed, DAYS);
+const { state } = w;
+const taskRecs = new Map<number, TaskRec>();
+let lastSchedDay = -1;
+let ticEdges = 0;
+let prevContact = false;
+let guard = 0;
+const GUARD_MAX = Math.ceil(((DAYS + 2) * DAY) / DT) + 1000;
+
+console.log(`=== scratch-coin-diag: CAREFUL policy, seed=${seed}, ${DAYS} days ===`);
+console.log(`day | patrols kles | projF projC | attMean | enemyAbs | TICs | KIA WIA | cerp`);
+
+let lastDayPrinted = -1;
+function dayLine() {
+  const kia = w.platoon.members.filter((m) => !m.alive).length;
+  const wia = w.platoon.members.filter((m) => m.alive && (m.status === "wounded" || m.evac)).length;
+  const projC = state.projects.filter((p) => p.stage === "complete").length;
+  console.log(
+    `d${String(w.day).padStart(2)} | ${String(patrolsIssued).padStart(7)} ${String(klesIssued).padStart(4)} | ` +
+      `${String(state.projects.length).padStart(5)} ${String(projC).padStart(5)} | ` +
+      `${meanAttitude(state.villages).toFixed(1).padStart(7)} | ${String(Math.round(state.enemyStrengthAbs)).padStart(8)} | ` +
+      `${String(ticEdges).padStart(4)} | ${String(kia).padStart(3)} ${String(wia).padStart(3)} | ${Math.round(state.cerp)}`
+  );
+}
+
+while (!state.ended && guard++ < GUARD_MAX) {
+  const day = w.day;
+  if (day !== lastSchedDay) {
+    lastSchedDay = day;
+    scheduleCareful(w);
+  }
+  if (patrolInContact(w)) {
+    let acc = 0;
+    while (acc < DT) {
+      const step = Math.min(COMBAT_DT, DT - acc);
+      w.tick(step);
+      acc += step;
+      if (state.ended) break;
+      if (!patrolInContact(w) && acc >= COMBAT_DT) {
+        if (DT - acc > 0) w.tick(DT - acc);
+        break;
+      }
+    }
+  } else {
+    w.tick(DT);
+  }
+
+  // --- task lifecycle tracking
+  const liveIds = new Set<number>();
+  for (const t of state.tasks) {
+    liveIds.add(t.id);
+    let r = taskRecs.get(t.id);
+    if (!r) {
+      r = {
+        id: t.id,
+        kind: t.kind,
+        label: t.label,
+        n: t.memberIds.length,
+        orderedClock: t.startedClock ?? state.clock,
+        lastPhase: t.phase,
+      };
+      taskRecs.set(t.id, r);
+    }
+    if (r.movingAt === undefined && t.phase !== "assembling") r.movingAt = state.clock;
+    if (r.exitedAt === undefined && (t as { exited?: boolean }).exited) r.exitedAt = state.clock;
+    if (r.onstationAt === undefined && t.phase === "onstation") r.onstationAt = state.clock;
+    r.lastPhase = t.phase;
+  }
+  for (const r of taskRecs.values()) {
+    if (r.completedAt === undefined && !liveIds.has(r.id)) r.completedAt = state.clock;
+  }
+
+  // --- TIC edges
+  const c = w.inContact();
+  if (c && !prevContact) ticEdges++;
+  prevContact = c;
+
+  if (w.day !== lastDayPrinted) {
+    lastDayPrinted = w.day;
+    dayLine();
+  }
+}
+dayLine();
+
+console.log(`\n--- TASK LIFECYCLE (clock seconds; muster = ordered->moving, gate = moving->exited) ---`);
+console.log(`id kind        label                          n | muster | gate | ->onstation | total | endPhase`);
+const recs = [...taskRecs.values()].sort((a, b) => a.orderedClock - b.orderedClock);
+for (const r of recs) {
+  const muster = r.movingAt !== undefined ? (r.movingAt - r.orderedClock).toFixed(0) : "-";
+  const gate = r.exitedAt !== undefined && r.movingAt !== undefined ? (r.exitedAt - r.movingAt).toFixed(0) : "-";
+  const onsta = r.onstationAt !== undefined ? (r.onstationAt - r.orderedClock).toFixed(0) : "-";
+  const total = r.completedAt !== undefined ? (r.completedAt - r.orderedClock).toFixed(0) : "OPEN";
+  console.log(
+    `${String(r.id).padStart(2)} ${r.kind.padEnd(11)} ${r.label.slice(0, 30).padEnd(30)} ${String(r.n).padStart(2)} | ` +
+      `${muster.padStart(6)} | ${gate.padStart(4)} | ${onsta.padStart(11)} | ${total.padStart(5)} | ${r.lastPhase}`
+  );
+}
+
+const musterVals = recs.filter((r) => r.movingAt !== undefined).map((r) => r.movingAt! - r.orderedClock);
+const gateVals = recs
+  .filter((r) => r.exitedAt !== undefined && r.movingAt !== undefined)
+  .map((r) => r.exitedAt! - r.movingAt!);
+const m = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
+console.log(`\nSUMMARY seed=${seed}`);
+console.log(`  tasks ordered: ${recs.length}  (patrol ${patrolsIssued}, kle ${klesIssued})`);
+console.log(`  muster latency mean: ${m(musterVals).toFixed(0)} s  (n=${musterVals.length})`);
+console.log(`  gate latency mean:   ${m(gateVals).toFixed(0)} s  (n=${gateVals.length})`);
+console.log(`  TIC edges: ${ticEdges}`);
+console.log(
+  `  KIA ${w.platoon.members.filter((mm) => !mm.alive).length}  WIA ${w.platoon.members.filter((mm) => mm.alive && (mm.status === "wounded" || mm.evac)).length}`
+);
+console.log(`  projects: funded ${state.projects.length}, complete ${state.projects.filter((p) => p.stage === "complete").length}`);
+console.log(`  attitude end: ${meanAttitude(state.villages).toFixed(1)}`);
+console.log(`  endDay ${w.day}  SCORE ${w.computeTourScore()}`);

@@ -1,0 +1,53 @@
+COIN gate Q2 — mechanism dump: CAREFUL policy at f573728 vs dbf317c, same seeds (2026-07-03)
+============================================================================================
+Probe: coin-q2-scratch-diag.ts.txt (careful policy only, identical scheduler + adaptive
+stepping as campaign-loop.ts; per-task lifecycle latencies + per-day ledger). Deterministic:
+reproduces the recorded per-seed scores exactly (53/69 at f573728, 36/28 at dbf317c).
+
+HYPOTHESIS UNDER TEST (from the finisher): yard-life states (gym/knot/drift) delay or break
+muster/tasking; or the solid-cell self-heal relocates men mid-muster.
+
+RESULT: REFUTED with direct measurement.
+
+survey-1 careful               f573728   dbf317c
+  tasks ordered                     19        19
+  patrols / KLEs issued            8/8       8/8
+  muster latency mean (s)          133       123   <- FASTER at dbf317c (fewer live men:
+  gate latency mean (s)            122       159      timer = clamp(70+7n,80,300))
+  projects funded/complete         3/1       3/2   <- MORE complete at dbf317c
+  attitude end                    -4.6      -1.4   <- BETTER at dbf317c
+  TIC edges / KIA               72 / 5   144 / 21  <- the only real difference
+  score                             53        36
+
+survey-2 careful               f573728   dbf317c
+  tasks ordered                     19        20
+  patrols / KLEs issued            8/8       8/8
+  muster latency mean (s)          122       126
+  gate latency mean (s)            131       137
+  projects funded/complete         3/2       4/1
+  attitude end                    10.5       0.6
+  TIC edges / KIA             102 / 15  128 / 21
+  score                             69        28
+
+WHY tasking is immune to yard-life (file:line):
+  - world.ts:902-906 markAssembling: formPatrol/conductKLE/secureBuild set
+    brainState="assembling" the instant the order lands.
+  - garrison.ts:22-23,33,56: the garrison builds a `tasked` set from ALL task memberIds and
+    skips those men everywhere (returning-straggler loop, `home` pool) — a man mid-gym-set
+    is claimed before the next garrison tick can touch him.
+  - tasks.ts:54-79 "assembling": members walk to muster via walkTo; the muster timer is a
+    fixed clamp(70+7n,80,300) s.
+  - faceLock (the one state that survives into a task until phase flips) only affects FACING
+    slew (combat.ts:906,964) — never movement speed.
+  - The solid-cell self-heal (garrison.ts:42-46) applies only to NON-tasked men standing in
+    an impassable cell (a rare invariant breach) and snaps to the nearest reachable cell —
+    it cannot move a mustering man.
+
+WHAT ACTUALLY MOVED THE SCORE: combat-outcome divergence. Yard-life repositions off-duty men
+by metres (and varies facing), so every COP-defense engagement resolves differently; the
+campaign trajectory then diverges chaotically (TIC 72->144, KIA 5->21 on survey-1). Each KIA
+docks higherConfidence 3 (world.ts) and 1.5 score points; heavy trajectories cross the relief
+floor (conf<=5 for 3 days, world.ts:617-637) and censor the tour to ~0. The dbf317c commit's
+own 12x50 balance run showed KIA 2.00->1.58 (flat/better) — per-fight lethality did NOT rise;
+only the trajectory re-rolled. The null-RNG-draw control (coin-q1-*-drawshift.txt) produces
+the same class and magnitude of divergence with ZERO code difference, which closes the case.

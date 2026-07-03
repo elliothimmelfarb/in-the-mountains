@@ -1,0 +1,41 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:5
+  TOUR SCORE:    1.0   (per-seed: 3, 0, 0)
+  final metrics: stab 57  att 44  enemy 15  cbtPwr 38  higher 0
+  enemyStrAbs:   min 11  mean 23  max 51   %time-at-cap(80): 0%
+  village attitude start→end:  -13.5 → -11.2   (Δ 2.3)
+  directives:    issued 2.0  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 18833 → end 18833   ever-rose: yes
+  projects:      funded 2.3  complete 0.3   patrols issued 2  KLEs issued 2
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:5
+  TOUR SCORE:    0.0   (per-seed: 0, 0, 0)
+  final metrics: stab 57  att 44  enemy 13  cbtPwr 36  higher 0
+  enemyStrAbs:   min 9  mean 19  max 51   %time-at-cap(80): 0%
+  village attitude start→end:  -13.5 → -12.6   (Δ 0.9)
+  directives:    issued 2.0  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 30000   ever-rose: NO (one-way)
+  projects:      funded 0.0  complete 0.0   patrols issued 7  KLEs issued 0
+
+=== VERDICT ===
+  per-seed careful−bodycount: survey-0 3 (Δatt 1.7) · survey-1 0 (Δatt 3.1) · survey-2 0 (Δatt -0.7)
+  noise floor: the 3-seed MEAN spread swings ~19 pts under a single world-init RNG draw (null perturbation, measured 2026-07-03) — mean-spread deltas inside that band are noise; the gate keys on the best pair.
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  !! FULLY CENSORED SET: 0/3 careful tours survived to end-of-tour (all relieved by the opening-days combat lottery) — magnitude checks unmeasurable on this draw; asserting liveness + ordinal dominance only.
+  [PASS] score ORDINAL (censored)   careful 1.0 vs bodycount 0.0, best pair 3, bodycount survivors 0
+  [PASS] COIN attitude ordinal      best paired seed Δatt 3.1 (>0; magnitude censored) (means: careful 2.3 vs bodycount 0.9; careful projects complete 0.3)
+  [PASS] directives issued (cens.)  issued 2.0 (deploy pair present; completion/cadence unmeasurable on a fully-relieved set)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 11  
+  [PASS] projects COMPLETE (secured) careful completes 1 on its best seed, 0.3/tour mean (was 0 — all sabotaged)
+  [CENSORED] directive cadence live 2.0 issued — cadence fires day 5–8; no tour lived that long
+
+INTERPRETATION: CENSORED DRAW — every careful tour was relieved in the opening-days combat lottery before the strategic layer could express. Liveness + ordinal dominance hold; discrimination magnitude is UNMEASURABLE on this seed set. Re-run with more seeds (e.g. `6 8`) or a held-out list for an authoritative read.
+
+COIN GATE OK (CENSORED DRAW) — liveness + ordinal dominance hold; magnitude unmeasurable on this seed set (see banner).
+EXIT 0

@@ -1,0 +1,55 @@
+COIN gate noise diagnosis — trunk "regression" f573728→dbf317c (2026-07-03)
+===========================================================================
+Question: is the recorded gate flip (f573728 GREEN 37.3 → dbf317c RED 20.0) a real
+COIN regression from the yard-life commit, or metric noise?
+
+Instrument: scripts/campaign-loop.ts AT THE RECORDED (pre-recalibration) verdict logic,
+3 seeds x 8 days x 2 policies. "null draw" = ONE extra rng.next() inserted at world init
+(create.ts:33) — shifts every downstream RNG draw, changes NO behavior. Worktrees pinned
+to the named commits; node_modules symlinked from trunk (package.json identical).
+
+NOISE TABLE — careful per-seed | bodycount per-seed | mean spread | old-gate verdict
+------------------------------------------------------------------------------------
+seed set survey-0..2 @ 8d
+  f573728 clean          (0, 53, 69)=40.7 | (0, 0, 10)=3.3 | 37.3 | GREEN (recorded, reproduced)
+  f573728 + null draw    (55, 0,  0)=18.3 | (0, 0,  0)=0.0 | 18.3 | RED  3 FAILs
+  dbf317c clean          (0, 36, 28)=21.3 | (0, 0,  4)=1.3 | 20.0 | RED  2 FAILs (the "regression")
+  dbf317c + null draw    (3,  0,  0)= 1.0 | (0, 0,  0)=0.0 |  1.0 | RED  5 FAILs
+held-out set survey-40..42 @ 8d
+  f573728 clean          DNF — KILLED at >30 min CPU on the FIRST careful seed (survey-40);
+                         the same seed at dbf317c completed in 601 s. Wall time is itself
+                         trajectory-chaotic (>3x) through patrolInContact's fine-dt dwell:
+                         a trajectory whose patrols stay in sustained contact sub-steps at
+                         2 s for game-hours. Cell not needed for the verdict (the null-draw
+                         control carries the proof); recorded as the standing wall-time
+                         hazard of the 8-day config on contact-heavy seeds.
+  dbf317c clean          careful (0, 0, 11) — ALL RELIEVED d4/d5/d5 (fully censored draw
+                         on the recommended held-out invocation itself; the score-11 tour
+                         is a relieved d5 tour carrying one completed project's +11).
+                         bodycount: s40 relieved d5 (1402 s wall), s41 relieved d5,
+                         s42 DNF — killed >20 min (second wall-explosion of the session)
+
+KEY NUMBERS
+  null-perturbation swing at f573728:  37.3 -> 18.3  (Δ 19.0, GREEN->RED)
+  null-perturbation swing at dbf317c:  20.0 ->  1.0  (Δ 19.0)
+  the bisected "regression" delta:     37.3 -> 20.0  (Δ 17.3)
+  => the commit-to-commit delta is SMALLER than the same-commit null-draw delta at BOTH
+     endpoints. The 3-seed mean spread cannot distinguish dbf317c from a no-op.
+
+MECHANISM OF THE NOISE (see coin-q2-*): a tour's score is censored by relief-of-command —
+the opening-days combat lottery (KIA cascade -> higherConfidence <=5 for 3 days -> relief,
+world.ts:617-637) floors a tour at ~0 regardless of policy. Careful per-seed scores are
+bimodal (0 relieved | 28-69 survived); measured careful survival ~5/12 tours across the
+four survey-0..2 experiments. The mean-of-3 statistic is a survivor-count lottery; the
+old >25 threshold sits inside its noise band.
+
+VERDICT: PURE NOISE / RNG-class re-roll. dbf317c consumes zero world RNG draws (verified
+in the diff — hashes + absSeconds only), but repositioning garrison men perturbs COP-defense
+fight outcomes exactly like a draw shift; every downstream trajectory diverges. Q2 dumps
+show careful COIN THROUGHPUT unchanged at dbf317c (same orders, muster latency 133->123 s
+s1 / 122->126 s s2, projects complete same-or-more, attitude same-or-better); only combat
+outcomes (KIA 5->21 s1, 15->21 s2) differ — the same class of divergence a null draw makes.
+
+Files: coin-q1-*-drawshift.txt (verbatim old-gate outputs), coin-q1-*-heldout.txt,
+coin-q2-diag-*.txt (per-day/per-task mechanism dumps), coin-q2-scratch-diag.ts.txt (probe
+source), coin-q3-recal-*.txt (recalibrated-gate validation).

@@ -1,0 +1,45 @@
+=== scratch-coin-diag: CAREFUL policy, seed=survey-2, 8 days ===
+day | patrols kles | projF projC | attMean | enemyAbs | TICs | KIA WIA | cerp
+d 1 |       1    1 |     1     0 |    -7.3 |       44 |    0 |   0   0 | 25000
+d 2 |       1    1 |     1     0 |    -4.9 |        1 |   47 |  14   0 | 25000
+d 3 |       2    2 |     2     0 |    -3.5 |        0 |   54 |  14   0 | 20000
+d 4 |       3    3 |     2     1 |    -0.1 |        0 |   73 |  16   0 | 21500
+d 5 |       4    4 |     3     1 |     0.3 |        1 |   79 |  16   0 | 16500
+d 6 |       5    5 |     3     1 |    -0.3 |        1 |   84 |  16   0 | 16500
+d 7 |       6    6 |     4     1 |     1.7 |        1 |   96 |  17   0 | 11500
+d 8 |       7    7 |     4     1 |     2.1 |        1 |  123 |  19   0 | 11500
+d 9 |       8    8 |     4     1 |     0.6 |        1 |  128 |  21   0 | 17400
+d 9 |       8    8 |     4     1 |     0.6 |        1 |  128 |  21   0 | 17400
+
+--- TASK LIFECYCLE (clock seconds; muster = ordered->moving, gate = moving->exited) ---
+id kind        label                          n | muster | gate | ->onstation | total | endPhase
+ 0 patrol      Presence Patrol                 9 |    150 |   90 |        1560 |  6570 | returning
+ 1 kle         KLE — Darbart                   9 |    120 |  120 |        1410 |  8250 | returning
+ 2 secure      Secure — Yaka China             9 |    120 |   90 |         420 | 61410 | returning
+ 3 patrol      Presence Patrol                 8 |    150 |   60 |         480 |  4440 | returning
+ 4 kle         KLE — Babiyal                   6 |    120 |  240 |        2190 |  9000 | returning
+ 5 secure      Secure — Darbart                7 |    120 |   90 |        1590 | 155220 | returning
+ 6 patrol      Presence Patrol                 8 |    150 |  120 |        2040 |  7650 | returning
+ 7 kle         KLE — Loy Kalay                 6 |    120 |  120 |        1350 |  8580 | returning
+ 8 patrol      Presence Patrol                 8 |    150 |   90 |        1290 |  6240 | returning
+ 9 kle         KLE — Loy Kalay                 6 |    120 |  210 |        1470 |  8700 | returning
+10 secure      Secure — Loy Kalay              5 |     90 |  180 |        1260 | 101250 | returning
+11 patrol      Presence Patrol                 8 |    150 |  120 |        5610 | 13560 | returning
+12 kle         KLE — Donga                     6 |    120 |  150 |        4290 | 13410 | returning
+13 patrol      Presence Patrol                 8 |    150 |   90 |        2910 |  9180 | returning
+14 kle         KLE — Donga                     6 |    120 |  150 |        4380 | 13680 | returning
+15 secure      Secure — Babiyal                5 |     90 |  150 |        2010 | 204120 | returning
+16 patrol      Presence Patrol                 8 |    150 |  120 |        1590 |  6630 | returning
+17 kle         KLE — Donga                     5 |     90 |  150 |        4260 | 13380 | returning
+18 patrol      Presence Patrol                 8 |    150 |  120 |         570 |  4410 | returning
+19 kle         KLE — Donga                     4 |     90 |  270 |        4380 | 13500 | returning
+
+SUMMARY seed=survey-2
+  tasks ordered: 20  (patrol 8, kle 8)
+  muster latency mean: 126 s  (n=20)
+  gate latency mean:   137 s  (n=20)
+  TIC edges: 128
+  KIA 21  WIA 0
+  projects: funded 4, complete 1
+  attitude end: 0.6
+  endDay 9  SCORE 28

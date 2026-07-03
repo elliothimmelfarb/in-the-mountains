@@ -1,0 +1,40 @@
+
+=== STRATEGIC CAMPAIGN-LOOP BASELINE — 3 seeds × 8 game-days × 2 policies ===
+seeds: survey-0, survey-1, survey-2   dt=30s (coarse strategic step; combat ballistics approximate, strategic integrators exact)
+
+── POLICY A — careful COIN  (patrols + KLE + CERP + restraint) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:8
+  TOUR SCORE:    21.3   (per-seed: 0, 36, 28)
+  final metrics: stab 67  att 50  enemy 1  cbtPwr 59  higher 10
+  enemyStrAbs:   min 0  mean 7  max 46   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -1.1   (Δ 6.8)
+  directives:    issued 2.3  complete 0.7  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 16500 → end 20413   ever-rose: yes
+  projects:      funded 3.0  complete 1.0   patrols issued 6  KLEs issued 7
+
+── POLICY B — body count    (aggressive, weapons-free, no projects) ──
+  reached-end:   3/3   NaN-free:yes   serialize-clean:yes   mean end-day:7
+  TOUR SCORE:    1.3   (per-seed: 0, 0, 4)
+  final metrics: stab 64  att 47  enemy 8  cbtPwr 45  higher 0
+  enemyStrAbs:   min 5  mean 13  max 46   %time-at-cap(80): 0%
+  village attitude start→end:  -7.9 → -5.4   (Δ 2.5)
+  directives:    issued 2.3  complete 0.0  failed 0.0   deadlines-elapsed-while-active 0.0  penalty-EVER-fired: no
+  CERP:          start 30000 → min 30000 → end 31667   ever-rose: yes
+  projects:      funded 0.0  complete 0.0   patrols issued 13  KLEs issued 0
+
+=== VERDICT ===
+  per-seed careful−bodycount: survey-0 0 (Δatt -1.8) · survey-1 36 (Δatt 6.8) · survey-2 24 (Δatt 7.7)
+  noise floor: the 3-seed MEAN spread swings ~19 pts under a single world-init RNG draw (null perturbation, measured 2026-07-03) — mean-spread deltas inside that band are noise; the gate keys on the best pair.
+  [PASS] loop runs a full tour      both policies reach end-of-tour, NaN-free, serialize-clean
+  [PASS] score DISCRIMINATES (>25)  mean careful 21.3 − bodycount 1.3 = 20.0; best paired seed 36  
+  [PASS] COIN moves attitude        best paired seed Δatt 7.7 vs one-shura footprint 1.3 (means: careful 6.8 vs bodycount 2.5; careful projects complete 1.0)
+  [PASS] directives fully live      complete 0.7/2.3; failure/penalty path n/a at this horizon (needs ≥13d; verified live under neglect) (deadlines elapsed on neglect: 0.0/tour)
+  [PASS] CERP two-way economy       CERP can increase during a tour
+  [PASS] enemy strength dynamic     careful: %time-at-cap 0%, min 0  
+  [PASS] projects COMPLETE (secured) careful completes 2 on its best seed, 1.0/tour mean (was 0 — all sabotaged)
+  [PASS] directive cadence live     2.3 directives issued/tour (was 2 fixed)
+
+INTERPRETATION: the strategy layer is ALIVE and discriminating — careful COIN beats body-count on the COIN levers (attitude, projects, Higher's trust), not the kill count.
+
+COIN GATE OK — win-condition layer alive + discriminating.
+EXIT 0

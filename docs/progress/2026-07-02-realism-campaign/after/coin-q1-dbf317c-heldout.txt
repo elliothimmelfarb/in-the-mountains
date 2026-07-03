@@ -1,0 +1,10 @@
+dbf317c held-out survey-40,41,42 x 8d — per-seed progress rows (run killed on the final
+bodycount seed after >20 min: the second wall-explosion of the session; s40 bodycount
+itself took 1402 s). careful side FULLY CENSORED (all relieved d4/d5/d5).
+
+  [careful] survey-40: 601.1s  endDay 4  score 0  proj 0/2  enemyMean 29
+  [careful] survey-41: 52.6s  endDay 5  score 0  proj 0/2  enemyMean 25
+  [careful] survey-42: 58.6s  endDay 5  score 11  proj 1/2  enemyMean 15
+  [bodycount] survey-40: 1402.6s  endDay 5  score 0  proj 0/0  enemyMean 38
+  [bodycount] survey-41: 85.6s  endDay 5  score 0  proj 0/0  enemyMean 23
+  [bodycount] survey-42: DNF — killed >20 min wall (contact-heavy trajectory)

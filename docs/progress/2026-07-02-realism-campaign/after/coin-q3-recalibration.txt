@@ -1,0 +1,82 @@
+COIN gate Q3 — verdict + recalibration (2026-07-03)
+====================================================
+VERDICT ON THE TRUNK RED: PURE NOISE (see coin-q1-noise-table.txt). dbf317c (garrison
+yard-life) did not reduce careful-COIN throughput (coin-q2-mechanism.txt); it re-rolled
+combat trajectories exactly like a null RNG draw, and the old gate statistic — 3-seed
+MEAN spread > 25 — sits inside its own measured noise band (~±19 under a single null
+draw). No garrison.ts / tasks.ts fix is warranted; the muster hypothesis is refuted.
+
+WHAT CHANGED (scripts/campaign-loop.ts only — the harness, not the sim):
+
+1. AGGREGATION RE-ANCHOR. The three lottery-censored discrimination checks now key on the
+   PAIRED BEST SEED (same valley, same enemy, only the policy differs) instead of the
+   3-seed mean:
+     - check 2: careful strictly on top in aggregate AND best paired-seed spread > 25.
+       The 25 is re-anchored to computeTourScore's own COIN-delivery geometry (world.ts
+       ~676-682: delivered projects + won-over villages are "~25-35 points a body-count
+       tour cannot earn") — a design constant, not a fitted output.
+     - check 3: best paired-seed valley-mean Δatt must exceed ONE FULL SHURA'S valley
+       footprint (+8 in the engaged village / nVillages ≈ 1.0-1.6 pts — design constants
+       from tasks.ts onStationEffects / PROJECT_PAYOFF). The old flat ">5 valley-mean"
+       demanded ~4 delivered acts and flunked a tour that verifiably delivered (best-pair
+       55 with a completed project read Δatt 3.0).
+     - check 7: projects-complete asserts the MAX over seeds >= 1 (mechanism liveness:
+       a secured project CAN complete), not the relief-censored mean.
+
+2. RELIEF-CENSORING TIER. A draw where ZERO careful tours survive to end-of-tour (all
+   relieved in the opening-days combat lottery) carries no magnitude information — the
+   gate now asserts liveness + ordinal dominance only (careful never beaten, body-count
+   equally censored, attitude sign positive, enemy dynamic), prints the magnitude checks
+   as CENSORED, and exits 0 with a banner demanding more seeds/days for an authoritative
+   read. Measured occurrence: 1 of 2 null-draw controls (dbf317c+draw relieved all 3
+   careful tours by day 5) and the dbf317c held-out set (survey-40..42 careful all
+   relieved d4/d5/d5). Distinguishing "measured inert" from "measurement destroyed by
+   censoring" is what stops the gate from flagging innocent changes — the WIA-band
+   mistake the charter exists to prevent.
+
+INERT-LAYER DETECTION PRESERVED (hand-checked against recorded data):
+  - day-one non-discriminating case (survey-0: careful 52 vs bodycount 49, BOTH survived
+    -> informative tier, best pair 3.0 < 25) -> still RED.
+  - M2 combat-diff rows (campaign-loop-m2-FINAL.txt: surviving careful seed scores 11
+    -> best pair 11 < 25) -> still RED, now for a legible reason (doctrine-honest march
+    speeds vs the 8-day policy window — a real calibration question for the M2 owner,
+    not a lottery).
+
+VALIDATION (final script, verbatim outputs in coin-q3-recal-*.txt):
+  A. dbf317c clean (sim-identical to trunk HEAD 5764134):
+       GREEN 8/8 PASS, exit 0 — best paired seed 36 (survey-1), Δatt best pair 7.7 vs
+       one-shura footprint 1.3, projects max 2. THE TRUNK GATE IS GREEN AGAIN, on merit.
+       (Old gate on identical Results: RED — mean spread 20.0 < 25, Δatt means 4.3 < 5.)
+  B. f573728 + null draw (the perturbation that falsely flipped the old gate):
+       GREEN 8/8 PASS, exit 0 — best paired seed 55 (survey-0), Δatt 4.0 vs footprint 1.3.
+       (Old gate: RED 3 FAILs on the identical Results.)
+  C. dbf317c + null draw (fully-censored draw — all 3 careful tours relieved by d5):
+       COIN GATE OK (CENSORED DRAW), exit 0 — ordinal dominance + liveness asserted
+       (best pair 3 >= 0, Δatt sign + 3.1 > 0, bodycount equally censored); magnitude
+       checks printed as CENSORED. Re-run of C reproduced byte-identically (determinism).
+       (Old gate: RED 5 FAILs — four of them structurally unmeasurable on that draw.)
+  Per-seed pair prints in every verdict now expose the noise (e.g. A shows survey-0 pair
+  Δatt -1.8 — a censored seed where careful trails; the reader sees the lottery directly).
+  tsc clean; eslint clean on campaign-loop.ts; 1x3-day smoke exercises the informative
+  tier end-to-end (correctly RED at a horizon the strategic layer cannot express in).
+  D. dbf317c held-out survey-40..42 (old-script run; Results are verdict-independent):
+     careful (0, 0, 11) — ALL RELIEVED d4/d5/d5 -> fully-censored draw on the
+     recommended held-out invocation itself; bodycount survey-40/41 relieved d5/d5
+     (s40 took 1402 s wall — the recorded body-count wall explosion), survey-42
+     DNF (killed >20 min wall, the session's second explosion). Tier-2 derivation
+     therefore INCOMPLETE on this draw (needs s42 bodycount's survival status): the
+     honest statement is that the 8-day held-out invocation is lottery-dominated and
+     costs 30+ min — an authoritative held-out read needs the longer-horizon /
+     pre-vetted-seed config issue 030 already prescribes. NOT claimed green.
+
+RESIDUALS / NOT DONE (deliberate):
+  - The relief lottery itself: ~50-60%% of 8-day careful tours end in relief-of-command
+    (opening-days KIA cascades of 5-21 on a ~40-man platoon). That is a game-balance
+    smell, but it is COMBAT/DIRECTOR domain (owned by other agents this campaign) and
+    the charter forbids tuning realism to harness convenience. Recorded, not touched.
+  - Gate wall time remains trajectory-chaotic: f573728 held-out survey-40 careful was
+    KILLED at >30 min CPU (same seed at dbf317c: 601 s) — patrolInContact's fine-dt
+    sub-step dwell varies >3x with trajectory. Issue-030's fast pre-vetted COIN-smoke
+    config remains open.
+  - No seed-count increase (would halve noise at ~2x the recorded 18-40 min wall pain).
+  - No computeTourScore / relief-mechanism change (engine, other owners, out of scope).
