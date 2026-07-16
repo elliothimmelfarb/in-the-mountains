@@ -32,6 +32,7 @@ A deep, continuous real-time sim of **counterinsurgency** at a remote US combat 
 - **Respect the layer line.** Engine and renderers React-free; `state/store.ts` the only bridge. Consumers outside the World package import from the barrel `@/lib/sim/world`, never concrete files (intra-package relative type imports are fine).
 - **Every shot passes the civilian-fire ROE gate** — `civClear`, a method on `CombatSim` in `lib/sim/combat.ts`. `ai/squad-combat.ts` DECIDES intent; `ai/friendly.ts` EXECUTES it.
 - **Exactly ONE persistent `CombatSim`**, owned by the World; `Platoon.members` ARE the live sim units.
+- **`enemyStrengthAbs` is DERIVED** — the sum of living enemy-cell strengths (`lib/sim/world/network.ts`). Never write it directly; route every strength change through a cell (`addCellStrength`). Exfil is net-zero, KIA is exactly −1 (roster model) — `enemy-network-probe` gates this conservation.
 - **Spawns use reachability-aware snapping** (`reachablePoint` → `civSafePoint`/`passablePoint` in `terrain.ts`) — a unit in a disconnected pocket strands AND re-fires whole-map A* every tick.
 - **Generated files are overwritten — edit sources, regenerate:** `lib/render/asset-manifest.generated.ts` (`node scripts/build-asset-manifest.mjs`), `docs/visual-overhaul/asset-bible.html` (`node scripts/build-asset-doc.mjs`).
 
