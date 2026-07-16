@@ -21,6 +21,9 @@ export type {
   SquadSOP,
   MovementSOP,
   ContactSOP,
+  EnemyCell,
+  EnemyCache,
+  EnemyNetwork,
 } from "./types";
 export {
   MISSION_LABEL,
