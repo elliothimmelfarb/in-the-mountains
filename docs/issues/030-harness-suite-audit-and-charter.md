@@ -1,5 +1,8 @@
 # 030 — Harness suite audit: the WIA-band blocker + the charter
 
+> **Ledger status (verified 2026-07-16 @ da10926):** CORE RESOLVED (2026-06-26) — mechanism current: the charter `docs/wiki/Harnesses.md`, the COIN win-condition gate (`campaign-loop.ts`, exit-code + design-oracle asserts), and the `balance.ts` re-anchor (casualties are a DIAGNOSTIC — no WIA band). STILL OPEN: a fast, deterministic COIN-gate config (3-seed default runs ~30–40 min); coverage gaps (no standing AI-quality / render / TIC gate).
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** ✅ CORE RESOLVED 2026-06-26 (charter + COIN gate + balance re-anchor shipped) · 🟡 residual
 debt + coverage gaps tracked below · **Found:** owner audit request, 2026-06-26
 

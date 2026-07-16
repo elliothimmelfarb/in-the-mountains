@@ -1,5 +1,8 @@
 # 020 — Micro-terrain: a soldier can't use a rock, a low wall, a berm
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-10) — mechanism current: directional + posture `coverOcclusion` on the `coverObjects` layer, fire-path only (`ITM_NOOBJCOVER` kill-switch). Do-not-retry (refuted at/before f4c68bb): an omnidirectional open-ground cover stamp (+89% WIA grind) — binds while cover stays a 5 m cell scalar (only sub-cell directional cover avoids the grind).
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: ✅ RESOLVED 2026-06-10 — directional + posture cover shipped (the deferred heavy half). A
 discrete object now stops only the round from the bearing it faces (a flanker sees you), posture-scaled;
 balance A/B is the OPPOSITE of the reverted omnidirectional grind — US WIA −22% tuned / −36% held-out,

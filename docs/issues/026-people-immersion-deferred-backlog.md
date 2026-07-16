@@ -1,5 +1,8 @@
 # 026 · People-immersion campaign — the deferred backlog (Wave 4+)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** OPEN — deliberate Law-3/Law-8 deferrals (2026-06-10); designs in `docs/progress/2026-06-10-people-immersion/plan.md`. The shipped context (cell brain, callout bus, consolidate/medic buddy, village wave) is current. Do-not-retry (recorded at 9a85c44): the terrain-fitted wedge — re-attempt only quadruple-guarded and it dies if `wedgeBlocked` regresses; binds while the wedge-selection history stands.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** OPEN (deliberate Law-3/Law-8 deferrals from the 2026-06-10 people-immersion
 campaign — each item was DESIGNED with seams verified against HEAD, then consciously not
 built this session. The full judged designs live in

@@ -4,8 +4,10 @@ import { makePlatoon, makeCivilian, Platoon, RosterMember, Unit, Role, resetIdCo
 import { elderName } from "../names";
 import { VillageState, rollWeather, attitudeToMetric, CERP_PROJECTS } from "../campaign";
 import { World } from "./world";
-import { WorldState, Ids, resetIds, defaultSOP, DAY } from "./types";
+import { WorldState, Ids, resetIds, defaultSOP, DAY, HEAT_DIM } from "./types";
 import { buildRoutine, crewEmplacements, buildEmplacements } from "./helpers";
+import { buildNetwork } from "./network";
+import { bubSnapshotOf } from "./assessment";
 
 /**
  * Build *only* the valley terrain for a seed — the single heaviest phase of a deploy
@@ -128,6 +130,11 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
   }
 
   const enemyStrengthAbs = rng.int(40, 70);
+  // The rolled strength becomes the BUDGET distributed across the enemy order of battle. buildNetwork
+  // draws only from a KEYED FORK (RNG.fork does not consume the parent stream), so the whole create
+  // draw sequence below — including the pinned nextCerpStipendAt/nextDirectiveAt draws — is untouched
+  // and the world stays byte-identical to the pre-network build for every other subsystem.
+  const network = buildNetwork(terrain, villages, enemyStrengthAbs, rng.fork("network"));
   const state: WorldState = {
     seed,
     totalDays,
@@ -175,8 +182,18 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     nextDirectiveAt: rng.range(5, 8) * DAY,
     civCasualties: 0,
     reliefWatchClock: -1, // confidence starts healthy; no relief watch running (constant — no rng draw)
+    confLedger: { casualties: 0, civcas: 0, directives: 0 }, // v9 relief evidence file (constants — no rng draws)
+    kiaDays: [],
+    reliefWatchConf: -1,
     lastContactClock: -9999,
     platoon: { callsign: platoon.callsign, squads: platoon.squads },
+    // v10: the persistent enemy order of battle + the patrol-heat grid (starts cold).
+    network,
+    patrolHeat: new Array(HEAT_DIM * HEAT_DIM).fill(0),
+    // v10 HUD wave: the weekly Commander's Assessment. The deployment-day snapshot is the baseline
+    // the first BUB (day 8) measures the week's drift against; the first BUB is due on day 8.
+    bubSnapshot: bubSnapshotOf(villages, 60, 1),
+    nextBubDay: 8,
   };
 
   crewEmplacements(state, platoon, terrain);
@@ -215,6 +232,11 @@ export function loadWorld(data: {
   if (state.nextDirectiveAt === undefined) state.nextDirectiveAt = state.clock + 5 * DAY;
   if (state.civCasualties === undefined) state.civCasualties = 0;
   if (state.reliefWatchClock === undefined) state.reliefWatchClock = -1;
+  // v9: attributed relief (issue 035). Pre-v9 saves have no evidence file — start it empty
+  // (mid-tour damage before the upgrade is forgiven rather than guessed at).
+  if (state.confLedger === undefined) state.confLedger = { casualties: 0, civcas: 0, directives: 0 };
+  if (state.kiaDays === undefined) state.kiaDays = [];
+  if (state.reliefWatchConf === undefined) state.reliefWatchConf = -1;
   for (const v of state.villages) {
     if (v.ask === undefined) v.ask = null;
     if (v.brokenPromises === undefined) v.brokenPromises = 0;
@@ -245,6 +267,30 @@ export function loadWorld(data: {
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);
+
+  // v10: the persistent enemy network + patrol-heat grid. A pre-v10 save has neither. Regenerate a
+  // network DETERMINISTICALLY from the seed + the save's current villages, sized to the save's
+  // enemyStrengthAbs, so a mid-tour save keeps working (and re-serializes with a real order of
+  // battle). A fresh keyed fork off the seed is used — never the restored rng state — so the same
+  // save always regenerates the same network. serialize() dumps state whole, so v10+ saves restore
+  // these directly and this branch never runs.
+  if (state.network === undefined) {
+    state.network = buildNetwork(terrain, state.villages, Math.round(state.enemyStrengthAbs), new RNG(state.seed).fork("network-legacy"));
+  }
+  if (state.patrolHeat === undefined) state.patrolHeat = new Array(HEAT_DIM * HEAT_DIM).fill(0);
+
+  // v10 HUD wave: the weekly Commander's Assessment schedule. A pre-HUD save has no baseline — take
+  // one now (so the first post-load BUB measures drift from here, not garbage) and schedule the next
+  // assessment for the next weekly boundary at or after the current day.
+  const loadDay = Math.floor(state.clock / DAY) + 1;
+  if (state.bubSnapshot === undefined) {
+    state.bubSnapshot = bubSnapshotOf(state.villages, state.metrics.higherConfidence, loadDay);
+  }
+  if (state.nextBubDay === undefined) {
+    let next = 8;
+    while (next <= loadDay) next += 7;
+    state.nextBubDay = next;
+  }
 
   let maxId = 0;
   for (const u of data.units) {

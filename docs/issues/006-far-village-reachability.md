@@ -1,5 +1,8 @@
 # 006 — Far villages are a long march (cliff-isolation), not always reachable in a short window
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED / SUPERSEDED (2026-06-05) — the tiered Track network + `ensureNetworkConnectivity` shipped and are current; the open connectivity/window half moved to 008 and 009 (both since resolved). The reverted straight-line siting term is NOT in the code.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Low–Medium · **Confidence:** High (measured) · **Area:** terrain connectivity × pathfinding × patrol pace · **Status:** OPEN (characterised, partially mitigated)
 
 ## Summary

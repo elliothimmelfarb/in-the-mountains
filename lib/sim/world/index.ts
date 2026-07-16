@@ -8,6 +8,28 @@ export { applyWorldEventChoice, makeWorldEvent } from "./events";
 // Pure COP-layout geometry shared with the renderer (the gym props draw at the same
 // anchor the garrison sends its two lifters to) — through the barrel, per the layer rule.
 export { gymSpot } from "./garrison";
+// The enemy-picture gate + the weekly Commander's Assessment (both HUD surfaces read these through
+// the barrel; the gating helper is shared so the panel, the map markers and the BUB can't drift).
+export {
+  enemyPicture,
+  buildWeeklyAssessment,
+  assessmentDue,
+  advanceBubSchedule,
+  bubSnapshotOf,
+} from "./assessment";
+export type {
+  EnemyPicture,
+  EnemyCellView,
+  EnemyMarker,
+  CacheMarker,
+  Assessment,
+  ValleySection,
+  AttitudeLine,
+  EnemySection,
+  HigherSection,
+  DirectiveLine,
+  MenSection,
+} from "./assessment";
 export type {
   WorldState,
   Task,
@@ -21,6 +43,10 @@ export type {
   SquadSOP,
   MovementSOP,
   ContactSOP,
+  EnemyCell,
+  EnemyCache,
+  EnemyNetwork,
+  BubSnapshot,
 } from "./types";
 export {
   MISSION_LABEL,

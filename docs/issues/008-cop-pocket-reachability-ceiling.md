@@ -1,5 +1,8 @@
 # 008 — Far-village reachability ceiling: COP/village cliff-pockets cap it at ~30% (BFS ~64%)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-05) — mechanism current: `ensureNetworkConnectivity` guard + fatigue economy live; honest remainders tracked in 009. Do-not-retry: the "COP must sit in the largest raw-passable component" hard constraint (regressed reachability 26%→13%) — binds while siting scores raw `passableCell` not network reachability.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium · **Confidence:** High (measured 2026-06-05) · **Area:** terrain connectivity × COP siting × pathfinding/formation · **Status:** ✅ RESOLVED 2026-06-05 (connectivity guard + fatigue economy; honest remainders → [009](009-far-village-tactical-window-and-network-ceiling.md)) — see Resolution below
 
 ## Summary

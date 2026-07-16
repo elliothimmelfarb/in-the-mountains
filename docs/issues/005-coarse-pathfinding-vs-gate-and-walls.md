@@ -1,5 +1,8 @@
 # 005 — Coarse pathfinding vs. gate width: a thin opening in a thick wall can seal at 15 m resolution
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-04) — mechanism current: `ensureGatePortal` coarse-portal guard + auto-repair lives at `terrain.ts:1849`, called from `generate()`.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium · **Confidence:** Medium · **Area:** pathfinding × COP wall/gate generation (`path.ts`, `buildCop`)
 
 ## Summary

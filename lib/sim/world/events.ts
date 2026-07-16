@@ -2,6 +2,7 @@ import { clamp, clamp01 } from "../rng";
 import type { World } from "./world";
 import type { VillageState } from "../campaign";
 import { PendingEvent, Ids, Task } from "./types";
+import { nearestLivingCache, nearestCell, cellById, addCellStrength } from "./network";
 
 /**
  * Decision-point events — the human texture between firefights. They surface
@@ -291,13 +292,21 @@ export function applyWorldEventChoice(w: World, ev: PendingEvent, choiceId: stri
       break;
     }
     case "dwell_find": {
+      // The search turns up a REAL cache from the network (the nearest usable one to the village).
+      // Seizing it destroys it — the owner cell loses IED capability — and bleeds that cell; leaving
+      // it in place reveals it (surveillance) without hardening the village.
+      const vpos = village ? w.terrain.cellCenter(village.cx, village.cy) : { x: (ev.cx ?? 0) * w.terrain.cellSize, y: (ev.cy ?? 0) * w.terrain.cellSize };
+      const cache = nearestLivingCache(w, vpos, 500);
+      const owner = cache ? cellById(w, cache.cellId) : nearestCell(w, vpos);
       if (choiceId === "seize_quiet") {
-        w.state.enemyStrengthAbs = clamp(w.state.enemyStrengthAbs - 3, 0, 100);
+        if (cache) cache.destroyed = true;
+        if (owner) addCellStrength(w, owner, -3);
         if (village) village.cooperation = clamp(village.cooperation - 3, 0, 100);
         w.addIntel({ source: "PATROL", text: `Cache seized in ${village?.name ?? "the village"}: small arms, RPG, det cord.`, reliability: 0.7, cx: ev.cx, cy: ev.cy });
         w.log("You bag the cache, photograph the household, and move on. A few fighters just lost their guns.", "info");
       } else if (choiceId === "seize_detain") {
-        w.state.enemyStrengthAbs = clamp(w.state.enemyStrengthAbs - 5, 0, 100);
+        if (cache) cache.destroyed = true;
+        if (owner) addCellStrength(w, owner, -5);
         w.state.metrics.higherConfidence = clamp(w.state.metrics.higherConfidence + 1, 0, 100);
         if (village) {
           village.attitude = clamp(village.attitude - 8, -100, 100);
@@ -305,7 +314,8 @@ export function applyWorldEventChoice(w: World, ev: PendingEvent, choiceId: stri
         }
         w.log("You seize the cache and zip-cuff the head of household. His family watches from the wall.", "info");
       } else {
-        w.addIntel({ source: "PATROL", text: `Cache left in place under surveillance near ${village?.name ?? "the village"} — watch who comes for it.`, reliability: 0.8, cx: ev.cx, cy: ev.cy });
+        if (cache) cache.found = true; // revealed, left in place under watch
+        w.addIntel({ source: "PATROL", text: `Cache left in place under surveillance near ${village?.name ?? "the village"} — watch who comes for it.`, reliability: 0.8, cx: cache?.cx ?? ev.cx, cy: cache?.cy ?? ev.cy });
         w.log("You leave the cache, mark it, and set eyes on it. Whoever comes back tells you more than the guns would.", "info");
       }
       break;
@@ -313,7 +323,9 @@ export function applyWorldEventChoice(w: World, ev: PendingEvent, choiceId: stri
     case "dwell_biometric": {
       if (choiceId === "detain") {
         if (w.rng.chance(0.6)) {
-          w.state.enemyStrengthAbs = clamp(w.state.enemyStrengthAbs - 6, 0, 100);
+          const vpos = village ? w.terrain.cellCenter(village.cx, village.cy) : { x: (ev.cx ?? 0) * w.terrain.cellSize, y: (ev.cy ?? 0) * w.terrain.cellSize };
+          const cell = nearestCell(w, vpos);
+          if (cell) addCellStrength(w, cell, -6); // a bomb-maker comes off the cell's books
           w.state.metrics.higherConfidence = clamp(w.state.metrics.higherConfidence + 2, 0, 100);
           w.log("The prints were his. A bomb-maker comes off the board — the village stays quiet about it.", "info");
         } else {
@@ -356,7 +368,9 @@ export function applyWorldEventChoice(w: World, ev: PendingEvent, choiceId: stri
     case "dwell_squirter": {
       if (choiceId === "pursue") {
         if (w.rng.chance(0.55)) {
-          w.state.enemyStrengthAbs = clamp(w.state.enemyStrengthAbs - 4, 0, 100);
+          const vpos = village ? w.terrain.cellCenter(village.cx, village.cy) : { x: (ev.cx ?? 0) * w.terrain.cellSize, y: (ev.cy ?? 0) * w.terrain.cellSize };
+          const cell = nearestCell(w, vpos);
+          if (cell) addCellStrength(w, cell, -4); // a fighter run down in the draw
           w.state.metrics.higherConfidence = clamp(w.state.metrics.higherConfidence + 1, 0, 100);
           w.addIntel({ source: "PATROL", text: `Runner from ${village?.name ?? "the village"} run down in the draw — detained, weapon on him.`, reliability: 0.75, cx: ev.cx, cy: ev.cy });
           w.log("Your team runs him down in the draw. He was carrying — a fighter, not a farmer.", "info");

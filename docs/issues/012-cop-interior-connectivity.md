@@ -1,5 +1,8 @@
 # 012 — A squad gets stuck on buildings in the COP (RESOLVED — 2026-06-06)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-06 reachability + 2026-06-27 crowding) — mechanism current: `spaceCopBuildings` + `ensureInteriorConnectivity` (terrain.ts) + garrison `yardSpot`/ordinal-bearing spread (garrison.ts) live. Do-not-retry: shrinking COP colliders for "stuck on buildings" (cause was garrison placement, not colliders).
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: High (movement correctness / immersion).** Reported on seed `valley-2533`:
 "one squad is getting stuck on buildings in the COP." It looked like a movement bug; it was
 a **terrain-generation** bug, and `copaudit` had a **metric blind spot** that hid it.

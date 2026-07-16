@@ -151,6 +151,13 @@ export interface Unit {
   // --- organization ---
   squadId?: string;
   isLeader: boolean;
+  /** Persistent enemy NETWORK linkage (lib/sim/world/network.ts): the cell this fighter was
+   *  drawn from. His KIA decrements that cell's strength; his exfil deposits back into it. Passive
+   *  — the combat AI never reads it. Undefined on unaffiliated spawns and every non-insurgent. */
+  cellId?: string;
+  /** This fighter EMBODIES his cell's named leader for the current activity: killing him forces
+   *  the cell into succession. Set on ~40% of ≥4-man cell activities while the leader is alive. */
+  isCellLeader?: boolean;
 
   // --- AI / perception ---
   targetId?: string | null;

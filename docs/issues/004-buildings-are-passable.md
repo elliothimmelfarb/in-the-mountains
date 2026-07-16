@@ -1,5 +1,8 @@
 # 004 — Interior buildings are passable (you can walk through the TOC)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-04) — mechanism current: `Land.Structure` returns impassable in `passableCell` (terrain.ts:2671) at HEAD.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Low (fidelity) · **Confidence:** High (in code) · **Area:** terrain passability × COP structures
 
 ## Summary
