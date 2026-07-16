@@ -175,6 +175,9 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     nextDirectiveAt: rng.range(5, 8) * DAY,
     civCasualties: 0,
     reliefWatchClock: -1, // confidence starts healthy; no relief watch running (constant — no rng draw)
+    confLedger: { casualties: 0, civcas: 0, directives: 0 }, // v9 relief evidence file (constants — no rng draws)
+    kiaDays: [],
+    reliefWatchConf: -1,
     lastContactClock: -9999,
     platoon: { callsign: platoon.callsign, squads: platoon.squads },
   };
@@ -215,6 +218,11 @@ export function loadWorld(data: {
   if (state.nextDirectiveAt === undefined) state.nextDirectiveAt = state.clock + 5 * DAY;
   if (state.civCasualties === undefined) state.civCasualties = 0;
   if (state.reliefWatchClock === undefined) state.reliefWatchClock = -1;
+  // v9: attributed relief (issue 035). Pre-v9 saves have no evidence file — start it empty
+  // (mid-tour damage before the upgrade is forgiven rather than guessed at).
+  if (state.confLedger === undefined) state.confLedger = { casualties: 0, civcas: 0, directives: 0 };
+  if (state.kiaDays === undefined) state.kiaDays = [];
+  if (state.reliefWatchConf === undefined) state.reliefWatchConf = -1;
   for (const v of state.villages) {
     if (v.ask === undefined) v.ask = null;
     if (v.brokenPromises === undefined) v.brokenPromises = 0;
