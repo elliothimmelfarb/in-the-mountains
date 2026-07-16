@@ -85,7 +85,7 @@ export class World {
   serialize() {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null, _cellHold: false }));
     return {
-      v: 7,
+      v: 9,
       rngState: this.rng.getState(),
       state: this.state,
       units,
@@ -389,13 +389,20 @@ export class World {
   }
 
   // ---------------------------------------------------------------- casualties / cull
+  /** Every higher-confidence dock goes through here so the relief review can read a PATTERN
+   *  battalion can name (issue 035) — the evidence file, not just the scalar. */
+  private dockConfidence(amount: number, cause: keyof WorldState["confLedger"]) {
+    this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - amount, 0, 100);
+    this.state.confLedger[cause] += amount;
+  }
   private reconcileCasualties() {
     for (const m of this.platoon.members) {
       if (!m.alive && m.status !== "kia") {
         m.status = "kia";
         m.hp = 0;
         this.log(`${rankName(m)} of ${m.homeState} was killed in action.`, "kia");
-        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - 3, 0, 100);
+        this.dockConfidence(3, "casualties");
+        if (!this.state.kiaDays.includes(this.day)) this.state.kiaDays.push(this.day);
         for (const o of this.platoon.members) if (o.alive) o.morale = clamp01(o.morale - 0.05);
         this.interrupt(`${shortName(m)} KIA`);
       } else if (m.alive && m.evac && m.status !== "wounded") {
@@ -489,7 +496,7 @@ export class World {
         vil.cooperation = clamp(vil.cooperation - coop, 0, 100);
       }
       this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + str, 0, 80); // mobilization (cap matches tickInsurgency)
-      this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - conf, 0, 100);
+      this.dockConfidence(conf, "civcas");
       // The strategic civcas ledger (drives the tour score's heaviest penalty). Count a fresh
       // casualty only — never the wound→kill escalation delta, which is the same body twice.
       if (!delta) this.state.civCasualties++;
@@ -497,7 +504,7 @@ export class World {
       const cd = this.state.directives.find((x) => x.kind === "casualty" && x.status === "active");
       if (cd) {
         cd.status = "failed";
-        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - cd.penalty, 0, 100);
+        this.dockConfidence(cd.penalty, "civcas"); // the protect-the-population failure IS civcas damage
         this.log(`Directive FAILED: "${cd.title}" — a civilian casualty. −${cd.penalty} higher confidence.`, "casualty");
         this.interrupt(`directive FAILED: ${cd.title}`);
       }
@@ -616,6 +623,21 @@ export class World {
    *  documented pattern of lost trust, not an isolated event.) */
   private static readonly RELIEF_FLOOR = 5; // confidence at/under this opens the review watch
   private static readonly RELIEF_WINDOW = 3 * DAY; // must stay under continuously this long to relieve
+  private static readonly RELIEF_GRACE_DAYS = 5; // battalion gives a new commander the opening days
+  private static readonly RELIEF_TREND_CREDIT = 3; // climb this many points during the review → extended, not relieved
+  /** Whether the evidence file shows a PATTERN battalion can hang a relief on (issue 035):
+   *  policy-attributable damage (civilian casualties, failed directives) or casualties across
+   *  more than one day. A single catastrophic ambush — however bloody — is an investigation,
+   *  not a relief: opening-day contact is trajectory-chaotic and policy-blind, and relieving
+   *  over it made ~half of careful 8-day tours a coin-flip. */
+  private reliefPattern(): string | null {
+    const led = this.state.confLedger;
+    const causes: string[] = [];
+    if (led.civcas > 0) causes.push(`civilian casualties (−${led.civcas})`);
+    if (led.directives > 0) causes.push(`failed directives (−${led.directives})`);
+    if (this.state.kiaDays.length >= 2) causes.push(`casualties across ${this.state.kiaDays.length} separate days (−${led.casualties})`);
+    return causes.length > 0 ? causes.join(", ") : null;
+  }
   private checkTourEnd() {
     if (this.state.ended) return;
     if (this.day > this.state.totalDays) {
@@ -626,13 +648,40 @@ export class World {
     if (conf <= World.RELIEF_FLOOR) {
       if (this.state.reliefWatchClock < 0) {
         this.state.reliefWatchClock = this.state.clock; // open the watch on first dip
+        this.state.reliefWatchConf = conf;
         this.log("Battalion signals it is reviewing your command. Turn this around.", "casualty");
         this.interrupt("Battalion is reviewing your command");
       } else if (this.state.clock - this.state.reliefWatchClock >= World.RELIEF_WINDOW) {
-        this.endTour("You have been relieved of command. Battalion has lost confidence in your leadership.");
+        // The review window has run its course under the floor. Battalion now reads the file.
+        if (conf >= this.state.reliefWatchConf + World.RELIEF_TREND_CREDIT) {
+          // Visible turnaround — the review is extended, not concluded (FM 6-22: relief follows
+          // a documented pattern of lost trust; a commander correcting course is counseled).
+          this.state.reliefWatchClock = this.state.clock;
+          this.state.reliefWatchConf = conf;
+          this.log("Battalion notes the turnaround and extends its review. Keep climbing.", "info");
+          return;
+        }
+        const pattern = this.reliefPattern();
+        if (this.day <= World.RELIEF_GRACE_DAYS || !pattern) {
+          // Opening days, or damage with no nameable pattern (one catastrophic day): battalion
+          // reinforces oversight instead of relieving. The watch stays open — sustained failure
+          // past the grace, or a second bad day, still ends the tour.
+          this.state.reliefWatchClock = this.state.clock; // re-arm the window
+          this.state.reliefWatchConf = conf;
+          this.log(
+            this.day <= World.RELIEF_GRACE_DAYS
+              ? "Battalion is watching closely — new commands get their opening week, not much more."
+              : "Battalion investigates the losses but stops short of relief. Do not give them a pattern.",
+            "casualty",
+          );
+          this.interrupt("Battalion review continues");
+          return;
+        }
+        this.endTour(`You have been relieved of command. The battalion commander reads from the file: ${pattern}. Trust is gone.`);
       }
     } else if (this.state.reliefWatchClock >= 0) {
       this.state.reliefWatchClock = -1; // confidence recovered — review closed
+      this.state.reliefWatchConf = -1;
     }
   }
   private endTour(reason: string) {
@@ -1173,7 +1222,7 @@ export class World {
       if (d.status !== "active") continue;
       if (this.day > d.deadlineDay) {
         d.status = "failed";
-        this.state.metrics.higherConfidence = clamp(this.state.metrics.higherConfidence - d.penalty, 0, 100);
+        this.dockConfidence(d.penalty, "directives");
         this.log(`Directive FAILED: "${d.title}". Battalion is not pleased. −${d.penalty} higher confidence.`, "casualty");
         this.interrupt(`directive FAILED: ${d.title}`);
       }

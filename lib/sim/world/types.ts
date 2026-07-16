@@ -282,6 +282,18 @@ export interface WorldState {
   // stays under continuously through the review window. -1 = confidence is healthy (no watch).
   // Persisted by serialize() (dumps `state` whole); defaulted to -1 in loadWorld for old saves.
   reliefWatchClock: number;
+  // v9: the relief EVIDENCE FILE (issue 035). Battalion relieves over a pattern it can NAME,
+  // so every higher-confidence dock is attributed by cause: "casualties" (friendly KIA),
+  // "civcas" (civilian casualties, incl. the failed protect-the-population directive),
+  // "directives" (deadline failures). Read at review time for the pattern test and to
+  // compose the attributed relief reason. Persisted whole; defaulted zeroed in loadWorld.
+  confLedger: { casualties: number; civcas: number; directives: number };
+  // Unique day numbers on which friendly KIA occurred — one catastrophic ambush is a single
+  // entry however many men it cost; casualties across separate days are a PATTERN.
+  kiaDays: number[];
+  // higherConfidence at the moment the relief watch opened (-1 = no watch). A commander
+  // visibly climbing out of the hole gets the review extended, not a relief.
+  reliefWatchConf: number;
   // platoon org (members live on the sim units)
   platoon: { callsign: string; squads: { id: string; name: string; memberIds: string[] }[] };
 }
