@@ -230,6 +230,17 @@ export interface EnemyNetwork {
   caches: EnemyCache[];
 }
 
+/** The baseline the weekly Commander's Assessment (BUB) measures its "since last week" deltas
+ *  against — a small per-village snapshot plus higher's confidence, stamped with the game-day it
+ *  was taken. Rewritten each time an assessment fires (lib/sim/world/assessment.ts). Persisted
+ *  whole by serialize(); loadWorld presence-defaults it. NOT ground truth about the enemy — the
+ *  assessment reads the network only through the intel-gated `enemyPicture` helper. */
+export interface BubSnapshot {
+  day: number;
+  higherConfidence: number;
+  villages: Record<string, { attitude: number; kept: number; broken: number; grievances: number; projects: number }>;
+}
+
 /** Coarse patrol-heat grid resolution (HEAT_DIM² buckets over the whole map). The enemy learns
  *  WHERE you habitually patrol — high-heat road/trail cells become preferred IED ground, so
  *  predictable patrolling is physically dangerous and route variety is a real decision. */
@@ -353,6 +364,12 @@ export interface WorldState {
   // serialize(); loadWorld regenerates the network (and zeroes the heat) for pre-v10 saves.
   network: EnemyNetwork;
   patrolHeat: number[];
+  // v10 HUD wave: the weekly Commander's Assessment (BUB). `bubSnapshot` is the baseline the next
+  // assessment measures deltas from (null before the first snapshot is taken); `nextBubDay` is the
+  // game-day the next BUB is due (it fires on the first tick past 0700 that day, when not in
+  // contact). Both persisted whole by serialize(); loadWorld presence-defaults them for old saves.
+  bubSnapshot: BubSnapshot | null;
+  nextBubDay: number;
 }
 
 export const DEPLOY_START = 6 * 3600; // 0600 on day 1

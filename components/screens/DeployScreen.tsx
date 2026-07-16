@@ -9,6 +9,7 @@ import {
   MISSION_LABEL, MissionType,
   MovementSOP, ContactSOP, SquadSOP,
   MOVEMENT_SOP_LABEL, CONTACT_SOP_LABEL, ROE_LABEL,
+  enemyPicture, type EnemyCellView,
 } from "@/lib/sim/world";
 import { Supplies, CERP_PROJECTS } from "@/lib/sim/campaign";
 import { Icon } from "@/components/Icon";
@@ -278,6 +279,7 @@ export default function DeployScreen() {
           <DockPanel id="tasks" title="Active Elements" defaultHeight={132}><TasksBody /></DockPanel>
           {hasDirectives && <DockPanel id="directives" title="Battalion Directives" defaultHeight={120}><DirectivesBody /></DockPanel>}
           <DockPanel id="intel" title="Intel Feed" grow><IntelBody /></DockPanel>
+          <DockPanel id="enemy" title="Enemy Picture" accent="rust" defaultHeight={168} right={<EnemyBadge />}><EnemyBody /></DockPanel>
           <DockPanel id="combatlog" title="Combat Log" defaultHeight={150} right={<CombatBadge />}><CombatLogBody /></DockPanel>
           <DockPanel id="commandlog" title="Command Log" defaultHeight={130} last><CommandLogBody /></DockPanel>
         </div>
@@ -291,6 +293,7 @@ export default function DeployScreen() {
         <RightColumn />
       </div>
       <EventModal />
+      <BubModal />
       <SoldierJacket />
       <RosterModal />
       <HelpOverlay />
@@ -579,6 +582,81 @@ function IntelBody() {
       {world.state.intel.length === 0 && <div className="text-inkdim italic text-[11px]">No reporting yet. Patrol and talk to people.</div>}
     </div>
   );
+}
+
+// ---- Enemy Picture — S-2's read on the network, strictly intel-gated ----
+// Reads EXCLUSIVELY through enemyPicture() (the shared gate): nothing the sim knows about the
+// network but hasn't told the player — true strength below level 3, unidentified cells, unfound
+// caches, patrol heat — is reachable from this tree. One row per identified cell.
+function EnemyRow({ c }: { c: EnemyCellView }) {
+  const levelTag = c.level === 1 ? "NAMED" : c.level === 2 ? "LOCATED" : "MAPPED";
+  return (
+    <div className={`bg-bg border border-line p-1.5 ${c.broken ? "opacity-70" : ""}`}>
+      <div className="flex justify-between items-baseline gap-2">
+        <span className="text-[11px] font-semibold truncate inline-flex items-center gap-1.5 min-w-0">
+          <span className="stencil text-[8px] text-rust bg-panel2 px-1 border border-line shrink-0">{levelTag}</span>
+          {c.broken ? (
+            <span className="text-inkdim line-through">{c.leaderName ?? "unknown cell"}</span>
+          ) : c.leaderUnclear ? (
+            <span className="text-tan italic">leadership unclear</span>
+          ) : (
+            <span className="text-ink">{c.leaderName}’s group</span>
+          )}
+        </span>
+        {c.activity && (
+          <span className={`font-mono text-[9px] shrink-0 ${c.activity === "active" ? "text-amber" : "text-inkdim"}`}>
+            {c.activity === "active" ? "active this week" : "quiet"}
+          </span>
+        )}
+      </div>
+      <div className="text-ink2 text-[10px] leading-snug mt-0.5">
+        {c.broken ? (
+          <span className="text-inkdim italic">broken — survivors scattered</span>
+        ) : c.level === 1 ? (
+          <span className="text-inkdim">group — location unknown</span>
+        ) : (
+          <>
+            {c.strengthBand && <span>{c.strengthBand}</span>}
+            {c.strengthApprox !== null && <span>~{c.strengthApprox} fighters</span>}
+            {c.villages && c.villages.length > 0 && (
+              <span className="text-inkdim"> · draws from {c.villages.join(", ")}</span>
+            )}
+            {c.level >= 3 && (c.cachesFound! + c.cachesDestroyed! > 0) && (
+              <span className="text-inkdim"> · caches: {c.cachesFound} found, {c.cachesDestroyed} destroyed</span>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function EnemyBody() {
+  const world = useGame((s) => s.world)!;
+  useGame((s) => s.tick);
+  const pic = enemyPicture(world);
+  return (
+    <div className="p-2 flex flex-col gap-1.5">
+      {pic.rows.length === 0 && !pic.unknownExist && (
+        <div className="text-inkdim italic text-[11px]">No enemy identified. The network is still a rumor — patrol, run shuras, win the population.</div>
+      )}
+      {pic.rows.map((c) => <EnemyRow key={c.id} c={c} />)}
+      {pic.unknownExist && (
+        <div className="text-inkdim italic text-[10px] leading-snug border-t border-line pt-1.5 mt-0.5">
+          S-2 assesses additional groups operate in the valley.
+        </div>
+      )}
+    </div>
+  );
+}
+
+// header badge: number of identified cells (or — when none named yet).
+function EnemyBadge() {
+  const world = useGame((s) => s.world)!;
+  useGame((s) => s.tick);
+  const pic = enemyPicture(world);
+  if (pic.rows.length === 0) return <span className="text-inkdim">—</span>;
+  return <span className="stencil text-[9px] text-rust">{pic.rows.length} CELL{pic.rows.length === 1 ? "" : "S"}</span>;
 }
 
 // ---- Combat Log / Command Log / Contact Feed (req #3) — split by log kind ----
@@ -1401,6 +1479,139 @@ function EventModal() {
             </button>
           ))}
         </div>
+    </Modal>
+  );
+}
+
+// ---- The weekly Commander's Assessment (BUB) — the S-3 battle update at the plywood table ----
+// A somber, dismissable staff read that chapters the endless clock: what moved in the valley and
+// why, what S-2 knows about the network (through the SAME gate the panel uses), where Higher's
+// head is, and who we lost. Sim-truth, assembled engine-side (lib/sim/world/assessment.ts).
+function BubSection({ tag, children }: { tag: string; children: ReactNode }) {
+  return (
+    <section className="border-t border-line pt-2.5 mt-2.5 first:border-t-0 first:pt-0 first:mt-0">
+      <div className="stencil text-[10px] text-amber mb-1.5">{tag}</div>
+      {children}
+    </section>
+  );
+}
+function Delta({ v }: { v: number }) {
+  if (v === 0) return <span className="text-inkdim">±0</span>;
+  return <span className={v > 0 ? "text-good" : "text-rust"}>{v > 0 ? "+" : ""}{v}</span>;
+}
+function BubModal() {
+  const bub = useGame((s) => s.bub);
+  const dismissBub = useGame((s) => s.dismissBub);
+  if (!bub) return null;
+  const { valley, enemy, higher, men } = bub;
+  return (
+    <Modal onClose={dismissBub} labelledBy="bub-title" width="w-[600px]">
+      <div className="flex items-baseline justify-between gap-2 mb-1">
+        <div className="stencil text-tan text-xs">Commander’s Assessment · {bub.weekLabel}</div>
+        <div className="font-mono text-[10px] text-inkdim">{bub.clockLabel}</div>
+      </div>
+      <h2 id="bub-title" className="text-ink text-lg font-bold mb-2">Weekly Battle Update Brief</h2>
+      <div className="max-h-[64vh] overflow-y-auto pr-1 -mr-1">
+        {/* 1) THE VALLEY */}
+        <BubSection tag="THE VALLEY">
+          <div className="text-inkdim text-[11px] mb-1.5">Village attitudes moved <Delta v={valley.meanDelta} /> on average since the last brief.</div>
+          <div className="flex flex-col gap-1">
+            {valley.lines.map((l) => (
+              <div key={l.village} className="bg-bg border border-line p-1.5">
+                <div className="flex justify-between items-baseline gap-2">
+                  <span className="text-ink text-[11px] font-semibold">{l.village}</span>
+                  <span className="font-mono text-[10px] tabular-nums">
+                    <span className="text-inkdim">att {l.attitude} </span>(<Delta v={l.delta} />)
+                  </span>
+                </div>
+                {l.causes.length > 0 && (
+                  <div className="text-ink2 text-[10px] leading-snug mt-0.5">{l.causes.join("; ")}.</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </BubSection>
+
+        {/* 2) THE ENEMY — same gate as the panel */}
+        <BubSection tag="THE ENEMY">
+          <div className="text-inkdim text-[11px] mb-1.5">
+            {enemy.contacts} contact{enemy.contacts === 1 ? "" : "s"} and {enemy.ieds} IED event{enemy.ieds === 1 ? "" : "s"} logged this week.
+          </div>
+          <div className="flex flex-col gap-1.5">
+            {enemy.picture.rows.length === 0 && !enemy.picture.unknownExist && (
+              <div className="text-inkdim italic text-[11px]">The network remains unidentified.</div>
+            )}
+            {enemy.picture.rows.map((c) => <EnemyRow key={c.id} c={c} />)}
+            {enemy.picture.unknownExist && (
+              <div className="text-inkdim italic text-[10px]">S-2 assesses additional groups operate in the valley.</div>
+            )}
+          </div>
+          {enemy.humint.length > 0 && (
+            <div className="mt-1.5 flex flex-col gap-0.5">
+              {enemy.humint.map((h, i) => (
+                <div key={i} className="text-[10px] leading-snug text-ink2 border-l-2 border-olive pl-1.5">{h}</div>
+              ))}
+            </div>
+          )}
+        </BubSection>
+
+        {/* 3) HIGHER */}
+        <BubSection tag="HIGHER">
+          <div className="text-inkdim text-[11px] mb-1.5">
+            Battalion’s confidence stands at <span className="text-ink font-mono">{higher.confidence}</span> (<Delta v={higher.confidenceDelta} />) — {higher.trend}. CERP balance <span className="text-ink font-mono">${higher.cerp.toLocaleString()}</span>.
+          </div>
+          {higher.directives.length > 0 && (
+            <div className="flex flex-col gap-1 mb-1.5">
+              {higher.directives.map((d, i) => (
+                <div key={i} className="flex justify-between items-baseline gap-2 text-[10px]">
+                  <span className="text-ink2 truncate">{d.title}</span>
+                  <span className="font-mono shrink-0">
+                    {d.status === "active" ? (
+                      <span className={d.deadlineIn !== null && d.deadlineIn <= 3 ? "text-rust" : "text-inkdim"}>
+                        {d.deadlineIn !== null && d.deadlineIn >= 0 ? `${d.deadlineIn}d left` : "OVERDUE"} · {d.progressPct}%
+                      </span>
+                    ) : d.status === "complete" ? (
+                      <span className="text-good">✓ complete</span>
+                    ) : (
+                      <span className="text-rust">✕ failed</span>
+                    )}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {higher.reviewOpen && higher.evidence && (
+            <div className="bg-bg border border-rust p-1.5 text-[10px] leading-snug">
+              <span className="stencil text-rust text-[9px]">REVIEW OPEN</span>{" "}
+              <span className="text-ink2">Battalion is weighing a pattern — its file:
+                {" "}casualties −{higher.evidence.casualties}, civilian casualties −{higher.evidence.civcas}, directive failures −{higher.evidence.directives}. Turn it around.</span>
+            </div>
+          )}
+        </BubSection>
+
+        {/* 4) THE MEN */}
+        <BubSection tag="THE MEN">
+          <div className="text-inkdim text-[11px] mb-1.5">
+            {men.strength} still standing, {men.ready} ready for duty. Platoon fatigue {men.fatiguePct}%.
+          </div>
+          {(men.kia.length > 0 || men.wia.length > 0) ? (
+            <div className="flex flex-col gap-0.5">
+              {men.kia.map((l, i) => (
+                <div key={"k" + i} className="text-[10px] leading-snug text-rust border-l-2 border-rust pl-1.5">{l}</div>
+              ))}
+              {men.wia.map((l, i) => (
+                <div key={"w" + i} className="text-[10px] leading-snug text-tan border-l-2 border-tan pl-1.5">{l}</div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-inkdim italic text-[11px]">No losses this week.</div>
+          )}
+        </BubSection>
+      </div>
+
+      <div className="flex justify-end mt-3">
+        <button className="tac-btn px-4 py-1.5" onClick={dismissBub} autoFocus>Acknowledge</button>
+      </div>
     </Modal>
   );
 }
