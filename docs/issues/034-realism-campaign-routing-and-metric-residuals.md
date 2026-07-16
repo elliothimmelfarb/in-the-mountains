@@ -1,5 +1,8 @@
 # 034 — Realism-campaign routing & metric residuals (route-quality detours, probe re-aims, survey-5 pace)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** OPEN (named measurement/routing residuals) — probes current. (a) route-quality 1.46 is issue-019 planner-cost territory (terrain, not the router), (b)/(c) are 1–2 line probe re-aims, (d) survey-5 pace 0.71 is a route-selection curiosity. None blocks play.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Low (fidelity / measurement hygiene).** A cluster of named, honest
 residuals left by the 2026-07-02 realism campaign (strata walls `7180b41` + contour
 trails `bd5cf77`). None blocks play; each is recorded so a future pass does not

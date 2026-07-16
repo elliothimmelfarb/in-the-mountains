@@ -1,5 +1,8 @@
 # 025 · A fleeing, visible straggler holds the TIC latch (and the clock) for 10+ game-minutes
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-12) — mechanism current: one predicate `CombatSim.threatening` (combat.ts:424) + the `Unit.lastFiredS` stamp (combat.ts:1174) consumed by `inContact`, `rawContact`, SOP/reroute locks, and the CFF PID list.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** RESOLVED 2026-06-12 — threat-weighted contact (see Resolution below)
 
 ## Symptom

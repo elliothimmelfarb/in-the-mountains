@@ -84,6 +84,7 @@ None of this was malice — it was a missing principle. Here it is.
 | `scripts/smoke.ts` | gate | no-NaN; serialize round-trip; **material-lib hash pin** | determinism invariants (the hash is an intentional change-detector — re-pin on purpose) |
 | `scripts/balance.ts` | **probe** + no-stall **gate** | no-NaN; no stranded mover. Casualties are **printed, not asserted**, with the σ floor | the stall is an invariant; casualties are a diagnostic (this page) |
 | `scripts/campaign-loop.ts` | **gate** (the win-condition) | COIN **discriminates** (careful beats body-count), attitude moves, directives live, CERP two-way, enemy dynamic, projects complete | every assertion is a **design oracle**, not a fitted output |
+| `scripts/enemy-network-probe.ts` | **gate** (order-of-battle invariants) | same-seed byte-identical serialize; Σ cells === derived scalar; roster conservation (exfil net-zero, KIA −1); cache economics; leader succession; located-intel truthiness; save round-trip + pre-v10 migration | every assertion is a conservation/determinism invariant or a design oracle (2026-07-16 wave) |
 
 > **COIN-gate cost & scope.** `campaign-loop.ts` runs a multi-day sim per seed (minutes/seed; a heavy
 > seed can run 10–25 min, and the event-driven pacing re-anchor of 2026-07-03 puts the 3-seed default

@@ -1,6 +1,6 @@
 "use client";
 import { create } from "zustand";
-import { World, createWorld, createTerrain, loadWorld, applyWorldEventChoice, MissionType, SquadSOP, defaultSOP } from "@/lib/sim/world";
+import { World, createWorld, createTerrain, loadWorld, applyWorldEventChoice, MissionType, SquadSOP, defaultSOP, buildWeeklyAssessment, assessmentDue, advanceBubSchedule, type Assessment } from "@/lib/sim/world";
 // Render-cache pre-warm: the bridge owns the deploy moment, so it warms the renderer's
 // caches (the 4096² terrain bake + the 164-asset sprite atlas) DURING the loading screen,
 // where the cost is visible and narrated — instead of freezing the first deploy frame.
@@ -167,6 +167,12 @@ interface GameStore {
 
   // ---- events ----
   resolveEvent: (choiceId: string) => void;
+
+  // ---- weekly Commander's Assessment (BUB) ----
+  // The engine-assembled weekly battle-update. Non-null = the modal is up and the clock is held
+  // (like a decision event, but dismissable). Built + scheduled in frame(); cleared by dismissBub.
+  bub: Assessment | null;
+  dismissBub: () => void;
 }
 
 const SAVE_KEY = "itm-save-v2";
@@ -425,6 +431,7 @@ export const useGame = create<GameStore>((set, get) => ({
   savedExists: false,
   tutorial: false,
   tutorialStep: 0,
+  bub: null,
   // mirror the persisted UI-layout audio prefs into top-level slots for easy HUD subscription;
   // the engine is synced to them on the first user gesture (it has no context before unlock).
   audioMuted: loadLayout().audioMuted,
@@ -473,6 +480,7 @@ export const useGame = create<GameStore>((set, get) => ({
           tutorial,
           tutorialStep: 0,
           loadProgress: null,
+          bub: null,
           tick: get().tick + 1,
         });
         wireAudioWorld(world);
@@ -519,6 +527,7 @@ export const useGame = create<GameStore>((set, get) => ({
           jacketId: null,
           tutorial: false,
           loadProgress: null,
+          bub: null,
           tick: get().tick + 1,
         });
         wireAudioWorld(world);
@@ -573,7 +582,9 @@ export const useGame = create<GameStore>((set, get) => ({
       return;
     }
 
-    const running = !st.paused && !w.pendingEvent;
+    // The weekly assessment holds the clock the way a decision event does (blocks ticks) but does
+    // NOT flip the paused flag — dismissing it resumes at the prior speed.
+    const running = !st.paused && !w.pendingEvent && !st.bub;
     if (running) {
       const inContact = w.inContact();
       // TIC is a ONE-WAY switch. The instant a squad goes into contact, drop the
@@ -644,6 +655,18 @@ export const useGame = create<GameStore>((set, get) => ({
       set({ paused: true, banner: `▲ CALL FOR FIRE — ${w.state.fireRequest!.label}: clear or deny` });
     }
     _hadFireRequest = hasFireReq;
+
+    // WEEKLY COMMANDER'S ASSESSMENT (BUB): once past 0700 on a scheduled day, when the valley is
+    // quiet (defer while in contact) and no decision event is up, assemble the engine-side battle
+    // update and raise the modal. Building it also re-baselines the snapshot and pushes the
+    // schedule to next week, so it fires exactly once. Evaluated every frame (independent of the
+    // run gate) so a BUB deferred through a firefight fires the moment contact clears.
+    if (!get().bub && !w.pendingEvent && !w.inContact() && assessmentDue(w)) {
+      const bub = buildWeeklyAssessment(w);
+      advanceBubSchedule(w);
+      set({ bub });
+      get().saveCampaign();
+    }
 
     // AUDIO: a render-side observer of the just-ticked sim. Always called so the mapper's
     // high-water marks never go stale (identical to noteCombatEffects running every frame);
@@ -932,6 +955,9 @@ export const useGame = create<GameStore>((set, get) => ({
     set({ tick: get().tick + 1 });
     get().saveCampaign();
   },
+
+  // ------------------------------------------------------------------ weekly assessment
+  dismissBub: () => set({ bub: null }),
 }));
 
 // Debug handle.

@@ -184,6 +184,68 @@ export interface Task {
   ringSlots?: Record<string, number>;
 }
 
+// ===========================================================================
+//  The persistent enemy ORDER OF BATTLE (v10 — lib/sim/world/network.ts).
+//  The insurgency stops being a weather system (a scalar + a memoryless director)
+//  and becomes an ORGANIZATION: named cells with home areas and physical munitions
+//  caches. The director SPENDS cells; exfiltrated fighters flow BACK into their cell;
+//  killing a named leader forces succession; a won-over village gives its cell up
+//  (HUMINT). `enemyStrengthAbs` is now the DERIVED SUM of living cell strengths, so
+//  every existing reader keeps working unchanged.
+// ===========================================================================
+
+export interface EnemyCell {
+  id: string;
+  leaderName: string; // Afghan name; survives between activities, renamed on succession
+  leaderAlive: boolean; // false during the succession pause after the named leader is killed
+  homeCx: number; // reachability-snapped home area (a draw / spur near its villages)
+  homeCy: number;
+  strength: number; // fighters this cell can field; Σ over living cells === enemyStrengthAbs
+  aggression: number; // 0..1 personality — weights ambush/complex vs harass in the director roll
+  iedSkill: number; // 0..1 — grows on successful IED activity, weights future IED choice
+  grudge: number; // 0..1 — rises when the cell takes KIA; lifts its tempo vs the player
+  villageIds: string[]; // recruiting/intimidation base (drives this cell's regen share)
+  intelLevel: 0 | 1 | 2 | 3; // what the PLAYER has learned: unknown → named → located → mapped
+  lastActivityClock: number;
+  /** Clock at which the new leader takes over after the named one is killed (leaderAlive=false
+   *  until then). Undefined = no succession pending. The cell stages nothing while it's set. */
+  successionAt?: number;
+  /** Strength collapsed below the break floor: the cell is out of the fight (survivors merged
+   *  into the nearest living cell or dissolved). Excluded from the derived-strength sum. */
+  broken?: boolean;
+}
+
+export interface EnemyCache {
+  id: string;
+  cx: number;
+  cy: number;
+  munitions: number; // IED/ambush activity near it spends from here
+  found: boolean; // revealed to the player (event / HUMINT)
+  destroyed: boolean; // seized or blown — permanently out
+  cellId: string; // owner cell
+}
+
+export interface EnemyNetwork {
+  cells: EnemyCell[];
+  caches: EnemyCache[];
+}
+
+/** The baseline the weekly Commander's Assessment (BUB) measures its "since last week" deltas
+ *  against — a small per-village snapshot plus higher's confidence, stamped with the game-day it
+ *  was taken. Rewritten each time an assessment fires (lib/sim/world/assessment.ts). Persisted
+ *  whole by serialize(); loadWorld presence-defaults it. NOT ground truth about the enemy — the
+ *  assessment reads the network only through the intel-gated `enemyPicture` helper. */
+export interface BubSnapshot {
+  day: number;
+  higherConfidence: number;
+  villages: Record<string, { attitude: number; kept: number; broken: number; grievances: number; projects: number }>;
+}
+
+/** Coarse patrol-heat grid resolution (HEAT_DIM² buckets over the whole map). The enemy learns
+ *  WHERE you habitually patrol — high-heat road/trail cells become preferred IED ground, so
+ *  predictable patrolling is physically dangerous and route variety is a real decision. */
+export const HEAT_DIM = 32;
+
 export type ProjectStage =
   | "awaiting_materials"
   | "awaiting_contractor"
@@ -282,8 +344,32 @@ export interface WorldState {
   // stays under continuously through the review window. -1 = confidence is healthy (no watch).
   // Persisted by serialize() (dumps `state` whole); defaulted to -1 in loadWorld for old saves.
   reliefWatchClock: number;
+  // v9: the relief EVIDENCE FILE (issue 035). Battalion relieves over a pattern it can NAME,
+  // so every higher-confidence dock is attributed by cause: "casualties" (friendly KIA),
+  // "civcas" (civilian casualties, incl. the failed protect-the-population directive),
+  // "directives" (deadline failures). Read at review time for the pattern test and to
+  // compose the attributed relief reason. Persisted whole; defaulted zeroed in loadWorld.
+  confLedger: { casualties: number; civcas: number; directives: number };
+  // Unique day numbers on which friendly KIA occurred — one catastrophic ambush is a single
+  // entry however many men it cost; casualties across separate days are a PATTERN.
+  kiaDays: number[];
+  // higherConfidence at the moment the relief watch opened (-1 = no watch). A commander
+  // visibly climbing out of the hole gets the review extended, not a relief.
+  reliefWatchConf: number;
   // platoon org (members live on the sim units)
   platoon: { callsign: string; squads: { id: string; name: string; memberIds: string[] }[] };
+  // v10: the persistent enemy ORDER OF BATTLE (lib/sim/world/network.ts). enemyStrengthAbs above
+  // is the DERIVED SUM of living cell strengths; patrolHeat is a HEAT_DIM² coarse decaying grid of
+  // where the player habitually patrols (drives IED site selection). Both persisted whole by
+  // serialize(); loadWorld regenerates the network (and zeroes the heat) for pre-v10 saves.
+  network: EnemyNetwork;
+  patrolHeat: number[];
+  // v10 HUD wave: the weekly Commander's Assessment (BUB). `bubSnapshot` is the baseline the next
+  // assessment measures deltas from (null before the first snapshot is taken); `nextBubDay` is the
+  // game-day the next BUB is due (it fires on the first tick past 0700 that day, when not in
+  // contact). Both persisted whole by serialize(); loadWorld presence-defaults them for old saves.
+  bubSnapshot: BubSnapshot | null;
+  nextBubDay: number;
 }
 
 export const DEPLOY_START = 6 * 3600; // 0600 on day 1

@@ -1,5 +1,8 @@
 # 010 — The river was an impassable chasm; the planner stranded patrols (RESOLVED 2026-06-06)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-06) — mechanism current: `carveFloodplain` + `placeFords`/`ensureRiverCrossings` + `River` impassable (terrain.ts:4468) + component-aware objective snap all live in `generate()`.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: High.** The single largest source of soldiers and squads that could not reach an
 objective, "got stuck on the river", or could not cross the valley. Found, fixed, and verified in
 the 2026-06-06 navigation pass. This is a **navigation-realism** overhaul: the valley now reads and

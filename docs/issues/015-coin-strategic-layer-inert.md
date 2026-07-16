@@ -1,5 +1,8 @@
 # 015 — The COIN strategic layer was mechanically DEAD
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED — largely (2026-06-06/07) — mechanism current: `secureBuild`, `tickCerp`, `tickDirectives`, reweighted `computeTourScore` (world.ts:652), sustained-relief `reliefWatchClock` all live. The valley DOES have a live intel layer too (`IntelReport`/`addIntel`, campaign.ts + director.ts). Open tail: held-out COIN discrimination + the relief lottery, tracked in 030 + 035.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: High (design pillar)** · Surfaced & largely resolved 2026-06-06 (COIN-real-game wave)
 
 ## What was wrong

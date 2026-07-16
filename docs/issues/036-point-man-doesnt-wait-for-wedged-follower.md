@@ -1,5 +1,8 @@
 # 036 — The point man doesn't wait for a wedged/strung follower (RESOLVED — bounded halt)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-07-03) — mechanism current: bounded wedge/cohesion halt (`formationHold` + `HOLD_BUDGET` per leg, formation.ts:208) — window-neutral by budget, doesn't re-attempt the refuted 031 floor-reorder. Residual (b): COP-egress `Structure` grind belongs to the muster-routing (003) family.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Medium (movement feel).** Owner report 2026-07-03: *"(1) the point man should slow down
 and stop when the squad isn't together — right now he just keeps going, which is the worst part and
 makes him unrealistically far forward. (2) squad members, especially later in the file, get stuck on

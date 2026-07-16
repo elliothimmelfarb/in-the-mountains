@@ -1,5 +1,8 @@
 # 014 — World-map scale realism: soldiers/COP/villages drawn the wrong size
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-07) — mechanism current: footprint-tracking `figurePx` + `drawSquadIcon`, 9-man weapons squad (platoon 41), `copRadiusCells` (120 m COP), and `villageHamlet` clusters (terrain.ts:69) all live.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: 🟢 FULLY RESOLVED 2026-06-07 — Bucket 1 (R1/R2) + R3/R4 render + Bucket 2 (S1/S2/S3/S4) sim all landed and verified.**
 Full write-up + charts + annotated screenshots: `docs/progress/2026-06-06-world-scale-realism/report.html`.
 Agent-ready fix spec (priority-ordered, with `file:line`, params, seams, metrics):

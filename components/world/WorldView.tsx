@@ -13,6 +13,7 @@ import { CalloutPresenter } from "@/lib/render/callouts";
 import { loadSprites, spritesReady, drawScreenSprite, drawWorldSprite, drawSunShadow, drawContactAO, spriteLightFrom, hasSprite, lodAlpha, type SpriteLight } from "@/lib/render/sprites";
 import { ASSETS } from "@/lib/render/asset-manifest.generated";
 import { Unit } from "@/lib/sim/entities";
+import { enemyPicture } from "@/lib/sim/world";
 
 const LAND_NAME: Record<number, string> = {
   [Land.River]: "River",
@@ -329,6 +330,94 @@ export default function WorldView() {
         ctx.beginPath();
         ctx.arc(x, y, 3 + r.reliability * 5, 0, Math.PI * 2);
         ctx.fill();
+      }
+    }
+
+    // ENEMY PICTURE overlay — the network as S-2 knows it, EXCLUSIVELY through the shared gate
+    // (enemyPicture): cell home reticles at intelLevel ≥ 2 (fuzzed ~120 m at level 2, true at 3)
+    // and located caches. Ground truth (unfound caches, level-0 cells, patrol heat) never reaches
+    // this loop. The fuzz is a deterministic hash of the cell id inside enemyPicture — the render
+    // layer draws only what the gate hands it, and never touches the sim rng.
+    {
+      const pic = enemyPicture(w);
+      const RED = "205,74,48";
+      for (const mk of pic.markers) {
+        const c = terrain.cellCenter(mk.cx, mk.cy);
+        const [x, y] = worldToScreen(cam, c.x, c.y);
+        if (x < -60 || y < -60 || x > cam.vw + 60 || y > cam.vh + 60) continue;
+        ctx.save();
+        if (mk.level === 2) {
+          // located, not mapped: a dashed uncertainty ring (~120 m) around a loose reticle.
+          const rr = Math.max(14, 120 * cam.ppm);
+          ctx.strokeStyle = `rgba(${RED},0.45)`;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([5, 4]);
+          ctx.beginPath();
+          ctx.arc(x, y, rr, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+        // red-bounded diamond (tighter + solid ring at level 3 = mapped).
+        const s = mk.level === 3 ? 8 : 9;
+        ctx.strokeStyle = `rgba(${RED},0.95)`;
+        ctx.fillStyle = `rgba(${RED},0.20)`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x, y - s);
+        ctx.lineTo(x + s, y);
+        ctx.lineTo(x, y + s);
+        ctx.lineTo(x - s, y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        // reticle cross through the node.
+        ctx.beginPath();
+        ctx.moveTo(x - s - 3, y); ctx.lineTo(x + s + 3, y);
+        ctx.moveTo(x, y - s - 3); ctx.lineTo(x, y + s + 3);
+        ctx.stroke();
+        if (mk.level === 3) {
+          ctx.beginPath();
+          ctx.arc(x, y, s + 4, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        if (cam.ppm > 0.3) {
+          ctx.fillStyle = `rgba(230,150,135,0.92)`;
+          ctx.font = "11px var(--font-mono, monospace)";
+          haloText(ctx, mk.label, x, y + s + 14);
+        }
+        ctx.restore();
+      }
+      // located munitions caches — a small ammo-crate glyph. Destroyed caches stay on the map,
+      // faded and struck, as a trophy for the rest of the tour.
+      for (const k of pic.caches) {
+        const c = terrain.cellCenter(k.cx, k.cy);
+        const [x, y] = worldToScreen(cam, c.x, c.y);
+        if (x < -40 || y < -40 || x > cam.vw + 40 || y > cam.vh + 40) continue;
+        ctx.save();
+        const a = k.destroyed ? 0.4 : 0.95;
+        const g = 5;
+        ctx.strokeStyle = `rgba(${RED},${a})`;
+        ctx.fillStyle = `rgba(${RED},${k.destroyed ? 0.08 : 0.22})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.rect(x - g, y - g, g * 2, g * 2);
+        ctx.fill();
+        ctx.stroke();
+        // crate cross-battens.
+        ctx.beginPath();
+        ctx.moveTo(x - g, y - g); ctx.lineTo(x + g, y + g);
+        ctx.moveTo(x + g, y - g); ctx.lineTo(x - g, y + g);
+        ctx.stroke();
+        if (k.destroyed) {
+          // struck-through: a heavier X over the crate.
+          ctx.strokeStyle = `rgba(${RED},0.7)`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x - g - 3, y - g - 3); ctx.lineTo(x + g + 3, y + g + 3);
+          ctx.moveTo(x + g + 3, y - g - 3); ctx.lineTo(x - g - 3, y + g + 3);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
     }
 

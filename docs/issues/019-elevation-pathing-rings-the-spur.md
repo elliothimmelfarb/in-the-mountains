@@ -1,5 +1,8 @@
 # 019 — Elevation pathing: a squad rings the spur instead of switchbacking up the face
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-10) — mechanism current: any-angle Theta* tactical planner (`thetaClimb`, `dirSpeedAt`), gated by `opts.switchback` so world generation stays byte-identical. Do-not-retry (refuted at/before e5b5795): in-place anisotropic Tobler cost / cutoff-softening on the 8-dir grid — it stalled the mover and missed target; binds while the coarse+corridor router is unchanged.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: ✅ RESOLVED 2026-06-10 — the any-angle (Theta\*) tactical planner shipped (signed-grade cost +
 turn penalty, gated + additive). op-route held-out ×3.58→×3.16, climbable-face OPs ×2.19→×1.31, route-
 quality/reachability/terrain byte-identical, balance stall-guard passes. Connectivity half resolved

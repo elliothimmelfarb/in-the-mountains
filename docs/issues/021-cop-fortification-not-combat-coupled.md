@@ -1,5 +1,8 @@
 # 021 — COP fortification (`fob.hesco`) is written + read but not yet combat-coupled
 
+> **Ledger status (verified 2026-07-16 @ da10926):** PARTIALLY RESOLVED (2026-06-10) — logistics teeth SHIPPED and current (`nvgPower`/`hydration`/med factor, world.ts:140). hesco/claymore combat-coupling DEFERRED on a measured finding (a COP "complex attack" is a standoff — `insurgent.ts` has no press-the-wire assault, so there is no event to couple to). Do-not-couple hesco/claymores until an assault behaviour exists.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Low–Medium (depth) · **Status:** 🟢 LOGISTICS TEETH SHIPPED 2026-06-10 (Part 4); hesco/claymore
 combat-coupling (Parts 1, 3) DEFERRED on a measured finding — a complex attack on the COP is a STANDOFF
 (insurgents never close the wire), so there's no assault for fortification/claymores to bite on. See the

@@ -1,5 +1,8 @@
 # 016 — Civilian diurnal pattern-of-life & the pre-contact "calm before" tell
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-06) — mechanism current: `sim.light`-keyed diurnal occupancy + pre-contact melt-away (staged-insurgent sensing at civilian.ts:112) live in `ai/civilian.ts`.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: ✅ Resolved 2026-06-06 (atmospherics wave, civilian stream).**
 Severity: Medium (soul/realism — the flagship COIN tell the tutorial promises did not exist).
 Owner file: `lib/sim/ai/civilian.ts` (engine, deterministic). Probe: `scripts/atmospherics-probe.ts`.

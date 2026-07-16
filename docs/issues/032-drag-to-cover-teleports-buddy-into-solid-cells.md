@@ -1,5 +1,8 @@
 # 032 — dragToCover places the hauling buddy inside solid cells (permanent wedge)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-07-03) — mechanism current: the root writer fix guards the hauling-buddy write with `passableCell` (`dragToCover`, combat.ts:1988); the garrison `tickGarrison` self-heal (garrison.ts:43) stays as the invariant backstop. NOTE: the issue body's older `combat.ts:1892` line reference is stale — the guarded write is now at 1988.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Medium (one man per incident is permanently immobilized until the garrison
 self-heal catches him; the loop dominated the out-of-contact stall-wipe telemetry).**
 Found 2026-07-02 (realism campaign, KOP agent) while chasing the Phase-1 side-finding of
