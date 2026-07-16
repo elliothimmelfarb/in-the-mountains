@@ -43,7 +43,7 @@ Scale the process to the problem. Most tasks are: understand → change → veri
 - **Verify in proportion to risk.** A render tweak needs a screenshot; a sim-balance change needs baseline → delta → held-out seeds → a separate skeptical pass. Most reported bugs are not real — confirm the mechanism at a named `file:line` with dumped data before designing a fix.
 - **One mechanism, not patches.** A symptom patched in 2+ places means delete the special cases and unify. Patched the same area twice with the metric flat? Stop and propose a rebuild — the wins here (corridor A*, the river-aware planner) were rebuilds, not patches. Never lower the bar instead.
 - **Report numbers-first, residuals named.** Lead with the unflattering figure; state partial wins as partial; record the risky change you deliberately did NOT make, and why.
-- **Continuity lives in artifacts, not chat.** The owner `/clear`s and re-aims fresh sessions at files. Re-ground from `docs/issues/` + git log before acting; honor recorded negatives — never re-attempt a refuted approach. Record outcomes when you finish.
+- **Continuity lives in artifacts, not chat — and code outranks docs.** The owner `/clear`s and re-aims fresh sessions at files. Re-ground from the code and its probes FIRST (grep the mechanism, run the harness); read `docs/issues/` + git log second, as **dated claims** — verify a doc claim with one command before it becomes load-bearing (the ledger has been caught asserting systems don't exist that do). A recorded negative binds only while the mechanism it refuted is unchanged; after that subsystem is rebuilt it demotes from wall to caution — re-attempt with a fresh baseline. Record outcomes when you finish.
 - **Open design space with many valid approaches?** Fan out — the **`orchestrate` skill** has the recipes (recon → independent proposers → judge → synthesize, subagent contracts, deconfliction). Don't orchestrate a two-line edit.
 - **Ground realism claims in cited doctrine** (FM/ATP 3-21.8, FM 7-8, FM 3-24; named first-hand accounts), mapped to exact `file:line` and a verifying metric. "A soldier would recognize this" is checkable, not vibes.
 
@@ -63,7 +63,7 @@ Work on `main` (trunk-based; other agents commit in parallel — their commits l
 ## Pointers
 
 - Soul & mechanics → `docs/DESIGN.md` · Architecture diagram (read first) → `docs/wiki/Architecture.md` · Systems / AI / COIN / Weapons / Glossary → `docs/wiki/`
-- What's been tried and ruled out → `docs/issues/` (+ README status table) · Past work, with numbers → `docs/progress/`
+- What's been tried and ruled out → `docs/issues/` (+ README status table) — **dated claims, not walls**; verify against code before relying on one · Past work, with numbers → `docs/progress/`
 - Art → `docs/visual-overhaul/{ART_BIBLE.md,asset-bible.html}` · The probe suite → `ls scripts/` and read each file's doc-comment header (don't memorize the list)
 - Skills (procedure on demand): **`metricize`** (verification playbook) · **`orchestrate`** (multi-agent campaigns) · **`publish-report`** (archive publishing + artifact self-critique)
 - The harness suite — what's a gate vs a probe, the anti-overfit law, the coverage gaps → **`docs/wiki/Harnesses.md`** (the charter)
