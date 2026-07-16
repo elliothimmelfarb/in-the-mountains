@@ -103,8 +103,8 @@ through the entire firefight. Captures in `live/` + `hud/`.
 | `scripts/balance.ts` | 12/12 contacts · KIA 1.08 / WIA 8.33 (diagnostic; within σ≈2.5 noise floor) · civcas 0 · STALL gate pass · ⚠ 1 run left an element lingering (recorded residual) |
 | `scripts/enemy-network-probe.ts` | 9/9 OK |
 | campaign-loop 3×8 (relief-only tree) | ALL 8 PASS, spread 81.7 |
-| campaign-loop 3×8 (combined tree) | PENDING_CAMPAIGN |
-| post-fix strength trajectory (3d pinned-hot) | PENDING_TRAJECTORY |
+| campaign-loop 3×8 (combined tree) | **COIN GATE OK — all 8 PASS.** Mean careful 33.3 vs body-count 7.7 (spread 25.7); best-pair spread **93** (careful 100 vs 7 — highest ever). Honest reading: 2/3 careful tours relieved via legitimately-attributed multi-day patterns — the adaptive enemy punishes the harness's fixed-route scripted policy (→ **issue 037**, filed) |
+| post-fix strength trajectory (3d pinned-hot) | 64 → 23.6 → 25.1 → 25.7 — no printing; max-tempo BURNS the roster (real attrition), recruit recovers it slowly. Pre-fix: 64 → 80-cap by d1, pinned |
 
 ## Honest residuals
 
@@ -122,3 +122,16 @@ through the entire firefight. Captures in `live/` + `hud/`.
    default width — cosmetic, panel is resizable.
 6. **Cell-home siting** is an 8-sample elevation pick near villages, not true draw-finding
    terrain analysis.
+
+## Post-gate addendum (combined tree, same day)
+
+The combined campaign-loop deserves its own honest paragraph, not a table cell. Careful's
+MEAN fell 85.7 → 33.3 while its BEST-PAIR discrimination rose to the highest ever measured
+(93): the network makes predictability lethal, and the harness's scripted careful policy is
+the maximally-predictable commander. The two relieved careful tours died by the new relief
+rules (post-grace, nameable multi-day patterns they kept re-earning on the same IED'd
+routes) — attribution worked; difficulty and instrument are the open questions, filed as
+issue 037 with three named directions (heat→IED incidence probe, route-variety for the
+scripted policy, a calibration read under issue 030's scope). Confounder recorded: the
+tick-RNG stream changed wholesale with the network, so the two trees' per-seed runs are
+unpaired and part of the mean drop is inside the documented ~19-pt noise floor.
