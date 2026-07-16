@@ -108,13 +108,45 @@ fulfills the matching ask automatically.
 load but can be **ambushed on the road** (spawning a live fight); **air** is partial and scrubbed by
 weather. Resupply restocks ammo, mortars, medical, food/water, and construction materials.
 
-## Enemy director (`director.ts`)
+## Enemy order of battle (`world/network.ts`) + director (`director.ts`)
 
-`runDirector` sets the valley's tempo. On a clock that quickens at night and with heat, it stages:
-**ambushes** astride your patrols (or near hostile villages), **infiltrations** through the draws
-toward villages (concealed movement you can intercept), **harassment** from distance, and the
-occasional **complex attack** on the COP. Spawn positions are chosen for elevation, concealment,
-cover, and LOS to the target; fighters route in through the terrain.
+The insurgency is a persistent ORGANIZATION, not a spawn table. At world creation 3–5 **cells**
+form on the most sympathetic villages: each has a **named leader** who survives between fights,
+reachability-snapped home ground in the high draws, its own strength, a personality
+(aggression / IED skill / **grudge** — it remembers its dead), and the villages it recruits
+from. 4–8 physical **munitions caches** support them. `enemyStrengthAbs` is the **derived sum**
+of living cell strengths — nothing writes the scalar directly.
+
+`runDirector` sets the valley's tempo but now **spends cells**: it picks the acting cell
+(strength × grudge × proximity), bends the activity toward that cell's personality, fields no
+more men than the cell has, and stages from its home ground. **IED ambushes require a living
+cache in range and drain it** — kill the caches and that cell reverts to small-arms. IED siting
+prefers the **patrol-heat** grid (a decaying memory of where your patrols habitually walk), so
+predictable routes are physically dangerous. Fielding doesn't deduct from a cell (roster
+model): a safe exfil is net-zero and only a KIA takes a man off the books. Killing a **named
+leader** forces succession (new name, −30% strength as fighters drift, grudge up, a quiet
+pause); a cell under 2 **breaks** — survivors merge into the nearest living cell, and with
+every cell broken the valley goes quiet.
+
+## Intelligence — the network is learned, never shown
+
+The player's map never renders enemy ground truth. Each cell carries an `intelLevel` ladder —
+**0 unknown → 1 named → 2 located (fuzzed ~120 m) → 3 mapped** — advanced by the intel game:
+ICOM chatter telegraphs real activities, drones cue movement, and above all **won-over villages
+give their cell up** (attitude + cooperation gate HUMINT; reliability scales with cooperation —
+a hostile village tells you nothing). The Enemy Picture panel, the map markers and the weekly
+assessment all read ONE shared gate (`assessment.ts:enemyPicture`), so what the player sees is
+exactly what the fiction has earned. This closes FM 3-24's loop mechanically: win the
+population → they expose the network → dismantle it → the valley calms.
+
+## The weekly commander's assessment + the relief evidence file
+
+Once a game-week (first quiet tick past 0700) the BUB pauses the clock: per-village attitude
+deltas **with causes**, the enemy picture, Higher's view (directives, CERP, confidence trend),
+and the week's casualties by name. Relief-of-command reads a persisted **evidence file**
+(`confLedger` — every confidence dock attributed to casualties / civcas / directives): battalion
+relieves only over a **nameable pattern** past a 5-day grace, never a single catastrophic day,
+and a visible turnaround extends the review (FM 6-22, issue 035).
 
 ## Counterinsurgency
 

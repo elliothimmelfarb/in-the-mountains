@@ -68,6 +68,14 @@ Three read-anytime documents are served statically (also linked from the title-s
   dispersion folded from weapon mechanics, marksmanship, stance, fatigue, movement, and suppression.
 - **People, not pieces** — named soldiers with attributes, morale, suppression, fatigue, regional
   wounds (with body armor), bleeding, buddy aid, and medics. Losses are permanent.
+- **A named enemy.** The insurgency is a persistent **order of battle**, not a spawn table:
+  3–5 cells with **named leaders who survive between fights** (kill one and the cell renames,
+  weakens, and remembers), home ground in the draws, physical **munitions caches** that IED
+  ambushes drain, and a **patrol-heat memory** of your habits — predictable routes get IED'd.
+  You never see their ground truth: an **intel ladder** (unknown → named → located → mapped)
+  is climbed by ICOM intercepts, drone cues and above all **won-over villages giving their
+  cell up** — the Enemy Picture panel and map markers show exactly what the fiction has
+  earned, and a **weekly commander's assessment** explains the week's cause and effect.
 - **AI** — group minds decide, individuals execute, on both sides. Insurgent **cells fight as led
   elements** (a disciplined one-volley ambush initiation, fire-and-movement by halves, a coordinated
   peel to a shared rally, rout contagion — not four private state machines); the friendly **squad
