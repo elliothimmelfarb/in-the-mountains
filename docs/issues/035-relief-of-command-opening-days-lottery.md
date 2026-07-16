@@ -66,3 +66,30 @@ dice roll.
 (world-init RNG order), `scripts/campaign-loop.ts` (the gate that has to route around
 this today). Cross-ref: issue 030 (harness charter — this is the measured root cause of
 the COIN-gate's noise floor) and issue 015 (the COIN strategic layer this belongs to).
+
+## Resolution (2026-07-16, commit `a14da77`) — the evidence file
+
+Relief now fires on a PATTERN battalion can name, never a day-3 dice roll. One mechanism:
+every `higherConfidence` dock is attributed by cause into a persisted `confLedger`
+(casualties / civcas / directives, `dockConfidence` in `world.ts`), plus unique-day KIA
+tracking (`kiaDays`). `checkTourEnd` then requires ALL of: the existing 3-day sustained-low
+watch, **a nameable pattern** (civcas > 0, failed directives, or KIA across ≥2 separate
+days — a single catastrophic ambush is an investigation, not a relief), **a 5-day opening
+grace** (inside it battalion "reinforces oversight" and re-arms the window), and **no
+visible turnaround** (+3 confidence during the review extends it instead — FM 6-22).
+`endReason` reads the file back to the player ("The battalion commander reads from the
+file: civilian casualties (−8), casualties across 2 separate days (−12)…"). No new rng
+draws; v9 state (`confLedger`, `kiaDays`, `reliefWatchConf`) in serialize + loadWorld.
+
+**Before → after (campaign-loop 3×8, this issue's own metric):**
+- careful tours relieved: **~50–60% (score censored to ~0, survival ~5/12)** → **0/3 relieved,
+  3/3 reach end-of-tour**, scores 82/77/98 (mean 85.7)
+- body-count tours: now relieved **2/3 by attributed pattern** (higher-conf 4, civcas-driven)
+  — relief discriminates POLICY, which is what the mechanic was for
+- gate verdict: all 8 PASS, spread 81.7 (`docs/progress/2026-07-16-enemy-network/` evidence)
+- scenario probe (isolated worktree @ a14da77): grace+no-pattern never relieves; pattern past
+  grace relieves with attributed reason; turnaround extends then closes the watch.
+
+Deliberately NOT done: re-weighting `computeTourScore` for relieved tours (the "partial
+score" suggestion) — the censoring was emergent from early tour end, and with relief now
+rare-and-earned the distortion is gone without touching the calibrated score weights.
