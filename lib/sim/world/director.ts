@@ -3,8 +3,9 @@ import { Vec2, add, sub, norm, scale, len, fromAngle, angle, dist } from "../vec
 import { makeInsurgent, Unit } from "../entities";
 import { lineOfSight } from "../los";
 import type { World } from "./world";
-import { MAX_ACTIVE_ENEMY, DAY } from "./types";
+import { MAX_ACTIVE_ENEMY, DAY, EnemyCell } from "./types";
 import { clampMap, enemyRoleFor } from "./helpers";
+import { pickCellForActivity, nearestLivingCache, heatAt } from "./network";
 
 /**
  * The enemy activity director. It owns the valley's tempo: heat drifts with how
@@ -35,23 +36,33 @@ export function runDirector(w: World, dt: number) {
   if (w.sim.livingEnemies().length >= MAX_ACTIVE_ENEMY) return;
   if (w.state.enemyStrengthAbs <= 1) return;
 
+  // The director now SPENDS a cell, not a scalar: which cell reacts (weighted by strength, grudge and
+  // proximity to any patrol) and which activity it stages (weighted by its own aggression / IED skill).
+  const cell = pickCellForActivity(w);
+  if (!cell) return; // every cell broken or mid-succession — the valley stays quiet this beat
+  cell.lastActivityClock = w.state.clock;
+
   const r = w.rng.next();
+  // Personality bends the activity roll: an aggressive cell ambushes and presses more; a patient one
+  // harasses and infiltrates. The bands still sum to the same behaviour space as before.
+  const ambushCut = clamp(0.30 + 0.24 * cell.aggression, 0.25, 0.6);
   if (deepNight) {
     // Deep night: mostly infiltration/caching movement; the occasional probe, no complex attacks.
-    if (r < 0.75) spawnInfiltration(w);
-    else spawnHarass(w);
-  } else if (r < 0.42) {
-    // Against a patrol in a hotter valley, the ambush is often IED-initiated.
-    if (w.state.enemyHeat > 0.45 && w.activePatrolCentroid() && w.rng.chance(0.5)) spawnIedAmbush(w);
-    else spawnAmbushOnPatrol(w);
-  } else if (r < 0.7) spawnInfiltration(w);
-  else if (r < 0.88 || !night) spawnHarass(w);
-  else spawnComplexAttack(w);
+    if (r < 0.75) spawnInfiltration(w, cell);
+    else spawnHarass(w, cell);
+  } else if (r < ambushCut) {
+    // Against a patrol in a hotter valley, an IED-skilled cell prefers the IED-initiated ambush —
+    // but only if it has a living cache in range (spawnIedAmbush falls back to a small-arms ambush).
+    if (w.state.enemyHeat > 0.45 && w.activePatrolCentroid() && w.rng.chance(0.25 + 0.5 * cell.iedSkill)) spawnIedAmbush(w, cell);
+    else spawnAmbushOnPatrol(w, cell);
+  } else if (r < 0.7) spawnInfiltration(w, cell);
+  else if (r < 0.88 || !night) spawnHarass(w, cell);
+  else spawnComplexAttack(w, cell);
 
   // A hot valley also drops indirect from defilade — the tube teams that made the
   // real fight. Overlays the other activity (mortars + small arms = the complex
   // attack), gated on heat/strength so it isn't constant.
-  if (w.state.enemyHeat > 0.55 && w.state.enemyStrengthAbs > 8 && w.rng.chance(0.13)) spawnIndirectHarass(w);
+  if (w.state.enemyHeat > 0.55 && w.state.enemyStrengthAbs > 8 && w.rng.chance(0.13)) spawnIndirectHarass(w, cell);
 }
 
 /**
@@ -61,7 +72,7 @@ export function runDirector(w: World, dt: number) {
  * their heads down. Activates the engine's enemy-indirect pipeline (previously
  * fully built but never called).
  */
-function spawnIndirectHarass(w: World) {
+function spawnIndirectHarass(w: World, cell?: EnemyCell) {
   const patrol = w.activePatrolCentroid();
   // walk fire onto a patrol that's actually fixed/in contact; otherwise the base.
   const onPatrol = patrol && w.inContact();
@@ -69,24 +80,27 @@ function spawnIndirectHarass(w: World) {
   const rounds = w.rng.int(2, 2 + Math.round(w.state.enemyHeat * 2));
   const eta = w.rng.range(22, 46); // spotting, lay, fire
   w.sim.enemyFireMission("mortar82", target, rounds, eta);
-  if (w.rng.chance(0.7))
-    w.addIntel({ source: "SIGINT", text: `ICOM: "...ready the tube... walk it onto ${onPatrol ? "the patrol" : "the base"}..."`, reliability: 0.55 });
+  if (w.rng.chance(0.7)) {
+    const who = cell && cell.intelLevel >= 1 ? `${cell.leaderName}'s crew` : "the crew";
+    w.addIntel({ source: "SIGINT", text: `ICOM: "...${who} ready the tube... walk it onto ${onPatrol ? "the patrol" : "the base"}..."`, reliability: 0.55 });
+  }
   w.log("ICOM chatter about a tube — possible incoming indirect.", "radio");
   w.interrupt("possible enemy indirect");
 }
 
 /** Lay an ambush astride a patrolling element (or near a hostile village). */
-function spawnAmbushOnPatrol(w: World) {
+function spawnAmbushOnPatrol(w: World, cell?: EnemyCell) {
   const patrol = w.activePatrolCentroid();
   const focus = patrol ?? w.hostileVillageWorld() ?? randomFloorPoint(w);
-  const count = drawEnemy(w, w.rng.int(3, 6));
+  const count = drawEnemy(w, w.rng.int(3, 6), cell);
   if (count === 0) return;
+  const embody = leaderEmbodied(w, cell, count);
   const dir = patrol ? norm(sub(w.copWorld(), focus)) : { x: 0, y: -1 };
   // 80..260 m: small-arms ambush range in a narrow valley. The old 90..360 m let the elevation
   // reweight push the cell onto distant ridges that engaged at ~320 m (too far to suppress).
   const positions = firingPositions(w, focus, dir, count, 80, 260);
   positions.forEach((pos, i) => {
-    const e = spawnFighter(w, pos, i, count);
+    const e = spawnFighter(w, pos, i, count, cell, i === 0 && embody);
     e.brainState = "ambush";
     e.brainTimer = w.rng.range(2, 8);
     e.rof = "hold";
@@ -100,24 +114,46 @@ function spawnAmbushOnPatrol(w: World) {
  * tight, until the blast initiates and the whole element opens up at once. Activates
  * the dead `ied_team` role (the triggerman) and the engine's IED system.
  */
-function spawnIedAmbush(w: World) {
+export function spawnIedAmbush(w: World, cell?: EnemyCell) {
   const patrol = w.activePatrolCentroid();
   if (!patrol) return;
   const cop = w.copWorld();
   let dir = norm(sub(patrol, cop)); // the patrol is generally outbound from the wire
   if (len(dir) < 0.1) dir = { x: 0, y: -1 };
-  // kill point a short bound ahead of the patrol, snapped to passable ground
-  let kill = clampMap(w.terrain, add(patrol, scale(dir, w.rng.range(40, 85))));
-  const kc = w.terrain.nearestPassable(Math.floor(kill.x / w.terrain.cellSize), Math.floor(kill.y / w.terrain.cellSize));
-  kill = w.terrain.cellCenter(kc.cx, kc.cy);
-  const count = drawEnemy(w, w.rng.int(3, 6));
+  // An IED requires a living munitions cache within reach — no cache, no charge (the cell falls back
+  // to a small-arms ambush). This is what makes seizing/blowing caches (the COIN loop) matter.
+  const kill0 = clampMap(w.terrain, add(patrol, scale(dir, w.rng.range(40, 85))));
+  const cache = nearestLivingCache(w, kill0, 600) ?? nearestLivingCache(w, patrol, 600);
+  if (!cache) {
+    spawnAmbushOnPatrol(w, cell);
+    return;
+  }
+  // Kill point a short bound ahead of the patrol — biased to the HIGHEST patrol-heat cell among a few
+  // candidates on that axis (the enemy learns where you habitually walk), snapped to passable ground.
+  let kill = kill0;
+  let bestHeat = -1;
+  for (let k = 0; k < 5; k++) {
+    const cand = clampMap(w.terrain, add(patrol, scale(dir, w.rng.range(30, 95))));
+    const cc = w.terrain.nearestPassable(Math.floor(cand.x / w.terrain.cellSize), Math.floor(cand.y / w.terrain.cellSize));
+    const h = heatAt(w, cc.cx, cc.cy);
+    if (h > bestHeat) {
+      bestHeat = h;
+      kill = w.terrain.cellCenter(cc.cx, cc.cy);
+    }
+  }
+  const count = drawEnemy(w, w.rng.int(3, 6), cell);
   if (count === 0) return;
-  const cellId = `acm-ied-${w.state.clock | 0}`;
+  const embody = leaderEmbodied(w, cell, count);
+  // Spend a round of munitions from the cache; a spent cache is expended.
+  cache.munitions = Math.max(0, cache.munitions - 1);
+  if (cache.munitions === 0) cache.destroyed = true;
+  if (cell) cell.iedSkill = clamp01(cell.iedSkill + 0.03); // the cell gets better at the emplacement
+  const squadId = `acm-ied-${w.state.clock | 0}`;
   // Concealed firing positions around the kill zone (the L), weapons tight.
   const positions = firingPositions(w, kill, scale(dir, -1), count, 30, 120);
   positions.forEach((pos, i) => {
-    const e = spawnFighter(w, pos, i, count);
-    e.squadId = cellId;
+    const e = spawnFighter(w, pos, i, count, cell, i === 0 && embody);
+    e.squadId = squadId;
     e.brainState = "ambush";
     e.rof = "hold";
     e.stance = "prone";
@@ -125,11 +161,12 @@ function spawnIedAmbush(w: World) {
     e.brainTimer = w.rng.range(4, 14);
     if (i === 0) e.role = "ied_team"; // the triggerman who set and watches the charge
   });
-  w.sim.plantIED(kill, cellId);
+  w.sim.plantIED(kill, squadId);
   if (w.rng.chance(0.45)) {
+    const who = cell && cell.intelLevel >= 1 ? `${cell.leaderName}'s men have it` : "it is";
     w.addIntel({
       source: "SIGINT",
-      text: `ICOM: "...it is ready on the road... wait until they reach it..."`,
+      text: `ICOM: "...${who} ready on the road... wait until they reach it..."`,
       reliability: 0.5,
       cx: Math.round(kill.x / w.terrain.cellSize),
       cy: Math.round(kill.y / w.terrain.cellSize),
@@ -137,16 +174,19 @@ function spawnIedAmbush(w: World) {
   }
 }
 
-/** Fighters move through the draws toward a village to cache / intimidate. */
-function spawnInfiltration(w: World) {
-  const v = w.rng.pick(w.state.villages);
+/** Fighters move through the draws toward a village to cache / intimidate. They STAGE from the acting
+ *  cell's home area (or a draw mouth if the cell has none), not a random map edge. */
+function spawnInfiltration(w: World, cell?: EnemyCell) {
+  // Prefer a village the cell recruits from as the objective (its own turf); else any village.
+  const vId = cell && cell.villageIds.length ? cell.villageIds[w.rng.int(0, cell.villageIds.length - 1)] : null;
+  const v = (vId && w.state.villages.find((x) => x.id === vId)) || w.rng.pick(w.state.villages);
   const targetPt = w.terrain.cellCenter(v.cx, v.cy);
-  const staging = drawStaging(w, targetPt);
-  const count = drawEnemy(w, w.rng.int(2, 5));
+  const staging = cell ? w.terrain.cellCenter(cell.homeCx, cell.homeCy) : drawStaging(w, targetPt);
+  const count = drawEnemy(w, w.rng.int(2, 5), cell);
   if (count === 0) return;
   for (let i = 0; i < count; i++) {
     const pos = add(staging, fromAngle(w.rng.range(0, Math.PI * 2), w.rng.range(0, 30)));
-    const e = spawnFighter(w, clampMap(w.terrain, pos), i, count);
+    const e = spawnFighter(w, clampMap(w.terrain, pos), i, count, cell, false);
     e.brainState = "patrolling";
     e.rof = "free";
     e.technique = "concealed";
@@ -156,38 +196,44 @@ function spawnInfiltration(w: World) {
     const aim = w.terrain.reachablePoint(targetPt.x + w.rng.range(-60, 60), targetPt.y + w.rng.range(-60, 60));
     w.sim.pathTo(e, aim, { concealBias: 0.7, cheapFallback: true });
   }
-  if (w.rng.chance(0.5))
-    w.addIntel({ source: "SIGINT", text: `ICOM: fighters moving toward ${v.name} tonight.`, reliability: 0.55, cx: v.cx, cy: v.cy });
+  if (w.rng.chance(0.5)) {
+    const who = cell && cell.intelLevel >= 1 ? `${cell.leaderName}'s fighters` : "fighters";
+    w.addIntel({ source: "SIGINT", text: `ICOM: ${who} moving toward ${v.name} tonight.`, reliability: 0.55, cx: v.cx, cy: v.cy });
+  }
 }
 
 /** A couple of fighters harass the COP or a patrol from distance. */
-function spawnHarass(w: World) {
+function spawnHarass(w: World, cell?: EnemyCell) {
   const patrol = w.activePatrolCentroid();
   const focus = patrol ?? w.copWorld();
-  const count = drawEnemy(w, w.rng.int(2, 3));
+  const count = drawEnemy(w, w.rng.int(2, 3), cell);
   if (count === 0) return;
+  const embody = leaderEmbodied(w, cell, count);
   // 220..380 m: standoff harassing fire from the high ground — longer than the 80..260 m
   // ambush, but inside effective AK/PKM range so the rounds REACH the patrol (two-way fire),
   // not the old 300..620 m sterile plink that produced enemy-only suppression (integration fix).
   const positions = firingPositions(w, focus, { x: 0, y: -1 }, count, 220, 380);
   positions.forEach((pos, i) => {
-    const e = spawnFighter(w, pos, i, count);
+    const e = spawnFighter(w, pos, i, count, cell, i === 0 && embody);
     e.brainState = "engage";
     e.brainTimer = w.rng.range(6, 14);
     e.rof = "free";
   });
 }
 
-/** A larger element presses the COP — the bad nights. */
-export function spawnComplexAttack(w: World) {
+/** A larger element presses the COP — the bad nights. `cell` optional so headless probes
+ *  (cop-defense-probe) can stage one directly; it picks a cell when none is passed. */
+export function spawnComplexAttack(w: World, cell?: EnemyCell) {
+  const acting = cell ?? pickCellForActivity(w) ?? undefined;
   const cop = w.copWorld();
-  const count = drawEnemy(w, w.rng.int(8, 16));
+  const count = drawEnemy(w, w.rng.int(8, 16), acting);
   if (count === 0) return;
+  const embody = leaderEmbodied(w, acting, count);
   for (let i = 0; i < count; i++) {
     const a = w.rng.range(0, Math.PI * 2);
     const r = w.rng.range(260, 560);
     const pos = clampMap(w.terrain, add(cop, fromAngle(a, r)));
-    const e = spawnFighter(w, pos, i, count);
+    const e = spawnFighter(w, pos, i, count, acting, i === 0 && embody);
     e.brainState = "engage";
     e.rof = "free";
     e.facing = angle(sub(cop, pos));
@@ -196,20 +242,30 @@ export function spawnComplexAttack(w: World) {
   w.interrupt("COMPLEX ATTACK on the COP");
 }
 
-/** Ambush a resupply convoy on the valley road. */
-export function spawnRoadAmbush(w: World) {
+/** Ambush a resupply convoy on the valley road. `cell` optional (projects.ts / realism-probe call it
+ *  bare); it picks a cell when none is passed. */
+export function spawnRoadAmbush(w: World, cell?: EnemyCell) {
+  const acting = cell ?? pickCellForActivity(w) ?? undefined;
   const roadY = w.rng.int(w.terrain.size * 0.3, w.terrain.size * 0.7);
   const focus = w.terrain.cellCenter(Math.round(w.terrain.size / 2), roadY);
-  const count = drawEnemy(w, w.rng.int(3, 6));
+  const count = drawEnemy(w, w.rng.int(3, 6), acting);
+  const embody = leaderEmbodied(w, acting, count);
   const positions = firingPositions(w, focus, { x: 1, y: 0 }, count, 80, 260);
   positions.forEach((pos, i) => {
-    const e = spawnFighter(w, pos, i, count);
+    const e = spawnFighter(w, pos, i, count, acting, i === 0 && embody);
     e.brainState = "engage";
     e.rof = "free";
   });
 }
 
-function spawnFighter(w: World, pos: Vec2, i: number, total: number): Unit {
+/** Decide ONCE per activity whether the first man embodies the cell's named leader: only for a real
+ *  element (≥4 men) with a living leader, ~40% of the time. Draws once so the per-fighter loop stays
+ *  a pure placement pass. */
+function leaderEmbodied(w: World, cell: EnemyCell | undefined, count: number): boolean {
+  return !!cell && cell.leaderAlive && count >= 4 && w.rng.chance(0.4);
+}
+
+function spawnFighter(w: World, pos: Vec2, i: number, total: number, cell?: EnemyCell, embodyLeader = false): Unit {
   const role = enemyRoleFor(i, total, w.rng);
   const e = makeInsurgent(
     w.rng.fork(`enemy-${(w.state.clock | 0)}-${i}-${w.sim.units.length}`),
@@ -221,6 +277,11 @@ function spawnFighter(w: World, pos: Vec2, i: number, total: number): Unit {
   // losses (casualty shock) and a fallen commander's cell promotes a new leader —
   // the enemy-side of #3, previously inert because insurgents had no squadId.
   e.squadId = `acm-${w.state.clock | 0}`;
+  // Persistent NETWORK linkage: this fighter belongs to a cell, so his KIA/exfil moves that cell's
+  // strength (world.cullEnemies), and the first man may EMBODY the cell's named leader — killing
+  // whom forces succession. Passive fields; the combat AI ignores them.
+  if (cell) e.cellId = cell.id;
+  if (embodyLeader) e.isCellLeader = true;
   // The first man of every batch leads the cell (he also holds the best-scored
   // firing position — the anchor corner), which switches on the cell-combat
   // coordinator (ai/cell-combat.ts). ≥6-man batches already minted a commander via
@@ -231,10 +292,12 @@ function spawnFighter(w: World, pos: Vec2, i: number, total: number): Unit {
   return e;
 }
 
-/** Number of fighters we can field right now without exceeding the active cap. */
-function drawEnemy(w: World, n: number): number {
+/** Number of fighters we can field right now: bounded by the active cap AND the acting cell's own
+ *  strength (a cell fields only what it has). With no cell it falls back to the derived scalar. */
+function drawEnemy(w: World, n: number, cell?: EnemyCell): number {
   const room = MAX_ACTIVE_ENEMY - w.sim.livingEnemies().length;
-  return clamp(Math.min(n, room, Math.ceil(w.state.enemyStrengthAbs)), 0, n);
+  const pool = cell ? Math.ceil(cell.strength) : Math.ceil(w.state.enemyStrengthAbs);
+  return clamp(Math.min(n, room, pool), 0, n);
 }
 
 /** Score a candidate firing point against the kill zone: plunging fire from concealed,

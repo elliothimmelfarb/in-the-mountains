@@ -30,6 +30,16 @@ import {
 } from "./types";
 import { shortName, rankName, centroidOf } from "./helpers";
 import { runDirector } from "./director";
+import {
+  regenNetwork,
+  tickPatrolHeat,
+  advanceNetwork,
+  addCellStrength,
+  cellById,
+  cellForVillage,
+  beginSuccession,
+  emitNetworkHumint,
+} from "./network";
 import { tickTasks } from "./tasks";
 import { tickGarrison } from "./garrison";
 import { tickProjects, tickResupplies } from "./projects";
@@ -85,7 +95,7 @@ export class World {
   serialize() {
     const units = this.sim.units.map((u) => ({ ...u, _fireLOS: null, _fireTarget: null, _cellHold: false }));
     return {
-      v: 9,
+      v: 10,
       rngState: this.rng.getState(),
       state: this.state,
       units,
@@ -265,6 +275,11 @@ export class World {
     this.tickRestraint();
     this.tickInsurgency(dt);
     this.cullEnemies();
+    // The enemy network's own clock: the player's patrol pattern warms the heat field, and leader
+    // successions + broken cells resolve. Runs after casualties are culled (a leader's death is
+    // registered in cullEnemies) so the succession/break reads settled strength.
+    tickPatrolHeat(this, dt);
+    advanceNetwork(this);
 
     if (this.inContact()) this.state.lastContactClock = this.state.clock;
     if (!prevContact && this.inContact()) this.interrupt("TROOPS IN CONTACT");
@@ -338,6 +353,11 @@ export class World {
     if (this.state.clock < this.state.nextIntelAt) return;
     this.state.nextIntelAt = this.state.clock + (this.rng.range(8, 26) * 60) / (0.5 + this.state.enemyHeat);
     const roll = this.rng.next();
+    // The COIN loop: a cooperative, no-longer-hostile village occasionally gives up the cell that
+    // recruits from it — the named leader, then his ground, then a cache. This is how winning the
+    // population lets you dismantle the network (FM 3-24). If nothing is learned this roll (no
+    // cooperative village, or the cell is already mapped), fall through to the ambient ICOM/HUMINT.
+    if (roll < 0.4 && emitNetworkHumint(this)) return;
     if (roll < 0.5) {
       const v = this.rng.pick(this.state.villages);
       const lines = [
@@ -495,7 +515,10 @@ export class World {
         vil.sympathy = clamp(vil.sympathy + symp, 0, 100);
         vil.cooperation = clamp(vil.cooperation - coop, 0, 100);
       }
-      this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + str, 0, 80); // mobilization (cap matches tickInsurgency)
+      // Mobilization is now PHYSICAL: the grieving village feeds fighters into the cell that
+      // recruits from it (or the nearest cell), instead of a scalar. enemyStrengthAbs re-derives.
+      const mobCell = (gvil && cellForVillage(this, gvil.id)) || (vil && cellForVillage(this, vil.id));
+      if (mobCell) addCellStrength(this, mobCell, str);
       this.dockConfidence(conf, "civcas");
       // The strategic civcas ledger (drives the tour score's heaviest penalty). Count a fresh
       // casualty only — never the wound→kill escalation delta, which is the same body twice.
@@ -533,20 +556,11 @@ export class World {
    * per kill; the equilibrium of the two is the campaign.)
    */
   private tickInsurgency(dt: number) {
-    let recruit = 0;
-    let pacify = 0;
-    for (const v of this.state.villages) {
-      // Unresolved named grievances FLOOR the village's effective sympathy — badal
-      // recruits even where general sympathy was low. Capped at 36 so the ledger can
-      // hurt but never dominate; paying solatia lifts the floor entry by entry.
-      const unresolved = (v.grievances ?? []).reduce((a, g) => a + (g.resolved ? 0 : 1), 0);
-      const sympEff = Math.max(v.sympathy, Math.min(36, 12 * unresolved));
-      recruit += (sympEff / 100) * (v.attitude < 0 ? 1.0 : 0.55);
-      if (v.attitude > 35) pacify += 0.35;
-    }
-    const infiltration = 0.4 * this.state.enemyHeat; // outside fighters via the draws
-    const perDay = recruit + infiltration - pacify;
-    this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs + (perDay * dt) / DAY, 0, 80);
+    // Regeneration is now PER CELL (lib/sim/world/network.ts): each cell recruits from its own
+    // villages, takes a share of the outside infiltration, and loses men on pacified ground. The
+    // aggregate matches the old whole-valley integrator (villages partition across cells), but
+    // attrition and regen land on real nodes now. enemyStrengthAbs re-derives as the sum.
+    regenNetwork(this, dt);
   }
 
   /** The morning after (people-immersion): the village buries its dead at first light
@@ -605,9 +619,21 @@ export class World {
       if (u.faction !== "insurgent") continue;
       if (!u.alive) {
         gone.push(u.id);
-        this.state.enemyStrengthAbs = clamp(this.state.enemyStrengthAbs - 1, 0, 100);
+        // Attrition is PHYSICAL: the KIA decrements his own cell (the derived scalar follows), and
+        // a killed named leader forces succession. An unaffiliated fighter (no cell) costs nothing —
+        // there is no scalar to bleed, which is the whole point of the network.
+        const cell = cellById(this, u.cellId);
+        if (cell) {
+          addCellStrength(this, cell, -1);
+          cell.grudge = clamp01(cell.grudge + 0.04); // the cell remembers its dead
+          if (u.isCellLeader && cell.leaderAlive) beginSuccession(this, cell);
+        }
       } else if (u.evac) {
         gone.push(u.id);
+        // He made it home — the fighter flows BACK into his cell (today he vanished at zero cost,
+        // which both wasted the design and undercounted what attrition really buys).
+        const cell = cellById(this, u.cellId);
+        if (cell && !cell.broken) addCellStrength(this, cell, 1);
       }
     }
     for (const id of gone) this.sim.removeUnit(id);
