@@ -139,3 +139,11 @@ while on 2/4 seeds a patrol still takes a catastrophic-enough firefight to trigg
 (presence patrols sent at the most hostile villages), NOT the COIN layer — the engine completes secured
 projects and moves attitude correctly on every seed. A fully fair held-out proof needs fine-dt patrol
 windows or smarter scripted routing; logged for a future wave rather than chased with score curve-fitting.
+
+**Routing-residual update (2026-07-16, issue 037 work):** the scripted careful policy now rotates its
+approach axes per visit ({+1,−1,0}×240 m, `campaign-loop.ts`; `ITM_FIXED_ROUTES=1` reproduces the old
+fixed routes), and `scripts/patrol-predictability-probe.ts` MEASURED route hygiene's effect on the
+current enemy at ~zero (0/6 IED detonations; hot-seed KIA/day 5.14 fixed vs 5.00 varied) — the
+careful-tour killers are position-reactive ambushes, which no scripted routing can dodge. The
+"smarter routing" residual is therefore closed as an instrument concern and re-scoped: the remaining
+question is enemy difficulty (030) and the inert IED channel (038), not the script's tactics.

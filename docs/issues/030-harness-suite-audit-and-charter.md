@@ -97,3 +97,20 @@ pre-vetted "COIN smoke" config** at a horizon long enough to discriminate but sh
 sim/AI/balance change without being killed. The fast-vs-reliable tension is genuine — the 1-seed/8-day
 config still **under-discriminates** and the 3-seed default is too slow to run casually. Real
 calibration work, logged not guessed.
+
+## Update (2026-07-16, issue-037 work) — post-network difficulty characterized; runtime worse on hot seeds
+
+- **Difficulty (the calibration read this issue's scope owns; measured, nothing tuned):** on 2 of
+  the 3 gate seeds the network-era enemy delivers ~**5 KIA/day** against a tight-ROE, daylight-only,
+  route-varying careful commander — 36–40 KIA in ≤9 days; a tour that SURVIVES to end-of-tour still
+  scores 0 on casualty penalties (gate 3×8 careful survey-0: endDay 9, score 0). Reference class:
+  the entire Korengal campaign (2006–2010) cost roughly 50 US KIA — the sim's hot seeds run two
+  orders of magnitude hotter per unit time than the fiction the design cites. The intended
+  difficulty against a competent human is an **owner decision, still open**; the levers are the
+  position-reactive channels (ambush frequency/lethality under cell proximity-staging + aggression
+  personalities), NOT heat/IED (that channel is inert — issue 038). Evidence:
+  `docs/progress/2026-07-16-patrol-predictability/`.
+- **Runtime datum:** a hot-seed careful gate leg measured **11,742 s wall** (~3.3 h, under 7-process
+  contention; the same seed's body-count leg 1,651 s; the cold seed 130 s). The heavy legs are heavy
+  because the valley is in near-continuous contact — the difficulty and the gate cost are the same
+  fact, so a difficulty calibration pass would also be a gate-cost pass.
