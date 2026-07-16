@@ -13,10 +13,12 @@
  *     constant)?
  *
  * Two policies, same seeds:
- *   A "careful COIN"  — presence patrols rotated through every village, KLEs with the
- *                       elders, CERP projects funded AND secured to completion,
- *                       resupply to keep construction materials flowing, restraint
- *                       (tight ROE, hold-on-contact).
+ *   A "careful COIN"  — presence patrols rotated through every village WITH rotated
+ *                       approach axes (route hygiene vs the patrol-heat IED adaptation —
+ *                       issue 037; ITM_FIXED_ROUTES=1 reproduces the old fixed routes),
+ *                       KLEs with the elders, CERP projects funded AND secured to
+ *                       completion, resupply to keep construction materials flowing,
+ *                       restraint (tight ROE, hold-on-contact).
  *   B "body count"    — aggressive patrols toward the hostile/enemy ground, weapons
  *                       free, assault-through, NO KLEs, NO projects, NO resupply.
  *
@@ -79,6 +81,23 @@ function parseSeeds(arg: string | undefined): string[] {
   return [arg];
 }
 const SEEDS = parseSeeds(seedArg);
+
+// ROUTE HYGIENE (issue 037, measured 2026-07-16): the careful policy rotates its approach axis
+// per visit — the midpoint steps perpendicular off the direct COP→village axis by {+1,−1,0}×240 m
+// (3 patrol-heat buckets), per-village visit counters, deterministic, no rng — the cheap
+// pattern-avoidance a competent commander does by default (FM 3-24), so the scripted careful
+// commander is no longer maximally predictable (issue 015's "tactically-naive routing" residual).
+// HONEST FINDING (patrol-predictability-probe.ts, 3 gate seeds × 8 d × fixed/varied): the
+// measured predictability TAX on the current enemy is ~ZERO — 6 IED plants, 0 detonations,
+// 0 IED casualties across all 48 tour-days; hot-seed KIA/day fixed-vs-varied 5.14 vs 5.00. The
+// careful-tour killers are POSITION-REACTIVE (ambush/harass spawn around the live patrol
+// centroid), which route hygiene cannot dodge by construction; the memory-based IED channel
+// never connects (radial 30–95 m placement guess vs 8 m victim-trigger — issue 038). So this
+// variety is kept as instrument hygiene, NOT as a score lever: the issue-037 mean collapse was
+// difficulty, not route punishment. Body-count keeps its fixed aggressive routes (neglect is
+// its character). ITM_FIXED_ROUTES=1 is the A/B kill-switch reproducing the old fixed-route
+// careful policy (the NO_OBJ_COVER precedent). Gate thresholds are untouched.
+const FIXED_ROUTES = process.env.ITM_FIXED_ROUTES === "1";
 
 // dt choice — the central honest tradeoff of a multi-DAY harness, REVISITED.
 //
@@ -221,6 +240,31 @@ function midRoute(w: World, vx: number, vy: number) {
   ];
 }
 
+/** Route-varied presence route (issue 037): same endpoints as midRoute, but the midpoint steps
+ *  perpendicular off the COP→village axis by {0,+1,−1}×240 m, cycling per visit to THAT village,
+ *  snapped to passable ground. 240 m = 3 patrol-heat buckets (HEAT grid is 32² over 2560 m), so
+ *  successive visits genuinely walk different ground instead of re-warming the same IED'd cells. */
+function variedMidRoute(w: World, vx: number, vy: number, visitIdx: number) {
+  const t = w.terrain;
+  const cop = t.copCell;
+  // Cycle STARTS offset (+1 first): with only 1–3 visits per village in a tour, a 0-first
+  // cycle never engages (measured — see patrol-predictability-probe.ts variedRoute).
+  const k = [1, -1, 0][visitIdx % 3];
+  if (k === 0) return midRoute(w, vx, vy);
+  const ax = vx - cop.cx;
+  const ay = vy - cop.cy;
+  const alen = Math.hypot(ax, ay) || 1;
+  const offCells = (240 / t.cellSize) * k;
+  const snapped = t.nearestPassable(
+    Math.max(2, Math.min(t.size - 3, Math.round((cop.cx + vx) / 2 + (-ay / alen) * offCells))),
+    Math.max(2, Math.min(t.size - 3, Math.round((cop.cy + vy) / 2 + (ax / alen) * offCells)))
+  );
+  return [
+    { cx: snapped.cx, cy: snapped.cy },
+    { cx: vx, cy: vy },
+  ];
+}
+
 // ---------------------------------------------------------------- one deployment
 function runDeployment(seed: string, policy: Policy): Result {
   const w = createWorld(seed, DAYS);
@@ -249,6 +293,8 @@ function runDeployment(seed: string, policy: Policy): Result {
 
   // Rotate presence/KLE through villages by index so coverage is even and deterministic.
   let villageCursor = 0;
+  // Per-village visit counters drive the careful policy's approach-axis rotation (issue 037).
+  const visitCounts = new Map<string, number>();
   // Day-gated scheduler: act once per game-day, off the world clock (deterministic).
   let lastSchedDay = -1;
 
@@ -288,7 +334,7 @@ function runDeployment(seed: string, policy: Policy): Result {
         patrolsIssued++;
       }, () => {
         klesIssued++;
-      });
+      }, visitCounts);
     } else {
       scheduleBodycount(w, () => {
         patrolsIssued++;
@@ -409,7 +455,8 @@ function scheduleCareful(
   bumpCursor: () => void,
   getCursor: () => number,
   onPatrol: () => void,
-  onKle: () => void
+  onKle: () => void,
+  visitCounts: Map<string, number>
 ) {
   const villages = w.state.villages;
   if (villages.length === 0) return;
@@ -424,7 +471,12 @@ function scheduleCareful(
     const v = villages[getCursor() % villages.length];
     bumpCursor();
     const ids = readyMembers(w, "sq1");
-    const t = w.formPatrol(ids, midRoute(w, v.cx, v.cy), "presence", "tactical", {
+    // Rotate the approach axis per visit (issue 037) unless the A/B kill-switch pins the
+    // old maximally-predictable fixed route.
+    const visit = visitCounts.get(v.id) ?? 0;
+    visitCounts.set(v.id, visit + 1);
+    const route = FIXED_ROUTES ? midRoute(w, v.cx, v.cy) : variedMidRoute(w, v.cx, v.cy, visit);
+    const t = w.formPatrol(ids, route, "presence", "tactical", {
       movement: "patrol",
       contact: "hold",
       roe: "tight",

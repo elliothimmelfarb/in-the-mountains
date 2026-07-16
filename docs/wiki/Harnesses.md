@@ -86,6 +86,15 @@ None of this was malice — it was a missing principle. Here it is.
 | `scripts/campaign-loop.ts` | **gate** (the win-condition) | COIN **discriminates** (careful beats body-count), attitude moves, directives live, CERP two-way, enemy dynamic, projects complete | every assertion is a **design oracle**, not a fitted output |
 | `scripts/enemy-network-probe.ts` | **gate** (order-of-battle invariants) | same-seed byte-identical serialize; Σ cells === derived scalar; roster conservation (exfil net-zero, KIA −1); cache economics; leader succession; located-intel truthiness; save round-trip + pre-v10 migration | every assertion is a conservation/determinism invariant or a design oracle (2026-07-16 wave) |
 
+> **COIN-gate route hygiene (2026-07-16, issue 037).** The gate's careful policy now rotates sq1's
+> approach axis per visit ({+1,−1,0}×240 m); `ITM_FIXED_ROUTES=1` reproduces the old fixed-route
+> behavior for A/B. Kept as sound instrument hygiene (the scripted commander should not be maximally
+> predictable), but `scripts/patrol-predictability-probe.ts` MEASURED the predictability tax at ~zero
+> on the current mechanism (0/6 IED detonations, casualty deltas ~nil — the patrol-killers are
+> position-reactive, issue 038), so route hygiene neither rescues nor explains careful-tour scores.
+> Post-change gate 3×8: all 8 PASS, careful 0/0/70 best-pair 63, body-count legs byte-identical to
+> the fixed-route baseline (0/16/7). Thresholds unchanged.
+>
 > **COIN-gate cost & scope.** `campaign-loop.ts` runs a multi-day sim per seed (minutes/seed; a heavy
 > seed can run 10–25 min, and the event-driven pacing re-anchor of 2026-07-03 puts the 3-seed default
 > at ~30–40 min wall), so it is a **pre-merge check for sim / AI / COIN / balance changes**, not an
@@ -143,6 +152,27 @@ assert sim-output baselines — Law-compliant):
   time, worst-frozen-unit, bounds-completed, post-contact wipe zombies. *All existing
   movement probes were patrol-based (combat-free); this one covers the fight, where the
   real "stuck" bug lived.*
+
+## Durable probe added by the 2026-07-16 adaptive-enemy work (issue 037)
+
+- **`scripts/patrol-predictability-probe.ts`** — the heat→IED instrument: runs the COIN
+  gate's FULL careful commander twice per seed with exactly one decision changed (sq1's
+  approach axis: fixed vs rotated {+1,−1,0}×240 m), and measures IED plants, detonations,
+  hit-rate, blast casualties (30 m same-tick proxy), casualties/day, and patrol-heat
+  concentration (top-16 buckets, COP-neighborhood excluded). **Probe, not gate** — prints
+  numbers, asserts only mechanical failure (NaN / zero patrols). Supports single-policy
+  runs (`<seed> <days> fixed|varied`) for parallel sweeps. *This is how issue 037's
+  hypothesis ("the adaptive enemy punishes predictable routes") was REFUTED with numbers
+  (2026-07-16): across 6 full 8-day careful tours on the gate seeds — 6 IEDs planted,
+  0 detonated, 0 IED casualties, and route variety changed hot-seed casualties by ~nil
+  (5.14 vs 5.00 KIA/day). The patrol-killers are POSITION-REACTIVE (ambush/harass spawn
+  around the live patrol centroid — route hygiene can't dodge them by construction), and
+  the one memory-based channel (heat-sited IEDs) never connects: the emplacer guesses
+  radially 30–95 m ahead against an 8 m victim-trigger, and the cell's ~104 s patience
+  expires first (issue 038).* Two instrument lessons in its header: a no-COIN patrol loop
+  overheats the valley into near-continuous contact (the adaptive stepper degrades to
+  always-fine, ~50 s wall/game-hour), and a 0-first rotation cycle never engages on
+  1–3-visit tours (measured byte-identical A/B).
 
 ## How to add a harness (the checklist)
 
