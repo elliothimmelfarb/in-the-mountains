@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The enemy gets a name — In the Mountains</title>
+<style>
+  :root{
+    --bg:#14130e; --bg2:#1b1a13; --panel:#201e16; --panel2:#262318;
+    --ink:#e8e2cf; --dim:#a59c80; --faint:#6f684f; --line:#3a3526;
+    --rust:#b5532a; --amber:#e0a72b; --olive:#7a7e4c; --blood:#9c2c20; --teal:#6fae9f; --us:#6ea8e0;
+    --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+    --sans:'Inter',system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:linear-gradient(180deg,#14130e,#100f0a 60%);color:var(--ink);
+    font-family:var(--sans);line-height:1.62;font-size:16px}
+  a{color:var(--amber);text-decoration:none} a:hover{text-decoration:underline}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 22px}
+  header.hero{padding:74px 0 46px;border-bottom:1px solid var(--line);
+    background:radial-gradient(1000px 380px at 16% -10%,rgba(122,126,76,.20),transparent 62%);}
+  .kicker{font-family:var(--mono);letter-spacing:.32em;text-transform:uppercase;
+    color:var(--rust);font-size:12px;margin-bottom:16px}
+  h1{font-size:44px;line-height:1.06;margin:0 0 14px;letter-spacing:-.015em}
+  h1 .sub{color:var(--dim);font-weight:400;font-size:34px;display:block;margin-top:6px}
+  .lede{font-size:19px;color:var(--dim);max-width:820px}
+  .meta{margin-top:26px;font-family:var(--mono);font-size:12.5px;color:var(--faint);
+    display:flex;gap:22px;flex-wrap:wrap}
+  .meta b{color:var(--olive)}
+  h2{font-size:28px;margin:52px 0 6px;letter-spacing:-.01em}
+  h2 .n{font-family:var(--mono);color:var(--rust);font-size:15px;margin-right:12px}
+  h3{font-size:18px;margin:26px 0 6px;color:var(--ink)}
+  p{margin:12px 0}
+  code{font-family:var(--mono);font-size:.85em;background:#000;padding:1px 5px;border-radius:4px;color:#d8cfa8}
+  em{color:#efe9d6;font-style:italic}
+  .callout{display:block;background:rgba(224,167,43,.07);border:1px solid var(--line);
+    border-left:3px solid var(--amber);border-radius:8px;padding:14px 18px;margin:18px 0;color:#e8e2cf}
+  .callout b{color:var(--amber)}
+  .bad{border-left-color:var(--blood);background:rgba(156,44,32,.07)} .bad b{color:var(--blood)}
+  .good{border-left-color:var(--teal);background:rgba(111,174,159,.07)} .good b{color:var(--teal)}
+  .stat{display:flex;gap:16px;flex-wrap:wrap;margin:22px 0}
+  .stat .s{background:#000;border:1px solid var(--line);border-radius:10px;padding:14px 18px;min-width:150px;flex:1}
+  .stat .v{font-size:25px;font-weight:800;color:var(--amber);font-family:var(--mono);line-height:1.1}
+  .stat .v .was{color:var(--faint);font-size:15px;font-weight:500}
+  .stat .v .arw{color:var(--dim);font-size:15px;margin:0 5px}
+  .stat .v .now{color:var(--teal)}
+  .stat .l{font-size:11.5px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;margin-top:6px}
+  table{width:100%;border-collapse:collapse;margin:14px 0;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--olive)}
+  td.was{color:var(--faint);font-family:var(--mono)} td.now{color:var(--teal);font-family:var(--mono);font-weight:600}
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}
+  .pair figure{margin:0}
+  .pair img{width:100%;height:auto;border-radius:8px;border:1px solid var(--line);display:block;background:#000}
+  .pair figcaption{font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+    margin-top:8px;color:var(--dim)}
+  .pair .b-lbl{color:var(--faint)} .pair .a-lbl{color:var(--teal)}
+  .capline{font-size:13.5px;color:var(--dim);margin:-6px 0 24px;font-style:italic}
+  @media(max-width:720px){ .pair{grid-template-columns:1fr} h1{font-size:34px} h1 .sub{font-size:24px} }
+  ol.essence{counter-reset:e;list-style:none;padding:0;margin:14px 0}
+  ol.essence li{counter-increment:e;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:14px 16px 14px 52px;margin:10px 0;position:relative}
+  ol.essence li::before{content:counter(e,decimal-leading-zero);position:absolute;left:14px;top:13px;
+    font-family:var(--mono);color:var(--rust);font-weight:700;font-size:15px}
+  ol.essence b{color:var(--ink)}
+  .toc{position:sticky;top:0;background:rgba(16,15,10,.94);backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line);z-index:20;font-family:var(--mono);font-size:12px}
+  .toc .wrap{display:flex;gap:18px;padding:11px 22px;overflow-x:auto}
+  .toc a{color:var(--dim);white-space:nowrap} .toc a:hover{color:var(--amber)}
+  .quote{font-size:21px;line-height:1.4;color:var(--ink);border-left:3px solid var(--rust);
+    padding:4px 0 4px 20px;margin:24px 0;font-style:italic}
+  .tl{margin:20px 0;border-left:2px solid var(--line);padding-left:22px}
+  .tl .ev{position:relative;margin:0 0 18px}
+  .tl .ev::before{content:"";position:absolute;left:-29px;top:5px;width:11px;height:11px;border-radius:50%;
+    background:var(--panel);border:2px solid var(--rust)}
+  .tl .ev .hh{font-family:var(--mono);font-size:12px;color:var(--amber)}
+  .tl .ev .tt{color:var(--ink);font-weight:600;margin-left:8px}
+  .tl .ev .dd{color:var(--dim);font-size:14px;margin-top:2px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  @media(max-width:720px){ .grid2{grid-template-columns:1fr} }
+  .grid2 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .grid2 .card h4{margin:0 0 6px;font-size:15px;color:var(--amber)}
+  .grid2 .card p{margin:6px 0;font-size:14px;color:var(--dim)}
+  footer{padding:44px 0 74px;color:var(--faint);font-size:13px;font-family:var(--mono);border-top:1px solid var(--line);margin-top:40px}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.1em;
+    color:var(--olive);border:1px solid var(--line);border-radius:20px;padding:2px 9px;margin:0 6px 6px 0}
+</style>
+</head>
+<body>
+
+<header class="hero"><div class="wrap">
+  <div class="kicker">Development Report · 2026-07-16</div>
+  <h1>The enemy gets a name<span class="sub">a persistent order of battle, the intel game, and the death of the relief lottery</span></h1>
+  <p class="lede">The valley could already simulate every bullet. What it could not do was give you someone
+  to hunt. The insurgency was a <em>weather system</em> — an abstract strength number and a memoryless
+  tempo clock; fighters materialized from nothing, fought, and vanished into nothing. This wave makes the
+  enemy an <em>organization</em>: named cell leaders who survive between fights, physical munitions caches,
+  a memory of your patrol habits — and an intelligence game that reveals it only as fast as the population
+  decides you have earned it.</p>
+  <div class="meta"><span>wave <b>enemy-network</b></span><span>engine <b>v10 save</b></span>
+  <span>probe <b>9/9 OK</b></span><span>COIN gate <b>all 8 PASS</b></span><span>relief lottery <b>0/3 careful tours censored</b></span></div>
+</div></header>
+
+<nav class="toc"><div class="wrap">
+  <a href="#weather">01 The weather system</a><a href="#relief">02 The evidence file</a>
+  <a href="#network">03 The network</a><a href="#bug">04 The bug we shipped &amp; caught</a>
+  <a href="#hud">05 Seeing the war</a><a href="#live">06 One live night</a>
+  <a href="#verify">07 Verification</a><a href="#residuals">08 Residuals</a>
+</div></nav>
+
+<main class="wrap">
+
+<h2 id="weather"><span class="n">01</span>You can't hunt a weather system</h2>
+<p>Before this wave the entire persistent state of the insurgency was two scalars:
+<code>enemyStrengthAbs</code> (rolled 40–70 at world creation) and <code>enemyHeat</code>. The director
+spent the pool on spawned activities; a fighter who escaped your patrols simply <em>vanished</em>
+(<code>cullEnemies</code> discarded him at zero cost). The game already had a sourced, reliability-scored
+intel feed — ICOM intercepts that genuinely telegraph incoming mortars, informant events, drone cues —
+but intel about a weather system cannot accumulate into anything. There was nothing to learn, no one to
+blame, no network to dismantle. Between firefights, the deepest simulation in the valley had nothing for
+a commander to <em>think about</em>.</p>
+<span class="callout"><b>The design thesis.</b> "Playable for hours" doesn't come from more simulation.
+It comes from uncertainty with structure behind it: a persistent enemy the player forms hypotheses about,
+bets patrols on, and learns — while the enemy learns him back.</span>
+
+<h2 id="relief"><span class="n">02</span>Relief-of-command reads an evidence file now</h2>
+<p>Issue 035 measured that <b>half to two-thirds of careful 8-day tours</b> were ended by
+relief-of-command — triggered by opening-days casualties the player's policy could not yet have
+influenced. A coin-flip wearing a colonel's uniform. The fix is one mechanism: every point of Higher's
+lost confidence is now <em>attributed</em> (casualties / civilian casualties / failed directives) into a
+persisted ledger — and battalion relieves only over a <b>pattern it can name</b>, past a five-day grace,
+never for a single catastrophic day; a visible turnaround extends the review instead of ending the tour
+(FM 6-22). When relief does come, the end screen reads the file to you, by name and by number.</p>
+<div class="stat">
+  <div class="s"><div class="v"><span class="was">~50–60%</span><span class="arw">→</span><span class="now">0/3</span></div><div class="l">careful tours censored by relief (campaign-loop 3×8)</div></div>
+  <div class="s"><div class="v"><span class="was">bimodal 0|28–69</span><span class="arw">→</span><span class="now">82 / 77 / 98</span></div><div class="l">careful tour scores</div></div>
+  <div class="s"><div class="v"><span class="now">2/3</span></div><div class="l">body-count tours relieved — by attributed pattern</div></div>
+</div>
+<p class="capline">The mechanic finally discriminates policy: the careful commander survives his bad first
+week; the body-count commander is handed his file.</p>
+
+<h2 id="network"><span class="n">03</span>The network: cells, caches, and a memory of your habits</h2>
+<ol class="essence">
+  <li><b>3–5 persistent cells</b> form at world creation on the most sympathetic villages — each with a
+  <b>named leader</b>, home ground in the high draws, its own strength, and a personality: aggression,
+  IED skill, and a <b>grudge</b> that grows when you kill its men.</li>
+  <li><b>The director spends cells, not a scalar.</b> Activities stage from the acting cell's home ground,
+  field no more men than it has, and bend toward its personality. The old scalar lives on as the derived
+  sum — every legacy reader untouched.</li>
+  <li><b>IEDs come from somewhere.</b> An IED ambush requires a living <b>munitions cache</b> in range and
+  drains it. Kill the caches and that cell reverts to small arms.</li>
+  <li><b>They learn your habits.</b> A decaying 32×32 <b>patrol-heat</b> grid remembers where your patrols
+  walk; IED siting prefers your habitual ground. Predictable routes are physically dangerous now.</li>
+  <li><b>Killing the leader matters.</b> A named leader embodied with an activity can die in it — the cell
+  renames under a successor, loses a third of its strength as fighters drift, and remembers.</li>
+  <li><b>Cells break.</b> Under two fighters, survivors merge into the nearest living cell; break them all
+  and the valley goes quiet.</li>
+  <li><b>The population gives the network up.</b> A won-over, cooperative village starts naming its cell —
+  leader, ground, caches — with reliability scaling on cooperation. FM 3-24's loop (win the people → they
+  expose the network → dismantle it → the valley calms) is now a mechanic, not a sentence in the manual.</li>
+</ol>
+
+<h2 id="bug"><span class="n">04</span>The bug we shipped in the morning and caught by noon</h2>
+<p>Transparency is a feature, so here is the wave's worst moment. The build contract said an exfiltrated
+fighter should "flow back into his cell." But fielding never <em>deducted</em> from a cell (fighters stay
+on the roster while deployed) — so the +1 deposit double-counted every survivor. An infiltration that
+walked out and walked home <b>minted fighters from nothing</b>.</p>
+<span class="callout bad"><b>Measured:</b> on a pinned-hot seed the network printed strength from 64 to the
+80-cap inside <b>one game-day</b> and stayed pinned. The acceptance probe didn't catch it — because the
+probe asserted the contract's wording, and the contract was wrong. Overfit-to-contract is just overfit
+with better paperwork.</span>
+<p>The fix is stricter than the feature: a safe exfil is <b>net-zero</b> (he never left the books) and only
+a KIA moves the roster, exactly −1. The probe's assert now proves conservation in both directions, and the
+contract carries a dated correction block instead of a silent edit.</p>
+<div class="stat">
+  <div class="s"><div class="v"><span class="was">64→80 cap, d1</span><span class="arw">→</span><span class="now">64→23.6→25.7</span></div><div class="l">3-day pinned-hot strength trajectory (before → after fix)</div></div>
+  <div class="s"><div class="v"><span class="now">0.00e+0</span></div><div class="l">max drift, Σ cells vs derived scalar, whole probe run</div></div>
+</div>
+<p class="capline">Post-fix, a valley forced to maximum tempo burns its own roster down through real
+casualties and recruits back slowly. Attrition finally buys something — and costs them something.</p>
+
+<h2 id="hud"><span class="n">05</span>Seeing the war: the Enemy Picture and the weekly assessment</h2>
+<p>The map never shows enemy ground truth. Each cell carries an intel ladder —
+<b>unknown → named → located → mapped</b> — and the Enemy Picture panel, the map markers and the weekly
+assessment all read <em>one shared gate</em>, so what you see is exactly what the fiction has earned. A
+located cell renders with a deliberate ~120&nbsp;m uncertainty ring; only a mapped one sits at its true
+home. Found caches appear; destroyed ones stay on the map as struck trophies.</p>
+<p>Once a game-week, the clock pauses for the <b>commander's assessment</b> — an S-3 update at a plywood
+table: each village's attitude move <em>with its causes</em> (the clinic that opened, the promise you
+broke, the funeral), the enemy picture, Higher's confidence trend with the live relief ledger, and the
+week's casualties by name.</p>
+<div class="pair">
+  <figure><img src="hud/01-enemy-panel.png" alt="Enemy Picture panel"><figcaption class="a-lbl">The Enemy Picture — one MAPPED cell, one LOCATED, and S-2's honest ignorance about the rest</figcaption></figure>
+  <figure><img src="hud/03-bub-modal.png" alt="Weekly commander's assessment"><figcaption class="a-lbl">The first week's assessment — causes, not meters</figcaption></figure>
+</div>
+
+<h2 id="live"><span class="n">06</span>One live night, seed <code>network-live-1</code></h2>
+<div class="tl">
+  <div class="ev"><span class="hh">D1 0600</span><span class="tt">Deploy.</span><div class="dd">Three cells exist the player cannot see — Daoud Hotak (23 fighters), Asadullah Wazir (19), Sher Achakzai (18); sum 60, exactly the ENY meter. Four caches. The panel says only: <em>"S-2 assesses additional groups operate in the valley."</em></div></div>
+  <div class="ev"><span class="hh">D1 0600–1400</span><span class="tt">The valley works.</span><div class="dd">All three cells stage activities from their home draws; 17 fighters fielded; 13 ICOM intercepts arrive. The Enemy Picture correctly stays dark — nobody has earned a name yet. Conservation exact throughout.</div></div>
+  <div class="ev"><span class="hh">D1 1800</span><span class="tt">Yaka China comes over.</span><div class="dd">With the village won, the engine's own HUMINT fires: <em>"Yaka China confirms Daoud Hotak's ground — his men, his shelters, his routes."</em> Intel 0→3 in an afternoon of goodwill; two caches marked on the map; the other two cells stay ghosts.</div></div>
+  <div class="ev"><span class="hh">D2 0200</span><span class="tt">The wire.</span><div class="dd">A complex attack reaches the COP wire in the rain. Three fighters in the C-wire, FPF danger-close pending the commander's clearance — cleared. Five men killed in action, by name, in the log. A father carries his sick daughter to the gate in the middle of it; Doc treats her. <em>"Word spreads."</em></div></div>
+  <div class="ev"><span class="hh">D2 0212</span><span class="tt">The ledger.</span><div class="dd">Daoud Hotak's cell paid for the assault: 23 → 10 fighters, on the books, permanently. Conservation held through the whole firefight. The panel now reads: <b>MAPPED · Daoud Hotak · ~10 fighters · caches: 2 found.</b></div></div>
+</div>
+<div class="pair">
+  <figure><img src="live/live-play-day2-network-mapped.png" alt="Live session, day 2"><figcaption class="a-lbl">D2 0212 — the mapped cell south of Yaka China, found-cache glyphs on the valley floor, five names in the log</figcaption></figure>
+  <figure><img src="hud/02-map-markers.png" alt="Located cell marker"><figcaption class="a-lbl">A LOCATED cell — the dashed ring is honest uncertainty, not decoration</figcaption></figure>
+</div>
+
+<h2 id="verify"><span class="n">07</span>Verification</h2>
+<table>
+<tr><th>check</th><th>result</th></tr>
+<tr><td><code>tsc</code> · <code>build</code> · <code>lint</code></td><td class="now">clean — wave files add zero to the pre-existing lint baseline</td></tr>
+<tr><td><code>smoke.ts</code></td><td class="now">SMOKE OK — serialize round-trip incl. network/heat/assessment state; material hash unchanged</td></tr>
+<tr><td><code>enemy-network-probe.ts</code> (new standing gate)</td><td class="now">9/9 — determinism byte-identical; conservation drift 0.00e+0; cache economics; succession; intel truthiness; v10 migration</td></tr>
+<tr><td><code>balance.ts</code></td><td class="now">12/12 contacts · KIA 1.08 / WIA 8.33 (diagnostic, within σ≈2.5 floor) · civcas 0 · no stalls</td></tr>
+<tr><td><code>campaign-loop.ts</code> 3×8 (relief tree)</td><td class="now">ALL 8 PASS — careful 85.7 vs body-count 4.0; 0/3 careful relieved</td></tr>
+<tr><td><code>campaign-loop.ts</code> 3×8 (combined tree)</td><td class="now">COIN GATE OK — all 8 PASS. Mean spread 25.7; best-pair spread <b>93</b> (careful 100 vs 7, the highest measured). 2/3 careful tours relieved by legitimately-attributed multi-day patterns: the adaptive enemy punishes the harness's fixed-route scripted policy — filed as issue 037, with the follow-ups named</td></tr>
+<tr><td>relief scenario probes (direct-drive)</td><td class="now">grace / pattern / trend-credit / close — all four branches proven</td></tr>
+<tr><td>live browser session</td><td class="now">network, gating, HUMINT escalation, FPF approval, conservation-in-contact all verified in the running game</td></tr>
+</table>
+
+<h2 id="residuals"><span class="n">08</span>Residuals, named</h2>
+<ol class="essence">
+  <li><b>Passive strength drift in a quiet valley</b> — 60→50 over eight no-contact game-hours (the regen
+  integrator nets slightly negative at baseline sympathy). Inherited dynamic, plausibly "pacification
+  pressure," but uncharacterized. Measure before anyone tunes it.</li>
+  <li><b>Patrol-heat → IED risk is built and proven to bias siting, but not yet quantified</b> as a
+  measured incidence delta between predictable and varied patrolling. Named candidate probe.</li>
+  <li><b>The weekly assessment is proven by determinism probe and screenshots</b>, not by an organic
+  day-8 live sitting (that is eight game-days of wall-clock).</li>
+  <li><b>balance.ts printed one "element lingering" warning</b> (task-resume timing at run end; the stall
+  gate itself passed). Not chased this session.</li>
+  <li><b>Long leader names truncate in the panel header</b> at default width. Cosmetic; resizable.</li>
+</ol>
+
+<p style="margin:44px 0 60px;color:var(--dim)">The valley has always been honest about physics.
+Now it is honest about people: the man on the other ridge has a name, a home, a temper, and a memory —
+and the only way to learn any of it is to be worth telling.</p>
+
+</main>
+<script src="/manual/lightbox.js" defer></script>
+</body>
+</html>
