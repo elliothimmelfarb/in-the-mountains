@@ -106,6 +106,30 @@
   <a href="#c-2026-06-07-soundscape">A canyon that echoes</a>
   <a href="#c-2026-06-07-world-scale-complete">World scale, finished</a>
 
+  <div class="navhdr">Act IV · Jun 8–11 · Feel &amp; people</div>
+  <a href="#c-2026-06-08-ui-ux">The command surface, re-cut</a>
+  <a href="#c-2026-06-08-soldier-scale">Soldier-scale realism</a>
+  <a href="#c-2026-06-08-cop-overhaul">The outpost, made real</a>
+  <a href="#c-2026-06-08-combat-feel">The firefight feels real</a>
+  <a href="#c-2026-06-09-terrain-realism">Reading the ground</a>
+  <a href="#c-2026-06-10-switchback-climb">Climbing the mountain</a>
+  <a href="#c-2026-06-10-directional-cover">Behind that rock</a>
+  <a href="#c-2026-06-10-supplies-that-bite">Supplies that bite</a>
+  <a href="#c-2026-06-10-reading-the-sun">Reading the sun</a>
+  <a href="#c-2026-06-10-open-issues-pass">Closing the open issues</a>
+  <a href="#c-2026-06-10-people-immersion">Making the people real</a>
+  <a href="#c-2026-06-11-sound-pass">The mixer and the whistle</a>
+  <a href="#c-2026-06-11-sound-realism">Calibre voices</a>
+
+  <div class="navhdr">Jun 13–26 · The look &amp; the law</div>
+  <a href="#c-2026-06-13-the-valley-is-real">The valley is real</a>
+  <a href="#c-2026-06-26-harness-charter">When tests defend the bug</a>
+
+  <div class="navhdr">Jul 2–16 · The campaigns</div>
+  <a href="#c-2026-07-02-realism-campaign">"Too squiggly" meant "too straight"</a>
+  <a href="#c-2026-07-03-squad-cohesion">The point man waits</a>
+  <a href="#c-2026-07-16-enemy-network">The enemy gets a name</a>
+
   <div class="navhdr">The method itself</div>
   <a href="#c-methodology">How this AI was aimed</a>
   <a href="#c-dev-archive">This archive itself</a>
@@ -187,6 +211,7 @@
     <a class="rep" href="reports/2026-06-26-harness-charter/report.html"><span class="rd">2026-06-26</span><span class="rt">When the tests start defending the bug</span><span class="rs">This game is built test-first — but a test can quietly stop measuring whether the game is <em>good</em> and start measuring whether it is <em>the same</em>. An audit of all 84 harnesses found exactly one such blocker: a remembered "~8.58 WIA band" — a casualty number that was just the sim's own past output (the day aspect-vegetation shipped), not any real-world rate. It had flagged <em>fewer</em> wounded soldiers as a defect, narrowed a realism win, and reverted features. And it was policed finer than the harness's own noise: four identical-config draws ranged 2.67–9.42 WIA (σ≈2.5). The fix is a charter, not a patch — a gate may never assert the sim's own output, and the COIN <em>win condition</em> now gets the standing gate the firefight wrongly held.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-07-02-realism-campaign/report.html"><span class="rd">2026-07-02</span><span class="rt">When "too squiggly" meant "too straight"</span><span class="rs">Four realism complaints — stuck soldiers, squiggly paths, smooth terrain, a fake outpost — measured before a line of code changed, and <em>two were the opposite of what they looked like</em>. "Squiggly" paths were a near-beeline (ratio 1.12, 66% down the fall line); the wobble was 0.16&nbsp;px at play zoom. "Getting stuck" wasn't the patrols at all — it was an in-combat freeze (one fighter pinned 678&nbsp;s, 42% of insurgent contact time blocked → <b>0</b>). The real wins, front by front: the uphill march re-anchored to FM&nbsp;3-97.6 (2.45× too fast → doctrine-honest 0.98), foot-trails taught to contour by the USFS half-rule (walker's grade 0.215 → 0.114), the fbm valley walls re-bedded as banded strata (wall reversals 0 → 6–18/km, reachable valley 60.6 → 75.2%), and the KOP dressed in the clutter that <em>is</em> the realism (concertina, parapets, nets, tents, road clipped at the wire). Plus two commits that fixed the <em>test</em>, not the game: a null RNG draw swung the COIN gate ±19 pts, so it now scores the paired best seed. Honest residual: the outpost was dressed, not reshaped — the perfect-circle rebuild is the next campaign (issue 033).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-07-03-squad-cohesion/report.html"><span class="rd">2026-07-03</span><span class="rt">The point man waits</span><span class="rs">The owner reported two things — the point man runs "unrealistically far forward," and squad members "get stuck on buildings in the villages." Metricized before touching code, and the named suspect was innocent: village qalat walls block <b>0.6&nbsp;s</b> of a patrol; the real grind is the outpost's own b-huts (11.6&nbsp;s) and the terrain/HESCO wire (38.6&nbsp;s). The actual defect is cause-agnostic — while a follower is genuinely stuck the point man runs at 0.51&nbsp;m/s and is <b>halted just 1% of the time</b>, so the file strings to 355&nbsp;m. Two guards meant to catch this were dead code (both keyed on a <code>blockedTimer&gt;6</code> the watchdog caps at 2&nbsp;s — one had read 0.0&nbsp;s on every seed and mis-reassured a prior investigation). Fix: a real <em>halt</em> gated on being <em>blocked</em>, not merely <em>slow</em>, and capped at 45&nbsp;s per leg — so it fires in villages and on the wire yet stays byte-identical on the tactical-window gate (the issue-031 arbiter). Halted-while-wedged <b>1%→38%</b>; peaks reined in 12/21→9/21 seeds; held-out clean, 0 new strandings. Honest residual: the ~29&nbsp;m average lead is nine-man-file geometry, not a defect — and the biggest <em>building</em> grind (COP egress) is deferred to a muster-routing pass.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-07-16-enemy-network/report.html"><span class="rd">2026-07-16</span><span class="rt">The enemy gets a name</span><span class="rs">The insurgency was a weather system — an abstract strength scalar and a memoryless tempo clock; fighters spawned from nothing and exfiltrated into nothing, so the game's own intel feed had nothing to be intelligence <em>about</em>. This wave makes it an organization: 3–5 persistent cells with <b>named leaders who survive between fights</b>, home ground in the draws, physical munitions caches that IED ambushes drain, a decaying patrol-heat memory of your habits — and an intel ladder (unknown → named → located → mapped) climbed above all by <b>won-over villages giving their cell up</b>, so FM 3-24's loop is a mechanic. Same day: relief-of-command stopped being an opening-days dice roll (careful tours censored <b>~50–60% → 0/3</b> on the relief tree; battalion now reads an attributed evidence file past a 5-day grace). Honest record kept: the build shipped a conservation bug (exfil +1 printed strength 64→80-cap in one hot day — the acceptance probe asserted the contract's own wrong words) — caught by the skeptical pass, fixed to exact roster conservation, probe 9/9. Combined COIN gate: all 8 PASS, best-pair spread <b>93</b> (highest ever) — and the mean's collapse to 25.7 is filed as issue 037, because the adaptive enemy now punishes the harness's fixed-route scripted commander.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1280,6 +1305,54 @@
         <span class="m"><span class="lbl">held-out survey-40…55 · new strandings</span><span class="b">—</span><span class="ar">→</span><span class="a">0</span></span>
       </div>
       <a class="readmore" href="reports/2026-07-03-squad-cohesion/report.html">Read the full report (the innocent suspect, the two dead metrics, and the budgeted halt) →</a>
+    </div>
+  </article>
+
+
+  <section class="act">
+    <div class="actkick">Act · July 16</div>
+    <h2>Someone to hunt</h2>
+    <p class="actsub">The valley could simulate every bullet — but the enemy was a weather system and the
+    campaign's harshest consequence was a dice roll. One session, three fronts: the insurgency becomes a
+    persistent order of battle you learn by winning the population, relief-of-command starts reading an
+    evidence file, and the docs that had begun anchoring fresh sessions to a stale reality were put under
+    the same law as the code.</p>
+  </section>
+
+  <article class="chapter" id="c-2026-07-16-enemy-network">
+    <div class="shot">
+      <a href="reports/2026-07-16-enemy-network/report.html"><img src="assets/2026-07-16-enemy-network.png" alt="The Enemy Picture panel live: one cell MAPPED (Gul Wali's group, ~23 fighters, caches 1 found 1 destroyed), one LOCATED, and the mapped home marker on the rain-soaked valley floor" loading="lazy"></a>
+      <div class="cap">The Enemy Picture, live: one cell MAPPED with its strength, villages and cache ledger, one merely LOCATED, the rest honest ignorance — and the mapped home marker out on the valley floor. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-07-16</span></div>
+      <h3>The enemy gets a name</h3>
+      <div class="tags"><span class="tag">Enemy AI</span><span class="tag">COIN</span><span class="tag">Intel</span><span class="tag">Campaign</span><span class="tag">HUD</span></div>
+      <p>The valley could simulate every bullet, but there was no one to hunt: the insurgency was two
+      scalars and a tempo clock. Fighters materialized, fought, vanished — an escaped fighter cost the
+      enemy <em>nothing</em> — and the game's sourced, reliability-scored intel feed pointed at weather.
+      Now 3–5 persistent cells live in the draws: <b>named leaders</b> who survive between fights (kill
+      one and the cell renames, weakens by a third, and remembers), munitions caches that IED ambushes
+      must drain, and a patrol-heat grid that learns <em>your</em> habits — predictable routes get IED'd.
+      The population is the sensor: a won-over village names its cell, then locates it, then maps it —
+      the Enemy Picture panel, the map markers and the new weekly commander's assessment all read one
+      shared intel gate, so the player sees exactly what the fiction has earned and never ground truth.</p>
+      <p class="shape"><b>The shape:</b> same session, the other rage-quit died — relief-of-command now
+      reads an attributed <em>evidence file</em> (every confidence dock tagged casualties / civcas /
+      directives) and fires only on a nameable pattern past a five-day grace, never a day-3 dice roll.
+      And the honest part: the build shipped a conservation bug — exfil deposited +1 into a roster the
+      fighter never left, printing strength 64→80-cap in a single hot game-day, and the acceptance
+      probe <em>asserted the bug</em> because the contract's wording was wrong. The skeptical pass caught
+      it; exfil is net-zero now, KIA exactly −1, and the probe proves conservation both ways.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">careful tours censored by opening-days relief</span><span class="b">~50–60%</span><span class="ar">→</span><span class="a">0 / 3</span></span>
+        <span class="m"><span class="lbl">persistent enemy state</span><span class="b">2 scalars</span><span class="ar">→</span><span class="a">cells · leaders · caches · heat</span></span>
+        <span class="m"><span class="lbl">Σ cell strengths vs derived scalar (probe, whole run)</span><span class="b">—</span><span class="ar">→</span><span class="a">drift 0.00e+0</span></span>
+        <span class="m"><span class="lbl">pinned-hot 1-day strength (the caught bug)</span><span class="b">64 → 80-cap</span><span class="ar">→</span><span class="a">64 → 23.6 (real attrition)</span></span>
+        <span class="m"><span class="lbl">enemy-network probe (new standing gate)</span><span class="b">—</span><span class="ar">→</span><span class="a">9 / 9 OK</span></span>
+        <span class="m"><span class="lbl">combined COIN gate · best-pair spread</span><span class="b">all 8 PASS</span><span class="ar">→</span><span class="a">93 (highest measured)</span></span>
+      </div>
+      <a class="readmore" href="reports/2026-07-16-enemy-network/report.html">Read the full report (the weather system, the evidence file, the bug we shipped and caught, one live night) →</a>
     </div>
   </article>
 
