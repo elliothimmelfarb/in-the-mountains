@@ -1,5 +1,8 @@
 # 029 — Switchback / goat trails render as a squiggle-over-squiggle tangle
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-13) — mechanism current: generation visited-cell guard + net-climb gate in `ascendTrail`/`lateralTrail` (terrain.ts) + render `cleanPath`/per-kind occupancy-merge in `drawPathsLive` (topo.ts); self-overlap polylines 10→0.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** ✅ RESOLVED 2026-06-13 · **Found:** owner report, 2026-06-13 · **Severity:** Medium (visual fidelity)
 
 ## What the owner saw

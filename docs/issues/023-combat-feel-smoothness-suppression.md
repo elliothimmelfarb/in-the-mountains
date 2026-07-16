@@ -1,5 +1,8 @@
 # 023 — Combat feel: teleporting bullets, missing muzzle flash, suppression with no consequence
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-08, 5 shipped) — mechanism current: sub-tick render interpolation (`getSimFrac`, store.ts:200), suppression cadence gate, MG one-crack-per-round, and trait-shaped bursts all live.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium (feel/realism) · **Status:** ✅ **5 shipped 2026-06-08**
 
 ## What

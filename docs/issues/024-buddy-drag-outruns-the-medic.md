@@ -1,5 +1,8 @@
 # 024 · The buddy's casualty drag can outrun the chasing medic
 
+> **Ledger status (verified 2026-07-16 @ da10926):** OPEN — mechanism confirmed current: `medicTreat` publishes `targetId` and the buddy flips to `securing` (ai/friendly.ts) within 4 m, so the staged race self-resolves; the long-approach residual (a medic who never closes within 4 m of a fast-dragging pair) is still unbounded.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** OPEN (observed + measured 2026-06-10; partially mitigated the same day by the
 securing-buddy handoff, residual unverified in long fights)
 

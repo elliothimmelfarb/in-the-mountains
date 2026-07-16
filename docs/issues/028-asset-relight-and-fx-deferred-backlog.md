@@ -1,5 +1,8 @@
 # 028 · Asset relight + FX particles — the deferred backlog (WebGL terrain 10x, attempt #2)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** PARTIALLY RESOLVED (2026-06-13) — per-sprite live-sun form-light + contact-AO grounding shipped (Canvas-2D). STILL OPEN: full GBuffer deferred relight, continuous-extruded HESCO berm, FX particles (movement dust / volumetric smoke). The ART_BIBLE §1 baked-light double-light tail is accepted, not resolved.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** 🟡 OPEN / PARTIAL (2026-06-13) — lighting coherence (live-sun form-light) + grounding
 (contact-AO) shipped in CPU Canvas-2D; the full GBuffer relight, HESCO berm, and FX particles remain
 open. See the Resolution at the bottom. Originally a deliberate scope cut from the 2026-06-13 WebGL

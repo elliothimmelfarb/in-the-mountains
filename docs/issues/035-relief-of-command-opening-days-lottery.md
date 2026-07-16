@@ -1,5 +1,8 @@
 # 035 — Relief-of-command is an opening-days lottery that censors ~half of careful tours
 
+> **Ledger status (verified 2026-07-16 @ da10926):** OPEN — mechanism confirmed current: relief fires on a sustained confidence dip (`reliefWatchClock`, RELIEF_WINDOW 3 days, world.ts:610-637) but with NO opening grace window, NO cause attribution, and it still censors the whole tour score. Combat+director domain, not a harness fix (contained for gating via paired-best-seed in 030).
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Low–Medium (design smell / COIN-gate noise source; combat + director
 domain).** Surfaced repeatedly during the 2026-07-02 realism campaign's COIN-gate
 de-noising (`3666d14`, `9c031da`). Relief-of-command (`lib/sim/world/world.ts:~617-637`)

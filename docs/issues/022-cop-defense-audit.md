@@ -1,5 +1,8 @@
 # 022 — COP defense audit: 5 strongpoint metrics, 3 shipped, 2 reverted
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-08; 3 shipped / 2 reverted) — mechanism current: ECP overwatch + interlocking sectors + firable FPF live in `copaudit`/`buildCop`. Do-not-retry (refuted at/before 5945288): HVT dispersion (+1.00 KIA) and threat-weighted gun siting (+0.50 KIA) — binds while the near-COP firefight stays layout-sensitive and the balance delta is the gate.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium (realism/correctness) · **Status:** ✅ **3 shipped, 2 reverted 2026-06-08**
 
 ## What

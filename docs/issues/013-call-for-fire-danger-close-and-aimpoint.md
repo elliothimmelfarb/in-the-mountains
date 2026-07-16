@@ -1,5 +1,8 @@
 # 013 — Squad called fire missions on itself / nowhere near the enemy (RESOLVED 2026-06-06)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-06) — mechanism current: `fireAimpoint` densest-cluster PID + danger-close withhold (squad-combat.ts:499) + FDC check-fire in `stepFireMissions` (combat.ts:1632) live.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: High** (fratricide + immersion-breaking). Player report: *"a squad called a [mortar]
 mission much too close to them, nowhere near the enemy."* Both halves of that complaint were real,
 reproducible, and measurable. Found, fixed, and verified in the 2026-06-06 call-for-fire pass.
