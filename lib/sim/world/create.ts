@@ -4,8 +4,9 @@ import { makePlatoon, makeCivilian, Platoon, RosterMember, Unit, Role, resetIdCo
 import { elderName } from "../names";
 import { VillageState, rollWeather, attitudeToMetric, CERP_PROJECTS } from "../campaign";
 import { World } from "./world";
-import { WorldState, Ids, resetIds, defaultSOP, DAY } from "./types";
+import { WorldState, Ids, resetIds, defaultSOP, DAY, HEAT_DIM } from "./types";
 import { buildRoutine, crewEmplacements, buildEmplacements } from "./helpers";
+import { buildNetwork } from "./network";
 
 /**
  * Build *only* the valley terrain for a seed — the single heaviest phase of a deploy
@@ -128,6 +129,11 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
   }
 
   const enemyStrengthAbs = rng.int(40, 70);
+  // The rolled strength becomes the BUDGET distributed across the enemy order of battle. buildNetwork
+  // draws only from a KEYED FORK (RNG.fork does not consume the parent stream), so the whole create
+  // draw sequence below — including the pinned nextCerpStipendAt/nextDirectiveAt draws — is untouched
+  // and the world stays byte-identical to the pre-network build for every other subsystem.
+  const network = buildNetwork(terrain, villages, enemyStrengthAbs, rng.fork("network"));
   const state: WorldState = {
     seed,
     totalDays,
@@ -180,6 +186,9 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     reliefWatchConf: -1,
     lastContactClock: -9999,
     platoon: { callsign: platoon.callsign, squads: platoon.squads },
+    // v10: the persistent enemy order of battle + the patrol-heat grid (starts cold).
+    network,
+    patrolHeat: new Array(HEAT_DIM * HEAT_DIM).fill(0),
   };
 
   crewEmplacements(state, platoon, terrain);
@@ -253,6 +262,17 @@ export function loadWorld(data: {
   const terrain = new Terrain({ ...DEFAULT_TERRAIN, seed: state.seed });
   const rng = new RNG(state.seed);
   rng.setState(data.rngState);
+
+  // v10: the persistent enemy network + patrol-heat grid. A pre-v10 save has neither. Regenerate a
+  // network DETERMINISTICALLY from the seed + the save's current villages, sized to the save's
+  // enemyStrengthAbs, so a mid-tour save keeps working (and re-serializes with a real order of
+  // battle). A fresh keyed fork off the seed is used — never the restored rng state — so the same
+  // save always regenerates the same network. serialize() dumps state whole, so v10+ saves restore
+  // these directly and this branch never runs.
+  if (state.network === undefined) {
+    state.network = buildNetwork(terrain, state.villages, Math.round(state.enemyStrengthAbs), new RNG(state.seed).fork("network-legacy"));
+  }
+  if (state.patrolHeat === undefined) state.patrolHeat = new Array(HEAT_DIM * HEAT_DIM).fill(0);
 
   let maxId = 0;
   for (const u of data.units) {

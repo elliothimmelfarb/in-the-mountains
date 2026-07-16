@@ -184,6 +184,57 @@ export interface Task {
   ringSlots?: Record<string, number>;
 }
 
+// ===========================================================================
+//  The persistent enemy ORDER OF BATTLE (v10 — lib/sim/world/network.ts).
+//  The insurgency stops being a weather system (a scalar + a memoryless director)
+//  and becomes an ORGANIZATION: named cells with home areas and physical munitions
+//  caches. The director SPENDS cells; exfiltrated fighters flow BACK into their cell;
+//  killing a named leader forces succession; a won-over village gives its cell up
+//  (HUMINT). `enemyStrengthAbs` is now the DERIVED SUM of living cell strengths, so
+//  every existing reader keeps working unchanged.
+// ===========================================================================
+
+export interface EnemyCell {
+  id: string;
+  leaderName: string; // Afghan name; survives between activities, renamed on succession
+  leaderAlive: boolean; // false during the succession pause after the named leader is killed
+  homeCx: number; // reachability-snapped home area (a draw / spur near its villages)
+  homeCy: number;
+  strength: number; // fighters this cell can field; Σ over living cells === enemyStrengthAbs
+  aggression: number; // 0..1 personality — weights ambush/complex vs harass in the director roll
+  iedSkill: number; // 0..1 — grows on successful IED activity, weights future IED choice
+  grudge: number; // 0..1 — rises when the cell takes KIA; lifts its tempo vs the player
+  villageIds: string[]; // recruiting/intimidation base (drives this cell's regen share)
+  intelLevel: 0 | 1 | 2 | 3; // what the PLAYER has learned: unknown → named → located → mapped
+  lastActivityClock: number;
+  /** Clock at which the new leader takes over after the named one is killed (leaderAlive=false
+   *  until then). Undefined = no succession pending. The cell stages nothing while it's set. */
+  successionAt?: number;
+  /** Strength collapsed below the break floor: the cell is out of the fight (survivors merged
+   *  into the nearest living cell or dissolved). Excluded from the derived-strength sum. */
+  broken?: boolean;
+}
+
+export interface EnemyCache {
+  id: string;
+  cx: number;
+  cy: number;
+  munitions: number; // IED/ambush activity near it spends from here
+  found: boolean; // revealed to the player (event / HUMINT)
+  destroyed: boolean; // seized or blown — permanently out
+  cellId: string; // owner cell
+}
+
+export interface EnemyNetwork {
+  cells: EnemyCell[];
+  caches: EnemyCache[];
+}
+
+/** Coarse patrol-heat grid resolution (HEAT_DIM² buckets over the whole map). The enemy learns
+ *  WHERE you habitually patrol — high-heat road/trail cells become preferred IED ground, so
+ *  predictable patrolling is physically dangerous and route variety is a real decision. */
+export const HEAT_DIM = 32;
+
 export type ProjectStage =
   | "awaiting_materials"
   | "awaiting_contractor"
@@ -296,6 +347,12 @@ export interface WorldState {
   reliefWatchConf: number;
   // platoon org (members live on the sim units)
   platoon: { callsign: string; squads: { id: string; name: string; memberIds: string[] }[] };
+  // v10: the persistent enemy ORDER OF BATTLE (lib/sim/world/network.ts). enemyStrengthAbs above
+  // is the DERIVED SUM of living cell strengths; patrolHeat is a HEAT_DIM² coarse decaying grid of
+  // where the player habitually patrols (drives IED site selection). Both persisted whole by
+  // serialize(); loadWorld regenerates the network (and zeroes the heat) for pre-v10 saves.
+  network: EnemyNetwork;
+  patrolHeat: number[];
 }
 
 export const DEPLOY_START = 6 * 3600; // 0600 on day 1
