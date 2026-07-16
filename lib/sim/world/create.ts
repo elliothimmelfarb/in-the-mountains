@@ -7,6 +7,7 @@ import { World } from "./world";
 import { WorldState, Ids, resetIds, defaultSOP, DAY, HEAT_DIM } from "./types";
 import { buildRoutine, crewEmplacements, buildEmplacements } from "./helpers";
 import { buildNetwork } from "./network";
+import { bubSnapshotOf } from "./assessment";
 
 /**
  * Build *only* the valley terrain for a seed — the single heaviest phase of a deploy
@@ -189,6 +190,10 @@ export function createWorld(seed: string, totalDays = 90, prebuiltTerrain?: Terr
     // v10: the persistent enemy order of battle + the patrol-heat grid (starts cold).
     network,
     patrolHeat: new Array(HEAT_DIM * HEAT_DIM).fill(0),
+    // v10 HUD wave: the weekly Commander's Assessment. The deployment-day snapshot is the baseline
+    // the first BUB (day 8) measures the week's drift against; the first BUB is due on day 8.
+    bubSnapshot: bubSnapshotOf(villages, 60, 1),
+    nextBubDay: 8,
   };
 
   crewEmplacements(state, platoon, terrain);
@@ -273,6 +278,19 @@ export function loadWorld(data: {
     state.network = buildNetwork(terrain, state.villages, Math.round(state.enemyStrengthAbs), new RNG(state.seed).fork("network-legacy"));
   }
   if (state.patrolHeat === undefined) state.patrolHeat = new Array(HEAT_DIM * HEAT_DIM).fill(0);
+
+  // v10 HUD wave: the weekly Commander's Assessment schedule. A pre-HUD save has no baseline — take
+  // one now (so the first post-load BUB measures drift from here, not garbage) and schedule the next
+  // assessment for the next weekly boundary at or after the current day.
+  const loadDay = Math.floor(state.clock / DAY) + 1;
+  if (state.bubSnapshot === undefined) {
+    state.bubSnapshot = bubSnapshotOf(state.villages, state.metrics.higherConfidence, loadDay);
+  }
+  if (state.nextBubDay === undefined) {
+    let next = 8;
+    while (next <= loadDay) next += 7;
+    state.nextBubDay = next;
+  }
 
   let maxId = 0;
   for (const u of data.units) {
