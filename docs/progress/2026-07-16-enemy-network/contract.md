@@ -80,7 +80,14 @@ interface EnemyCache {
 3. **Exfil flows back** (`cullEnemies` world.ts:595-607, evac transitions
    insurgent.ts:145-158). An `evac`'d fighter increments his cell's strength (he made it
    home) — today he vanishes at zero cost, which both wastes the design and undercounts
-   attrition's real effect. A KIA decrements his cell. Keep `enemyStrengthAbs` ALIVE AS A
+   attrition's real effect.
+   > **CORRECTION (same day, post-build):** this paragraph was WRONG and the build
+   > faithfully implemented the bug. Fielding never deducts from the cell (roster model),
+   > so the fighter was never off the books — the "+1 deposit" double-counted every
+   > survivor and printed strength to the 80-cap inside one hot game-day (measured
+   > 64→80 by d1). Fixed same day: exfil is net-zero, KIA is exactly −1; probe assert 4
+   > now tests roster conservation. The design intent ("escaped fighters aren't lost")
+   > was ALREADY true in the roster model. A KIA decrements his cell. Keep `enemyStrengthAbs` ALIVE AS A
    DERIVED SUM of cell strengths (+ a small unaffiliated infiltration trickle if you
    need one) so every existing reader (interdict directive `directives.ts:48-55`, HUD ENY
    meter, `tickInsurgency` clamp, harnesses) keeps working unchanged. Every existing
