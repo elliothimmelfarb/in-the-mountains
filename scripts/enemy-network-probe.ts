@@ -10,7 +10,10 @@
  *   2. Cells persist       — every director-spawned fighter belongs to one of the CREATED cells, and
  *                            the cell roster (ids) is unchanged after 3+ activities.
  *   3. Conservation        — Σ living cell strengths === enemyStrengthAbs (the derived scalar) exactly.
- *   4. Exfil deposit       — a fighter who exfils flows BACK into his cell (strength regained).
+ *   4. Exfil conservation  — a fielded fighter is never OFF his cell's books (roster model), so a
+ *                            safe exfil is NET-ZERO and a KIA is exactly −1. (The original "+1
+ *                            deposit" double-counted the man and printed strength to the 80-cap
+ *                            inside one hot game-day — measured 64→80 d1.)
  *   5. Cache economics     — an IED ambush spends a real cache; with every cache destroyed a cell can
  *                            no longer emplace an IED (falls back to a small-arms ambush).
  *   6. Succession          — killing the named-leader unit forces a new leaderName + reduced strength
@@ -105,22 +108,35 @@ function armed(seed: string, heat = 0.75) {
   check("3. Σ cell strengths === enemyStrengthAbs (derived)", worst < 1e-6, `max drift ${worst.toExponential(2)}`);
 }
 
-// ---------------------------------------------------------------- 4. Exfil deposit
+// ---------------------------------------------------------------- 4. Exfil conservation
 {
   const w = armed("net-exfil");
   for (let t = 0; t < 500; t++) w.tick(0.1); // settle
   const cell = w.state.network.cells.find((c) => !c.broken)!;
-  // Inject a controlled fighter belonging to this cell, then have him EXFIL (make it home).
   const home = w.terrain.cellCenter(cell.homeCx, cell.homeCy);
+  // A fielded fighter EXFILS home: he never left the roster, so strength must NOT move.
   const f = makeInsurgent(w.rng.fork("probe-exfil"), "fighter", home, 0.5);
   f.cellId = cell.id;
   f.evac = true; // he broke contact and reached the draws
   w.sim.addUnit(f);
-  const hadRoom = networkTotal(w) < 79;
   const before = cell.strength;
-  w.tick(0.1); // cullEnemies deposits the evac'd fighter back into his cell
-  const delta = cell.strength - before;
-  check("4. an exfil'd fighter flows BACK into his cell", hadRoom ? delta > 0.9 && delta < 1.1 : delta >= 0, `Δstrength ${delta.toFixed(3)} (room=${hadRoom})`);
+  w.tick(0.1); // cullEnemies removes the evac'd unit — roster unchanged
+  const dExfil = cell.strength - before;
+  // A second fielded fighter is KILLED: exactly −1 off the books.
+  const k = makeInsurgent(w.rng.fork("probe-kia"), "fighter", home, 0.5);
+  k.cellId = cell.id;
+  k.alive = false;
+  w.sim.addUnit(k);
+  const beforeKia = cell.strength;
+  w.tick(0.1);
+  const dKia = cell.strength - beforeKia;
+  // Tolerance: the same tick runs the per-cell recruit integrator, which accrues a tiny
+  // fractional regen — allow it, reject anything near a whole fighter.
+  check(
+    "4. exfil is net-zero, KIA is exactly −1 (roster conservation)",
+    Math.abs(dExfil) < 0.05 && dKia < -0.95 && dKia > -1.05,
+    `Δexfil ${dExfil.toFixed(3)} Δkia ${dKia.toFixed(3)}`
+  );
 }
 
 // ---------------------------------------------------------------- 5. Cache economics

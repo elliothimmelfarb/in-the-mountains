@@ -630,10 +630,10 @@ export class World {
         }
       } else if (u.evac) {
         gone.push(u.id);
-        // He made it home — the fighter flows BACK into his cell (today he vanished at zero cost,
-        // which both wasted the design and undercounted what attrition really buys).
-        const cell = cellById(this, u.cellId);
-        if (cell && !cell.broken) addCellStrength(this, cell, 1);
+        // He made it home — and he was NEVER off his cell's books (fielding doesn't deduct;
+        // the roster model). A safe exfil is therefore net-zero: depositing +1 here double-counted
+        // the man and printed strength every survived activity (measured: 64→80-cap inside one
+        // hot game-day). Only a KIA moves the roster.
       }
     }
     for (const id of gone) this.sim.removeUnit(id);
