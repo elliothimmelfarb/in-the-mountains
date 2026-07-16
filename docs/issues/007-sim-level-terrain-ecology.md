@@ -1,5 +1,8 @@
 # 007 — Terrain ecology is render-deep, not sim-deep (aspect, terraces, qalats)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** PARTIALLY STALE / PARTIALLY RESOLVED — aspect-vegetation SHIPPED ACTIVE @0.05 (`ASPECT_STRENGTH`, terrain.ts:262; `ITM_ASPECT` override), footpaths (`layTrailNetwork`) + strata landform shipped. STILL OPEN: deeper sim-ecology (contour terraces, qalat wall-lattices, flow-accumulation hydrology). Do-not-retry: aspect at higher strength drags balance (measured, needs a compensation pass) — binds while conceal/pathing read the vegetation field.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Low (fidelity) · **Confidence:** High (in code) · **Area:** `terrain.ts` land classification × visuals · **Status:** 🟢 ASPECT SHIPPED ACTIVE 2026-06-10 (@0.05, held-out validated: vegetation reads the sun 59→64%/48→56%, KIA-safe both sets, no new strandings, siting byte-identical) + footpaths (2026-06-09). Deeper pieces (terraces/qalats/hydrology) still open. See the Resolution at the bottom.
 
 ## Summary

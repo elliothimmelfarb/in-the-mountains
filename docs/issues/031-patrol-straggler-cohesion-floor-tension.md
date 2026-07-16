@@ -1,5 +1,8 @@
 # 031 — Patrol straggler cohesion: hustle from the trail (floor reorder REFUTED, hustle SHIPPED)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-27) — mechanism current: straggler HUSTLE (`driveFollower` `paceScale` up to 1.6×, formation.ts:158) closes the gap from the trail. Do-not-retry (refuted at 01fd640, hustle shipped 83e4256): reordering the never-freeze floor vs the pace governor to slow the lead — regressed india-9 out of the window; binds while the never-freeze floor + pace governor are unchanged. See 036 for the complementary bounded halt.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Low (cohesion texture on the hardest objectives).** Investigated 2026-06-27 under the
 goal "soldiers … always stick together as a squad." **Outcome: the obvious fix (slow the lead to
 wait) is a refuted slow-failure and is NOT to be re-attempted; the cohesion is instead paid from the

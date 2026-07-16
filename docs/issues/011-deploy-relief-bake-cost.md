@@ -1,5 +1,8 @@
 # 011 — The deploy-time relief bake is the dominant load cost (~seconds) (✅ USER-FACING PROBLEM RESOLVED — active fix shipped; raw-speed remainder is a browser-gated nicety)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (user-facing) — mechanism current: `bakeTerrainProgressive` staged loading (topo.ts:374). Remaining raw-bake speedup is a browser-gated perf nicety, deliberately deferred. Do-not: lower `pxPerCell` (topo.ts:133) — it degrades the shaded relief.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Resolution clarification (2026-06-10):** the actual user-facing defect — a multi-second *frozen black
 box* at deploy — was RESOLVED by a SHIPPED active fix (`bakeTerrainProgressive`: 40 yielding row-bands
 behind a staged loading screen with a smooth progress bar, result cached so the first frame is instant —

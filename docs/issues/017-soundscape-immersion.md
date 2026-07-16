@@ -1,5 +1,8 @@
 # 017 — Soundscape: flat combat-only mix (mono, no reverb, silent between firefights)
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-07 + follow-ups) — mechanism current: additive audio bus + shared valley convolver (`lib/audio/reverb.ts`) + 3-tier ambient bed + calibre voices live under `lib/audio/`.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: ✅ Resolved 2026-06-07 (soundscape campaign).**
 Severity: High (soul/immersion — sound is half the "holy shit, an AI built this" bar).
 Owner files: `lib/audio/*` (render-side). Oracle: `scripts/audio-render.ts`. Probe: `scripts/audio-probe.ts`.

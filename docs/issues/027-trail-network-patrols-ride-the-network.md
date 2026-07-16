@@ -1,5 +1,8 @@
 # 027 — Denser trail network shifts patrol routing onto it: window times + WIA move
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-11 tread caps + 2026-07-03 contour trails) — mechanism current: `TREAD_GRADE_CAP` narrowed to Trail+Footbridge; `trailRoute`/`layTrailRoute` contour carvers live. Do-not-retry (recorded at bd5cf77): grade-priced Dijkstra routing for TRACKS (strictly worse, RQ 1.41→1.47) — only foot-trails contour, tracks stay straight. Route residuals moved to 034.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status:** OPEN (attribution in progress) · **Found:** 2026-06-11 trail-network campaign · **Severity:** balance/judgement
 
 ## What happened

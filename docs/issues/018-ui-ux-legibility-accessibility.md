@@ -1,5 +1,8 @@
 # 018 — Command UI: sub-12px type, zero keyboard accessibility, flat hierarchy
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED — largely (2026-06-08) — the a11y/legibility campaign (type floor, `:focus-visible`, reduced-motion) + auto-height right dock shipped. PARTIALLY STALE as "fully open": named residual only — colour-only status dots/bars (WCAG 1.4.1) want a glyph fallback.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Status: ✅ Largely resolved 2026-06-08 (UI/UX 20× campaign). Residuals tracked below.**
 Severity: High (the HUD is the surface a commander reads for a whole deployment).
 Owner files: `app/globals.css`, `components/screens/DeployScreen.tsx`, `components/Modal.tsx`, `components/world/WorldView.tsx`, `state/store.ts`.

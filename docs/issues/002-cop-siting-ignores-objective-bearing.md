@@ -1,5 +1,8 @@
 # 002 — COP siting ignores where the villages/objectives are
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-04) — mechanism current: the `aoScore` village-bearing siting term lives at `terrain.ts:1351` and the gate is aimed at the AO.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium · **Confidence:** High (measured) · **Area:** COP generation (`placeVillagesAndCOP`, gate direction in `buildCop`)
 
 ## Summary

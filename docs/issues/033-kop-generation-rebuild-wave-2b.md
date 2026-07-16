@@ -1,5 +1,8 @@
 # 033 — KOP generation rebuild (Wave 2b): the perfect circle is still a perfect circle
 
+> **Ledger status (verified 2026-07-16 @ da10926):** OPEN — mechanism confirmed current: the COP perimeter is still stamped as a parametric `cos/sin` circle (terrain.ts:1486); the terrain-conforming polygonal/terraced rebuild + ANA sub-compound are unbuilt. Road-through-the-yard is ALREADY fixed (bd5cf77) — verify (0 Road inside ring), do NOT re-diagnose.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity: Medium (fidelity — the single loudest "this looks fake" tell after the
 2026-07-02 dressing pass). TOP follow-up of the realism campaign.** The Wave-2a/2b
 render dressing (`5764134`) transformed how the COP *reads* — concertina, sandbag

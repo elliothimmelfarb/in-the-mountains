@@ -1,5 +1,8 @@
 # 001 — Gate / immediate egress sited on impassable or broken ground
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-04) — mechanism current: gate-apron scoring (`stampGateApron`/`perimeterBenchFrac`) + `Structure` impassable in `passableCell` (terrain.ts:2671) live at HEAD.
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** High · **Confidence:** High (reproduced) · **Area:** COP generation (`buildCop`, `placeVillagesAndCOP`)
 
 ## Summary

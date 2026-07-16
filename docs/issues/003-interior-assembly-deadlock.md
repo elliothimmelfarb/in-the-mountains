@@ -1,5 +1,8 @@
 # 003 — Squad can't assemble/egress: members deadlock in the COP interior
 
+> **Ledger status (verified 2026-07-16 @ da10926):** RESOLVED (2026-06-04) — mechanism current: A* assembly `sim.walkTo` (combat.ts:1825) + yard-side `buildingSeat` (terrain.ts:3774) live. (COP-egress `Structure` grind residual now tracked in 036(b).)
+> Refutations recorded here bind only while the refuted mechanism is unchanged — verify before treating as a wall.
+
 **Severity:** Medium · **Confidence:** Medium (one synthetic seed) · **Area:** COP interior layout × assembly/movement (interplay)
 
 ## Summary

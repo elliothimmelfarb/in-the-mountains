@@ -1,6 +1,16 @@
 # Known generation issues — index
 
-A catalog of terrain- and COP-generation problems observed while rebuilding squad movement
+> **Ledger convention (read first).** Entries here are **DATED CLAIMS, not standing truth.** Every
+> issue file now carries a `Ledger status (verified <date> @ <sha>)` header block, and this table
+> mirrors it. **Code outranks the ledger** — when a header and the code disagree, the code is right
+> (fix the header, don't trust it blind). A **refutation / "do-not-retry" expires when the refuted
+> mechanism is rebuilt**: it binds only while the exact thing it was proven against is unchanged, so
+> re-verify at the cited `file:line` before treating any refusal as a wall. This is NOT only a
+> terrain-gen catalog any more — it spans movement, combat, COIN, audio, UI, render, and harness
+> methodology. **Last full sweep: 2026-07-16 @ da10926** (all 36 verified against HEAD for *mechanism
+> presence*, not metrics).
+
+_(Historical framing, preserved:)_ A catalog of terrain- and COP-generation problems observed while rebuilding squad movement
 (2026-06-03). These are written for a future pass that iterates on **terrain generation** broadly and
 should resolve them. Each issue states what's wrong, how to reproduce it, the evidence, a root-cause
 hypothesis with code references, and suggested directions — with an honest confidence level.
@@ -10,24 +20,64 @@ The headline thing to internalize: **the movement system is now solid** (see
 problems — a COP gets sited or shaped such that it is hard or impossible to move around — not movement
 bugs. Fix the generation and the movement follows.
 
-## Status — ALL RESOLVED (2026-06-04)
+## Status — issues 001–005 + the wire bug: ALL RESOLVED (2026-06-04 terrain-gen pass)
 
 All five issues plus the player-reported "villagers wander into the wire" bug were fixed in
 the 2026-06-04 terrain-generation pass and verified with the harnesses below. See
 `docs/progress/2026-06-04-terrain/report.md` for the full write-up and before/after numbers.
+(Mechanisms re-confirmed present at HEAD in the 2026-07-16 sweep.)
 
-| # | Issue | Severity | Status | Verified by |
-|---|-------|----------|--------|-------------|
-| [001](001-gate-egress-on-broken-ground.md) | Gate egress on broken ground; ring gaps | **High** | ✅ Fixed | `copaudit`: egress 0/16 blocked, ring 98% (was 1/9, 90%) |
-| [002](002-cop-siting-ignores-objective-bearing.md) | COP siting/gate ignores the villages | Medium | ✅ Fixed | `copaudit`: gate faces >90° away 0/16 (was 7/9) |
-| [003](003-interior-assembly-deadlock.md) | Squad deadlocks assembling in the interior | Medium | ✅ Fixed | `survey-9` assembles 9/9 at muster, patrol arrives |
-| [004](004-buildings-are-passable.md) | Buildings are passable | Low (fidelity) | ✅ Fixed | `copaudit`: structures solid 16/16, no strandings |
-| [005](005-coarse-pathfinding-vs-gate-and-walls.md) | Thin gate can seal at coarse resolution | Medium | ✅ Fixed | benched ECP apron + generation-time portal guard, 0/16 disconnected |
-| — | **Villagers wander into the wire** (player report) | High | ✅ Fixed | `copaudit`: wire-pin ticks 0 (was 4467) |
+| # | Issue | Severity | Status | Verified by | Verified |
+|---|-------|----------|--------|-------------|----------|
+| [001](001-gate-egress-on-broken-ground.md) | Gate egress on broken ground; ring gaps | **High** | ✅ Fixed | `copaudit`: egress 0/16 blocked, ring 98% (was 1/9, 90%) | 2026-07-16 @ da10926 |
+| [002](002-cop-siting-ignores-objective-bearing.md) | COP siting/gate ignores the villages | Medium | ✅ Fixed | `copaudit`: gate faces >90° away 0/16 (was 7/9) | 2026-07-16 @ da10926 |
+| [003](003-interior-assembly-deadlock.md) | Squad deadlocks assembling in the interior | Medium | ✅ Fixed | `survey-9` assembles 9/9 at muster, patrol arrives | 2026-07-16 @ da10926 |
+| [004](004-buildings-are-passable.md) | Buildings are passable | Low (fidelity) | ✅ Fixed | `copaudit`: structures solid 16/16, no strandings | 2026-07-16 @ da10926 |
+| [005](005-coarse-pathfinding-vs-gate-and-walls.md) | Thin gate can seal at coarse resolution | Medium | ✅ Fixed | benched ECP apron + generation-time portal guard, 0/16 disconnected | 2026-07-16 @ da10926 |
+| — | **Villagers wander into the wire** (player report) | High | ✅ Fixed | `copaudit`: wire-pin ticks 0 (was 4467) | 2026-07-16 @ da10926 |
 
 The original issue text is preserved below each file with a **Resolution** section appended.
 
-### Open / follow-up (surfaced during the same pass)
+### Open / follow-up and everything since (006–036)
+
+The rich per-issue status prose (with harness evidence) lives in each numbered file's `Ledger status`
+header + body; this table is the one-line index. **Verified** = the 2026-07-16 @ da10926 mechanism sweep.
+
+| # | Issue | Severity | Status (verdict) | Verified |
+|---|-------|----------|------------------|----------|
+| [006](006-far-village-reachability.md) | Far villages a long march; reachability metric | Low–Medium | ✅ RESOLVED/superseded — Track net + connectivity guard; open half → 008/009 | 2026-07-16 @ da10926 |
+| [007](007-sim-level-terrain-ecology.md) | Terrain ecology render-deep, not sim-deep | Low (fidelity) | 🟢 PARTIAL — aspect@0.05 + footpaths + strata landform SHIPPED; terraces/qalats/hydrology OPEN | 2026-07-16 @ da10926 |
+| [008](008-cop-pocket-reachability-ceiling.md) | Far-village reachability ceiling (cliff-pockets) | **Medium** | ✅ RESOLVED 2026-06-05 (connectivity guard + fatigue economy) | 2026-07-16 @ da10926 |
+| [009](009-far-village-tactical-window-and-network-ceiling.md) | Tactical-window / netVil / trough residuals | Low | ✅ RESOLVED — honest terrain-distance residual, tunable window (`ITM_REACH_MAXS`) | 2026-07-16 @ da10926 |
+| [010](010-river-as-chasm-and-navigation-stranding.md) | River as chasm + navigation stranding | **High** | ✅ RESOLVED 2026-06-06 (floodplain + fords + component-aware snap) | 2026-07-16 @ da10926 |
+| [011](011-deploy-relief-bake-cost.md) | Deploy relief-bake cost | Low–Medium | ✅ RESOLVED (user-facing) — progressive bake; raw-speed nicety deferred | 2026-07-16 @ da10926 |
+| [012](012-cop-interior-connectivity.md) | Squad stuck on COP buildings | **High** | ✅ RESOLVED 2026-06-06 + crowding 2026-06-27 | 2026-07-16 @ da10926 |
+| [013](013-call-for-fire-danger-close-and-aimpoint.md) | Fire mission on self / off-target | **High** | ✅ RESOLVED 2026-06-06 (densest-cluster PID + danger-close + FDC check-fire) | 2026-07-16 @ da10926 |
+| [014](014-world-map-scale-realism.md) | World-map scale realism | **Medium** | ✅ RESOLVED 2026-06-07 (figure LOD, weapons sqd 9, COP 120 m, hamlets) | 2026-07-16 @ da10926 |
+| [015](015-coin-strategic-layer-inert.md) | COIN strategic layer inert | **High** | ✅ RESOLVED (largely) 2026-06-06/07 — secure-build/CERP/directives/score live (+ intel layer); tail → 030/035 | 2026-07-16 @ da10926 |
+| [016](016-civilian-diurnal-and-calm-before.md) | Civilian diurnal + calm-before tell | **Medium** | ✅ RESOLVED 2026-06-06 | 2026-07-16 @ da10926 |
+| [017](017-soundscape-immersion.md) | Soundscape immersion | **High** | ✅ RESOLVED 2026-06-07 + follow-ups | 2026-07-16 @ da10926 |
+| [018](018-ui-ux-legibility-accessibility.md) | Command UI legibility + a11y | **Medium** | ✅ RESOLVED (largely) 2026-06-08 — residual: colour-only status cues | 2026-07-16 @ da10926 |
+| [019](019-elevation-pathing-rings-the-spur.md) | Elevation pathing rings the spur | **Medium** | ✅ RESOLVED 2026-06-10 (Theta* tactical planner); do-not-retry in-place anisotropic on 8-dir grid | 2026-07-16 @ da10926 |
+| [020](020-micro-terrain-cover-objects.md) | Micro-terrain cover objects | **Medium** | ✅ RESOLVED 2026-06-10 (directional+posture cover); do-not-retry omnidirectional stamp | 2026-07-16 @ da10926 |
+| [021](021-cop-fortification-not-combat-coupled.md) | COP fortification not combat-coupled | Low–Medium | 🟢 PARTIAL — logistics teeth SHIPPED; hesco/claymore coupling deferred (no assault to bite on) | 2026-07-16 @ da10926 |
+| [022](022-cop-defense-audit.md) | COP defense audit | **Medium** | ✅ RESOLVED 2026-06-08 (3 shipped/2 reverted); do-not-retry HVT dispersion + threat-weight | 2026-07-16 @ da10926 |
+| [023](023-combat-feel-smoothness-suppression.md) | Combat feel / suppression | **Medium** | ✅ RESOLVED 2026-06-08 (5 shipped) | 2026-07-16 @ da10926 |
+| [024](024-buddy-drag-outruns-the-medic.md) | Buddy drag outruns the medic | **Medium** | 🟡 OPEN — mitigated (securing handoff); long-approach residual unbounded | 2026-07-16 @ da10926 |
+| [025](025-fleeing-straggler-holds-tic-latch.md) | Fleeing straggler holds TIC latch | **Medium** | ✅ RESOLVED 2026-06-12 (`CombatSim.threatening`) | 2026-07-16 @ da10926 |
+| [026](026-people-immersion-deferred-backlog.md) | People-immersion deferred backlog | Low–Medium | 🟡 OPEN — deliberate deferrals; do-not-retry terrain-fitted wedge (guarded) | 2026-07-16 @ da10926 |
+| [027](027-trail-network-patrols-ride-the-network.md) | Trail network shifts patrol routing | **High** | ✅ RESOLVED 2026-06-11 + contour trails 2026-07-03; do-not-retry graded Dijkstra on tracks | 2026-07-16 @ da10926 |
+| [028](028-asset-relight-and-fx-deferred-backlog.md) | Asset relight + FX deferred | Low–Medium | 🟡 PARTIAL — form-light + contact-AO shipped; GBuffer/HESCO berm/FX OPEN | 2026-07-16 @ da10926 |
+| [029](029-switchback-trails-render-as-squiggle-tangle.md) | Switchback trails squiggle-tangle | Medium | ✅ RESOLVED 2026-06-13 | 2026-07-16 @ da10926 |
+| [030](030-harness-suite-audit-and-charter.md) | Harness suite audit + charter | **High** | ✅ CORE RESOLVED 2026-06-26 — charter + COIN gate + balance re-anchor; fast COIN config OPEN | 2026-07-16 @ da10926 |
+| [031](031-patrol-straggler-cohesion-floor-tension.md) | Patrol straggler cohesion | Low | ✅ RESOLVED 2026-06-27 (straggler hustle); do-not-retry floor-vs-governor reorder | 2026-07-16 @ da10926 |
+| [032](032-drag-to-cover-teleports-buddy-into-solid-cells.md) | dragToCover teleports buddy into solid | Medium | ✅ RESOLVED 2026-07-03 (passable-guard write + garrison self-heal) | 2026-07-16 @ da10926 |
+| [033](033-kop-generation-rebuild-wave-2b.md) | KOP generation rebuild (Wave 2b) | Medium | 🔴 OPEN — perimeter still a parametric circle; road-in-yard already fixed (don't re-diagnose) | 2026-07-16 @ da10926 |
+| [034](034-realism-campaign-routing-and-metric-residuals.md) | Realism-campaign routing/metric residuals | Low | 🟡 OPEN — named residuals; (a) is 019 planner-cost territory | 2026-07-16 @ da10926 |
+| [035](035-relief-of-command-opening-days-lottery.md) | Relief-of-command opening-days lottery | Low–Medium | 🟡 OPEN — sustained trigger present, but no grace/attribution/decoupled censor | 2026-07-16 @ da10926 |
+| [036](036-point-man-doesnt-wait-for-wedged-follower.md) | Point man doesn't wait for wedged follower | Medium | ✅ RESOLVED 2026-07-03 (bounded halt) | 2026-07-16 @ da10926 |
+
+<details><summary>Original per-issue prose index (pre-2026-07-16, superseded by the one-line table above + each file's dated header — kept for history)</summary>
 
 | # | Issue | Severity | Status |
 |---|-------|----------|--------|
@@ -62,6 +112,8 @@ The original issue text is preserved below each file with a **Resolution** secti
 | [034](034-realism-campaign-routing-and-metric-residuals.md) | Realism-campaign routing & metric residuals: route-quality mean **1.46** (banded-wall detours: 3 ford/geometry crossings + 1 stub — terrain, not the router), route-smoothness fall-line % is a valley-floor-marching artifact, network-probe `troughCells` "0" baseline broke under strata, doctrine-pace survey-5 **0.71** pre-exists strata | Low (fidelity/measurement) | 🟡 **OPEN (named residuals)** — (a) is issue-019 planner-cost territory, held-out; (b)/(c) are 1–2 line probe re-aims (wall-mask the split; redefine/demote trough count); (d) is a route-selection curiosity, not a grade-tax miscalibration. None blocks play. |
 | [035](035-relief-of-command-opening-days-lottery.md) | Relief-of-command is an **opening-days lottery**: it censors a whole tour's score to ~0 on RNG-chaotic, policy-blind early casualties (~50–60 % of careful 8-day tours relieved), not on a pattern of command. The dominant COIN-gate noise source — a null RNG draw swung the 3-seed mean spread **37.3 → 18.3** | Low–Medium (design/COIN) | 🟡 **OPEN** — combat/director domain (NOT a harness fix). Fix = grace window + trajectory-based relief (casualty/ROE/civ-cas/directive trend), attributable cause, decouple from the score censor. Contained for gating (`3666d14` paired-best-seed + censored tier); unfixed at the source. |
 | [036](036-point-man-doesnt-wait-for-wedged-follower.md) | The point man doesn't **wait** when a follower is wedged/strung — he marches on (`halt% 1%`, navSpeed 0.51 m/s while a man is stuck), stringing the file out (peak forward to 94 m). Owner's "stuck on buildings in villages" premise was MEASURED and refuted: qalat walls cause **0.6 s**/patrol; the wedge is COP b-huts (11.6 s) + terrain/wire (38.6 s). Two dead metrics found (`formation.ts:160` `blockedTimer>6`; `follower-strand` `maxWedge`) | Medium (feel) | ✅ **RESOLVED 2026-07-03** — bounded halt (`formationHold`, 45 s/leg budget): the lead HOLDS for a wedged/strung follower. halt% **1→30–38 %**, seeds>40 m forward **12→9**; held-out (survey-40..55) halt **0→26 %**, **0 new strandings**; `squad-arrival` window **identical** (15/27, budget makes it 031-safe); balance/smoke green. Residuals: ~29 m avg-lead is a geometry floor; COP-egress `Structure` grind (11.6 s) deferred to muster-routing. `docs/progress/2026-07-03-squad-village-cohesion/` |
+
+</details>
 
 **2026-06-06 (river navigation overhaul):** a fast static structural audit (**`terrain-audit.ts`**)
 showed the river was a cliff-walled chasm with **zero crossings** that **split the valley in 28% of
