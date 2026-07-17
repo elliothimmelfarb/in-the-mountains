@@ -38,7 +38,7 @@ the 2026-06-04 terrain-generation pass and verified with the harnesses below. Se
 
 The original issue text is preserved below each file with a **Resolution** section appended.
 
-### Open / follow-up and everything since (006–037)
+### Open / follow-up and everything since (006–038)
 
 The rich per-issue status prose (with harness evidence) lives in each numbered file's `Ledger status`
 header + body; this table is the one-line index. **Verified** = the 2026-07-16 @ da10926 mechanism sweep.
@@ -76,7 +76,8 @@ header + body; this table is the one-line index. **Verified** = the 2026-07-16 @
 | [034](034-realism-campaign-routing-and-metric-residuals.md) | Realism-campaign routing/metric residuals | Low | 🟡 OPEN — named residuals; (a) is 019 planner-cost territory | 2026-07-16 @ da10926 |
 | [035](035-relief-of-command-opening-days-lottery.md) | Relief-of-command opening-days lottery | Low–Medium | 🟡 OPEN — sustained trigger present, but no grace/attribution/decoupled censor | 2026-07-16 @ da10926 |
 | [036](036-point-man-doesnt-wait-for-wedged-follower.md) | Point man doesn't wait for wedged follower | Medium | ✅ RESOLVED 2026-07-03 (bounded halt) | 2026-07-16 @ da10926 |
-| [037](037-adaptive-enemy-vs-scripted-careful-policy.md) | Adaptive enemy punishes the fixed-route scripted careful policy (COIN mean at gate threshold) | Medium | OPEN (filed with the enemy-network wave) | 2026-07-16 @ filing |
+| [037](037-adaptive-enemy-vs-scripted-careful-policy.md) | Adaptive enemy punishes the fixed-route scripted careful policy (COIN mean at gate threshold) | Medium | ✅ RESOLVED 2026-07-16 — hypothesis REFUTED by `patrol-predictability-probe` (0/6 IED dets, route tax ~nil); gate rotates axes anyway; cause was difficulty → 030/038 | 2026-07-16 @ probe run |
+| [038](038-ied-channel-never-connects.md) | IED channel never connects (radial placement guess vs 8 m trigger + ~104 s patience) — signature opener is a dud, heat adaptation causally inert | Medium-High | 🔴 OPEN — design directions named; needs its own COIN-gate cycle; instrument ready (`patrol-predictability-probe`) | 2026-07-16 @ filing |
 
 <details><summary>Original per-issue prose index (pre-2026-07-16, superseded by the one-line table above + each file's dated header — kept for history)</summary>
 

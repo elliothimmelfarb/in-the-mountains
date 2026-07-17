@@ -129,6 +129,7 @@
   <a href="#c-2026-07-02-realism-campaign">"Too squiggly" meant "too straight"</a>
   <a href="#c-2026-07-03-squad-cohesion">The point man waits</a>
   <a href="#c-2026-07-16-enemy-network">The enemy gets a name</a>
+  <a href="#c-2026-07-16-patrol-predictability">The predictability tax measures zero</a>
 
   <div class="navhdr">The method itself</div>
   <a href="#c-methodology">How this AI was aimed</a>
@@ -151,8 +152,8 @@
 
   <div class="statstrip">
     <div class="s"><b>9</b><span>days · Jun 3–26</span></div>
-    <div class="s"><b>37</b><span>chapters</span></div>
-    <div class="s"><b>24</b><span>full reports</span></div>
+    <div class="s"><b>38</b><span>chapters</span></div>
+    <div class="s"><b>25</b><span>full reports</span></div>
     <div class="s"><b>26</b><span>tracked issues</span></div>
     <div class="s"><b>20+</b><span>test harnesses</span></div>
     <div class="s"><b>1</b><span>deterministic clock</span></div>
@@ -212,6 +213,7 @@
     <a class="rep" href="reports/2026-07-02-realism-campaign/report.html"><span class="rd">2026-07-02</span><span class="rt">When "too squiggly" meant "too straight"</span><span class="rs">Four realism complaints — stuck soldiers, squiggly paths, smooth terrain, a fake outpost — measured before a line of code changed, and <em>two were the opposite of what they looked like</em>. "Squiggly" paths were a near-beeline (ratio 1.12, 66% down the fall line); the wobble was 0.16&nbsp;px at play zoom. "Getting stuck" wasn't the patrols at all — it was an in-combat freeze (one fighter pinned 678&nbsp;s, 42% of insurgent contact time blocked → <b>0</b>). The real wins, front by front: the uphill march re-anchored to FM&nbsp;3-97.6 (2.45× too fast → doctrine-honest 0.98), foot-trails taught to contour by the USFS half-rule (walker's grade 0.215 → 0.114), the fbm valley walls re-bedded as banded strata (wall reversals 0 → 6–18/km, reachable valley 60.6 → 75.2%), and the KOP dressed in the clutter that <em>is</em> the realism (concertina, parapets, nets, tents, road clipped at the wire). Plus two commits that fixed the <em>test</em>, not the game: a null RNG draw swung the COIN gate ±19 pts, so it now scores the paired best seed. Honest residual: the outpost was dressed, not reshaped — the perfect-circle rebuild is the next campaign (issue 033).</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-07-03-squad-cohesion/report.html"><span class="rd">2026-07-03</span><span class="rt">The point man waits</span><span class="rs">The owner reported two things — the point man runs "unrealistically far forward," and squad members "get stuck on buildings in the villages." Metricized before touching code, and the named suspect was innocent: village qalat walls block <b>0.6&nbsp;s</b> of a patrol; the real grind is the outpost's own b-huts (11.6&nbsp;s) and the terrain/HESCO wire (38.6&nbsp;s). The actual defect is cause-agnostic — while a follower is genuinely stuck the point man runs at 0.51&nbsp;m/s and is <b>halted just 1% of the time</b>, so the file strings to 355&nbsp;m. Two guards meant to catch this were dead code (both keyed on a <code>blockedTimer&gt;6</code> the watchdog caps at 2&nbsp;s — one had read 0.0&nbsp;s on every seed and mis-reassured a prior investigation). Fix: a real <em>halt</em> gated on being <em>blocked</em>, not merely <em>slow</em>, and capped at 45&nbsp;s per leg — so it fires in villages and on the wire yet stays byte-identical on the tactical-window gate (the issue-031 arbiter). Halted-while-wedged <b>1%→38%</b>; peaks reined in 12/21→9/21 seeds; held-out clean, 0 new strandings. Honest residual: the ~29&nbsp;m average lead is nine-man-file geometry, not a defect — and the biggest <em>building</em> grind (COP egress) is deferred to a muster-routing pass.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/2026-07-16-enemy-network/report.html"><span class="rd">2026-07-16</span><span class="rt">The enemy gets a name</span><span class="rs">The insurgency was a weather system — an abstract strength scalar and a memoryless tempo clock; fighters spawned from nothing and exfiltrated into nothing, so the game's own intel feed had nothing to be intelligence <em>about</em>. This wave makes it an organization: 3–5 persistent cells with <b>named leaders who survive between fights</b>, home ground in the draws, physical munitions caches that IED ambushes drain, a decaying patrol-heat memory of your habits — and an intel ladder (unknown → named → located → mapped) climbed above all by <b>won-over villages giving their cell up</b>, so FM 3-24's loop is a mechanic. Same day: relief-of-command stopped being an opening-days dice roll (careful tours censored <b>~50–60% → 0/3</b> on the relief tree; battalion now reads an attributed evidence file past a 5-day grace). Honest record kept: the build shipped a conservation bug (exfil +1 printed strength 64→80-cap in one hot day — the acceptance probe asserted the contract's own wrong words) — caught by the skeptical pass, fixed to exact roster conservation, probe 9/9. Combined COIN gate: all 8 PASS, best-pair spread <b>93</b> (highest ever) — and the mean's collapse to 25.7 is filed as issue 037, because the adaptive enemy now punishes the harness's fixed-route scripted commander.</span><span class="go">Open full report →</span></a>
+    <a class="rep" href="reports/2026-07-16-patrol-predictability/report.html"><span class="rd">2026-07-16</span><span class="rt">The predictability tax measures zero</span><span class="rs">Issue 037's same-day verdict said the adaptive enemy was punishing the harness's fixed-route commander — so we built the probe the issue asked for, and it <b>refuted the issue</b>. Across six full 8-day tours of the COIN gate's careful commander (fixed vs rotated approach axes, one decision changed): <b>6 IEDs planted, 0 detonated, 0 IED casualties</b>, and hot-seed KIA/day of 5.14 vs 5.00 — route hygiene changes nothing, because the patrol-killers spawn <em>around the patrol's live position</em> and the one memory-based channel (heat-sited IEDs) never connects: a radial 30–95 m placement guess against an 8 m victim-trigger and ~104 s of triggerman patience (filed as issue 038, with the probe as its ready-made instrument). The gate's careful policy keeps the axis rotation as instrument hygiene (<code>ITM_FIXED_ROUTES=1</code> A/B), the gate re-run passed all 8 with body-count legs <b>byte-identical</b> to the morning record, and what actually collapsed the careful mean got its real name: difficulty — ~5 KIA/day on two of three seeds, two orders of magnitude hotter than the Korengal that inspired the valley.</span><span class="go">Open full report →</span></a>
     <a class="rep" href="reports/methodology/report.html"><span class="rd">meta</span><span class="rt">How the CLAUDE.md was built</span><span class="rs">147 MB of transcripts distilled, via a five-workflow tournament, into the doctrine every agent reads first.</span><span class="go">Open the explainer →</span></a>
   </div>
 
@@ -1353,6 +1355,43 @@
         <span class="m"><span class="lbl">combined COIN gate · best-pair spread</span><span class="b">all 8 PASS</span><span class="ar">→</span><span class="a">93 (highest measured)</span></span>
       </div>
       <a class="readmore" href="reports/2026-07-16-enemy-network/report.html">Read the full report (the weather system, the evidence file, the bug we shipped and caught, one live night) →</a>
+    </div>
+  </article>
+
+  <article class="chapter alt" id="c-2026-07-16-patrol-predictability">
+    <div class="shot">
+      <a href="reports/2026-07-16-patrol-predictability/report.html"><img src="assets/2026-07-16-patrol-predictability.png" alt="The geometry of a dud: the emplacer's radial guess (dashed) vs the patrol's terrain-curved A* path, an 8 m trigger circle the path never enters" loading="lazy"></a>
+      <div class="cap">The geometry of a dud: a straight-line guess against a curved world, graded by an eight-metre trigger and a hundred-second patience. Opens the full report.</div>
+    </div>
+    <div class="body">
+      <div class="meta"><span class="day">2026-07-16</span></div>
+      <h3>The predictability tax measures zero</h3>
+      <div class="tags"><span class="tag">Harnesses</span><span class="tag">Enemy AI</span><span class="tag">COIN</span><span class="tag">Verification</span></div>
+      <p>Hours after the enemy learned to remember where you walk, the COIN gate's careful mean collapsed
+      and issue 037 was filed with a story: <em>the adaptive enemy punishes the fixed-route scripted
+      commander</em>. This chapter built the instrument the issue asked for — the gate's own careful
+      commander run twice per seed, identical in everything but 1st Squad's approach axis — and the
+      instrument <b>refuted the issue</b>. Six IEDs planted, <b>zero detonated</b>, across six full tours;
+      route variety moved hot-seed casualties from 5.14 to 5.00 KIA/day. The men are dying to ambushes
+      that spawn <em>around their live position</em> — unroutable-around by construction — while the one
+      channel that genuinely uses the enemy's memory buries its charge on a straight-line guess the real
+      path never crosses within eight metres. The "signature valley opener" has never actually opened
+      anything: filed as issue 038, with this probe as its ready-made judge.</p>
+      <p class="shape"><b>The shape:</b> instrument first, then the fix, then the honest rename. The gate's
+      commander keeps the rotated axes as hygiene (<code>ITM_FIXED_ROUTES=1</code> preserves the old
+      behavior for A/B), the re-run passed all 8 checks with body-count legs byte-identical to the
+      morning's record — two instruments cross-validating leg by leg — and the careful-mean collapse got
+      its true name: <em>difficulty</em>. Two of three valleys deliver ~5 KIA/day against tight-ROE
+      daylight COIN; the real Korengal cost ~50 KIA in five <em>years</em>. Whether that is the game the
+      owner wants is now a named decision with numbers attached, not a vibe.</p>
+      <div class="metrics">
+        <span class="m"><span class="lbl">IEDs planted → detonated (6 tours, 48 days)</span><span class="b">6</span><span class="ar">→</span><span class="a">0 · all duds</span></span>
+        <span class="m"><span class="lbl">hot-seed KIA/day · fixed vs varied routes</span><span class="b">5.14</span><span class="ar">vs</span><span class="a">5.00 (tax ≈ 0)</span></span>
+        <span class="m"><span class="lbl">gate re-run · body-count legs vs record</span><span class="b">all 8 PASS</span><span class="ar">→</span><span class="a">byte-identical ✓</span></span>
+        <span class="m"><span class="lbl">careful tours relieved</span><span class="b">2 / 3</span><span class="ar">→</span><span class="a">1 / 3</span></span>
+        <span class="m"><span class="lbl">issue 037</span><span class="b">open</span><span class="ar">→</span><span class="a">resolved (refuted) · 038 filed</span></span>
+      </div>
+      <a class="readmore" href="reports/2026-07-16-patrol-predictability/report.html">Read the full report (the geometry of a dud, the cross-validation, the difficulty named) →</a>
     </div>
   </article>
 
