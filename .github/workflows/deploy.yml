@@ -9,9 +9,9 @@ name: Deploy to Vercel (Production)
 # member and bypasses the GitHub-identity gate entirely.
 #
 # Setup (one-time): add a repo secret VERCEL_TOKEN
-#   - Create it at https://vercel.com/account/tokens while signed into the
-#     PERSONAL account (elliothimmelfarb), scoped to the team
-#     "elliothimmelfarb's projects".
+#   - Create it at https://vercel.com/account/tokens scoped to the team
+#     "Chama Inteligente" (the Pro team that now owns this project). A token
+#     scoped to any other team will fail with "project not found".
 #   - Add it under GitHub repo -> Settings -> Secrets and variables -> Actions.
 # The org/project IDs below are identifiers, not secrets (they appear in deploy
 # URLs and .vercel/project.json), so they're inlined to keep setup to one secret.
@@ -29,7 +29,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      VERCEL_ORG_ID: team_u2t06USZwJkyI5Dy4ootPZQv
+      VERCEL_ORG_ID: team_5D081YbngxOrDl9o0EYsWxY9
       VERCEL_PROJECT_ID: prj_pM8BkrVgP5YwE5Kq9BXmuORH1tzZ
     steps:
       - name: Checkout
