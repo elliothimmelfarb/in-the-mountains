@@ -17,7 +17,10 @@ transparent Canvas-2D layer for contours, units, combat FX and HUD, with an aliv
 fallback when WebGL2 is unavailable.
 
 Inspired by Sebastian Junger's *War*, the documentaries *Restrepo* and *Korengal*, Jake
-Tapper's *The Outpost*, and counterinsurgency doctrine (FM 3-24).
+Tapper's *The Outpost*, and counterinsurgency doctrine (FM 3-24). This is a study of a
+hard, real war — built with the somber intent of its sources, not as a power fantasy:
+losses are permanent, civilian harm radicalizes the valley, and the hardest part of
+command is watching.
 
 ---
 
